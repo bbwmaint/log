@@ -26,7 +26,7 @@
       <!-- STEP 1: DROPDOWN -->
       <div id="step-names">
         <div style="font-size:12px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Who are you?</div>
-        <select id="name-select" onchange="onNameSelect(this.value)" style="width:100%;background:#222;border:1.5px solid #444;border-radius:10px;padding:14px 16px;font-size:17px;color:#fff;outline:none;-webkit-appearance:none;appearance:none;cursor:pointer;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23888%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>');background-repeat:no-repeat;background-position:right 14px center">
+        <select id="name-select" onchange="onNameSelect(this.value)" style="width:100%;background:#222;border:1.5px solid #444;border-radius:10px;padding:14px 16px;font-size:17px;color:#fff;outline:none;-webkit-appearance:none;appearance:none;cursor:pointer">
           <option value="" style="background:#222;color:#666">— Select your name —</option>
         </select>
       </div>
@@ -289,10 +289,13 @@ function showPage(id){
 
 // PIN
 function buildNames(){
-  gid('step-names').innerHTML=TECHS.map(function(t){
-    return '<div onclick="selName(\''+t+'\')" style="padding:10px 16px;border-radius:20px;border:1.5px solid #444;background:#222;color:#fff;font-size:16px;font-weight:600;cursor:pointer">'+t+'</div>';
-  }).join('');
+  var sel=gid('name-select');
+  if(!sel)return;
+  sel.innerHTML='<option value="">— Select your name —</option>'+
+    TECHS.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('');
 }
+
+function onNameSelect(v){if(v)selName(v);}
 
 function selName(name){
   puser=name; pbuf=''; psfirst='';
@@ -342,7 +345,11 @@ function updDots(){
 function checkPin(){
   if(pstep==='enter'){
     var stored=localStorage.getItem('pin_'+puser);
-    if((puser===ADMIN&&pbuf===APIN)||pbuf===stored){
+    // Admin always uses APIN - ignore stored pin
+    if(puser===ADMIN&&pbuf===APIN){
+      loginUser(puser);return;
+    }
+    if(pbuf===stored){
       loginUser(puser);
     }else{
       gid('pin-err').textContent='Incorrect PIN';
