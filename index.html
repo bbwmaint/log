@@ -374,14 +374,14 @@ function checkPin(){
 
 function loginUser(name){
   user=name;
-  gid('uav').textContent=name.charAt(0);
-  gid('unm').textContent=name;
-  gid('exp-m') && (gid('exp-m').value=new Date().getMonth());
-  loadFromSB();
-  loadUtilFromSB();
-  renderAll();
-  showPage('pg-app');
-  checkUBanner();
+  try{gid('uav').textContent=name.charAt(0);}catch(e){console.error('uav',e);}
+  try{gid('unm').textContent=name;}catch(e){console.error('unm',e);}
+  try{gid('exp-m') && (gid('exp-m').value=new Date().getMonth());}catch(e){}
+  try{loadFromSB();}catch(e){console.error('loadFromSB',e);}
+  try{loadUtilFromSB();}catch(e){console.error('loadUtil',e);}
+  try{renderAll();}catch(e){console.error('renderAll',e);}
+  try{showPage('pg-app');}catch(e){console.error('showPage',e);}
+  try{checkUBanner();}catch(e){console.error('checkUBanner',e);}
   // Refresh every 30 seconds
   setInterval(function(){if(user)loadFromSB();},30000);
   // Long press chip for admin
