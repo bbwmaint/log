@@ -26,9 +26,7 @@
       <!-- STEP 1: DROPDOWN -->
       <div id="step-names">
         <div style="font-size:12px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Please choose your name</div>
-        <select id="name-select" onchange="onNameSelect(this.value)" style="width:100%;background:#222;border:1.5px solid #444;border-radius:10px;padding:14px 16px;font-size:17px;color:#fff;outline:none;-webkit-appearance:none;appearance:none;cursor:pointer">
-          <option value="" style="background:#222;color:#666">— Select your name —</option>
-        </select>
+        <div id="name-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
       </div>
 
       <!-- STEP 2: PIN PAD -->
@@ -336,10 +334,11 @@ function showPage(id){
 
 // PIN
 function buildNames(){
-  var sel=gid('name-select');
-  if(!sel)return;
-  sel.innerHTML='<option value="">— Select your name —</option>'+
-    TECHS.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('');
+  var list=gid('name-list');
+  if(!list)return;
+  list.innerHTML=TECHS.map(function(t){
+    return '<div onclick="selName(\''+t+'\')" style="padding:14px 16px;background:#222;border:1.5px solid #333;border-radius:10px;color:#fff;font-size:16px;font-weight:600;cursor:pointer;transition:background .15s" onmousedown="this.style.background=\'#333\'" onmouseup="this.style.background=\'#222\'">'+t+'</div>';
+  }).join('');
 }
 
 function onNameSelect(v){if(v)selName(v);}
@@ -365,7 +364,7 @@ function showNames(){
   gid('pin-title').textContent='Please choose your name';
   gid('pin-sub').textContent='Select your name to continue';
   pbuf=''; puser='';
-  var sel=gid('name-select');if(sel)sel.value='';
+  buildNames();
 }
 
 function pk(d){
