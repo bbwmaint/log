@@ -655,7 +655,16 @@ function syncEntry(e){
   });
   sbFetch('bbw_worklog',{method:'POST',body:body})
     .then(function(r){return r.json();})
-    .then(function(d){if(d&&d[0]&&d[0].id){e.sbId=d[0].id;save();}})
+    .then(function(d){
+      if(d&&d[0]&&d[0].id){
+        e.sbId=d[0].id;
+        e.synced=true;
+        // Update in allE too
+        var ai=allE.findIndex(function(x){return x.id===e.id;});
+        if(ai>=0){allE[ai].sbId=d[0].id;allE[ai].synced=true;}
+        save();
+      }
+    })
     .catch(function(err){console.warn('Sync failed',err);});
 }
 
@@ -676,19 +685,22 @@ function loadFromSB(){
     .then(function(data){
       console.log('BBW: Got', Array.isArray(data)?data.length:'ERROR', 'entries from Supabase', data);
       if(!Array.isArray(data)){return;}
-      // Merge with local - remote wins
-      data.forEach(function(r){
-        var existing=allE.findIndex(function(e){return e.sbId===r.id;});
-        var entry={
+      // Replace allE with Supabase data (source of truth) + unsync'd local entries
+      var sbIds=data.map(function(r){return r.id;});
+      // Keep local entries not yet synced
+      var localOnly=allE.filter(function(e){return !e.synced&&!e.sbId;});
+      // Build from Supabase
+      var sbEntries=data.map(function(r){
+        return {
           id:r.id,sbId:r.id,date:r.date,shift:r.shift,type:r.type,priority:r.priority||'',
           assetName:r.asset_name||'',assetCode:r.asset_code||'',desc:r.description||'',
           start:r.start_time||'',end:r.end_time||'',dt:r.downtime_hrs||0,
           partName:r.part_name||'',partQty:r.part_qty||'1',who:r.who||'',
           shiftNote:r.shift_note||'',loggedAt:r.logged_at,photo:'',synced:true
         };
-        if(existing>=0){allE[existing]=entry;}else{allE.push(entry);}
       });
-      // Rebuild current shift entries from allE
+      allE=sbEntries.concat(localOnly);
+      // Rebuild current shift entries - strict filter
       var isday=isDay();
       entries=allE.filter(function(e){return e.date===today&&e.shift===(isday?'Day':'Night');});
       save();
