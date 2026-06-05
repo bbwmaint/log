@@ -17,7 +17,7 @@
 
     <!-- HEADER -->
     <div style="padding:22px 24px 18px;border-bottom:1px solid #2a2a2a">
-      <div style="font-size:22px;font-weight:700;color:#fff" id="pin-title">Sign In</div>
+      <div style="font-size:22px;font-weight:700;color:#fff" id="pin-title">Please choose your name</div>
       <div style="font-size:14px;color:#888;margin-top:4px" id="pin-sub">Select your name to continue</div>
     </div>
 
@@ -313,7 +313,7 @@ function showNames(){
   gid('step-names').style.display='block';
   gid('step-pad').style.display='none';
   gid('pin-back').style.display='none';
-  gid('pin-title').textContent='Sign In';
+  gid('pin-title').textContent='Please choose your name';
   gid('pin-sub').textContent='Select your name to continue';
   pbuf=''; puser='';
   var sel=gid('name-select');if(sel)sel.value='';
@@ -772,7 +772,7 @@ function renderAll(){renderLog();renderShift();checkUBanner();}
 
 function card(e,mine){
   var colors={done:'#16a34a',ongoing:'#d97706',issue:'#dc2626',pm:'#7c3aed',part:'#ea580c',note:'#2563eb'};
-  var labels={done:'Done',ongoing:'Ongoing',issue:'Issue',pm:'PM Done',part:'Part Needed',note:'Note'};
+  var labels={done:T('done'),ongoing:T('ongoing'),issue:T('issue'),pm:T('pm'),part:T('part'),note:T('note')};
   var c=colors[e.type]||'#666';
   var time=e.start?(e.start+(e.end?'-'+e.end:'')):'';
   var html='<div style="background:#1a1a1a;border-radius:12px;padding:13px 14px;margin-bottom:9px;border-left:4px solid '+c+';position:relative">';
@@ -798,10 +798,68 @@ function card(e,mine){
 }
 
 function renderLog(){
-  var mine=entries.filter(function(e){return e.who===user;});
   var el=gid('pane-log');
-  if(!mine.length){el.innerHTML='<div style="text-align:center;padding:40px 20px;color:#555"><div style="font-size:40px;margin-bottom:10px">&#128203;</div><div style="font-size:16px;font-weight:600;color:#777">Nothing logged yet</div><div style="font-size:14px;margin-top:6px">Tap + to log your first task</div></div>';return;}
-  el.innerHTML=mine.slice().reverse().map(function(e){return card(e,true);}).join('');
+  var today=td();
+  var shiftNow=isDay()?'Day':'Night';
+
+  // My logged entries
+  var mine=entries.filter(function(e){return e.who===user;});
+
+  // PMs assigned to me due today (not yet logged)
+  var today2=new Date();
+  var dow=today2.toLocaleDateString('en-US',{weekday:'long'});
+  var dom=today2.getDate();
+  function isDueToday2(pm){
+    var w=pm.freq.toLowerCase();
+    if(w.indexOf('every day')>=0)return true;
+    if(w.indexOf('every monday')>=0&&dow==='Monday')return true;
+    if(w.indexOf('every tuesday')>=0&&dow==='Tuesday')return true;
+    if(w.indexOf('every wednesday')>=0&&dow==='Wednesday')return true;
+    if(w.indexOf('every thursday')>=0&&dow==='Thursday')return true;
+    if(w.indexOf('every friday')>=0&&dow==='Friday')return true;
+    if(w.indexOf('every saturday')>=0&&dow==='Saturday')return true;
+    if(w.indexOf('every sunday')>=0&&dow==='Sunday')return true;
+    var nth=w.match(/the (\d+)(st|nd|rd|th) day/);
+    if(nth&&parseInt(nth[1])===dom)return true;
+    if(w.indexOf('every 4 days')>=0&&dow==='Monday')return true;
+    return false;
+  }
+  var myPMs=PMS.filter(function(pm){
+    var assignee=getAssignee(pm);
+    if(assignee!==user)return false;
+    if(!isDueToday2(pm))return false;
+    // Check not already logged
+    var alreadyDone=entries.some(function(e){
+      return e.type==='pm'&&e.desc&&e.desc.indexOf(pm.code)>=0&&e.date===today;
+    });
+    return !alreadyDone;
+  });
+
+  var H='';
+
+  // Show due PMs at top
+  if(myPMs.length){
+    H+='<div style="background:#1a1a1a;border-radius:12px;padding:14px;margin-bottom:12px;border-left:3px solid #7c3aed">';
+    H+='<div style="font-size:12px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Your PMs Due Today ('+myPMs.length+')</div>';
+    myPMs.forEach(function(pm){
+      var pmIdx=PMS.indexOf(pm);
+      H+='<div style="background:#222;border-radius:8px;padding:10px 12px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:8px">';
+      H+='<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#fff">'+pm.asset+'</div>';
+      H+='<div style="font-size:11px;color:#888;margin-top:2px">'+pm.desc.slice(0,50)+'</div></div>';
+      H+='<button onclick="logPMByIdx('+pmIdx+')" style="padding:7px 12px;background:rgba(124,58,237,.2);color:#a78bfa;border:1px solid rgba(124,58,237,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Log Done</button>';
+      H+='</div>';
+    });
+    H+='</div>';
+  }
+
+  if(!mine.length&&!myPMs.length){
+    el.innerHTML='<div style="text-align:center;padding:40px 20px;color:#555"><div style="font-size:40px;margin-bottom:10px">&#128203;</div><div style="font-size:16px;font-weight:600;color:#777">Nothing logged yet</div><div style="font-size:14px;margin-top:6px">Tap + to log your first task</div></div>';
+    if(myPMs.length)el.innerHTML=H;
+    return;
+  }
+
+  H+=mine.slice().reverse().map(function(e){return card(e,true);}).join('');
+  el.innerHTML=H;
 }
 
 function renderShift(){
@@ -997,114 +1055,115 @@ function logPMDone(code,asset,desc){
 
 function renderMore(){
   var el=gid('pane-more');
+  if(!el)return;
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
+  var H='';
 
-  var html='';
-
-  // PMs DUE TODAY - visible to everyone
-  var today=new Date();
-  var dayOfWeek=today.toLocaleDateString('en-US',{weekday:'long'});
-  var dayOfMonth=today.getDate();
-  function isDueToday(pm){
-    var w=pm.freq.toLowerCase();
-    if(w.indexOf('every day')>=0)return true;
-    if(w.indexOf('every monday')>=0&&dayOfWeek==='Monday')return true;
-    if(w.indexOf('every tuesday')>=0&&dayOfWeek==='Tuesday')return true;
-    if(w.indexOf('every wednesday')>=0&&dayOfWeek==='Wednesday')return true;
-    if(w.indexOf('every thursday')>=0&&dayOfWeek==='Thursday')return true;
-    if(w.indexOf('every friday')>=0&&dayOfWeek==='Friday')return true;
-    if(w.indexOf('every saturday')>=0&&dayOfWeek==='Saturday')return true;
-    if(w.indexOf('every sunday')>=0&&dayOfWeek==='Sunday')return true;
-    var nth=w.match(/the (\d+)(st|nd|rd|th) day/);
-    if(nth&&parseInt(nth[1])===dayOfMonth)return true;
-    if(w.indexOf('every 4 days')>=0&&dayOfWeek==='Monday')return true;
-    return false;
-  }
-  var duePMs=PMS.filter(isDueToday);
-
-  html+='<div style="background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:12px">';
-  html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
-  html+='<div style="font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em">PMs Due Today</div>';
-  html+='<span style="background:'+(duePMs.length?'rgba(220,38,38,.2)':'rgba(22,163,74,.15)')+';color:'+(duePMs.length?'#ef4444':'#4ade80')+';padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">'+duePMs.length+' PMs</span>';
-  html+='</div>';
-  if(!duePMs.length){
-    html+='<div style="text-align:center;padding:10px;color:#555;font-size:13px">No PMs scheduled for today</div>';
-  }else{
-    duePMs.forEach(function(pm,_i){
-      var pmIdx=PMS.indexOf(pm);
-      var pcolor=pm.priority==='High'?'#ef4444':pm.priority==='Medium'?'#f59e0b':'#6b7280';
-      html+='<div style="background:#222;border-radius:9px;padding:11px 13px;margin-bottom:8px;border-left:3px solid '+pcolor+'">';
-      html+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px">';
-      html+='<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#fff">'+pm.asset+'</div>';
-      html+='<div style="font-size:12px;color:#ccc;margin-top:2px">'+pm.desc+'</div>';
-      html+='<div style="font-size:10px;color:#666;font-family:monospace;margin-top:3px">'+pm.code+(pm.assignee?' &bull; '+pm.assignee:'')+(pm.hours?' &bull; est. '+pm.hours+'h':'')+'</div></div>';
-      html+='<span style="font-size:10px;font-weight:700;padding:3px 7px;border-radius:4px;background:'+pcolor+'22;color:'+pcolor+';white-space:nowrap;flex-shrink:0">'+pm.priority+'</span>';
-      html+='</div>';
-      var assignee=getAssignee(pm);
-      html+='<div style="display:flex;gap:7px;margin-top:8px">';
-      html+='<button onclick="logPMByIdx('+pmIdx+')" style="flex:1;padding:8px;background:rgba(22,163,74,.15);color:#4ade80;border:1px solid rgba(22,163,74,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer">&#10003; Done ('+assignee+')</button>';
-      html+='<button onclick="showReassignModal('+pmIdx+')" style="padding:8px 10px;background:#222;color:#888;border:1px solid #333;border-radius:7px;font-size:12px;cursor:pointer">&#8644; Reassign</button>';
-      html+='</div>';
-      html+='</div>';
-    });
-  }
-  // All PMs search
-  html+='<div style="margin-top:10px">';
-  html+='<input type="text" id="pm-search" oninput="filterPMs(this.value)" placeholder="Search all 156 PMs..." style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px 13px;font-size:14px;color:#fff;outline:none">';
-  html+='<div id="pm-list" style="margin-top:8px;max-height:300px;overflow-y:auto"></div>';
-  html+='</div>';
-  html+='</div>';
-
-  // SEND REPORT - visible to everyone
-  html+='<div style="background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:12px">';
-  html+='<div style="font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Shift Report</div>';
-  html+='<p style="font-size:13px;color:#888;margin-bottom:12px">Generate a full PDF of this shift — all tasks, issues, parts from all technicians.</p>';
-  html+='<button onclick="generateAndSendReport()" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer">Generate Shift Report PDF</button>';
-  html+='</div>';
-
-  // MONTHLY EXPORT - visible to everyone
-  html+='<div style="background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:12px">';
-  html+='<div style="font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Monthly Export</div>';
-  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
-  html+='<div><div style="font-size:12px;color:#888;margin-bottom:5px">Month</div><select id="exp-m" style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none">';
-  ['January','February','March','April','May','June','July','August','September','October','November','December'].forEach(function(m,i){html+='<option value="'+i+'"'+(i===month?' selected':'')+'>'+m+'</option>';});
-  html+='</select></div>';
-  html+='<div><div style="font-size:12px;color:#888;margin-bottom:5px">Year</div><input type="number" id="exp-y" value="2026" style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none;font-family:monospace"></div>';
-  html+='</div>';
-  html+='<button onclick="doExport()" style="width:100%;padding:12px;background:#222;color:#fff;border:1px solid #333;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px">Work Log CSV</button>';
-  html+='<button onclick="doUtilExport()" style="width:100%;padding:12px;background:#222;color:#fff;border:1px solid #333;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px">Utilities CSV</button>';
-  html+='<button onclick="sendMonthlyRecap()" style="width:100%;padding:12px;background:rgba(22,163,74,.15);color:#4ade80;border:1px solid rgba(22,163,74,.3);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">Monthly Recap Email</button>';
-  html+='</div>';
-
-  // ADMIN SECTION - Praful only
+  // ── PMs (admin only) ──
   if(isAdmin){
-    html+='<div style="background:#1a0a00;border:1.5px solid #7c2d12;border-radius:12px;padding:16px;margin-bottom:12px">';
-    html+='<div style="font-size:12px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Admin — Praful Only</div>';
+    var today=new Date();
+    var dow=today.toLocaleDateString('en-US',{weekday:'long'});
+    var dom=today.getDate();
+    function isDue(pm){
+      var w=pm.freq.toLowerCase();
+      if(w.indexOf('every day')>=0)return true;
+      if(w.indexOf('every monday')>=0&&dow==='Monday')return true;
+      if(w.indexOf('every tuesday')>=0&&dow==='Tuesday')return true;
+      if(w.indexOf('every wednesday')>=0&&dow==='Wednesday')return true;
+      if(w.indexOf('every thursday')>=0&&dow==='Thursday')return true;
+      if(w.indexOf('every friday')>=0&&dow==='Friday')return true;
+      if(w.indexOf('every saturday')>=0&&dow==='Saturday')return true;
+      if(w.indexOf('every sunday')>=0&&dow==='Sunday')return true;
+      var nth=w.match(/the (\d+)(st|nd|rd|th) day/);
+      if(nth&&parseInt(nth[1])===dom)return true;
+      if(w.indexOf('every 4 days')>=0&&dow==='Monday')return true;
+      return false;
+    }
+    var due=PMS.filter(isDue);
+    H+='<div style="background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:12px">';
+    H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
+    H+='<div style="font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em">PMs Due Today</div>';
+    H+='<span style="background:'+(due.length?'rgba(220,38,38,.2)':'rgba(22,163,74,.15)')+';color:'+(due.length?'#ef4444':'#4ade80')+';padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">'+due.length+' PMs</span>';
+    H+='</div>';
+    if(!due.length){
+      H+='<div style="text-align:center;padding:10px;color:#555;font-size:13px">No PMs scheduled for today</div>';
+    }else{
+      due.forEach(function(pm){
+        var pmIdx=PMS.indexOf(pm);
+        var pcolor=pm.priority==='High'?'#ef4444':pm.priority==='Medium'?'#f59e0b':'#6b7280';
+        var assignee=getAssignee(pm);
+        H+='<div style="background:#222;border-radius:9px;padding:11px 13px;margin-bottom:8px;border-left:3px solid '+pcolor+'">';
+        H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">';
+        H+='<div style="flex:1">';
+        H+='<div style="font-size:14px;font-weight:700;color:#fff">'+pm.asset+'</div>';
+        H+='<div style="font-size:12px;color:#ccc;margin-top:2px">'+pm.desc+'</div>';
+        H+='<div style="font-size:10px;color:#888;font-family:monospace;margin-top:3px">'+pm.code+' &bull; '+assignee+(pm.hours?' &bull; '+pm.hours+'h':'')+'</div>';
+        H+='</div>';
+        H+='<span style="font-size:10px;font-weight:700;padding:3px 7px;border-radius:4px;background:'+pcolor+'22;color:'+pcolor+';flex-shrink:0">'+pm.priority+'</span>';
+        H+='</div>';
+        H+='<div style="display:flex;gap:7px">';
+        H+='<button onclick="logPMByIdx('+pmIdx+')" style="flex:1;padding:8px;background:rgba(22,163,74,.15);color:#4ade80;border:1px solid rgba(22,163,74,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer">&#10003; Done</button>';
+        H+='<button onclick="showReassignModal('+pmIdx+')" style="padding:8px 12px;background:#222;color:#888;border:1px solid #333;border-radius:7px;font-size:12px;cursor:pointer">&#8644; Reassign</button>';
+        H+='</div>';
+        H+='</div>';
+      });
+    }
+    H+='<div style="margin-top:10px">';
+    H+='<input type="text" id="pm-search" oninput="filterPMs(this.value)" placeholder="Search all 156 PMs..." style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none">';
+    H+='<div id="pm-list" style="margin-top:8px;max-height:260px;overflow-y:auto"></div>';
+    H+='</div>';
+    H+='</div>';
+  }
 
-    // PIN RESETS
-    html+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Reset Technician PINs</div>';
-    html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:16px">';
+  // ── SEND REPORT ──
+  H+='<div style="background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:12px">';
+  H+='<div style="font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Shift Report</div>';
+  H+='<p style="font-size:13px;color:#888;margin-bottom:12px">Generate a full PDF report for this shift — all technicians.</p>';
+  H+='<button onclick="generateAndSendReport()" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer">Generate Shift Report PDF</button>';
+  H+='</div>';
+
+  // ── MONTHLY EXPORT ──
+  H+='<div style="background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:12px">';
+  H+='<div style="font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Monthly Export</div>';
+  H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
+  H+='<div><div style="font-size:12px;color:#888;margin-bottom:5px">Month</div>';
+  H+='<select id="exp-m" style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none">';
+  var mnames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  mnames.forEach(function(m,i){H+='<option value="'+i+'"'+(i===month?' selected':'')+'>'+m+'</option>';});
+  H+='</select></div>';
+  H+='<div><div style="font-size:12px;color:#888;margin-bottom:5px">Year</div>';
+  H+='<input type="number" id="exp-y" value="2026" style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none;font-family:monospace"></div>';
+  H+='</div>';
+  H+='<button onclick="doExport()" style="width:100%;padding:12px;background:#222;color:#fff;border:1px solid #333;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px">Work Log CSV</button>';
+  H+='<button onclick="doUtilExport()" style="width:100%;padding:12px;background:#222;color:#fff;border:1px solid #333;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px">Utilities CSV</button>';
+  H+='<button onclick="sendMonthlyRecap()" style="width:100%;padding:12px;background:rgba(22,163,74,.15);color:#4ade80;border:1px solid rgba(22,163,74,.3);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">Monthly Recap Email</button>';
+  H+='</div>';
+
+  // ── ADMIN ──
+  if(isAdmin){
+    H+='<div style="background:#1a0a00;border:1.5px solid #7c2d12;border-radius:12px;padding:16px;margin-bottom:12px">';
+    H+='<div style="font-size:12px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Admin — Praful Only</div>';
+    H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Reset Technician PINs</div>';
+    H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:16px">';
     TECHS.filter(function(t){return t!==ADMIN;}).forEach(function(t){
-      html+='<button onclick="resetPin(&#39;'+t+'&#39;)" style="padding:9px 4px;border-radius:8px;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">'+t+'</button>';
+      H+='<button onclick="resetPin(\''+t+'\')" style="padding:9px 4px;border-radius:8px;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);color:#ef4444;font-size:11px;font-weight:600;cursor:pointer">'+t+'</button>';
     });
-    html+='</div>';
-
-    // EMAILJS
-    html+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Auto-Send Settings (EmailJS)</div>';
-    html+='<p style="font-size:12px;color:#888;margin-bottom:10px">Setup at emailjs.com for auto-send at 7:00 AM / 7:00 PM</p>';
-    html+='<div style="margin-bottom:8px"><div style="font-size:11px;color:#666;margin-bottom:4px">Service ID</div><input id="ejs-s" type="text" placeholder="service_xxxxxxx" style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none"></div>';
-    html+='<div style="margin-bottom:8px"><div style="font-size:11px;color:#666;margin-bottom:4px">Template ID</div><input id="ejs-t" type="text" placeholder="template_xxxxxxx" style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none"></div>';
-    html+='<div style="margin-bottom:12px"><div style="font-size:11px;color:#666;margin-bottom:4px">Public Key</div><input id="ejs-p" type="text" placeholder="xxxxxxxxxxxxxxx" style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none"></div>';
-    html+='<button onclick="saveEJS()" style="width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">Save & Enable Auto-Send</button>';
-    html+='<button onclick="testEJS()" style="width:100%;padding:12px;background:#222;color:#aaa;border:1px solid #333;border-radius:10px;font-size:13px;cursor:pointer">Test Send Now</button>';
-    html+='</div>';
+    H+='</div>';
+    H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Auto-Send (EmailJS)</div>';
+    H+='<div style="margin-bottom:8px"><div style="font-size:11px;color:#666;margin-bottom:4px">Service ID</div><input id="ejs-s" type="text" placeholder="service_xxxxxxx" style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:13px;color:#fff;outline:none"></div>';
+    H+='<div style="margin-bottom:8px"><div style="font-size:11px;color:#666;margin-bottom:4px">Template ID</div><input id="ejs-t" type="text" placeholder="template_xxxxxxx" style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:13px;color:#fff;outline:none"></div>';
+    H+='<div style="margin-bottom:12px"><div style="font-size:11px;color:#666;margin-bottom:4px">Public Key</div><input id="ejs-p" type="text" placeholder="xxxxxxxxxxxxxxx" style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:13px;color:#fff;outline:none"></div>';
+    H+='<button onclick="saveEJS()" style="width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">Save & Enable Auto-Send</button>';
+    H+='<button onclick="testEJS()" style="width:100%;padding:12px;background:#222;color:#aaa;border:1px solid #333;border-radius:10px;font-size:13px;cursor:pointer">Test Send Now</button>';
+    H+='</div>';
   }
 
-  el.innerHTML=html;
-  // Load saved EJS settings
+  el.innerHTML=H;
+
+  // Load saved EJS
   if(isAdmin){
-    var s=localStorage.getItem('bbw_ejs_s');var t=localStorage.getItem('bbw_ejs_t');var p=localStorage.getItem('bbw_ejs_p');
+    var s=localStorage.getItem('bbw_ejs_s'),t=localStorage.getItem('bbw_ejs_t'),p=localStorage.getItem('bbw_ejs_p');
     if(gid('ejs-s')&&s)gid('ejs-s').value=s;
     if(gid('ejs-t')&&t)gid('ejs-t').value=t;
     if(gid('ejs-p')&&p)gid('ejs-p').value=p;
@@ -1117,7 +1176,7 @@ function openLB(src,lbl){var lb=gid('lb');gid('lb-img').src=src;gid('lb-lbl').te
 var lang = 'en';
 var TRANS = {
   en: {
-    mylog: 'My Log', shift: 'This Shift', prev: 'Prev Shift', util: 'Utilities', more: 'More', pm: 'PMs',
+    mylog: 'My Log', shift: 'This Shift', prev: 'Prev Shift', util: 'Utilities', more: 'More', pm: 'PMs', done:'Done', ongoing:'Ongoing', issue:'Issue', pm2:'PM Done', part:'Part Needed', note:'Note',
     signin: 'Sign In', selectname: 'Select your name', enterpin: 'Enter your 4-digit PIN',
     createpin: 'Choose a 4-digit PIN', confirmpin: 'Confirm your PIN',
     hello: 'Hello, ', welcome: 'Welcome, ', enterpin2: 'Enter your PIN', createpin2: 'Create your PIN',
@@ -1174,8 +1233,22 @@ function setLang(l){
     var el=gid('tab-'+t);
     if(el)el.textContent=TRANS[l][tabMap[t]]||el.textContent;
   });
-  // Re-render current pane
+  // Update static UI text
+  var UI={
+    'sheet-title': l==='uk'?'Записати роботу':'Log Work',
+    'submit-btn': l==='uk'?'Додати':'Add to Log',
+  };
+  Object.keys(UI).forEach(function(id){var el=gid(id);if(el)el.textContent=UI[id];});
+  // Update placeholders
+  var PH={
+    'f-desc': l==='uk'?'Що зроблено / проблема...':'What was done / issue...',
+    'snote': l==='uk'?'Нотатка зміни...':'Shift note / product running...',
+    'asearch': l==='uk'?'Пошук активу...':'Search asset...',
+  };
+  Object.keys(PH).forEach(function(id){var el=gid(id);if(el)el.placeholder=PH[id];});
+  // Re-render
   renderAll();
+  if(gid('pane-more').style.display!=='none')renderMore();
 }
 
 function T(key){return (TRANS[lang]&&TRANS[lang][key])||TRANS['en'][key]||key;}
