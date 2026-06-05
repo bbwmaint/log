@@ -253,8 +253,8 @@ var pbuf='', puser='', pstep='name', psfirst='';
 var lang = 'en';
 var TRANS = {
   en: {
-    mylog: 'My Log', shift: 'This Shift', prev: 'Prev Shift', util: 'Utilities', more: 'More', pm: 'PMs', pmtype:'PM Done', done:'Done', ongoing:'Ongoing', issue:'Issue', part:'Part Needed', note:'Note',
-    signin: 'Sign In', selectname: 'Select your name', enterpin: 'Enter your 4-digit PIN',
+    mylog: 'My Log', shift: 'This Shift', prev: 'Prev Shift', util: 'Utilities', more: 'More', pm: 'PMs', pmtype:'PM Done', done:'Done', ongoing:'Ongoing', issue:'Issue', part:'Part Needed', note:'Note', urgent:'Urgent', high:'High', monitor:'Monitor', info:'Info',
+    signin: 'Sign In', choosename: 'Please choose your name', selectname: 'Select your name', enterpin: 'Enter your 4-digit PIN',
     createpin: 'Choose a 4-digit PIN', confirmpin: 'Confirm your PIN',
     hello: 'Hello, ', welcome: 'Welcome, ', enterpin2: 'Enter your PIN', createpin2: 'Create your PIN',
     incorrect: 'Incorrect PIN', nomatch: 'PINs do not match', tryagain: 'Try again',
@@ -293,7 +293,7 @@ var TRANS = {
     workcsv: 'CSV \u0436\u0443\u0440\u043d\u0430\u043b\u0443', utilcsv: 'CSV \u043a\u043e\u043c\u0443\u043d\u0430\u043b\u044c\u043d\u0438\u0445', recap: '\u041c\u0456\u0441\u044f\u0447\u043d\u0438\u0439 \u0437\u0432\u0456\u0442 Email',
     shiftreport: '\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u0437\u0432\u0456\u0442?', sendnow: '\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438', skip: '\u041f\u0440\u043e\u043f\u0443\u0441\u0442\u0438\u0442\u0438',
     signout: '\u0412\u0438\u0439\u0442\u0438?', back: '\u2190 \u041d\u0430\u0437\u0430\u0434',
-    pm: 'ТО', pmtype: 'ПТО', done: 'Виконано', ongoing: 'Триває', issue: 'Проблема', part: 'Деталь', note: 'Нотатка'
+    pm: 'ТО', pmtype: 'ПТО', done: 'Виконано', ongoing: 'Триває', issue: 'Проблема', part: 'Деталь', note: 'Нотатка', urgent: 'Терміново', high: 'Високий', monitor: 'Стежити', info: 'Інфо'
   }
 };
 
@@ -308,7 +308,7 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   try{allE=JSON.parse(localStorage.getItem('bbw_ae')||'[]');}catch(e){allE=[];}
   try{utilLogs=JSON.parse(localStorage.getItem('bbw_util')||'[]');}catch(e){utilLogs=[];}
   localStorage.removeItem('bbw_sess');
-  var savedLang=localStorage.getItem('bbw_lang');if(savedLang){lang=savedLang;setTimeout(function(){setLang(savedLang);},100);}
+  var savedLang=localStorage.getItem('bbw_lang')||'en';
   buildNames();
   buildTemplates();
   buildQuick();
@@ -319,6 +319,8 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   setInterval(updateClock,30000);
   setInterval(checkShiftEnd,60000);
   showPage('pg-pin');
+  // Apply saved language after DOM ready
+  if(savedLang){lang=savedLang;setLang(savedLang);}
 })();
 
 function showPage(id){
@@ -496,12 +498,12 @@ function selA2(code,name){selA={c:code,n:name};gid('asearch').value=name;buildAL
 // TYPES
 function buildTypes(){
   var types=[
-    {id:'done',label:'Done',color:'#16a34a',bg:'rgba(22,163,74,.15)'},
-    {id:'ongoing',label:'Ongoing',color:'#d97706',bg:'rgba(217,119,6,.15)'},
-    {id:'issue',label:'Issue',color:'#dc2626',bg:'rgba(220,38,38,.15)'},
-    {id:'pm',label:'PM Done',color:'#7c3aed',bg:'rgba(124,58,237,.15)'},
-    {id:'part',label:'Part Needed',color:'#ea580c',bg:'rgba(234,88,12,.15)'},
-    {id:'note',label:'Note',color:'#2563eb',bg:'rgba(37,99,235,.15)'},
+    {id:'done',label:T('done')||'Done',color:'#16a34a',bg:'rgba(22,163,74,.15)'},
+    {id:'ongoing',label:T('ongoing')||'Ongoing',color:'#d97706',bg:'rgba(217,119,6,.15)'},
+    {id:'issue',label:T('issue')||'Issue',color:'#dc2626',bg:'rgba(220,38,38,.15)'},
+    {id:'pm',label:T('pmtype')||'PM Done',color:'#7c3aed',bg:'rgba(124,58,237,.15)'},
+    {id:'part',label:T('part')||'Part Needed',color:'#ea580c',bg:'rgba(234,88,12,.15)'},
+    {id:'note',label:T('note')||'Note',color:'#2563eb',bg:'rgba(37,99,235,.15)'},
   ];
   gid('type-grid').innerHTML=types.map(function(t){
     return '<div id="tp-'+t.id+'" onclick="setType(\''+t.id+'\')" style="padding:12px 4px;border-radius:10px;border:1.5px solid #333;background:#222;color:#aaa;font-size:13px;font-weight:600;cursor:pointer;text-align:center" data-color="'+t.color+'" data-bg="'+t.bg+'">'+t.label+'</div>';
@@ -521,10 +523,10 @@ function setType(type){
 // PRIORITIES
 function buildPrios(){
   var prios=[
-    {id:'urgent',label:'Urgent',color:'#dc2626',bg:'rgba(220,38,38,.15)'},
-    {id:'high',label:'High',color:'#ea580c',bg:'rgba(234,88,12,.15)'},
-    {id:'monitor',label:'Monitor',color:'#d97706',bg:'rgba(217,119,6,.15)'},
-    {id:'info',label:'Info',color:'#2563eb',bg:'rgba(37,99,235,.15)'},
+    {id:'urgent',label:T('urgent')||'Urgent',color:'#dc2626',bg:'rgba(220,38,38,.15)'},
+    {id:'high',label:T('high')||'High',color:'#ea580c',bg:'rgba(234,88,12,.15)'},
+    {id:'monitor',label:T('monitor')||'Monitor',color:'#d97706',bg:'rgba(217,119,6,.15)'},
+    {id:'info',label:T('info')||'Info',color:'#2563eb',bg:'rgba(37,99,235,.15)'},
   ];
   gid('prio-grid').innerHTML=prios.map(function(p){
     return '<div id="pp-'+p.id+'" onclick="setPrio(\''+p.id+'\')" style="padding:9px 4px;border-radius:9px;border:1.5px solid #333;background:#222;color:#aaa;font-size:12px;font-weight:600;cursor:pointer;text-align:center" data-color="'+p.color+'" data-bg="'+p.bg+'">'+p.label+'</div>';
@@ -1229,6 +1231,11 @@ function setLang(l){
     if(l==='en'){enBtn.style.background='#fff';enBtn.style.color='#111';ukBtn.style.background='none';ukBtn.style.color='#666';}
     else{ukBtn.style.background='#fff';ukBtn.style.color='#111';enBtn.style.background='none';enBtn.style.color='#666';}
   }
+  // Rebuild dynamic elements that contain translated text
+  buildTemplates();
+  buildQuick();
+  buildTypes();
+  buildPrios();
   // Update tab labels
   var tabMap={log:'mylog',shift:'shift',prev:'prev',util:'util',more:'more'};
   Object.keys(tabMap).forEach(function(t){
@@ -1237,8 +1244,10 @@ function setLang(l){
   });
   // Update static UI text
   var UI={
-    'sheet-title': l==='uk'?'Записати роботу':'Log Work',
-    'submit-btn': l==='uk'?'Додати':'Add to Log',
+    'sheet-title': T('logwork')||'Log Work',
+    'submit-btn': T('addlog')||'Add to Log',
+    'pin-title': T('choosename')||'Please choose your name',
+    'pin-sub': T('selectname')||'Select your name to continue',
   };
   Object.keys(UI).forEach(function(id){var el=gid(id);if(el)el.textContent=UI[id];});
   // Update placeholders
