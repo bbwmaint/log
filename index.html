@@ -1425,8 +1425,55 @@ function buildReport(){
 }
 
 function generateAndSendReport(){
-  var shiftEntries=allE.filter(function(e){return e.date===td()&&e.shift===(isDay()?'Day':'Night');});
-  shiftEntries.sort(function(a,b){return (a.loggedAt||'').localeCompare(b.loggedAt||'');});
+  // Ask which shift period to report on
+  var now=new Date();
+  var h=now.getHours();
+  var todayStr=td();
+  var yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
+  var yesterdayStr=yesterday.toISOString().split('T')[0];
+
+  // Build options based on current time
+  var options=[];
+  // Always offer today's day shift
+  options.push({label:'Today Day Shift ('+todayStr+' 07:00-19:00)',date:todayStr,shift:'Day'});
+  // If it's night shift time (after 19 or before 7), offer night options
+  if(h>=19){
+    options.push({label:'Tonight Night Shift ('+todayStr+' 19:00-07:00)',date:todayStr,shift:'Night'});
+  }
+  if(h<7){
+    options.push({label:'Last Night Shift ('+yesterdayStr+' 19:00-07:00)',date:yesterdayStr,shift:'Night'});
+  }
+  // Always offer yesterday day shift
+  options.push({label:'Yesterday Day Shift ('+yesterdayStr+' 07:00-19:00)',date:yesterdayStr,shift:'Day'});
+
+  // Build modal
+  var modalHtml='<div id="shift-pick-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px">';
+  modalHtml+='<div style="background:#1a1a1a;border-radius:16px;width:100%;max-width:380px;overflow:hidden">';
+  modalHtml+='<div style="padding:18px 20px;border-bottom:1px solid #333"><div style="font-size:17px;font-weight:700;color:#fff">Generate Shift Report</div>';
+  modalHtml+='<div style="font-size:13px;color:#888;margin-top:3px">Select the shift period</div></div>';
+  modalHtml+='<div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">';
+  options.forEach(function(opt){
+    modalHtml+='<button class="spb" data-d="'+opt.date+'" data-s="'+opt.shift+'" style="width:100%;padding:13px 16px;background:#222;color:#fff;border:1.5px solid #333;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;margin-bottom:0">'+opt.label+'</button>';
+  });
+  modalHtml+='<button class="spm-cancel" style="width:100%;padding:11px;background:none;color:#666;border:1px solid #333;border-radius:10px;font-size:13px;cursor:pointer">Cancel</button>';
+  modalHtml+='</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',modalHtml);
+  // Wire up buttons after insertion
+  var modal2=document.getElementById('shift-pick-modal');
+  if(modal2){
+    var cancel=modal2.querySelector('.spm-cancel');if(cancel)cancel.addEventListener('click',function(){modal2.remove();});
+    modal2.querySelectorAll('.spb').forEach(function(b){
+      b.addEventListener('click',function(){
+        pickShiftReport(this.getAttribute('data-d'),this.getAttribute('data-s'));
+      });
+    });
+  }
+}
+
+function pickShiftReport(date,shift){
+  var modal=document.getElementById('shift-pick-modal');
+  if(modal)modal.remove();
+  var shiftEntries=allE.filter(function(e){return e.date===date&&e.shift===shift;});  shiftEntries.sort(function(a,b){return (a.loggedAt||'').localeCompare(b.loggedAt||'');});
   var techs=[...new Set(shiftEntries.map(function(e){return e.who;}))].filter(Boolean);
   var totalDT=shiftEntries.reduce(function(a,e){return a+(e.dt||0);},0).toFixed(1);
   var shiftLabel=isDay()?'Day Shift (07:00-19:00)':'Night Shift (19:00-07:00)';
