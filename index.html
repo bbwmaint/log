@@ -623,7 +623,32 @@ function handlePhoto(input){
 
 function submitEntry(){
   if(!ctype){alert('Select a type first');return;}
-  var entry={id:editId||Date.now(),date:td(),shift:isDay()?'Day':'Night',type:ctype,priority:cprio,assetName:selA?selA.n:'',assetCode:selA?selA.c:'',desc:gid('f-desc').value.trim(),start:gid('f-start').value,end:gid('f-end').value,dt:parseFloat(gid('f-dt').value)||0,partName:gid('f-pname').value.trim(),partQty:gid('f-pqty').value||'1',photo:photo,who:user,loggedAt:new Date().toISOString(),shiftNote:gid('snote').value};
+  var entry={id:editId||Date.now(),date:(function(){
+      var st=gid('f-start').value;
+      if(st){
+        var h=parseInt(st.split(':')[0]);
+        var m=parseInt(st.split(':')[1]||0);
+        var mins=h*60+m;
+        var nowH=new Date().getHours();
+        // If current time is early morning (0-7) and start was last night (19-23)
+        // the entry belongs to yesterday's date
+        if(nowH<7&&mins>=19*60){
+          var d=new Date();d.setDate(d.getDate()-1);
+          return d.toISOString().split('T')[0];
+        }
+      }
+      return td();
+    })(),
+    shift:(function(){
+      var st=gid('f-start').value;
+      if(st){
+        var h=parseInt(st.split(':')[0]);
+        var m=parseInt(st.split(':')[1]||0);
+        var mins=h*60+m;
+        return (mins>=420&&mins<1140)?'Day':'Night';
+      }
+      return isDay()?'Day':'Night';
+    })(),type:ctype,priority:cprio,assetName:selA?selA.n:'',assetCode:selA?selA.c:'',desc:gid('f-desc').value.trim(),start:gid('f-start').value,end:gid('f-end').value,dt:parseFloat(gid('f-dt').value)||0,partName:gid('f-pname').value.trim(),partQty:gid('f-pqty').value||'1',photo:photo,who:user,loggedAt:new Date().toISOString(),shiftNote:gid('snote').value};
   if(editId){var ei=entries.findIndex(function(x){return x.id===editId;});if(ei>=0)entries[ei]=entry;var ai=allE.findIndex(function(x){return x.id===editId;});if(ai>=0)allE[ai]=entry;}
   else{entries.push(entry);allE.push(entry);}
   save();
@@ -715,7 +740,13 @@ function syncUtil(rec){
   sbFetch('bbw_util_log?date=eq.'+rec.date,{method:'GET'})
     .then(function(r){return r.json();})
     .then(function(existing){
-      var body=JSON.stringify({date:rec.date,time:rec.time,by_who:rec.by,w3:rec.w3||null,w5:rec.w5||null,gas:rec.gas||null,elec:rec.elec||null,boil:rec.boil||null,past:rec.past||null,cool:rec.cool||null,steam:rec.steam||null});
+      var body=JSON.stringify({date:rec.date,time:rec.time,by_who:rec.by,
+        w3:rec.w3||null,w5:rec.w5||null,gas:rec.gas||null,elec:rec.elec||null,
+        boil:rec.boil||null,past:rec.past||null,cool:rec.cool||null,steam:rec.steam||null,
+        chiller_start:rec.chstart||null,chiller_proc:rec.chproc||null,
+        warmcell:rec.warmcell||null,
+        bc1:rec.bc1||null,bc2:rec.bc2||null,bc3:rec.bc3||null,bc4:rec.bc4||null,
+        bc5:rec.bc5||null,bc6:rec.bc6||null,bc7:rec.bc7||null,stack:rec.stack||null});
       if(existing&&existing.length>0){
         return sbFetch('bbw_util_log?date=eq.'+rec.date,{method:'PATCH',body:body,headers:{'Prefer':'return=minimal'}});
       }else{
@@ -983,36 +1014,91 @@ function ack(key){localStorage.setItem(key,user+' at '+ntime());renderPrev();}
 function renderUtil(){
   var el=gid('pane-util');
   var today=utilLogs.find(function(r){return r.date===td();});
-  var banner=today?'<div style="background:rgba(22,163,74,.15);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:10px 12px;font-size:14px;font-weight:600;color:#4ade80;margin-bottom:14px">Logged today by '+today.by+' at '+today.time+'</div>':'<div style="background:rgba(217,119,6,.15);border:1px solid rgba(217,119,6,.3);border-radius:10px;padding:10px 12px;font-size:13px;color:#fbbf24;margin-bottom:14px">'+T('No readings logged today yet')+'</div>';
-  var fields=[['u-w3','Water 3" (m\u00B3)','0.000'],['u-w5','Water 5" (m\u00B3)','0.000'],['u-gas','Gas (ft\u00B3)','0.000'],['u-elec','Electricity (GWh)','0.0000'],['u-boil','Boiler Makeup (L)','0'],['u-past','Pasteurizer Makeup (L)','0.00'],['u-cool','Cooling Tower (L)','0.00'],['u-steam','Past. Steam (kg)','0']];
-  var form='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">';
-  fields.forEach(function(f){
-    var val=today&&today[f[0].replace('u-','')]!=null?today[f[0].replace('u-','')]:'';
-    form+='<div><div style="font-size:12px;color:#888;margin-bottom:5px">'+f[1]+'</div><input type="number" id="'+f[0]+'" value="'+val+'" placeholder="'+f[2]+'" style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:15px;color:#fff;outline:none;font-family:monospace"></div>';
-  });
-  form+='</div>';
-  form+='<button onclick="saveUtil()" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px">'+T('Save Readings')+'</button>';
-  form+='<div id="u-flash" style="display:none"></div>';
+  var banner=today?
+    '<div style="background:rgba(22,163,74,.15);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:10px 12px;font-size:14px;font-weight:600;color:#4ade80;margin-bottom:14px">Logged today by '+today.by+' at '+today.time+'</div>':
+    '<div style="background:rgba(217,119,6,.15);border:1px solid rgba(217,119,6,.3);border-radius:10px;padding:10px 12px;font-size:13px;color:#fbbf24;margin-bottom:14px">No readings logged today yet</div>';
+
+  function fieldRow(id, label, placeholder, val){
+    var v=today&&today[id]!=null?today[id]:'';
+    return '<div><div style="font-size:12px;color:#888;margin-bottom:4px">'+label+'</div>'+
+      '<input type="number" id="'+id+'" value="'+v+'" placeholder="'+placeholder+'" '+
+      'style="width:100%;background:#222;border:1px solid #333;border-radius:8px;padding:10px;font-size:15px;color:#fff;outline:none;font-family:monospace"></div>';
+  }
+
+  function section(title, color, rows){
+    return '<div style="background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:12px">'+
+      '<div style="font-size:12px;font-weight:700;color:'+color+';text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">'+title+'</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+rows+'</div>'+
+      '</div>';
+  }
+
+  var monRows=
+    fieldRow('w3','Water 3" (m\u00B3)','0.000')+
+    fieldRow('w5','Water 5" (m\u00B3)','0.000')+
+    fieldRow('gas','Gas (ft\u00B3)','0.000')+
+    fieldRow('elec','Electricity (GWh)','0.0000')+
+    fieldRow('past','Pasteurizer Makeup (L)','0.00')+
+    fieldRow('cool','Cooling Tower (L)','0.00');
+
+  var boilerRows=
+    fieldRow('boil','Boiler Makeup Water (L)','0')+
+    fieldRow('steam','Pasteurizer Steam (kg)','0')+
+    fieldRow('bc1','Coil C1 (\u00B0C)','0')+
+    fieldRow('bc2','Coil C2 (\u00B0C)','0')+
+    fieldRow('bc3','Coil C3 (\u00B0C)','0')+
+    fieldRow('bc4','Coil C4 (\u00B0C)','0')+
+    fieldRow('bc5','Coil C5 (\u00B0C)','0')+
+    fieldRow('bc6','Coil C6 (\u00B0C)','0')+
+    fieldRow('bc7','Coil C7 (\u00B0C)','0')+
+    fieldRow('stack','Stack Temp (\u00B0C)','0');
+
+  var chillerRows=
+    fieldRow('chstart','Start Count','0')+
+    fieldRow('chproc','Process Temp (\u00B0C)','0.0')+
+    fieldRow('warmcell','Warmcell Temp (\u00B0C)','0.0');
+
+  var H='<div style="background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:12px">'+
+    '<div style="font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Daily Utility Readings</div>'+
+    banner+
+    section('Monitoring','#60a5fa',monRows)+
+    section('Boiler','#f97316',boilerRows)+
+    section('Chiller','#a78bfa',chillerRows)+
+    '<button onclick="saveUtil()" id="u-btn" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px">Save Readings</button>'+
+    '<div id="u-flash" style="display:none;margin-top:8px;padding:10px;border-radius:9px;font-size:13px;font-family:monospace;font-weight:600"></div>'+
+    '</div>';
+
   // History table
-  var hist='<div style="background:#1a1a1a;border-radius:12px;overflow:hidden;margin-top:14px"><div style="padding:12px 14px;border-bottom:1px solid #333;font-size:13px;font-weight:600;color:#aaa">'+T('Recent Readings')+'</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;font-family:monospace"><thead><tr style="border-bottom:1px solid #333;color:#666;font-size:10px;text-transform:uppercase">';
-  ['Date','W3"','W5"','Gas','Elec','Boil','Past','CT','Steam','By'].forEach(function(h){hist+='<th style="padding:8px 6px;text-align:right;white-space:nowrap">'+h+'</th>';});
-  hist+='</tr></thead><tbody>';
-  if(!utilLogs.length)hist+='<tr><td colspan="10" style="text-align:center;padding:20px;color:#555">No readings yet</td></tr>';
-  utilLogs.slice(0,20).forEach(function(r){
-    hist+='<tr style="border-bottom:1px solid #222">';
-    hist+='<td style="padding:7px 6px;color:#aaa;text-align:left">'+r.date+'</td>';
-    ['w3','w5','gas','elec','boil','past','cool','steam'].forEach(function(k){hist+='<td style="padding:7px 6px;color:#ccc;text-align:right">'+(r[k]!=null?r[k]:'')+'</td>';});
-    hist+='<td style="padding:7px 6px;color:#666;text-align:right">'+r.by+'</td></tr>';
+  H+='<div style="background:#1a1a1a;border-radius:12px;overflow:hidden">';
+  H+='<div style="padding:12px 14px;border-bottom:1px solid #333;font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em">Recent Readings</div>';
+  H+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace">';
+  H+='<thead><tr style="border-bottom:1px solid #333;color:#666;font-size:10px">';
+  ['Date','W3"','W5"','Gas','Elec','Past','CT','Boil','Steam','C1','C2','C3','C4','C5','C6','C7','Stack','ChStart','ChProc','Warmcell','By'].forEach(function(h){
+    H+='<th style="padding:7px 6px;text-align:right;white-space:nowrap">'+h+'</th>';
   });
-  hist+='</tbody></table></div></div>';
-  el.innerHTML='<div style="background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:12px"><div style="font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Daily Utility Readings</div>'+banner+form+'</div>'+hist;
+  H+='</tr></thead><tbody>';
+  if(!utilLogs.length){
+    H+='<tr><td colspan="21" style="text-align:center;padding:20px;color:#555">No readings yet</td></tr>';
+  }else{
+    utilLogs.slice(0,20).forEach(function(r){
+      H+='<tr style="border-bottom:1px solid #222">';
+      H+='<td style="padding:6px;color:#aaa;text-align:left;white-space:nowrap">'+r.date+'</td>';
+      [r.w3,r.w5,r.gas,r.elec,r.past,r.cool,r.boil,r.steam,r.bc1,r.bc2,r.bc3,r.bc4,r.bc5,r.bc6,r.bc7,r.stack,r.chstart,r.chproc,r.warmcell].forEach(function(v){
+        H+='<td style="padding:6px;color:#ccc;text-align:right">'+(v!=null?v:'')+'</td>';
+      });
+      H+='<td style="padding:6px;color:#666;text-align:right">'+r.by+'</td>';
+      H+='</tr>';
+    });
+  }
+  H+='</tbody></table></div></div>';
+
+  el.innerHTML=H;
 }
 
 function saveUtil(){
-  var keys=['w3','w5','gas','elec','boil','past','cool','steam'];
+  var keys=['w3','w5','gas','elec','boil','past','cool','steam','chstart','chproc','warmcell','bc1','bc2','bc3','bc4','bc5','bc6','bc7','stack'];
   var rec={date:td(),time:ntime(),by:user||'?'};
   var any=false;
-  keys.forEach(function(k){var v=gid('u-'+k);if(v&&v.value){rec[k]=parseFloat(v.value);any=true;}else{rec[k]=null;}});
+  keys.forEach(function(k){var el=gid(k);if(el&&el.value!==''){rec[k]=parseFloat(el.value);any=true;}else{rec[k]=null;}});
   if(!any){alert('Enter at least one reading');return;}
   var idx=utilLogs.findIndex(function(r){return r.date===td();});
   if(idx>=0)utilLogs[idx]=rec;else utilLogs.unshift(rec);
