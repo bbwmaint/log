@@ -113,6 +113,7 @@
     <button onclick="showTab('shift')" id="tab-shift" style="flex:1;padding:10px 2px;font-size:12px;font-weight:600;color:#666;border:none;border-bottom:2px solid transparent;background:none;cursor:pointer">This Shift</button>
     <button onclick="showTab('prev')" id="tab-prev" style="flex:1;padding:10px 2px;font-size:12px;font-weight:600;color:#666;border:none;border-bottom:2px solid transparent;background:none;cursor:pointer">Prev Shift</button>
     <button onclick="showTab('util')" id="tab-util" style="flex:1;padding:10px 2px;font-size:12px;font-weight:600;color:#666;border:none;border-bottom:2px solid transparent;background:none;cursor:pointer">Utilities</button>
+    <button onclick="showTab('assets')" id="tab-assets" style="flex:1;padding:10px 2px;font-size:12px;font-weight:600;color:#666;border:none;border-bottom:2px solid transparent;background:none;cursor:pointer">Assets</button>
     <button onclick="showTab('more')" id="tab-more" style="flex:1;padding:10px 2px;font-size:12px;font-weight:600;color:#666;border:none;border-bottom:2px solid transparent;background:none;cursor:pointer">More</button>
   </div>
 
@@ -122,7 +123,8 @@
     <div id="pane-shift" style="display:none"></div>
     <div id="pane-prev" style="display:none"></div>
     <div id="pane-util" style="display:none"></div>
-    <div id="pane-more" style="display:none"></div>
+    <div id="pane-assets" style="display:none"></div>
+  <div id="pane-more" style="display:none"></div>
   </div>
 
   <!-- FAB -->
@@ -304,7 +306,7 @@ var pbuf='', puser='', pstep='name', psfirst='';
 var lang = 'en';
 var TRANS = {
   en: {
-    mylog: 'My Log', shift: 'This Shift', prev: 'Prev Shift', util: 'Utilities', more: 'More', pm: 'PMs', pmtype:'PM Done', done:'Completed', ongoing:'Ongoing', issue:'Pending', part:'Parts Requested', note:'Note', urgent:'Urgent', high:'High', monitor:'Monitor', info:'Info', assigned:'Assigned', completed:'Completed', parts:'Parts Requested', pending:'Pending',"My Log":"My Log","This Shift":"This Shift","Prev Shift":"Prev Shift","Utilities":"Utilities","More":"More","Tasks":"Tasks","Issues":"Issues","Parts":"Parts","DT hrs":"DT hrs","'+'No previous shift data'+'":"'+'No previous shift data'+'","Issues for your shift":"Issues for your shift","No urgent issues handed over":"No urgent issues handed over","Completed":"Completed","Parts to order":"Parts to order","'+'I have read this handover'+'":"'+'I have read this handover'+'","Nothing logged yet":"Nothing logged yet","Tap + to log your first task":"Tap + to log your first task","No entries this shift yet":"No entries this shift yet","PMs Due Today":"PMs Due Today","Log Done":"Log Done","No readings logged today yet":"No readings logged today yet","Save Readings":"Save Readings","Recent Readings":"Recent Readings","Once per day":"Once per day","Shift Report":"Shift Report","Monthly Export":"Monthly Export","Generate Shift Report PDF":"Generate Shift Report PDF","Work Log CSV":"Work Log CSV","Utilities CSV":"Utilities CSV","Monthly Recap Email":"Monthly Recap Email","Admin — Praful Only":"Admin — Praful Only","Reset Technician PINs":"Reset Technician PINs","Auto-Send (EmailJS)":"Auto-Send (EmailJS)","Save & Enable Auto-Send":"Save & Enable Auto-Send","Test Send Now":"Test Send Now","No PMs scheduled for today":"No PMs scheduled for today",
+    mylog: 'My Log', shift: 'This Shift', prev: 'Prev Shift', util: 'Utilities', more: 'More', pm: 'PMs', pmtype:'PM Done', assets:'Assets', done:'Completed', ongoing:'Ongoing', issue:'Pending', part:'Parts Requested', note:'Note', urgent:'Urgent', high:'High', monitor:'Monitor', info:'Info', assigned:'Assigned', completed:'Completed', parts:'Parts Requested', pending:'Pending',"My Log":"My Log","This Shift":"This Shift","Prev Shift":"Prev Shift","Utilities":"Utilities","More":"More","Tasks":"Tasks","Issues":"Issues","Parts":"Parts","DT hrs":"DT hrs","'+'No previous shift data'+'":"'+'No previous shift data'+'","Issues for your shift":"Issues for your shift","No urgent issues handed over":"No urgent issues handed over","Completed":"Completed","Parts to order":"Parts to order","'+'I have read this handover'+'":"'+'I have read this handover'+'","Nothing logged yet":"Nothing logged yet","Tap + to log your first task":"Tap + to log your first task","No entries this shift yet":"No entries this shift yet","PMs Due Today":"PMs Due Today","Log Done":"Log Done","No readings logged today yet":"No readings logged today yet","Save Readings":"Save Readings","Recent Readings":"Recent Readings","Once per day":"Once per day","Shift Report":"Shift Report","Monthly Export":"Monthly Export","Generate Shift Report PDF":"Generate Shift Report PDF","Work Log CSV":"Work Log CSV","Utilities CSV":"Utilities CSV","Monthly Recap Email":"Monthly Recap Email","Admin — Praful Only":"Admin — Praful Only","Reset Technician PINs":"Reset Technician PINs","Auto-Send (EmailJS)":"Auto-Send (EmailJS)","Save & Enable Auto-Send":"Save & Enable Auto-Send","Test Send Now":"Test Send Now","No PMs scheduled for today":"No PMs scheduled for today",
     signin: 'Sign In', choosename: 'Please choose your name', selectname: 'Select your name', enterpin: 'Enter your 4-digit PIN',
     createpin: 'Choose a 4-digit PIN', confirmpin: 'Confirm your PIN',
     hello: 'Hello, ', welcome: 'Welcome, ', enterpin2: 'Enter your PIN', createpin2: 'Create your PIN',
@@ -518,7 +520,7 @@ function updateClock(){
 
 // TABS
 function showTab(name){
-  ['log','shift','prev','util','more'].forEach(function(t){
+  ['log','shift','prev','util','assets','more'].forEach(function(t){
     gid('pane-'+t).style.display='none';
     var tb=gid('tab-'+t);
     tb.style.color='#666';tb.style.borderBottomColor='transparent';
@@ -529,6 +531,7 @@ function showTab(name){
   if(name==='shift')renderShift();
   if(name==='prev')renderPrev();
   if(name==='util')renderUtil();
+  if(name==='assets')renderAssets();
   if(name==='more'){try{renderMore();}catch(e){gid('pane-more').innerHTML='<div style="padding:20px;color:red;font-family:monospace;font-size:12px">ERROR: '+e.message+'<br>'+e.stack.replace(/</g,"&lt;").replace(/\n/g,"<br>")+'</div>';}}
 }
 
@@ -987,7 +990,7 @@ function card(e,mine){
   if(e.partName&&e.type==='part')html+='<div style="font-size:14px;color:#f97316">Part: '+e.partName+' x'+e.partQty+'</div>';
   html+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">';
   if(time)html+='<span style="font-size:11px;color:#666;font-family:monospace">'+time+'</span>';
-  if(e.dt>0)html+='<span style="font-size:11px;color:#ef4444;font-family:monospace">'+e.dt+'h DT</span>';
+  if(e.machineDown==='yes'&&e.dt>0)html+='<span style="font-size:11px;color:#ef4444;font-family:monospace">'+e.dt+'h DT</span>';
   if(e.machineDown==='yes')html+='<span style="font-size:10px;font-weight:700;background:rgba(220,38,38,.2);color:#ef4444;padding:2px 6px;border-radius:4px;font-family:monospace">MACHINE DOWN</span>';
   if(e.machineDown==='partial')html+='<span style="font-size:10px;font-weight:700;background:rgba(234,88,12,.2);color:#f97316;padding:2px 6px;border-radius:4px;font-family:monospace">PARTIAL</span>';
   if(e.coMins>0)html+='<span style="font-size:10px;font-weight:700;background:rgba(245,158,11,.15);color:#f59e0b;padding:2px 6px;border-radius:4px;font-family:monospace">CO: '+e.coMins+'min</span>';
@@ -1068,7 +1071,7 @@ function renderLog(){
 
 function renderShift(){
   var cur=entries.filter(function(e){return e.date===td()&&e.shift===(isDay()?'Day':'Night');});
-  var dt=cur.reduce(function(a,e){return a+e.dt;},0);
+  var dt=cur.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).reduce(function(a,e){return a+(e.dt||0);},0);
   var el=gid('pane-shift');
   var stats='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">';
   stats+='<div style="background:#1a1a1a;border-radius:10px;padding:12px 8px;text-align:center"><div style="font-size:26px;font-weight:800;color:#fff">'+cur.length+'</div><div style="font-size:11px;color:#666;font-family:monospace;margin-top:2px">Tasks</div></div>';
@@ -1083,14 +1086,25 @@ function renderPrev(){
   var el=gid('pane-prev');
   // Last 3 shifts, earliest first
   var shifts=[];
-  var cur=new Date();
-  for(var s=0;s<3;s++){
-    var h=cur.getHours();
-    var sh=(h>=7&&h<19)?'Day':'Night';
-    var dt=cur.toISOString().split('T')[0];
-    shifts.push({date:dt,shift:sh});
-    if(sh==='Day'){cur.setHours(2,0,0);}
-    else{cur.setDate(cur.getDate()-1);cur.setHours(12,0,0);}
+  // Build last 3 completed shifts (not the current running one), latest first
+  var now=new Date();
+  var todayStr=now.toISOString().split('T')[0];
+  var yest=new Date(now); yest.setDate(yest.getDate()-1);
+  var yesterStr=yest.toISOString().split('T')[0];
+  var d2=new Date(now); d2.setDate(d2.getDate()-2);
+  var d2Str=d2.toISOString().split('T')[0];
+  var curDay=(now.getHours()>=7&&now.getHours()<19);
+  // Latest first
+  if(curDay){
+    // Currently Day shift — prev shifts are: yesterday Night, yesterday Day, day-before Night
+    shifts.push({date:yesterStr, shift:'Night'});
+    shifts.push({date:yesterStr, shift:'Day'});
+    shifts.push({date:d2Str,     shift:'Night'});
+  } else {
+    // Currently Night shift — prev shifts are: today Day, yesterday Night, yesterday Day
+    shifts.push({date:todayStr,  shift:'Day'});
+    shifts.push({date:yesterStr, shift:'Night'});
+    shifts.push({date:yesterStr, shift:'Day'});
   }
   var H='';
   var foundAny=false;
@@ -1105,7 +1119,7 @@ function renderPrev(){
     }
     foundAny=true;
     var techs=[...new Set(prev.map(function(e){return e.who;}))].filter(Boolean);
-    var dtTotal=prev.reduce(function(a,e){return a+(e.dt||0);},0).toFixed(1);
+    var dtTotal=prev.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).reduce(function(a,e){return a+(e.dt||0);},0).toFixed(1);
     var urg=prev.filter(function(e){return (e.type==='issue'||e.type==='pending')&&(e.priority==='urgent'||e.priority==='high');});
     var parts=prev.filter(function(e){return e.type==='part'||e.type==='parts';});
     var ackKey='ack_'+sv.date+'_'+sv.shift;
@@ -1146,6 +1160,153 @@ function renderPrev(){
     b.addEventListener('click',function(){ack(this.getAttribute('data-key'));});
   });
 }
+function renderAssets(){
+  var el=gid('pane-assets');
+  if(!el)return;
+
+  // Get this month's data
+  var now=new Date();
+  var thisMonth=now.getMonth(), thisYear=now.getFullYear();
+  var monthData=allE.filter(function(e){
+    var d=new Date(e.date);
+    return d.getMonth()===thisMonth&&d.getFullYear()===thisYear;
+  });
+
+  // Downtime by asset (machine down only)
+  var assetDT={}, assetCount={}, assetIssues={};
+  monthData.forEach(function(e){
+    var a=e.assetName||'General';
+    assetCount[a]=(assetCount[a]||0)+1;
+    if(e.machineDown==='yes'||e.machineDown==='partial'){
+      assetDT[a]=(assetDT[a]||0)+(e.dt||0);
+    }
+    if(e.type==='pending'||e.type==='issue'){
+      assetIssues[a]=(assetIssues[a]||0)+1;
+    }
+  });
+
+  // Sort by DT desc
+  var assets=Object.keys(assetCount).sort(function(a,b){return (assetDT[b]||0)-(assetDT[a]||0);});
+  var totalDT=Object.values(assetDT).reduce(function(a,b){return a+b;},0);
+  var mnames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var H='';
+
+  // Summary tiles
+  H+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">';
+  H+='<div style="background:#1a1a1a;border-radius:10px;padding:12px;text-align:center">';
+  H+='<div style="font-size:22px;font-weight:800;color:#fff">'+monthData.length+'</div>';
+  H+='<div style="font-size:10px;color:#888;text-transform:uppercase;margin-top:2px">Total Logs</div></div>';
+  H+='<div style="background:#1a1a1a;border-radius:10px;padding:12px;text-align:center">';
+  H+='<div style="font-size:22px;font-weight:800;color:#ef4444">'+totalDT.toFixed(1)+'h</div>';
+  H+='<div style="font-size:10px;color:#888;text-transform:uppercase;margin-top:2px">Machine DT</div></div>';
+  H+='<div style="background:#1a1a1a;border-radius:10px;padding:12px;text-align:center">';
+  H+='<div style="font-size:22px;font-weight:800;color:#f97316">'+assets.length+'</div>';
+  H+='<div style="font-size:10px;color:#888;text-transform:uppercase;margin-top:2px">Assets</div></div>';
+  H+='</div>';
+
+  // Month label
+  H+='<div style="font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">'+mnames[thisMonth]+' '+thisYear+' — Downtime Ranking</div>';
+
+  // Asset breakdown
+  if(!assets.length){
+    H+='<div style="text-align:center;padding:40px;color:#555">No data this month</div>';
+  } else {
+    var maxDT=assetDT[assets[0]]||0.01;
+    assets.forEach(function(a,i){
+      var dt=assetDT[a]||0;
+      var cnt=assetCount[a]||0;
+      var iss=assetIssues[a]||0;
+      var pct=maxDT>0?(dt/maxDT)*100:0;
+      var dtColor=dt>4?'#ef4444':dt>1?'#f59e0b':'#4ade80';
+      H+='<div class="asset-card" data-asset="'+encodeURIComponent(a)+'" style="background:#1a1a1a;border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;active:opacity:.8">';
+      H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+      H+='<div>';
+      H+='<div style="font-size:14px;font-weight:700;color:#fff">'+a+'</div>';
+      H+='<div style="font-size:11px;color:#666;margin-top:1px">'+cnt+' log'+(cnt!==1?'s':'')+(iss?' &bull; '+iss+' issue'+(iss!==1?'s':''):'')+'</div>';
+      H+='</div>';
+      H+='<div style="display:flex;align-items:center;gap:8px">';
+      H+='<div style="text-align:right">';
+      H+='<div style="font-size:16px;font-weight:800;color:'+dtColor+'">'+dt.toFixed(1)+'h</div>';
+      H+='<div style="font-size:10px;color:#666">downtime</div>';
+      H+='</div>';
+      H+='<div style="color:#555;font-size:16px">&#8250;</div>';
+      H+='</div></div>';
+      if(dt>0){
+        H+='<div style="height:4px;background:#333;border-radius:2px">';
+        H+='<div style="height:100%;background:'+dtColor+';border-radius:2px;width:'+pct+'%"></div>';
+        H+='</div>';
+      }
+      H+='</div>';
+    });
+  }
+
+  // CO summary
+  var coTotal=monthData.filter(function(e){return e.coMins>0;}).reduce(function(a,e){return a+(e.coMins||0);},0);
+  if(coTotal>0){
+    H+='<div style="background:#1a1a1a;border-radius:10px;padding:12px 14px;margin-top:4px">';
+    H+='<div style="font-size:12px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Changeover This Month</div>';
+    H+='<div style="font-size:22px;font-weight:800;color:#f59e0b">'+coTotal+' min</div>';
+    H+='<div style="font-size:11px;color:#666;margin-top:2px">'+(coTotal/60).toFixed(1)+'h total changeover time</div>';
+    H+='</div>';
+  }
+
+  el.innerHTML=H;
+  el.querySelectorAll('.asset-card').forEach(function(card){
+    card.addEventListener('click', function(){
+      showAssetDetail(decodeURIComponent(this.getAttribute('data-asset')));
+    });
+  });
+}
+
+function showAssetDetail(assetName){
+  // Get all logs for this asset, most recent first
+  var logs=allE.filter(function(e){return e.assetName===assetName;});
+  logs.sort(function(a,b){
+    var da=(a.date||'')+(a.loggedAt||'');
+    var db=(b.date||'')+(b.loggedAt||'');
+    return db.localeCompare(da);
+  });
+
+  var totalDT=logs.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).reduce(function(a,e){return a+(e.dt||0);},0);
+  var totalCO=logs.filter(function(e){return e.coMins>0;}).reduce(function(a,e){return a+(e.coMins||0);},0);
+
+  var H='<div id="asset-detail-modal" style="position:fixed;inset:0;background:#111;z-index:500;overflow-y:auto;padding:0">';
+  // Header
+  H+='<div style="position:sticky;top:0;background:#1a1a1a;border-bottom:1px solid #333;padding:14px 16px;display:flex;align-items:center;gap:12px;z-index:10">';
+  H+='<button onclick="closeAssetDetail()" style="background:none;border:none;color:#60a5fa;font-size:16px;cursor:pointer;padding:4px 8px">&#8592; Back</button>';
+  H+='<div style="flex:1"><div style="font-size:16px;font-weight:700;color:#fff">'+assetName+'</div>';
+  H+='<div style="font-size:11px;color:#666">'+logs.length+' total logs</div></div>';
+  H+='</div>';
+
+  // Stats
+  H+='<div style="padding:14px 16px">';
+  H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
+  H+='<div style="background:#1a1a1a;border-radius:10px;padding:10px;text-align:center">';
+  H+='<div style="font-size:20px;font-weight:800;color:#fff">'+logs.length+'</div>';
+  H+='<div style="font-size:10px;color:#888;text-transform:uppercase">Logs</div></div>';
+  H+='<div style="background:#1a1a1a;border-radius:10px;padding:10px;text-align:center">';
+  H+='<div style="font-size:20px;font-weight:800;color:#ef4444">'+totalDT.toFixed(1)+'h</div>';
+  H+='<div style="font-size:10px;color:#888;text-transform:uppercase">DT</div></div>';
+  H+='<div style="background:#1a1a1a;border-radius:10px;padding:10px;text-align:center">';
+  H+='<div style="font-size:20px;font-weight:800;color:#f59e0b">'+totalCO+'m</div>';
+  H+='<div style="font-size:10px;color:#888;text-transform:uppercase">CO</div></div>';
+  H+='</div>';
+
+  if(!logs.length){
+    H+='<div style="text-align:center;padding:40px;color:#555">No logs found</div>';
+  } else {
+    H+=logs.map(function(e){return card(e, e.who===user||user===ADMIN);}).join('');
+  }
+  H+='</div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', H);
+}
+
+function closeAssetDetail(){
+  var m=document.getElementById('asset-detail-modal');
+  if(m)m.remove();
+}
+
 function ack(key){localStorage.setItem(key,user+' at '+ntime());renderPrev();}
 
 function renderUtil(){
@@ -1217,8 +1378,10 @@ function renderUtil(){
 
   var chillerRows=
     fieldRow('chstart','Start Count','0')+
-    fieldRow('chproc','Process Temp (\u00B0C)','0.0')+
-    fieldRow('warmcell','Warmcell Temp (\u00B0C)','0.0');
+    fieldRow('chproc','Process Temp (°C)','0.0')+
+    fieldRow('warmcell','Warmcell Temp (°C)','0.0')+
+    fieldRow('ch_ph','pH','0.0')+
+    fieldRow('ch_purity','Purity (%)','0.0');
 
   var H='<div style="background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:12px">'+
     '<div style="font-size:13px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Daily Utility Readings</div>'+
@@ -1258,7 +1421,7 @@ function renderUtil(){
 }
 
 function saveUtil(){
-  var keys=['w3','w5','gas','elec','boil','past','cool','steam','chstart','chproc','warmcell','bc1','bc2','bc3','bc4','bc5','bc6','bc7','stack','p_alk','m_alk','oh_alk','sulphate','amercor','advplus','amersite'];
+  var keys=['w3','w5','gas','elec','boil','past','cool','steam','chstart','chproc','warmcell','bc1','bc2','bc3','bc4','bc5','bc6','bc7','stack','p_alk','m_alk','oh_alk','sulphate','amercor','advplus','amersite','ch_ph','ch_purity'];
   var rec={date:td(),time:ntime(),by:user||'?'};
   var any=false;
   keys.forEach(function(k){var el=gid(k);if(el&&el.value!==''){rec[k]=parseFloat(el.value);any=true;}else{rec[k]=null;}});
@@ -1542,7 +1705,7 @@ function setLang(l){
   buildTypes();
   buildPrios();
   // Update tab labels
-  var tabMap={log:'mylog',shift:'shift',prev:'prev',util:'util',more:'more'};
+  var tabMap={log:'mylog',shift:'shift',prev:'prev',util:'util',assets:'assets',more:'more'};
   Object.keys(tabMap).forEach(function(t){
     var el=gid('tab-'+t);
     if(el)el.textContent=TRANS[l][tabMap[t]]||el.textContent;
