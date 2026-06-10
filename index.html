@@ -2,12 +2,18 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<!-- v1780628076 -->
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BBW Maint">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
 <title>BBW Work Log</title>
+<style>
+  body { -webkit-tap-highlight-color: transparent; }
+  input, select, textarea, button { -webkit-appearance: none; }
+</style>
 </head>
 <body style="margin:0;padding:0;font-family:-apple-system,sans-serif;background:#111;color:#fff">
 
@@ -778,15 +784,23 @@ function syncEntry(e){
     .then(function(r){return r.json();})
     .then(function(d){
       if(d&&d[0]&&d[0].id){
-        e.sbId=d[0].id;
-        e.synced=true;
-        // Update in allE too
+        // Mark synced in all arrays immediately
+        e.sbId=d[0].id; e.synced=true;
         var ai=allE.findIndex(function(x){return x.id===e.id;});
         if(ai>=0){allE[ai].sbId=d[0].id;allE[ai].synced=true;}
+        var ei=entries.findIndex(function(x){return x.id===e.id;});
+        if(ei>=0){entries[ei].sbId=d[0].id;entries[ei].synced=true;}
         save();
+        // Render a sync indicator update
+        var card=document.querySelector('[data-id="'+e.id+'"]');
+        if(card){var dot=card.querySelector('.sync-dot');if(dot)dot.style.display='none';}
       }
     })
-    .catch(function(err){console.warn('Sync failed',err);});
+    .catch(function(err){
+      console.warn('Sync failed, will retry',err);
+      // Mark for retry - keep in pendingLocal on next refresh
+      e.synced=false; e.syncError=true;
+    });
 }
 
 function deleteFromSB(sbId){
@@ -803,22 +817,28 @@ function loadFromSB(){
     .then(function(data){
       console.log('BBW: Got', Array.isArray(data)?data.length:'ERROR', 'entries from Supabase', data);
       if(!Array.isArray(data)){return;}
-      // Replace allE with Supabase data (source of truth) + unsync'd local entries
-      var sbIds=data.map(function(r){return r.id;});
-      // Keep local entries not yet synced
-      var localOnly=allE.filter(function(e){return !e.synced&&!e.sbId;});
-      // Build from Supabase
+      // Build entries from Supabase
       var sbEntries=data.map(function(r){
         return {
           id:r.id,sbId:r.id,date:r.date,shift:r.shift,type:r.type,priority:r.priority||'',
           assetName:r.asset_name||'',assetCode:r.asset_code||'',desc:r.description||'',
           start:r.start_time||'',end:r.end_time||'',dt:r.downtime_hrs||0,
           partName:r.part_name||'',partQty:r.part_qty||'1',who:r.who||'',
-          shiftNote:r.shift_note||'',loggedAt:r.logged_at,photo:'',synced:true,machineDown:r.machine_down||'',coMins:r.co_mins||0,coType:r.co_type||''
+          shiftNote:r.shift_note||'',loggedAt:r.logged_at,photo:'',synced:true,
+          machineDown:r.machine_down||'',coMins:r.co_mins||0,coType:r.co_type||''
         };
       });
-      allE=sbEntries.concat(localOnly);
-      // Rebuild current shift entries - strict filter
+      // Keep local entries pending sync - not yet confirmed by SB
+      var pendingLocal=allE.filter(function(e){
+        if(e.sbId||e.synced||e.deleted)return false;
+        // Check if this entry now exists in SB (matched by content)
+        var found=sbEntries.some(function(s){
+          return s.date===e.date&&s.who===e.who&&s.desc===e.desc;
+        });
+        return !found; // keep only if not yet in SB
+      });
+      allE=sbEntries.concat(pendingLocal);
+      // Rebuild current shift entries
       var isday=isDay();
       entries=allE.filter(function(e){return e.date===today&&e.shift===(isday?'Day':'Night');});
       save();
@@ -861,11 +881,18 @@ function loadUtilFromSB(){
 }
 
 function delEntry(id){
+  // Find sbId BEFORE removing
   var entry=allE.find(function(e){return e.id===id;});
-  if(entry&&entry.sbId)deleteFromSB(entry.sbId);
+  var sbId=entry?entry.sbId:null;
+  // Immediately remove from local arrays and UI
   entries=entries.filter(function(e){return e.id!==id;});
   allE=allE.filter(function(e){return e.id!==id;});
-  save();renderAll();
+  save();
+  renderAll();
+  // Background delete from Supabase
+  if(sbId){
+    deleteFromSB(sbId);
+  }
 }
 
 // RENDER
@@ -2002,6 +2029,16 @@ function removeCOAsset(idx){
   assets.splice(idx,1);
   localStorage.setItem('bbw_co_assets',JSON.stringify(assets));
   renderMore();
+}
+
+
+// ── PWA Service Worker Registration ──
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js')
+      .then(function(reg){console.log('SW registered');})
+      .catch(function(e){console.log('SW failed:', e);});
+  });
 }
 
 </script>
