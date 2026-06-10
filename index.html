@@ -570,10 +570,10 @@ function loginUser(name){
   try{gid('unm').textContent=name;}catch(e){console.error('unm',e);}
   try{gid('exp-m') && (gid('exp-m').value=new Date().getMonth());}catch(e){}
   try{loadFromSB();}catch(e){console.error('loadFromSB',e);}
-  try{loadSchedulesFromStorage();}catch(e){} // reload schedules on each login
+  try{loadSchedulesFromStorage();}catch(e){} // instant local cache
+  try{loadSchedulesFromSB();}catch(e){} // then refresh from Supabase (all devices)
   try{loadUtilFromSB();}catch(e){console.error('loadUtil',e);}
   try{loadPMOverrides();}catch(e){console.error('loadPMOverrides',e);}
-  try{loadSchedulesFromStorage();}catch(e){}
   try{renderAll();}catch(e){console.error('renderAll',e);}
   try{showPage('pg-app');}catch(e){console.error('showPage',e);}
   try{checkUBanner();}catch(e){console.error('checkUBanner',e);}
@@ -2367,8 +2367,10 @@ function parseProdSchedule(input){
       }
       scheduleRuns.sort(function(a,b){return a.startDt-b.startDt;});
 
-      try{localStorage.setItem('bbw_prod_sched',JSON.stringify(scheduleRuns.map(function(r){return {product:r.product,canSize:r.canSize,pkgFormat:r.pkgFormat,start:r.startDt.toISOString(),finish:r.finishDt?r.finishDt.toISOString():null,cleaning:r.cleaning};})));}catch(ex){}
-      if(el){el.textContent='\u2713 Loaded '+scheduleRuns.length+' runs';el.style.color='#4ade80';}
+      var prodSer=scheduleRuns.map(function(r){return {product:r.product,canSize:r.canSize,pkgFormat:r.pkgFormat,start:r.startDt.toISOString(),finish:r.finishDt?r.finishDt.toISOString():null,cleaning:r.cleaning};});
+      try{localStorage.setItem('bbw_prod_sched',JSON.stringify(prodSer));}catch(ex){}
+      if(el){el.textContent='\u2713 Loaded '+scheduleRuns.length+' runs \u2014 syncing...';el.style.color='#4ade80';}
+      saveScheduleToSB('prod',prodSer).then(function(ok){if(el){el.textContent='\u2713 Loaded '+scheduleRuns.length+' runs'+(ok?' \u2014 synced to all devices':' \u2014 sync failed (saved locally)');el.style.color=ok?'#4ade80':'#fbbf24';}});
     }catch(err){if(el){el.textContent='Error: '+err.message;el.style.color='#ef4444';}}
   };
   reader.readAsBinaryString(file);
@@ -2408,7 +2410,8 @@ function parseTechSchedule(input){
         techSchedule[ds]={day:day&&day[c]?String(day[c]).trim():'',night:night&&night[c]?String(night[c]).trim():'',comment:comments&&comments[c]?String(comments[c]).trim():''};
       }
       try{localStorage.setItem('bbw_tech_sched',JSON.stringify(techSchedule));}catch(ex){}
-      if(el){el.textContent='\u2713 '+Object.keys(techSchedule).length+' days loaded';el.style.color='#4ade80';}
+      if(el){el.textContent='\u2713 '+Object.keys(techSchedule).length+' days loaded \u2014 syncing...';el.style.color='#4ade80';}
+      saveScheduleToSB('tech',techSchedule).then(function(ok){if(el){el.textContent='\u2713 '+Object.keys(techSchedule).length+' days loaded'+(ok?' \u2014 synced to all devices':' \u2014 sync failed (saved locally)');el.style.color=ok?'#4ade80':'#fbbf24';}});
     }catch(err){if(el){el.textContent='Error: '+err.message;el.style.color='#ef4444';}}
   };
   reader.readAsBinaryString(file);
@@ -2418,6 +2421,35 @@ function getTechsOnShift(dateStr,shift){
   var s=techSchedule[dateStr];
   if(!s)return null;
   return shift==='Day'?s.day:s.night;
+}
+
+function saveScheduleToSB(kind,dataObj){
+  // Upsert one row per schedule kind ('prod' or 'tech') so all devices share it
+  return sbFetch('bbw_schedule?on_conflict=id',{
+    method:'POST',
+    headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+    body:JSON.stringify({id:kind,data:dataObj,updated_at:new Date().toISOString()})
+  }).then(function(r){return r.ok;}).catch(function(){return false;});
+}
+
+function loadSchedulesFromSB(){
+  // Pull shared schedules from Supabase; cache locally for offline use
+  return sbFetch('bbw_schedule?select=id,data').then(function(r){
+    if(!r.ok)throw new Error('sched fetch '+r.status);
+    return r.json();
+  }).then(function(rows){
+    (rows||[]).forEach(function(row){
+      if(row.id==='prod'&&Array.isArray(row.data)){
+        scheduleRuns=row.data.map(function(x){return {product:x.product,canSize:x.canSize,pkgFormat:x.pkgFormat,startDt:new Date(x.start),finishDt:x.finish?new Date(x.finish):null,cleaning:x.cleaning};});
+        try{localStorage.setItem('bbw_prod_sched',JSON.stringify(row.data));}catch(e){}
+      }else if(row.id==='tech'&&row.data&&typeof row.data==='object'){
+        techSchedule=row.data;
+        try{localStorage.setItem('bbw_tech_sched',JSON.stringify(row.data));}catch(e){}
+      }
+    });
+    try{if(typeof renderSchedule==='function'&&gid('pane-schedule')&&gid('pane-schedule').offsetParent!==null)renderSchedule();}catch(e){}
+    try{checkUBanner();}catch(e){}
+  }).catch(function(e){console.log('loadSchedulesFromSB:',e.message);});
 }
 
 function loadSchedulesFromStorage(){
