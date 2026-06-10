@@ -2300,18 +2300,34 @@ function parseProdSchedule(input){
     try{
       var wb=XLSX.read(e.target.result,{type:'binary',cellDates:true});
       var ws=wb.Sheets['Packaging Schedule']||wb.Sheets[wb.SheetNames[0]];
-      var data=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'yyyy-mm-dd hh:mm'});
+      // Get raw data with dates as Date objects
+      var dataRaw=XLSX.utils.sheet_to_json(ws,{header:1,raw:true});
+      // Get string data for text fields
+      var dataStr=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'yyyy-mm-dd hh:mm'});
       var hdr=null,hIdx=0;
-      for(var i=0;i<Math.min(5,data.length);i++){
-        if(data[i]&&(data[i].indexOf('StartTime')>=0||data[i].indexOf('Start Time')>=0)){hdr=data[i];hIdx=i;break;}
+      for(var i=0;i<Math.min(5,dataStr.length);i++){
+        if(dataStr[i]&&dataStr[i].some(function(v){return v==='StartTime'||v==='Start Time';})){hdr=dataStr[i];hIdx=i;break;}
       }
-      if(!hdr){if(el){el.textContent='Header not found';el.style.color='#ef4444';}return;}
+      if(!hdr){if(el){el.textContent='Header not found in Packaging Schedule sheet';el.style.color='#ef4444';}return;}
       var ci={product:hdr.indexOf('Product'),canSize:hdr.indexOf('Can Size'),pkgFormat:hdr.indexOf('Pkg Format'),start:hdr.indexOf('StartTime'),finish:hdr.indexOf('Finish Time'),cleaning:hdr.indexOf('Cleaning before')};
       scheduleRuns=[];
-      for(var r=hIdx+1;r<data.length;r++){
-        var row=data[r];if(!row||!row[ci.start])continue;
-        var sd=new Date(row[ci.start]);if(isNaN(sd.getTime()))continue;
-        scheduleRuns.push({product:row[ci.product]||'',canSize:String(row[ci.canSize]||'').trim(),pkgFormat:String(row[ci.pkgFormat]||'').trim(),startDt:sd,finishDt:row[ci.finish]?new Date(row[ci.finish]):null,cleaning:row[ci.cleaning]||'None'});
+      for(var r=hIdx+1;r<dataRaw.length;r++){
+        var rowR=dataRaw[r],rowS=dataStr[r];
+        if(!rowR||!rowR[ci.start])continue;
+        var sd=null;
+        var sv=rowR[ci.start];
+        if(sv instanceof Date){sd=sv;}
+        else if(typeof sv==='number'){sd=new Date((sv-25569)*86400*1000);}
+        else{sd=new Date(sv);}
+        if(!sd||isNaN(sd.getTime()))continue;
+        var fd=null;
+        if(rowR[ci.finish]){
+          var fv=rowR[ci.finish];
+          if(fv instanceof Date){fd=fv;}
+          else if(typeof fv==='number'){fd=new Date((fv-25569)*86400*1000);}
+          else{fd=new Date(fv);}
+        }
+        scheduleRuns.push({product:rowS&&rowS[ci.product]?String(rowS[ci.product]):'',canSize:rowS&&rowS[ci.canSize]?String(rowS[ci.canSize]).trim():'',pkgFormat:rowS&&rowS[ci.pkgFormat]?String(rowS[ci.pkgFormat]).trim():'',startDt:sd,finishDt:fd,cleaning:rowS&&rowS[ci.cleaning]?String(rowS[ci.cleaning]):'None'});
       }
       scheduleRuns.sort(function(a,b){return a.startDt-b.startDt;});
       try{localStorage.setItem('bbw_prod_sched',JSON.stringify(scheduleRuns.map(function(r){return {product:r.product,canSize:r.canSize,pkgFormat:r.pkgFormat,start:r.startDt.toISOString(),finish:r.finishDt?r.finishDt.toISOString():null,cleaning:r.cleaning};})));}catch(ex){}
