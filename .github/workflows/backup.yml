@@ -1,1 +1,42 @@
+name: Daily Supabase Backup
 
+on:
+  schedule:
+    # 08:00 UTC every day (~03:00–04:00 Toronto, a quiet time for the line).
+    - cron: '0 8 * * *'
+  workflow_dispatch: {}   # lets you run a backup on demand from the Actions tab
+
+permissions:
+  contents: write          # allows the workflow to commit the snapshot back to the repo
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate backup
+        env:
+          # Optional — only needed if you don't want to rely on the defaults
+          # baked into backup.mjs. Set these as repo secrets to override.
+          SB_URL: ${{ secrets.SB_URL }}
+          SB_KEY: ${{ secrets.SB_KEY }}
+        run: node backup.mjs
+
+      - name: Commit snapshot
+        run: |
+          git config user.name  "bbw-backup-bot"
+          git config user.email "bbw-backup-bot@users.noreply.github.com"
+          git add backups
+          if git diff --cached --quiet; then
+            echo "No data changes today — nothing to commit."
+          else
+            git commit -m "Backup $(date -u +%F)"
+            git push
+          fi
