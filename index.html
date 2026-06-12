@@ -289,16 +289,21 @@
   </div>
 
   <div style="margin-bottom:14px">
-    <div style="font-size:12px;color:#888;margin-bottom:6px" id="lbl-photo">Photo (optional)</div>
-    <div id="photo-area" onclick="document.getElementById('photo-in').click()" style="border:2px dashed #444;border-radius:9px;padding:14px;text-align:center;cursor:pointer;background:#222">
-      <div style="font-size:14px;color:#888" id="photo-lbl">&#128247; Tap to add photo</div>
-      <img id="photo-prev" style="display:none;max-width:100%;max-height:120px;border-radius:7px;margin-top:8px" alt="">
+    <div style="font-size:12px;color:var(--text-2);margin-bottom:6px" id="lbl-photo">Photo (optional)</div>
+    <div style="display:flex;gap:8px">
+      <button type="button" onclick="document.getElementById('photo-in').click()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px">&#128247; <span id="lbl-takephoto">Take Photo</span></button>
+      <button type="button" onclick="document.getElementById('photo-lib').click()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px">&#128194; <span id="lbl-library">From Library</span></button>
+    </div>
+    <div id="photo-area" style="border:1px solid var(--border);border-radius:9px;padding:10px;text-align:center;background:var(--surface-2);margin-top:8px">
+      <div style="font-size:13px;color:var(--text-3)" id="photo-lbl">&#128247; No photo yet</div>
+      <img id="photo-prev" style="display:none;max-width:100%;max-height:120px;border-radius:8px;margin-top:8px" alt="">
     </div>
     <input type="file" id="photo-in" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(this)">
+    <input type="file" id="photo-lib" accept="image/*" style="display:none" onchange="handlePhoto(this)">
   </div>
 
-  <button onclick="submitEntry()" style="width:100%;padding:15px;background:#2563eb;color:#fff;border:none;border-radius:11px;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:10px">Add to Log</button>
-  <button onclick="closeSheet()" style="width:100%;padding:13px;background:#222;color:#aaa;border:1px solid #333;border-radius:11px;font-size:15px;cursor:pointer">Cancel</button>
+  <button onclick="submitEntry()" class="btn-primary" style="width:100%;padding:15px;font-size:17px;margin-bottom:10px" id="submit-btn">Add to Log</button>
+  <button onclick="closeSheet()" class="btn-ghost" style="width:100%;padding:13px;font-size:15px">Cancel</button>
 </div>
 </div>
 
@@ -806,8 +811,10 @@ function openSheet(id){
   gid('f-start').value=ntime(); gid('f-end').value='';
   gid('asearch').value=''; buildAList('');
   gid('photo-prev').style.display='none';
-  gid('photo-area').style.borderColor='#444';
-  gid('photo-lbl').textContent='\uD83D\uDCF7 Tap to add photo';
+  gid('photo-area').style.borderColor='var(--border)';
+  gid('photo-lbl').textContent='\uD83D\uDCF7 No photo yet';
+  if(gid('photo-in'))gid('photo-in').value='';
+  if(gid('photo-lib'))gid('photo-lib').value='';
   document.querySelectorAll('[id^="tp-"]').forEach(function(el){el.style.borderColor='#333';el.style.background='#222';el.style.color='#aaa';});
   document.querySelectorAll('[id^="pp-"]').forEach(function(el){el.style.borderColor='#333';el.style.background='#222';el.style.color='#aaa';});
   gid('fg-part').style.display='none';
@@ -936,9 +943,26 @@ function calcDT(){
 
 function handlePhoto(input){
   var file=input.files[0];if(!file)return;
+  gid('photo-lbl').textContent='\u23F3 Processing\u2026';
   var r=new FileReader();
-  r.onload=function(e){photo=e.target.result;gid('photo-prev').src=photo;gid('photo-prev').style.display='block';gid('photo-area').style.borderColor='#16a34a';gid('photo-lbl').textContent='\uD83D\uDCF7 Photo added';};
+  r.onload=function(ev){
+    var img=new Image();
+    img.onload=function(){
+      var max=1024,w=img.width,h=img.height;
+      if(w>max||h>max){var sc=Math.min(max/w,max/h);w=Math.round(w*sc);h=Math.round(h*sc);}
+      var cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      try{ photo=cv.toDataURL('image/jpeg',0.7); }catch(e){ photo=ev.target.result; }
+      gid('photo-prev').src=photo;gid('photo-prev').style.display='block';
+      gid('photo-area').style.borderColor='var(--ok)';
+      var kb=Math.round(photo.length*0.75/1024);
+      gid('photo-lbl').textContent='\uD83D\uDCF7 Photo added ('+kb+' KB)';
+    };
+    img.onerror=function(){ photo=ev.target.result;gid('photo-prev').src=photo;gid('photo-prev').style.display='block';gid('photo-area').style.borderColor='var(--ok)';gid('photo-lbl').textContent='\uD83D\uDCF7 Photo added'; };
+    img.src=ev.target.result;
+  };
   r.readAsDataURL(file);
+  input.value='';
 }
 
 function submitEntry(){
@@ -982,12 +1006,12 @@ function submitEntry(){
         downtime_hrs:entry.dt||0,part_name:entry.partName||null,part_qty:entry.partQty||null,
         who:entry.who||null,shift_note:entry.shiftNote||null,
         machine_down:entry.machineDown||null,
-        co_mins:entry.coMins||0,co_type:entry.coType||null
+        co_mins:entry.coMins||0,co_type:entry.coType||null,photo:entry.photo||null
       };
       sbFetch('bbw_worklog?id=eq.'+entry.sbId,{method:'PATCH',body:JSON.stringify(pfull),headers:{'Prefer':'return=minimal'}})
         .then(function(r){
           if(r.status===400){
-            var pbase=Object.assign({},pfull); delete pbase.co_mins; delete pbase.co_type;
+            var pbase=Object.assign({},pfull); delete pbase.co_mins; delete pbase.co_type; delete pbase.photo;
             return sbFetch('bbw_worklog?id=eq.'+entry.sbId,{method:'PATCH',body:JSON.stringify(pbase),headers:{'Prefer':'return=minimal'}});
           }
           return r;
@@ -1055,7 +1079,7 @@ function syncEntry(e){
     downtime_hrs:e.dt||0,part_name:e.partName||null,part_qty:e.partQty||null,
     who:e.who||null,shift_note:e.shiftNote||null,
     machine_down:e.machineDown||null,
-    co_mins:e.coMins||0,co_type:e.coType||null,
+    co_mins:e.coMins||0,co_type:e.coType||null,photo:e.photo||null,
     logged_at:e.loggedAt||new Date().toISOString()
   };
   function onSaved(d){
@@ -1074,7 +1098,7 @@ function syncEntry(e){
     .then(function(r){
       if(r.status===400){
         // Changeover columns may not exist yet — retry without them so logging never breaks.
-        var base=Object.assign({},full); delete base.co_mins; delete base.co_type;
+        var base=Object.assign({},full); delete base.co_mins; delete base.co_type; delete base.photo;
         return sbFetch('bbw_worklog',{method:'POST',body:JSON.stringify(base)}).then(function(r2){return r2.json();});
       }
       return r.json();
@@ -1108,7 +1132,7 @@ function loadFromSB(){
           start:r.start_time||'',end:r.end_time||'',dt:r.downtime_hrs||0,
           partName:r.part_name||'',partQty:r.part_qty||'1',who:r.who||'',
           shiftNote:r.shift_note||'',loggedAt:r.logged_at,photo:'',synced:true,
-          machineDown:r.machine_down||'',coMins:r.co_mins||0,coType:r.co_type||''
+          machineDown:r.machine_down||'',coMins:r.co_mins||0,coType:r.co_type||'',photo:r.photo||''
         };
       });
       // Keep local entries pending sync - not yet confirmed by SB
@@ -2044,8 +2068,8 @@ function setLang(l){
     if(el)el.textContent=TRANS[l][tabMap[t]]||el.textContent;
   });
   // Update static UI text
-  var LABELS_EN={'lbl-templates':'Templates','lbl-quickadd':'Quick Add','lbl-type':'Type','lbl-asset':'Asset','lbl-issue':'Issue','lbl-whatdone':'Description / Work done','lbl-start':'Start','lbl-end':'End','lbl-dthrs':'DT hrs','lbl-partnum':'Part name / number','lbl-priority':'Priority','lbl-photo':'Photo (optional)','sheet-title':'Log Work','submit-btn':'Add to Log','pin-title':'Please choose your name'};
-  var LABELS_UK={'lbl-templates':'Шаблони','lbl-quickadd':'Швидке додавання','lbl-type':'Тип','lbl-asset':'Актив','lbl-issue':'Проблема','lbl-whatdone':'Опис / Виконана робота','lbl-start':'Початок','lbl-end':'Кінець','lbl-dthrs':'Простій','lbl-partnum':'Деталь / номер','lbl-priority':'Пріоритет','lbl-photo':'Фото (необов\'язково)','sheet-title':'Записати роботу','submit-btn':'Додати','pin-title':'Будь ласка, виберіть своє ім\'я'};
+  var LABELS_EN={'lbl-templates':'Templates','lbl-quickadd':'Quick Add','lbl-type':'Type','lbl-asset':'Asset','lbl-issue':'Issue','lbl-whatdone':'Description / Work done','lbl-start':'Start','lbl-end':'End','lbl-dthrs':'DT hrs','lbl-partnum':'Part name / number','lbl-priority':'Priority','lbl-photo':'Photo (optional)','lbl-takephoto':'Take Photo','lbl-library':'From Library','sheet-title':'Log Work','submit-btn':'Add to Log','pin-title':'Please choose your name'};
+  var LABELS_UK={'lbl-templates':'Шаблони','lbl-quickadd':'Швидке додавання','lbl-type':'Тип','lbl-asset':'Актив','lbl-issue':'Проблема','lbl-whatdone':'Опис / Виконана робота','lbl-start':'Початок','lbl-end':'Кінець','lbl-dthrs':'Простій','lbl-partnum':'Деталь / номер','lbl-priority':'Пріоритет','lbl-photo':'Фото (необов\'язково)','lbl-takephoto':'Зробити фото','lbl-library':'З галереї','sheet-title':'Записати роботу','submit-btn':'Додати','pin-title':'Будь ласка, виберіть своє ім\'я'};
   var UI=l==='uk'?LABELS_UK:LABELS_EN;
   UI['pin-sub']=l==='uk'?'Виберіть своє ім\'я':'Select your name to continue';
   Object.keys(UI).forEach(function(id){var el=gid(id);if(el)el.textContent=UI[id];});
