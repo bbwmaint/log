@@ -479,7 +479,7 @@ var TRANS = {
     workcsv: 'CSV \u0436\u0443\u0440\u043d\u0430\u043b\u0443', utilcsv: 'CSV \u043a\u043e\u043c\u0443\u043d\u0430\u043b\u044c\u043d\u0438\u0445', recap: '\u041c\u0456\u0441\u044f\u0447\u043d\u0438\u0439 \u0437\u0432\u0456\u0442 Email',
     shiftreport: '\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u0437\u0432\u0456\u0442?', sendnow: '\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438', skip: '\u041f\u0440\u043e\u043f\u0443\u0441\u0442\u0438\u0442\u0438',
     signout: '\u0412\u0438\u0439\u0442\u0438?', back: '\u2190 \u041d\u0430\u0437\u0430\u0434',
-    pm: 'ТО', pmtype: 'ПТО', done: 'Виконано', ongoing: 'Триває', issue: 'Очікує', part: 'Деталі', note: 'Нотатка', urgent: 'Терміново', high: 'Високий', monitor: 'Стежити', info: 'Інфо', assigned: 'Призначено', completed: 'Виконано', parts: 'Деталі замовлено', pending: 'Очікує', Edit:'Редагувати', Delete:'Видалити',"My Log":"Журнал","This Shift":"Зміна","Prev Shift":"Попередня","Utilities":"Комунальні","More":"Більше","Tasks":"Завдання","Issues":"Проблеми","Parts":"Деталі","DT hrs":"Простій","'+'No previous shift data'+'":"Немає даних попередньої зміни","Issues for your shift":"Проблеми для вашої зміни","No urgent issues handed over":"Немає термінових проблем","Completed":"Виконано","Parts to order":"Деталі для замовлення","'+'I have read this handover'+'":"Я прочитав цю передачу","Nothing logged yet":"Нічого не записано","Tap + to log your first task":"Натисніть + щоб додати запис","No entries this shift yet":"Немає записів цієї зміни","PMs Due Today":"ТО на сьогодні","Log Done":"Виконано","No readings logged today yet":"Показники ще не введено сьогодні","Save Readings":"Зберегти показники","Recent Readings":"Останні показники","Once per day":"Раз на день","Shift Report":"Звіт зміни","Monthly Export":"Місячний звіт","Generate Shift Report PDF":"Генерувати PDF звіт","Work Log CSV":"Журнал CSV","Utilities CSV":"Комунальні CSV","Monthly Recap Email":"Місячний звіт Email","Admin — Praful Only":"Адмін — тільки Praful","Reset Technician PINs":"Скидання PIN","Auto-Send (EmailJS)":"Авто-відправка (EmailJS)","Save & Enable Auto-Send":"Зберегти та увімкнути","Test Send Now":"Тестовий відправ","No PMs scheduled for today":"Немає ТО на сьогодні","Summary":"Підсумок","Send to Outlook (PDF attached)":"Надіслати в Outlook (PDF)","Email to Maintenance":"Надіслати на пошту","PDF downloads to your device — attach it in your email before sending.":"PDF завантажиться — додайте його у листі перед надсиланням.","Download PDF":"Завантажити PDF","View":"Переглянути","Cancel":"Скасувати","Download Full Backup":"Завантажити резервну копію"
+    pm: 'ТО', pmtype: 'ПТО', done: 'Виконано', ongoing: 'Триває', issue: 'Очікує', part: 'Деталі', note: 'Нотатка', urgent: 'Терміново', high: 'Високий', monitor: 'Стежити', info: 'Інфо', assigned: 'Призначено', completed: 'Виконано', parts: 'Деталі замовлено', pending: 'Очікує', Edit:'Редагувати', Delete:'Видалити',"My Log":"Журнал","This Shift":"Зміна","Prev Shift":"Попередня","Utilities":"Комунальні","More":"Більше","Tasks":"Завдання","Issues":"Проблеми","Parts":"Деталі","DT hrs":"Простій","'+'No previous shift data'+'":"Немає даних попередньої зміни","Issues for your shift":"Проблеми для вашої зміни","No urgent issues handed over":"Немає термінових проблем","Completed":"Виконано","Parts to order":"Деталі для замовлення","'+'I have read this handover'+'":"Я прочитав цю передачу","Nothing logged yet":"Нічого не записано","Tap + to log your first task":"Натисніть + щоб додати запис","No entries this shift yet":"Немає записів цієї зміни","PMs Due Today":"ТО на сьогодні","Log Done":"Виконано","No readings logged today yet":"Показники ще не введено сьогодні","Save Readings":"Зберегти показники","Recent Readings":"Останні показники","Once per day":"Раз на день","Shift Report":"Звіт зміни","Monthly Export":"Місячний звіт","Generate Shift Report PDF":"Генерувати PDF звіт","Work Log CSV":"Журнал CSV","Utilities CSV":"Комунальні CSV","Monthly Recap Email":"Місячний звіт Email","Admin — Praful Only":"Адмін — тільки Praful","Reset Technician PINs":"Скидання PIN","Auto-Send (EmailJS)":"Авто-відправка (EmailJS)","Save & Enable Auto-Send":"Зберегти та увімкнути","Test Send Now":"Тестовий відправ","No PMs scheduled for today":"Немає ТО на сьогодні","Summary":"Підсумок","Send to Outlook (PDF attached)":"Надіслати в Outlook (PDF)","Email to Maintenance":"Надіслати на пошту","PDF downloads to your device — attach it in your email before sending.":"PDF завантажиться — додайте його у листі перед надсиланням.","Download PDF":"Завантажити PDF","View":"Переглянути","Cancel":"Скасувати","Preparing report…":"Готую звіт…","Download Full Backup":"Завантажити резервну копію"
   }
 };
 
@@ -2201,12 +2201,43 @@ function reportSummaryLines(R){
   } else { L.push('No machine downtime recorded. \u2713'); }
   if(R.totalCO>0){ L.push('Changeovers: '+R.coEvents.length+' totalling '+R.totalCO+' min'+(R.coTypes.length?' ('+R.coTypes.join(', ')+')':'')+'.'); }
   else { L.push('No changeovers this shift.'); }
-  if(R.issues.length){ L.push('\u26A0 '+R.issues.length+' open issue'+(R.issues.length===1?'':'s')+' handed to next shift'+(R.issues.length?': '+R.issues.slice(0,3).map(function(e){return (e.assetName||'?')+(e.issue?' ('+e.issue+')':'');}).join('; ')+(R.issues.length>3?'…':''):'')+'.'); }
+  if(R.issues.length){ L.push('\u26A0 '+R.issues.length+' open issue'+(R.issues.length===1?'':'s')+' handed to next shift'+(R.issues.length?': '+R.issues.slice(0,3).map(function(e){var iss=(R.tmap&&R.tmap[e.issue])?R.tmap[e.issue]:e.issue;return (e.assetName||'?')+(iss?' ('+iss+')':'');}).join('; ')+(R.issues.length>3?'…':''):'')+'.'); }
   else { L.push('Clean handover \u2014 no pending issues. \u2713'); }
   if(R.parts.length){ L.push(R.parts.length+' part'+(R.parts.length===1?'':'s')+' awaiting order.'); }
   return L;
 }
 function reportFileName(R){return 'BBW_Shift_Report_'+R.date+'_'+R.shift+'.pdf';}
+
+// ── Auto-translate Ukrainian → English for reports ──
+function hasCyrillic(t){return t&&/[\u0400-\u04FF]/.test(t);}
+function translateText(text){
+  if(!hasCyrillic(text))return Promise.resolve(text);
+  var url='https://api.mymemory.translated.net/get?q='+encodeURIComponent(text)+'&langpair=uk|en&de='+encodeURIComponent(MAILTO);
+  return fetch(url).then(function(r){return r.json();}).then(function(j){
+    var t=j&&j.responseData&&j.responseData.translatedText;
+    if(!t||/MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(t))return text; // rate-limited → keep original
+    return t;
+  }).catch(function(){return text;});
+}
+// Build a translation map for every Cyrillic issue/description in the report.
+function translateReport(R){
+  var texts={};
+  R.se.forEach(function(e){[e.issue,e.desc].forEach(function(t){if(hasCyrillic(t))texts[t]=1;});});
+  var keys=Object.keys(texts);
+  if(!keys.length){R.tmap={};R.translated=false;return Promise.resolve(R);}
+  R.translated=true;
+  return keys.reduce(function(chain,k){
+    return chain.then(function(){return translateText(k);}).then(function(tr){texts[k]=tr;});
+  },Promise.resolve()).then(function(){R.tmap=texts;return R;});
+}
+function reportLoading(on){
+  var id='report-loading';var ex=document.getElementById(id);
+  if(on){ if(ex)return; var d=document.createElement('div'); d.id=id;
+    d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:flex;align-items:center;justify-content:center';
+    d.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 26px;color:var(--text);font-size:15px;font-weight:600">'+T('Preparing report…')+'</div>';
+    document.body.appendChild(d);
+  } else if(ex){ ex.remove(); }
+}
 
 // Build a real PDF (jsPDF + autotable) and return the Blob.
 function buildReportPDF(R){
@@ -2292,7 +2323,8 @@ function buildReportPDF(R){
     doc.text(t+'  ('+n+')', M+12, y+11);
     y+=20;
   }
-  function descCell(e){var s=(e.issue?e.issue:''); if(e.desc){s+=(s?'\n':'')+e.desc;} return pdfSafe(s)||'-';}
+  function tr(t){return (R.tmap&&R.tmap[t])?R.tmap[t]:t;}
+  function descCell(e){var s=(e.issue?tr(e.issue):''); if(e.desc){s+=(s?'\n':'')+tr(e.desc);} return pdfSafe(s)||'-';}
   if(R.issues.length){ sectTitle('Pending Issues — Next Shift Must Action',[220,38,38],R.issues.length);
     tbl('Issues',[220,38,38],['Asset','Issue / Description','By'],R.issues.map(function(e){return [e.assetName||'General',descCell(e),e.who||''];})); }
   else { if(y>doc.internal.pageSize.getHeight()-90){doc.addPage();y=44;}
@@ -2319,7 +2351,7 @@ function buildReportPDF(R){
       if(h>maxH){ h=maxH; w=h*props.width/props.height; }
       if(y+16+h>pageH-44){ doc.addPage(); y=44; }
       doc.setFont(RF,'bold'); doc.setFontSize(9.5); doc.setTextColor(40,40,40);
-      doc.text(pdfSafe((e.assetName||e.partName||'General')+(e.issue?' \u2014 '+e.issue:'')+(e.who?'  ('+e.who+')':'')), M, y);
+      doc.text(pdfSafe((e.assetName||e.partName||'General')+(e.issue?' \u2014 '+tr(e.issue):'')+(e.who?'  ('+e.who+')':'')), M, y);
       y+=11;
       try{ doc.addImage(e.photo, props.fileType||'JPEG', M, y, w, h, undefined, 'FAST'); }catch(err){}
       y+=h+16;
@@ -2329,7 +2361,7 @@ function buildReportPDF(R){
   var pages=doc.internal.getNumberOfPages();
   for(var p=1;p<=pages;p++){ doc.setPage(p);
     doc.setTextColor(160,160,160); doc.setFont(RF,'normal'); doc.setFontSize(8);
-    doc.text('Generated '+new Date().toLocaleString('en-CA'),M,doc.internal.pageSize.getHeight()-18);
+    doc.text('Generated '+new Date().toLocaleString('en-CA')+(R.translated?'  \u00b7  Ukrainian entries auto-translated':''),M,doc.internal.pageSize.getHeight()-18);
     doc.text('Page '+p+' of '+pages,W-M,doc.internal.pageSize.getHeight()-18,{align:'right'});
   }
   return doc.output('blob');
@@ -2348,25 +2380,35 @@ function reportEmailBody(R){
 function sendReportToOutlook(date,shift){
   var R=computeShiftReport(date,shift);
   var blob,fname=reportFileName(R);
-  try{ blob=buildReportPDF(R); }catch(err){ alert('PDF build failed: '+err.message); return; }
-  var subject=R.date+' \u2014 BBW '+R.shift+' Shift Report';
-  var body='Technicians: '+(R.techs.join(', ')||'\u2014')+'\n\nSUMMARY\n'+reportSummaryLines(R).map(function(l){return '\u2022 '+l;}).join('\n')+'\n\n\u2014\nThe full PDF report ("'+fname+'") was just downloaded to this device. Tap the paperclip / attach in your email and add it before sending.';
-  // 1) Download the PDF so it is ready to attach (reliable in every mail app).
-  downloadBlob(blob,fname);
-  // 2) Open a normal email with recipient + subject + summary prefilled.
-  setTimeout(function(){
-    window.location.href='mailto:'+MAILTO+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
-  },500);
+  reportLoading(true);
+  translateReport(R).then(function(){
+    reportLoading(false);
+    try{ blob=buildReportPDF(R); }catch(err){ alert('PDF build failed: '+err.message); return; }
+    var subject=R.date+' \u2014 BBW '+R.shift+' Shift Report';
+    var body='Technicians: '+(R.techs.join(', ')||'\u2014')+'\n\nSUMMARY\n'+reportSummaryLines(R).map(function(l){return '\u2022 '+l;}).join('\n')+'\n\n\u2014\nThe full PDF report ("'+fname+'") was just downloaded to this device. Tap the paperclip / attach in your email and add it before sending.';
+    downloadBlob(blob,fname);
+    setTimeout(function(){
+      window.location.href='mailto:'+MAILTO+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+    },500);
+  });
 }
 function downloadReportPDF(date,shift){
   var R=computeShiftReport(date,shift);
-  try{ downloadBlob(buildReportPDF(R),reportFileName(R)); }
-  catch(err){ alert('PDF build failed: '+err.message); }
+  reportLoading(true);
+  translateReport(R).then(function(){
+    reportLoading(false);
+    try{ downloadBlob(buildReportPDF(R),reportFileName(R)); }
+    catch(err){ alert('PDF build failed: '+err.message); }
+  });
 }
 function viewReportPDF(date,shift){
   var R=computeShiftReport(date,shift);
-  try{ var url=URL.createObjectURL(buildReportPDF(R)); window.open(url,'_blank'); }
-  catch(err){ openReportHTML(date,shift); }
+  reportLoading(true);
+  translateReport(R).then(function(){
+    reportLoading(false);
+    try{ var url=URL.createObjectURL(buildReportPDF(R)); window.open(url,'_blank'); }
+    catch(err){ openReportHTML(date,shift); }
+  });
 }
 // Action sheet shown after a shift period is picked.
 function pickShiftReport(date,shift){
