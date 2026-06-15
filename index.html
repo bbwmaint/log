@@ -165,6 +165,7 @@
     <button onclick="showTab('util')" id="tab-util" style="flex:1;padding:8px 1px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Utilities</button>
     <button onclick="showTab('schedule')" id="tab-schedule" style="flex:1;padding:8px 1px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Schedule</button>
     <button onclick="showTab('assets')" id="tab-assets" style="flex:1;padding:8px 1px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Assets</button>
+    <button onclick="showTab('reports')" id="tab-reports" style="flex:1;padding:8px 1px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Reports</button>
     <button onclick="showTab('cmms')" id="tab-cmms" style="display:none;flex:1;padding:8px 1px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">CMMS</button>
     <button onclick="showTab('more')" id="tab-more" style="flex:1;padding:8px 1px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">More</button>
   </div>
@@ -179,6 +180,7 @@
   <div id="pane-assets" style="display:none"></div>
   <div id="pane-more" style="display:none"></div>
   <div id="pane-cmms" style="display:none"></div>
+  <div id="pane-reports" style="display:none"></div>
   </div>
 
   <!-- FAB -->
@@ -334,6 +336,9 @@ var ASSETS=[{"n": "Brunswick Bierworks", "c": "BBW1"}, {"n": "Building", "c": "A
 var GROUPS={"Line 1": ["KRONES LINE 1", "FILLER", "DEPALETTIZER", "ECI", "AIR RINSER", "CHECKMAT 1", "CHECKMAT 2", "PASTEURIZER", "DRYING TUNNEL 1", "DRYING TUNNEL 2", "VARIOPAC", "PALLETIZER", "RA J MERIDIAN", "CSW", "Drum Fans", "Seamer", "Logopak", "Lantech Wrapper", "Varioclean", "Line Control #1", "Line Control #2", "Labeler #1", "Labeler #2", "Label Camera", "Videojets", "TAPTONE", "Conti-Flow"], "Brewing": ["20HL Brewhouse", "20HL Mash Kettle", "20HL Lauter Tun", "20HL Whirlpool", "20HL Fermenters", "Hot Liquor Tank", "Cold Liquor Tank", "50HL Brewhouse", "50HL Mash Tun", "50HL Lauter Tun", "50HL Kettle", "50HL Whirlpool", "Malt Mill"], "Cellar": ["Fermenting Cellar", "Bright Beer Cellar", "GEA Centrifuge", "Flash Pasteurizer", "Beer Filter Membrane Skid", "Yeast Room"], "RTD/B3": ["RTD BLENDING B3", "PDS", "MIXER", "DAW TANK 1", "DAW TANK2", "RTD TANK 1", "RTD TANK 2", "RTD TANK 3", "SIMPLE SYRUP TANK"], "Utilities": ["Boiler", "Glycol", "Air", "Water", "CO2", "Electricity", "HVAC", "Gas", "Wastewater PIT"], "Facility": ["Forklift", "Power Walkie", "Floor Scrubber", "Building", "Warehouse", "Lab"]};
 var TECHS=["Praful", "Lahcen", "Viktor", "Adam", "Abin", "Akshay", "Anupam", "Maksym", "Sachin", "Sergei", "Yassine", "Yehor", "Vitalii"];
 var ADMIN="Praful";
+var EDITORS=["Praful","Lahcen"];   // can edit CMMS + Reports (audit control)
+// ====== CMMS ON/OFF SWITCH ======  set to true to show the CMMS tab, false to hide it for everyone
+var CMMS_ENABLED=false;
 // Role per person; anyone not listed is a Maintenance Technician.
 var ROLES={Lahcen:'Maintenance Manager',Praful:'Maintenance Co-ordinator',Viktor:'Maintenance Supervisor'};
 var ROLES_UK={Lahcen:'\u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0437 \u043e\u0431\u0441\u043b\u0443\u0433\u043e\u0432\u0443\u0432\u0430\u043d\u043d\u044f',Praful:'\u041a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u043e\u0440 \u0437 \u043e\u0431\u0441\u043b\u0443\u0433\u043e\u0432\u0443\u0432\u0430\u043d\u043d\u044f',Viktor:'\u041a\u0435\u0440\u0456\u0432\u043d\u0438\u043a \u0437 \u043e\u0431\u0441\u043b\u0443\u0433\u043e\u0432\u0443\u0432\u0430\u043d\u043d\u044f'};
@@ -683,7 +688,7 @@ function pinMismatch(){ gid('pin-err').textContent='PINs do not match'; for(var 
 
 function loginUser(name){
   user=name;
-  try{var _tc=gid('tab-cmms');if(_tc)_tc.style.display=(user===ADMIN)?'':'none';}catch(e){}
+  try{var _tc=gid('tab-cmms');if(_tc)_tc.style.display=(isEditor()&&CMMS_ENABLED)?'':'none';}catch(e){}
   try{gid('uav').textContent=name.charAt(0);}catch(e){console.error('uav',e);}
   try{gid('unm').textContent=name;}catch(e){console.error('unm',e);}
   try{gid('exp-m') && (gid('exp-m').value=new Date().getMonth());}catch(e){}
@@ -725,7 +730,8 @@ function updateClock(){
 
 // TABS
 function showTab(name){
-  ['log','shift','prev','util','assets','schedule','more','cmms'].forEach(function(t){
+  if(name==='cmms'&&!CMMS_ENABLED)name='log';
+  ['log','shift','prev','util','assets','schedule','more','cmms','reports'].forEach(function(t){
     gid('pane-'+t).style.display='none';
     var tb=gid('tab-'+t);
     tb.style.color='var(--text-3)';tb.style.borderBottomColor='transparent';
@@ -737,6 +743,7 @@ function showTab(name){
   if(name==='prev')renderPrev();
   if(name==='util')renderUtil();
   if(name==='assets')renderAssets();
+  if(name==='reports')renderReports();
   if(name==='schedule')renderSchedule();
   if(name==='cmms'){try{renderCMMS();}catch(e){gid('pane-cmms').innerHTML='<div style="padding:20px;color:#f87171;font-size:12px">'+e.message+'</div>';}}
   if(name==='more'){try{renderMore();}catch(e){gid('pane-more').innerHTML='<div style="padding:20px;color:red;font-family:monospace;font-size:12px">ERROR: '+e.message+'<br>'+e.stack.replace(/</g,"&lt;").replace(/\n/g,"<br>")+'</div>';}}
@@ -1066,6 +1073,170 @@ function save(){
   try{localStorage.setItem('bbw_e',JSON.stringify(entries));}catch(e){}
   try{localStorage.setItem('bbw_ae',JSON.stringify(allE.slice(0,3000)));}catch(e){}
 }
+
+// ===================== REPORTS / DOCUMENTS MODULE =====================
+var DOC_ASSET=null;      // {c,n} currently open asset
+var DOC_CAT='calibration';
+var DOC_YEAR='all';
+var DOCS=[];             // bbw_docs rows for current asset
+var FILTERS=[];          // bbw_filters rows for current asset
+var DOC_BUCKET='bbw-docs';
+
+function isEditor(){ return EDITORS.indexOf(user)>=0; }
+function assetCodeFor(name){ var a=ASSETS.filter(function(x){return x.n===name;})[0]; return a?a.c:''; }
+function docCatLabel(c){ return c==='calibration'?'Calibration':c==='service'?'Service Reports':c==='pm'?'PMs':'Filters'; }
+function docToday(){ return new Date().toISOString().slice(0,10); }
+function docFmtDate(iso){ return iso?(''+iso).slice(0,10):''; }
+function yearChipStyle(on){ return 'white-space:nowrap;padding:6px 13px;border-radius:999px;border:1px solid '+(on?'#60a5fa':'var(--border)')+';background:'+(on?'rgba(96,165,250,.15)':'transparent')+';color:'+(on?'#60a5fa':'var(--text-2)')+';font-size:12px;font-weight:600;cursor:pointer'; }
+
+function renderReports(){
+  var el=gid('pane-reports'); if(!el)return;
+  if(DOC_ASSET){ renderDocView(); return; }
+  var H='<div style="margin-bottom:10px"><input id="rep-search" oninput="repFilter(this.value)" placeholder="Search asset name or code\u2026" style="width:100%;padding:11px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:#fff;font-size:14px;box-sizing:border-box"></div>';
+  H+='<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">Tap an asset to view its Calibration, Service and PM documents'+(isEditor()?' and upload files':'')+'.</div>';
+  H+='<div id="rep-list"></div>';
+  el.innerHTML=H;
+  repBuildList('');
+}
+function repFilter(v){ repBuildList(v); }
+function repBuildList(filter){
+  var lower=(filter||'').toLowerCase(), el=gid('rep-list'), html='';
+  Object.keys(GROUPS).forEach(function(grp){
+    var items=ASSETS.filter(function(a){return GROUPS[grp].indexOf(a.n)>=0&&(!filter||a.n.toLowerCase().indexOf(lower)>=0||a.c.toLowerCase().indexOf(lower)>=0);});
+    if(!items.length)return;
+    html+='<div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;padding:8px 4px 4px">'+grp+'</div>';
+    items.forEach(function(a){
+      html+='<div onclick="openAssetDocs(\''+a.c+'\',\''+a.n.replace(/'/g,'&#39;')+'\')" style="padding:12px;background:var(--surface);border-radius:9px;margin-bottom:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">';
+      html+='<span style="color:#fff;font-size:14px">'+a.n+'</span>';
+      html+='<span style="font-size:11px;color:var(--text-3);font-family:monospace">'+a.c+' \u203a</span></div>';
+    });
+  });
+  el.innerHTML=html||'<div style="padding:20px;text-align:center;color:var(--text-3)">No assets found</div>';
+}
+
+function openAssetDocs(code,name){
+  DOC_ASSET={c:code,n:name}; DOC_CAT='calibration'; DOC_YEAR='all'; DOCS=[]; FILTERS=[];
+  if(gid('asset-detail-modal')){ try{closeAssetDetail();}catch(e){} }
+  showTab('reports');
+  loadDocs(); loadFilters();
+}
+function backToReports(){ DOC_ASSET=null; renderReports(); }
+
+function renderDocView(){
+  var el=gid('pane-reports'); if(!el)return; var a=DOC_ASSET;
+  var H='<button onclick="backToReports()" style="background:none;border:none;color:#60a5fa;font-size:15px;cursor:pointer;padding:4px 0;margin-bottom:8px">\u2190 All assets</button>';
+  H+='<div style="font-size:18px;font-weight:800;color:#fff">'+a.n+'</div>';
+  H+='<div style="font-size:12px;color:var(--text-3);font-family:monospace;margin-bottom:14px">'+a.c+'</div>';
+  var cats=[['calibration','Calibration'],['service','Service Reports'],['pm','PMs'],['filters','Filters']];
+  H+='<div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;-webkit-overflow-scrolling:touch">';
+  cats.forEach(function(c){ var on=DOC_CAT===c[0];
+    H+='<button onclick="docCat(\''+c[0]+'\')" style="white-space:nowrap;padding:8px 14px;border-radius:999px;border:1px solid '+(on?'#fff':'var(--border)')+';background:'+(on?'#fff':'transparent')+';color:'+(on?'#000':'var(--text-2)')+';font-size:12.5px;font-weight:700;cursor:pointer">'+c[1]+'</button>';
+  });
+  H+='</div><div id="doc-body"></div>';
+  el.innerHTML=H;
+  if(DOC_CAT==='filters')renderFiltersSection(); else renderDocList();
+}
+function docCat(c){ DOC_CAT=c; DOC_YEAR='all'; renderDocView(); }
+
+function renderDocList(){
+  var body=gid('doc-body'); if(!body)return;
+  var catDocs=DOCS.filter(function(d){return d.category===DOC_CAT;});
+  var years=[]; catDocs.forEach(function(d){ if(years.indexOf(d.year)<0&&d.year)years.push(d.year); });
+  var cy=new Date().getFullYear(); if(years.indexOf(cy)<0)years.push(cy);
+  years.sort(function(a,b){return b-a;});
+  var H='<div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:12px">';
+  H+='<button onclick="docYear(\'all\')" style="'+yearChipStyle(DOC_YEAR==='all')+'">All</button>';
+  years.forEach(function(y){ H+='<button onclick="docYear('+y+')" style="'+yearChipStyle(DOC_YEAR==y)+'">'+y+'</button>'; });
+  H+='</div>';
+  if(isEditor()){
+    H+='<div onclick="docUploadPick()" style="border:1.5px dashed var(--border);border-radius:10px;padding:14px;text-align:center;color:#60a5fa;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px">+ Upload PDF to '+docCatLabel(DOC_CAT)+'</div>';
+    H+='<input type="file" id="doc-file" accept="application/pdf,image/*" style="display:none" onchange="docUpload(this)">';
+  }
+  var shown=catDocs.filter(function(d){return DOC_YEAR==='all'||d.year==DOC_YEAR;});
+  shown.sort(function(a,b){return (b.created_at||'').localeCompare(a.created_at||'');});
+  if(!shown.length){ H+='<div style="padding:28px;text-align:center;color:var(--text-3);font-size:13px">No '+docCatLabel(DOC_CAT)+' documents'+(DOC_YEAR!=='all'?' for '+DOC_YEAR:'')+' yet.</div>'; }
+  else shown.forEach(function(d){
+    H+='<div style="background:var(--surface);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:11px">';
+    H+='<div style="font-size:20px">\ud83d\udcc4</div>';
+    H+='<div style="flex:1;min-width:0;cursor:pointer" onclick="docOpen(\''+d.id+'\')">';
+    H+='<div style="font-size:13.5px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(d.filename||'document')+'</div>';
+    H+='<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+(d.year||'')+' \u2022 '+(d.uploaded_by||'')+' \u2022 '+docFmtDate(d.created_at)+'</div></div>';
+    H+='<button onclick="docOpen(\''+d.id+'\')" style="background:var(--surface-3);border:none;color:#60a5fa;font-size:12px;padding:7px 11px;border-radius:8px;cursor:pointer">View</button>';
+    if(isEditor()) H+='<button onclick="docDelete(\''+d.id+'\')" style="background:none;border:none;color:#ef4444;font-size:12px;padding:7px 2px;cursor:pointer">Delete</button>';
+    H+='</div>';
+  });
+  body.innerHTML=H;
+}
+function docYear(y){ DOC_YEAR=y; renderDocList(); }
+
+function loadDocs(){
+  var body=gid('doc-body'); if(body&&DOC_CAT!=='filters')body.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-3)">Loading\u2026</div>';
+  sbFetch('bbw_docs?asset_code=eq.'+encodeURIComponent(DOC_ASSET.c)+'&select=*&order=created_at.desc').then(function(r){return r.json();}).then(function(rows){
+    DOCS=Array.isArray(rows)?rows:[]; if(DOC_ASSET&&DOC_CAT!=='filters')renderDocList();
+  }).catch(function(){ DOCS=[]; if(DOC_ASSET&&DOC_CAT!=='filters')renderDocList(); });
+}
+function docUploadPick(){ var f=gid('doc-file'); if(f)f.click(); }
+function docUpload(input){
+  var file=input.files&&input.files[0]; if(!file)return;
+  var yr=(DOC_YEAR!=='all')?DOC_YEAR:new Date().getFullYear();
+  var safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  var path=DOC_ASSET.c+'/'+DOC_CAT+'/'+yr+'/'+Date.now()+'_'+safe;
+  var body=gid('doc-body'); var prev=body?body.innerHTML:''; if(body)body.innerHTML='<div style="padding:24px;text-align:center;color:#60a5fa">Uploading '+file.name+'\u2026</div>';
+  fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},body:file})
+   .then(function(r){ if(!r.ok)throw new Error('storage '+r.status); return sbFetch('bbw_docs',{method:'POST',body:JSON.stringify({asset_code:DOC_ASSET.c,asset_name:DOC_ASSET.n,category:DOC_CAT,year:yr,filename:file.name,storage_path:path,uploaded_by:user})}); })
+   .then(function(r){ return r.json(); })
+   .then(function(){ input.value=''; DOCS=[]; loadDocs(); })
+   .catch(function(e){ alert('Upload failed: '+e.message+'.\nMake sure the "bbw-docs" storage bucket and bbw_docs table are set up.'); if(body)body.innerHTML=prev; });
+}
+function docOpen(id){ var d=DOCS.filter(function(x){return ''+x.id===''+id;})[0]; if(!d)return; window.open(SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(d.storage_path),'_blank'); }
+function docDelete(id){ var d=DOCS.filter(function(x){return ''+x.id===''+id;})[0]; if(!d)return; if(!confirm('Delete "'+(d.filename||'this file')+'"? This cannot be undone.'))return;
+  fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(d.storage_path),{method:'DELETE',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY}})
+   .then(function(){ return sbFetch('bbw_docs?id=eq.'+d.id,{method:'DELETE'}); })
+   .then(function(){ DOCS=[]; loadDocs(); })
+   .catch(function(e){ alert('Delete failed: '+e.message); });
+}
+
+// ---- Filters register ----
+function renderFiltersSection(){
+  var body=gid('doc-body'); if(!body)return; var H='';
+  H+='<div style="font-size:12px;color:var(--text-3);margin-bottom:10px">Filters in use for this asset \u2014 model, quantity, and next change due.</div>';
+  if(isEditor()) H+='<div onclick="filterAdd()" style="border:1.5px dashed var(--border);border-radius:10px;padding:12px;text-align:center;color:#60a5fa;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px">+ Add filter record</div>';
+  var recs=FILTERS.slice();
+  if(!recs.length){ H+='<div style="padding:24px;text-align:center;color:var(--text-3);font-size:13px">No filter records yet'+(isEditor()?'.':' \u2014 ask Praful or Lahcen to add them.')+'</div>'; }
+  else recs.forEach(function(f){
+    var due=f.next_due, od=due&&due<docToday();
+    H+='<div style="background:var(--surface);border-radius:10px;padding:12px 14px;margin-bottom:8px">';
+    H+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">';
+    H+='<div style="flex:1"><div style="font-size:14px;color:#fff;font-weight:700">'+(f.filter_model||'Filter')+'</div>';
+    H+='<div style="font-size:11.5px;color:var(--text-3);margin-top:3px">'+(f.location?f.location+' \u2022 ':'')+'Qty '+(f.qty||1)+(f.interval_label?' \u2022 every '+f.interval_label:'')+'</div>';
+    if(f.last_changed)H+='<div style="font-size:11px;color:var(--text-3);margin-top:2px">Last changed '+f.last_changed+'</div>';
+    H+='</div><div style="text-align:right"><div style="font-size:10px;color:var(--text-3);text-transform:uppercase">Next due</div>';
+    H+='<div style="font-size:13px;font-weight:700;color:'+(od?'#ef4444':'#4ade80')+'">'+(due||'\u2014')+'</div></div></div>';
+    if(isEditor()){ H+='<div style="display:flex;gap:8px;margin-top:10px;border-top:1px solid var(--surface-2);padding-top:8px">';
+      H+='<button onclick="filterEdit(\''+f.id+'\')" style="flex:1;background:var(--surface-3);border:none;color:#fff;font-size:12px;padding:7px;border-radius:7px;cursor:pointer">Edit</button>';
+      H+='<button onclick="filterDel(\''+f.id+'\')" style="flex:1;background:none;border:1px solid #ef4444;color:#ef4444;font-size:12px;padding:7px;border-radius:7px;cursor:pointer">Delete</button></div>'; }
+    H+='</div>';
+  });
+  body.innerHTML=H;
+}
+function loadFilters(){
+  sbFetch('bbw_filters?asset_code=eq.'+encodeURIComponent(DOC_ASSET.c)+'&select=*&order=next_due.asc').then(function(r){return r.json();}).then(function(rows){ FILTERS=Array.isArray(rows)?rows:[]; if(DOC_ASSET&&DOC_CAT==='filters')renderFiltersSection(); }).catch(function(){ FILTERS=[]; });
+}
+function filterAdd(){ filterForm(null); }
+function filterEdit(id){ filterForm(FILTERS.filter(function(x){return ''+x.id===''+id;})[0]); }
+function filterForm(f){
+  var model=prompt('Filter model / part no.:', f?f.filter_model:''); if(model===null)return;
+  var loc=prompt('Location (e.g. Return air) \u2014 optional:', f?(f.location||''):'')||'';
+  var qty=prompt('Quantity:', f?(f.qty||1):'1')||'1';
+  var last=prompt('Last changed (YYYY-MM-DD) \u2014 optional:', f?(f.last_changed||''):'')||'';
+  var nd=prompt('Next due (YYYY-MM-DD):', f?(f.next_due||''):'')||'';
+  var intv=prompt('Change interval label (e.g. 3 months) \u2014 optional:', f?(f.interval_label||''):'')||'';
+  var rec={asset_code:DOC_ASSET.c,asset_name:DOC_ASSET.n,filter_model:model,location:loc,qty:parseInt(qty)||1,last_changed:last||null,next_due:nd||null,interval_label:intv,updated_by:user};
+  var p=f?sbFetch('bbw_filters?id=eq.'+f.id,{method:'PATCH',body:JSON.stringify(rec)}):sbFetch('bbw_filters',{method:'POST',body:JSON.stringify(rec)});
+  p.then(function(r){return r.json();}).then(function(){ FILTERS=[]; loadFilters(); }).catch(function(e){ alert('Save failed: '+e.message+'.\nIs the bbw_filters table set up?'); });
+}
+function filterDel(id){ var f=FILTERS.filter(function(x){return ''+x.id===''+id;})[0]; if(!f)return; if(!confirm('Delete this filter record?'))return; sbFetch('bbw_filters?id=eq.'+f.id,{method:'DELETE'}).then(function(){ FILTERS=[]; loadFilters(); }).catch(function(e){ alert('Delete failed: '+e.message); }); }
+// =================== END REPORTS / DOCUMENTS MODULE ===================
 
 function sbFetch(path,opts){
   opts=opts||{};
@@ -1652,6 +1823,7 @@ function showAssetDetail(assetName){
 
   // Stats
   H+='<div style="padding:14px 16px">';
+  H+='<button onclick="openAssetDocs(\''+assetCodeFor(assetName)+'\',\''+assetName.replace(/'/g,"&#39;")+'\')" style="width:100%;padding:13px;margin-bottom:14px;background:linear-gradient(95deg,#2563eb,#3b82f6);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer">\ud83d\udcc1 Reports &amp; Documents</button>';
   H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
   H+='<div style="background:var(--surface);border-radius:10px;padding:10px;text-align:center">';
   H+='<div style="font-size:20px;font-weight:800;color:#fff">'+logs.length+'</div>';
@@ -2178,7 +2350,7 @@ function seedCMMS(){
 
 function renderCMMS(){
   var el=gid('pane-cmms'); if(!el)return;
-  if(user!==ADMIN){el.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-3)">This section is admin-only.</div>';return;}
+  if(!isEditor()){el.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-3)">This section is for managers only.</div>';return;}
   el.innerHTML='<div style="text-align:center;color:var(--text-3);padding:36px;font-size:14px">Loading CMMS\u2026</div>';
   loadCMMS().then(function(){renderCMMSView();}).catch(function(e){
     el.innerHTML='<div style="padding:20px;color:#f87171;font-size:13px;line-height:1.6">Couldn\u2019t load CMMS: '+e.message+'.<br><br>Make sure the <b>bbw_pms</b> and <b>bbw_wos</b> tables exist (run the SQL), then reopen this tab.</div>';
