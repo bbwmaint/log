@@ -108,6 +108,7 @@
           <div onclick="pk(0)" style="padding:18px;background:var(--surface-3);border-radius:11px;text-align:center;font-size:24px;font-weight:600;color:#fff;cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent" onmousedown="this.style.background='#30303a'" onmouseup="this.style.background='var(--surface-3)'">0</div>
           <div onclick="pdel()" style="padding:18px;background:var(--surface-3);border-radius:11px;text-align:center;font-size:22px;color:var(--text-2);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent" onmousedown="this.style.background='#30303a'" onmouseup="this.style.background='var(--surface-3)'">&#9003;</div>
         </div>
+        <label style="display:flex;align-items:center;justify-content:center;gap:9px;margin-top:18px;font-size:13px;color:var(--text-2);cursor:pointer;user-select:none"><input type="checkbox" id="keep-logged" checked style="width:18px;height:18px;accent-color:#fff;cursor:pointer">Keep me logged in on this device</label>
       </div>
 
     </div>
@@ -164,8 +165,8 @@
     <button onclick="showTab('util')" id="tab-util" style="flex:1;padding:8px 1px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Utilities</button>
     <button onclick="showTab('schedule')" id="tab-schedule" style="flex:1;padding:8px 1px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Schedule</button>
     <button onclick="showTab('assets')" id="tab-assets" style="flex:1;padding:8px 1px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Assets</button>
-    <button onclick="showTab('more')" id="tab-more" style="flex:1;padding:8px 1px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">More</button>
     <button onclick="showTab('cmms')" id="tab-cmms" style="display:none;flex:1;padding:8px 1px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">CMMS</button>
+    <button onclick="showTab('more')" id="tab-more" style="flex:1;padding:8px 1px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">More</button>
   </div>
 
   <!-- CONTENT -->
@@ -436,6 +437,7 @@ var techSchedule = {};
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
+var PIN_CENTRAL=true;
 
 var lang = 'en';
 var TRANS = {
@@ -509,6 +511,7 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   try{allE=JSON.parse(localStorage.getItem('bbw_ae')||'[]');}catch(e){allE=[];}
   try{utilLogs=JSON.parse(localStorage.getItem('bbw_util')||'[]');}catch(e){utilLogs=[];}
   localStorage.removeItem('bbw_sess');
+  try{var _keep=localStorage.getItem('bbw_keepuser');if(_keep&&TECHS.indexOf(_keep)>=0){setTimeout(function(){loginUser(_keep);},0);}}catch(e){}
   var savedLang=localStorage.getItem('bbw_lang')||'en';
   buildNames();
   buildTemplates();
@@ -576,24 +579,46 @@ function buildNames(){
 
 function onNameSelect(v){if(v)selName(v);}
 
+function sbRPC(fn,args){
+  return fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/json'},body:JSON.stringify(args||{})}).then(function(r){if(!r.ok)throw new Error('rpc '+r.status);return r.json();});
+}
+function rememberAndLogin(name){
+  try{var cb=gid('keep-logged');if(cb){if(cb.checked)localStorage.setItem('bbw_keepuser',name);else localStorage.removeItem('bbw_keepuser');}}catch(e){}
+  loginUser(name);
+}
 function selName(name){
   puser=name; pbuf=''; psfirst='';
-  var has=!!localStorage.getItem('pin_'+name);
-  pstep=has?'enter':'setup';
-  var rc=roleColor(name), role=roleOf(name);
-  var welcome=(typeof lang!=='undefined'&&lang==='uk')?(has?'\u0417 \u043f\u043e\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f\u043c, ':'\u0412\u0456\u0442\u0430\u0454\u043c\u043e, '):(has?'Welcome back, ':'Welcome, ');
-  gid('pin-title').innerHTML=welcome+'<span style="background:linear-gradient(95deg,'+rc+',#ffffff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:'+rc+';font-weight:800">'+name+'</span>';
-  var roleEl=gid('pin-role');
-  if(roleEl){roleEl.style.display='block';
-    roleEl.innerHTML='<span style="display:inline-block;padding:5px 13px;border-radius:999px;background:'+rc+'1f;color:'+rc+';font-size:12.5px;font-weight:700;letter-spacing:.03em;border:1px solid '+rc+'55">'+role+'</span>';}
-  var enterPin=(typeof lang!=='undefined'&&lang==='uk')?'\u0411\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u0432\u0432\u0435\u0434\u0456\u0442\u044c PIN':'Please enter your PIN';
-  gid('pin-sub').textContent=has?enterPin:'First time — create your PIN';
-  gid('pin-msg').textContent=has?enterPin:'Choose a 4-digit PIN';
-  gid('pin-err').textContent='';
   gid('step-names').style.display='none';
   gid('step-pad').style.display='block';
   gid('pin-back').style.display='inline';
+  gid('pin-err').textContent='';
   updDots();
+  if(name===ADMIN){ applyPinMode('enter'); return; }
+  // Ask Supabase whether this person already has a PIN (central source of truth)
+  gid('pin-title').textContent='\u2026';
+  gid('pin-sub').textContent='Checking\u2026';
+  gid('pin-msg').textContent='';
+  if(gid('pin-role'))gid('pin-role').style.display='none';
+  sbRPC('pin_status',{p_name:name}).then(function(status){
+    PIN_CENTRAL=true; applyPinMode(status==='set'?'enter':'setup');
+  }).catch(function(){
+    // Central PINs not available yet (SQL not run) -> safe local fallback
+    PIN_CENTRAL=false; applyPinMode(localStorage.getItem('pin_'+name)?'enter':'setup');
+  });
+}
+function applyPinMode(mode){
+  pstep=mode; psfirst=''; pbuf=''; updDots();
+  var name=puser, has=(mode==='enter');
+  var rc=roleColor(name), role=roleOf(name);
+  var uk=(typeof lang!=='undefined'&&lang==='uk');
+  var welcome=uk?(has?'\u0417 \u043f\u043e\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f\u043c, ':'\u0412\u0456\u0442\u0430\u0454\u043c\u043e, '):(has?'Welcome back, ':'Welcome, ');
+  gid('pin-title').innerHTML=welcome+'<span style="background:linear-gradient(95deg,'+rc+',#ffffff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:'+rc+';font-weight:800">'+name+'</span>';
+  var roleEl=gid('pin-role');
+  if(roleEl){roleEl.style.display='block';roleEl.innerHTML='<span style="display:inline-block;padding:5px 13px;border-radius:999px;background:'+rc+'1f;color:'+rc+';font-size:12.5px;font-weight:700;letter-spacing:.03em;border:1px solid '+rc+'55">'+role+'</span>';}
+  var enterPin=uk?'\u0411\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u0432\u0432\u0435\u0434\u0456\u0442\u044c PIN':'Please enter your PIN';
+  gid('pin-sub').textContent=has?enterPin:'First time \u2014 create your PIN';
+  gid('pin-msg').textContent=has?enterPin:'Choose a 4-digit PIN';
+  gid('pin-err').textContent='';
 }
 
 function showNames(){
@@ -631,33 +656,25 @@ function updDots(){
 
 function checkPin(){
   if(pstep==='enter'){
-    var stored=localStorage.getItem('pin_'+puser);
-    // Admin always uses APIN - ignore stored pin
-    if(puser===ADMIN&&pbuf===APIN){
-      loginUser(puser);return;
-    }
-    if(pbuf===stored){
-      loginUser(puser);
+    if(puser===ADMIN&&pbuf===APIN){ if(PIN_CENTRAL){sbRPC('set_pin',{p_name:ADMIN,p_pin:APIN}).catch(function(){});} rememberAndLogin(puser); return; }
+    if(PIN_CENTRAL){
+      var entered=pbuf;
+      sbRPC('verify_pin',{p_name:puser,p_pin:entered}).then(function(ok){ if(ok)rememberAndLogin(puser); else pinBad('Incorrect PIN'); }).catch(function(){ pinBad('Network error \u2014 try again'); });
     }else{
-      gid('pin-err').textContent='Incorrect PIN';
-      for(var i=0;i<4;i++){var d=gid('d'+i);d.style.background='#ef4444';d.style.borderColor='#ef4444';}
-      setTimeout(function(){pbuf='';updDots();},700);
+      if(pbuf===localStorage.getItem('pin_'+puser)) rememberAndLogin(puser); else pinBad('Incorrect PIN');
     }
   }else{
-    if(!psfirst){
-      psfirst=pbuf; pbuf=''; updDots();
-      gid('pin-msg').textContent='Confirm your PIN';
-      gid('pin-sub').textContent='Enter PIN again';
-    }else if(pbuf===psfirst){
-      localStorage.setItem('pin_'+puser,pbuf);
-      loginUser(puser);
-    }else{
-      gid('pin-err').textContent='PINs do not match';
-      for(var i=0;i<4;i++){var d=gid('d'+i);d.style.background='#ef4444';d.style.borderColor='#ef4444';}
-      setTimeout(function(){pbuf='';psfirst='';updDots();gid('pin-msg').textContent='Try again';},800);
-    }
+    if(!psfirst){ psfirst=pbuf; pbuf=''; updDots(); gid('pin-msg').textContent='Confirm your PIN'; gid('pin-sub').textContent='Enter PIN again'; return; }
+    if(pbuf===psfirst){
+      var np=pbuf;
+      if(PIN_CENTRAL){
+        sbRPC('set_pin',{p_name:puser,p_pin:np}).then(function(created){ if(created)rememberAndLogin(puser); else { applyPinMode('enter'); gid('pin-err').textContent='A PIN already exists \u2014 please enter it'; } }).catch(function(){ pinBad('Network error \u2014 try again'); });
+      }else{ localStorage.setItem('pin_'+puser,np); rememberAndLogin(puser); }
+    }else{ pinMismatch(); }
   }
 }
+function pinBad(msg){ gid('pin-err').textContent=msg; for(var i=0;i<4;i++){var d=gid('d'+i);d.style.background='#ef4444';d.style.borderColor='#ef4444';} setTimeout(function(){pbuf='';updDots();},700); }
+function pinMismatch(){ gid('pin-err').textContent='PINs do not match'; for(var i=0;i<4;i++){var d=gid('d'+i);d.style.background='#ef4444';d.style.borderColor='#ef4444';} setTimeout(function(){pbuf='';psfirst='';updDots();gid('pin-msg').textContent='Try again';},800); }
 
 function loginUser(name){
   user=name;
@@ -681,7 +698,7 @@ function loginUser(name){
     var pt;
     chip.addEventListener('touchstart',function(){pt=setTimeout(function(){if(user===ADMIN)alert('Admin: coming soon');},1000);},{passive:true});
     chip.addEventListener('touchend',function(){clearTimeout(pt);},{passive:true});
-    chip.addEventListener('click',function(){if(confirm('Sign out?')){user=null;showPage('pg-pin');showNames();}});
+    chip.addEventListener('click',function(){if(confirm('Sign out?')){user=null;localStorage.removeItem('bbw_keepuser');showPage('pg-pin');showNames();}});
   }
 }
 
@@ -2172,9 +2189,14 @@ function renderCMMSView(){
   }).join('')+'</div>';
   var body;
   if(CMMS_SUB==='pms')body='<div id="cmms-pms"></div>';
-  else body='<div style="padding:44px 20px;text-align:center;color:var(--text-3);font-size:14px;line-height:1.6">'+({wos:'Work Orders',compliance:'Compliance',calendar:'Calendar'})[CMMS_SUB]+'<br><span style="font-size:12px">Coming in the next increment.</span></div>';
+  else if(CMMS_SUB==='wos')body='<div id="cmms-wos"></div>';
+  else if(CMMS_SUB==='compliance')body='<div id="cmms-comp"></div>';
+  else body='<div id="cmms-cal"></div>';
   el.innerHTML=nav+body;
   if(CMMS_SUB==='pms')renderPMModule();
+  else if(CMMS_SUB==='wos')renderWOModule();
+  else if(CMMS_SUB==='compliance')renderComplianceModule();
+  else if(CMMS_SUB==='calendar')renderCalendarModule();
 }
 
 function renderPMModule(){
@@ -2292,6 +2314,246 @@ function deletePM(id){
   var p=CMMS_PMS.filter(function(x){return x.id===id;})[0]; if(!p)return;
   if(!confirm('Delete '+(p.code||'this PM')+'? This cannot be undone.'))return;
   sbFetch('bbw_pms?id=eq.'+id,{method:'DELETE',headers:{'Prefer':'return=minimal'}}).then(function(){CMMS_PMS=CMMS_PMS.filter(function(x){return x.id!==id;});cmmsRenderPMList();});
+}
+
+// ═══════════════ CMMS — Work Orders ═══════════════
+var WOS=[]; var WOS_LOADED=false;
+var WO_FILTER={status:'open',assignee:''};
+
+function loadWOs(force){
+  if(WOS_LOADED&&!force)return Promise.resolve(WOS);
+  return sbFetch('bbw_wos?select=*&order=due_date.asc&limit=5000').then(function(r){
+    if(!r.ok)throw new Error('bbw_wos table not found');return r.json();
+  }).then(function(rows){WOS=rows||[];WOS_LOADED=true;return WOS;});
+}
+function woNextCode(){var maxN=WOS.reduce(function(m,w){var n=parseInt(String(w.wo_code||'').replace(/\D/g,''),10);return (n&&n>m)?n:m;},5000);return maxN;}
+function generateWOs(){
+  return Promise.all([loadCMMS(),loadWOs(true)]).then(function(){
+    var today=pmISO(new Date());
+    var openByPm={}; WOS.forEach(function(w){if(w.pm_id&&w.status!=='completed')openByPm[w.pm_id]=true;});
+    var made=[];
+    CMMS_PMS.forEach(function(p){
+      if(!p.active||!p.next_due||p.next_due>today)return;
+      if(openByPm[p.id])return;
+      made.push({pm_id:p.id,pm_code:p.code,asset:p.asset,asset_code:p.asset_code,description:p.description,priority:p.priority,wo_type:p.pm_type,assignee:p.assignee,status:'open',due_date:p.next_due,hours_est:p.hours});
+    });
+    if(!made.length)return 0;
+    var base=woNextCode();
+    made.forEach(function(w,i){w.wo_code='WO'+(base+1+i);});
+    return sbFetch('bbw_wos',{method:'POST',body:JSON.stringify(made),headers:{'Prefer':'return=minimal'}}).then(function(r){return r.ok?made.length:-1;});
+  });
+}
+
+var WO_STATUS={open:{label:'Open',col:'#9b9ba3'},assigned:{label:'Assigned',col:'#60a5fa'},in_progress:{label:'In Progress',col:'#fbbf24'},completed:{label:'Completed',col:'#34d399'}};
+
+function renderWOModule(){
+  var host=gid('cmms-wos'); if(!host)return;
+  host.innerHTML='<div style="text-align:center;color:var(--text-3);padding:24px;font-size:13px">Loading work orders\u2026</div>';
+  loadWOs(true).then(function(){
+    var assignees=Array.from(new Set(WOS.map(function(w){return w.assignee;}).filter(Boolean))).sort();
+    var H='';
+    H+='<div style="display:flex;gap:8px;margin-bottom:11px">';
+    H+='<button onclick="doGenerateWOs(this)" class="btn-primary" style="flex:1;padding:11px;font-size:13px">\u2699\ufe0f Generate due WOs</button>';
+    H+='<button onclick="openWOForm()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px">+ Work order</button>';
+    H+='</div>';
+    H+='<div style="display:flex;gap:7px;margin-bottom:12px">';
+    H+='<select onchange="WO_FILTER.status=this.value;renderWOList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px">'+
+       ['open','assigned','in_progress','completed','all'].map(function(s){return '<option value="'+s+'"'+(WO_FILTER.status===s?' selected':'')+'>'+(s==='all'?'All statuses':WO_STATUS[s].label)+'</option>';}).join('')+'</select>';
+    H+='<select onchange="WO_FILTER.assignee=this.value;renderWOList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px"><option value="">All techs</option>'+assignees.map(function(a){return '<option'+(WO_FILTER.assignee===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select>';
+    H+='</div><div id="wo-list"></div>';
+    host.innerHTML=H;
+    renderWOList();
+  }).catch(function(e){host.innerHTML='<div style="padding:18px;color:#f87171;font-size:13px">'+e.message+'. Run the bbw_wos SQL, then reopen.</div>';});
+}
+function doGenerateWOs(btn){
+  if(btn){btn.disabled=true;btn.textContent='Generating\u2026';}
+  generateWOs().then(function(n){
+    if(btn){btn.disabled=false;btn.innerHTML='\u2699\ufe0f Generate due WOs';}
+    if(n<0){alert('Generate failed \u2014 check the bbw_wos table.');return;}
+    renderWOModule();
+    setTimeout(function(){alert(n===0?'No new work orders \u2014 nothing is due that doesn\u2019t already have an open WO.':n+' work order'+(n>1?'s':'')+' generated.');},150);
+  }).catch(function(e){if(btn){btn.disabled=false;btn.innerHTML='\u2699\ufe0f Generate due WOs';}alert('Generate failed: '+e.message);});
+}
+function woFilter(){
+  return WOS.filter(function(w){
+    if(WO_FILTER.status!=='all'&&w.status!==WO_FILTER.status)return false;
+    if(WO_FILTER.assignee&&w.assignee!==WO_FILTER.assignee)return false;
+    return true;
+  });
+}
+function renderWOList(){
+  var host=gid('wo-list'); if(!host)return;
+  var list=woFilter().sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');});
+  if(!list.length){host.innerHTML='<div style="color:var(--text-3);text-align:center;padding:30px;font-size:13px">No work orders'+(WO_FILTER.status!=='all'?' ('+ (WO_STATUS[WO_FILTER.status]?WO_STATUS[WO_FILTER.status].label.toLowerCase():WO_FILTER.status) +')':'')+'.</div>';return;}
+  var today=pmISO(new Date());
+  host.innerHTML='<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">'+list.length+' work order'+(list.length>1?'s':'')+'</div>'+list.map(function(w){
+    var st=WO_STATUS[w.status]||WO_STATUS.open;
+    var pc={Highest:'#f87171',High:'#fb923c',Medium:'#fbbf24',Low:'#9b9ba3'}[w.priority]||'var(--text-3)';
+    var overdue=w.status!=='completed'&&w.due_date&&w.due_date<today;
+    var H='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:9px">';
+    H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">';
+    H+='<div style="min-width:0"><div style="font-size:11px;color:var(--text-3);font-family:monospace">'+(w.wo_code||'')+(w.pm_code?' \u00b7 '+w.pm_code:' \u00b7 manual')+'</div>';
+    H+='<div style="font-size:14px;font-weight:700;color:var(--text);margin:2px 0;line-height:1.3">'+(w.description||'(no description)')+'</div>';
+    H+='<div style="font-size:12px;color:var(--text-2)">'+(w.asset||'')+(w.asset_code?' \u00b7 '+w.asset_code:'')+'</div></div>';
+    H+='<span style="background:'+st.col+'22;color:'+st.col+';font-size:10px;font-weight:800;padding:4px 9px;border-radius:999px;white-space:nowrap;border:1px solid '+st.col+'55">'+st.label+'</span>';
+    H+='</div>';
+    H+='<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:9px;font-size:11.5px;color:var(--text-3)">';
+    if(w.priority)H+='<span style="color:'+pc+';font-weight:700">'+w.priority+'</span>';
+    if(w.assignee)H+='<span>\u00b7 '+w.assignee+'</span>';
+    if(w.hours_est)H+='<span>\u00b7 '+w.hours_est+'h est</span>';
+    H+='<span style="margin-left:auto'+(overdue?';color:#f87171;font-weight:700':'')+'">'+(overdue?'Overdue ':'Due ')+(w.due_date||'\u2014')+'</span>';
+    H+='</div>';
+    H+='<div style="display:flex;gap:7px;margin-top:11px;padding-top:10px;border-top:1px solid var(--border)">';
+    if(w.status==='open')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Assign</button>';
+    if(w.status==='assigned')H+='<button onclick="woStatus('+w.id+',\'in_progress\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Start</button>';
+    if(w.status==='in_progress')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Pause</button>';
+    if(w.status!=='completed')H+='<button onclick="completeWO('+w.id+')" class="btn-primary" style="flex:1;height:31px;font-size:12px">Complete</button>';
+    if(w.status==='completed')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Reopen</button>';
+    H+='<button onclick="openWOForm('+w.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Edit</button>';
+    H+='<button onclick="deleteWO('+w.id+')" class="btn-ghost" style="width:42px;height:31px;font-size:12px;color:var(--bad)">\u2715</button>';
+    H+='</div>';
+    if(w.status==='completed'&&w.completed_by)H+='<div style="font-size:10.5px;color:var(--text-3);margin-top:7px">Completed by '+w.completed_by+(w.completed_at?' \u00b7 '+w.completed_at.slice(0,10):'')+'</div>';
+    H+='</div>';
+    return H;
+  }).join('');
+}
+function woStatus(id,status){
+  sbFetch('bbw_wos?id=eq.'+id,{method:'PATCH',body:JSON.stringify({status:status,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}}).then(function(){var w=WOS.filter(function(x){return x.id===id;})[0];if(w)w.status=status;renderWOList();});
+}
+function completeWO(id){
+  var w=WOS.filter(function(x){return x.id===id;})[0]; if(!w)return;
+  var today=pmISO(new Date());
+  var patch={status:'completed',completed_by:user,completed_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  sbFetch('bbw_wos?id=eq.'+id,{method:'PATCH',body:JSON.stringify(patch),headers:{'Prefer':'return=minimal'}}).then(function(){
+    Object.assign(w,patch);
+    if(w.pm_id){
+      var p=CMMS_PMS.filter(function(x){return x.id===w.pm_id;})[0];
+      if(p&&p.freq){var nd=pmAdvanceISO(p.freq,today);sbFetch('bbw_pms?id=eq.'+p.id,{method:'PATCH',body:JSON.stringify({next_due:nd,last_done:today,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}}).then(function(){p.next_due=nd;p.last_done=today;});}
+    }
+    renderWOList();
+  });
+}
+function deleteWO(id){
+  var w=WOS.filter(function(x){return x.id===id;})[0]; if(!w)return;
+  if(!confirm('Delete '+(w.wo_code||'this work order')+'?'))return;
+  sbFetch('bbw_wos?id=eq.'+id,{method:'DELETE',headers:{'Prefer':'return=minimal'}}).then(function(){WOS=WOS.filter(function(x){return x.id!==id;});renderWOList();});
+}
+function openWOForm(id){
+  var w=id?WOS.filter(function(x){return x.id===id;})[0]:{wo_code:'',asset:'',asset_code:'',description:'',priority:'High',wo_type:'Preventive',assignee:'',status:'open',due_date:pmISO(new Date()),hours_est:''};
+  if(!w)return;
+  var techOpts=['','Abin','Adam','Akshay','Akshaylal','Anupam','Lahcen','Maksym','Praful','Sachin','Sergei','Technicians','Viktor','Vitalii','Yassine','Yehor'].map(function(t){return '<option'+(t===w.assignee?' selected':'')+'>'+t+'</option>';}).join('');
+  var typeOpts=['Preventive','Inspection','Calibration','Food Safety PM','Reactive'].map(function(t){return '<option'+(t===w.wo_type?' selected':'')+'>'+t+'</option>';}).join('');
+  var prioOpts=['Low','Medium','High','Highest'].map(function(t){return '<option'+(t===w.priority?' selected':'')+'>'+t+'</option>';}).join('');
+  var statusOpts=['open','assigned','in_progress','completed'].map(function(s){return '<option value="'+s+'"'+(s===w.status?' selected':'')+'>'+WO_STATUS[s].label+'</option>';}).join('');
+  var assetList=(typeof ASSETS!=='undefined'?ASSETS:[]).map(function(a){return '<option value="'+a.n+'|'+a.c+'"'+(a.n===w.asset?' selected':'')+'>'+a.n+' ('+a.c+')</option>';}).join('');
+  var ist='width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px;color:var(--text);font-size:14px;outline:none;box-sizing:border-box';
+  function fld(label,inner){return '<div style="margin-bottom:11px"><div style="font-size:11px;color:var(--text-2);margin-bottom:4px">'+label+'</div>'+inner+'</div>';}
+  var H='<div id="wo-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:700;display:flex;align-items:flex-end;justify-content:center">';
+  H+='<div style="background:var(--bg);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;padding:18px 18px 28px;border:1px solid var(--border)">';
+  H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:17px;font-weight:700;color:var(--text)">'+(id?'Edit work order':'New work order')+'</div><button onclick="closeWOForm()" class="btn-ghost" style="padding:6px 12px;font-size:13px">Close</button></div>';
+  H+=fld('Description','<textarea id="wf-desc" rows="2" style="'+ist+';resize:vertical">'+(w.description||'')+'</textarea>');
+  H+=fld('Asset','<select id="wf-asset" style="'+ist+'"><option value="|">\u2014 select asset \u2014</option>'+assetList+'</select>');
+  H+='<div style="display:flex;gap:9px">'+fld('Type','<select id="wf-type" style="'+ist+'">'+typeOpts+'</select>')+fld('Priority','<select id="wf-prio" style="'+ist+'">'+prioOpts+'</select>')+'</div>';
+  H+='<div style="display:flex;gap:9px">'+fld('Assignee','<select id="wf-assignee" style="'+ist+'"><option value=""></option>'+techOpts+'</select>')+fld('Status','<select id="wf-status" style="'+ist+'">'+statusOpts+'</select>')+'</div>';
+  H+='<div style="display:flex;gap:9px">'+fld('Due date','<input id="wf-due" type="date" value="'+(w.due_date||'')+'" style="'+ist+'">')+fld('Est. hours','<input id="wf-hours" type="number" step="0.05" value="'+(w.hours_est!=null?w.hours_est:'')+'" style="'+ist+'">')+'</div>';
+  H+='<button onclick="saveWO('+(id||'')+')" class="btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:6px">'+(id?'Save changes':'Create work order')+'</button>';
+  H+='</div></div>';
+  var ex=gid('wo-modal'); if(ex)ex.remove();
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function closeWOForm(){var e=gid('wo-modal');if(e)e.remove();}
+function saveWO(id){
+  var av=(gid('wf-asset').value||'|').split('|');
+  var rec={description:gid('wf-desc').value.trim(),asset:av[0]||'',asset_code:av[1]||'',wo_type:gid('wf-type').value,priority:gid('wf-prio').value,assignee:gid('wf-assignee').value,status:gid('wf-status').value,due_date:gid('wf-due').value||null,hours_est:gid('wf-hours').value?parseFloat(gid('wf-hours').value):null,updated_at:new Date().toISOString()};
+  if(!rec.description){alert('Add a description');return;}
+  var path,method;
+  if(id){path='bbw_wos?id=eq.'+id;method='PATCH';}
+  else{path='bbw_wos';method='POST';rec.wo_code='WO'+(woNextCode()+1);}
+  sbFetch(path,{method:method,body:JSON.stringify(rec),headers:{'Prefer':'return=minimal'}}).then(function(r){
+    if(!r.ok&&r.status!==204){alert('Save failed ('+r.status+')');return;}
+    closeWOForm(); loadWOs(true).then(renderWOList);
+  });
+}
+
+// ═══════════════ CMMS — Compliance + Calendar ═══════════════
+function ctile(label,val,col){return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 8px;text-align:center"><div style="font-size:22px;font-weight:800;line-height:1;color:'+(col||'var(--text)')+'">'+val+'</div><div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;margin-top:5px">'+label+'</div></div>';}
+
+function renderComplianceModule(){
+  var host=gid('cmms-comp'); if(!host)return;
+  host.innerHTML='<div style="text-align:center;color:var(--text-3);padding:26px;font-size:13px">Loading\u2026</div>';
+  Promise.all([loadCMMS(),loadWOs(true)]).then(function(){
+    var today=pmISO(new Date()), month=today.slice(0,7);
+    var open=0,assigned=0,inprog=0,overdue=0,highActive=0;
+    WOS.forEach(function(w){
+      if(w.status==='completed')return;
+      if(w.status==='open')open++; else if(w.status==='assigned')assigned++; else if(w.status==='in_progress')inprog++;
+      if(w.due_date&&w.due_date<today)overdue++;
+      if(w.priority==='High'||w.priority==='Highest')highActive++;
+    });
+    var active=open+assigned+inprog;
+    var dueThis=WOS.filter(function(w){return (w.due_date||'').slice(0,7)===month;});
+    var doneThis=dueThis.filter(function(w){return w.status==='completed';});
+    var onTime=dueThis.filter(function(w){return w.status==='completed'&&w.completed_at&&w.completed_at.slice(0,10)<=w.due_date;}).length;
+    var pct=dueThis.length?Math.round(onTime/dueThis.length*100):100;
+    var gcol=pct>=90?'#34d399':(pct>=75?'#fbbf24':'#f87171');
+    var monthName=new Date(today+'T00:00:00').toLocaleDateString('en-CA',{month:'long',year:'numeric'});
+    var H='<div style="text-align:center;margin-bottom:6px"><div style="font-size:12px;color:var(--text-3);margin-bottom:6px">Schedule compliance \u00b7 '+monthName+'</div>';
+    H+='<svg viewBox="0 0 200 116" style="width:210px;max-width:80%">';
+    H+='<path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="var(--border-2)" stroke-width="15" stroke-linecap="round"/>';
+    H+='<path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="'+gcol+'" stroke-width="15" stroke-linecap="round" pathLength="100" stroke-dasharray="'+pct+' 100"/>';
+    H+='<text x="100" y="92" text-anchor="middle" font-size="34" font-weight="800" fill="var(--text)">'+pct+'%</text>';
+    H+='</svg>';
+    H+='<div style="font-size:11px;color:var(--text-3);margin-top:-4px">'+onTime+' on time of '+dueThis.length+' scheduled this month</div></div>';
+    H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px">';
+    H+=ctile('Active',active);
+    H+=ctile('Overdue',overdue,overdue?'#f87171':'var(--text)');
+    H+=ctile('High priority',highActive,highActive?'#fb923c':'var(--text)');
+    H+=ctile('Completed (mo)',doneThis.length,'#34d399');
+    H+=ctile('Open',open);
+    H+=ctile('In progress',inprog);
+    H+='</div>';
+    // by-tech backlog
+    var techMap={};
+    WOS.forEach(function(w){if(w.status==='completed')return;var t=w.assignee||'\u2014';techMap[t]=techMap[t]||{t:t,n:0,od:0};techMap[t].n++;if(w.due_date&&w.due_date<today)techMap[t].od++;});
+    var techs=Object.keys(techMap).map(function(k){return techMap[k];}).sort(function(a,b){return b.n-a.n;});
+    if(techs.length){
+      H+='<div style="font-size:12px;font-weight:700;color:var(--text);margin:18px 0 9px">Open work by technician</div>';
+      H+=techs.map(function(x){return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:7px"><span style="font-size:13px;color:var(--text)">'+x.t+'</span><span style="font-size:12px;color:var(--text-3)">'+x.n+' open'+(x.od?' \u00b7 <span style="color:#f87171">'+x.od+' overdue</span>':'')+'</span></div>';}).join('');
+    }
+    host.innerHTML=H;
+  }).catch(function(e){host.innerHTML='<div style="padding:18px;color:#f87171;font-size:13px">'+e.message+'</div>';});
+}
+
+// ── Calendar (weekly agenda) ──
+var CAL_WEEK=null;
+function calShift(days){var d=new Date(CAL_WEEK);d.setDate(d.getDate()+days);CAL_WEEK=pmDateOnly(d);renderCalendarModule();}
+function calToday(){CAL_WEEK=null;renderCalendarModule();}
+function renderCalendarModule(){
+  var host=gid('cmms-cal'); if(!host)return;
+  host.innerHTML='<div style="text-align:center;color:var(--text-3);padding:26px;font-size:13px">Loading\u2026</div>';
+  loadWOs(true).then(function(){
+    if(!CAL_WEEK){var d=new Date();d.setDate(d.getDate()-d.getDay());CAL_WEEK=pmDateOnly(d);}
+    var days=[]; for(var i=0;i<7;i++){var d=new Date(CAL_WEEK);d.setDate(d.getDate()+i);days.push(d);}
+    var today=pmISO(new Date());
+    var wkLabel=CAL_WEEK.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+' \u2013 '+days[6].toLocaleDateString('en-CA',{month:'short',day:'numeric'});
+    var H='<div style="display:flex;align-items:center;gap:8px;margin-bottom:13px">';
+    H+='<button onclick="calShift(-7)" class="btn-ghost" style="padding:8px 12px;font-size:14px">\u2039</button>';
+    H+='<div style="flex:1;text-align:center;font-size:14px;font-weight:700;color:var(--text)">'+wkLabel+'</div>';
+    H+='<button onclick="calShift(7)" class="btn-ghost" style="padding:8px 12px;font-size:14px">\u203a</button>';
+    H+='<button onclick="calToday()" class="btn-ghost" style="padding:8px 12px;font-size:12px">Today</button>';
+    H+='</div>';
+    var byDay={}; WOS.forEach(function(w){if(!w.due_date)return;(byDay[w.due_date]=byDay[w.due_date]||[]).push(w);});
+    days.forEach(function(d){
+      var iso=pmISO(d), isToday=iso===today;
+      var list=(byDay[iso]||[]).sort(function(a,b){return (a.assignee||'').localeCompare(b.assignee||'');});
+      H+='<div style="margin-bottom:11px">';
+      H+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:12.5px;font-weight:700;color:'+(isToday?'#fff':'var(--text-2)')+'">'+d.toLocaleDateString('en-CA',{weekday:'long'})+' '+d.getDate()+'</div>'+(isToday?'<span style="font-size:9px;background:#fff;color:#000;padding:2px 7px;border-radius:999px;font-weight:800">TODAY</span>':'')+'<span style="margin-left:auto;font-size:11px;color:var(--text-3)">'+(list.length||'')+'</span></div>';
+      if(!list.length)H+='<div style="font-size:11.5px;color:var(--text-3);padding:4px 0 4px 2px">\u2014</div>';
+      else H+=list.map(function(w){var st=WO_STATUS[w.status]||WO_STATUS.open;var od=w.status!=='completed'&&iso<today;return '<div style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:var(--surface);border:1px solid var(--border);border-radius:9px;margin-bottom:6px;border-left:3px solid '+st.col+'"><div style="min-width:0;flex:1"><div style="font-size:12.5px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(w.description||'')+'</div><div style="font-size:10.5px;color:var(--text-3)">'+(w.assignee||'\u2014')+' \u00b7 '+(w.asset||'')+'</div></div><span style="font-size:9px;color:'+st.col+';font-weight:800;white-space:nowrap">'+(od?'OVERDUE':st.label.toUpperCase())+'</span></div>';}).join('');
+      H+='</div>';
+    });
+    host.innerHTML=H;
+  }).catch(function(e){host.innerHTML='<div style="padding:18px;color:#f87171;font-size:13px">'+e.message+'</div>';});
 }
 
 function renderMore(){
@@ -2509,9 +2771,12 @@ function T(key){return (TRANS[lang]&&TRANS[lang][key])||TRANS['en'][key]||key;}
 // ── MISSING FUNCTIONS ──
 
 function resetPin(name){
-  if(!confirm('Reset PIN for '+name+'?'))return;
-  localStorage.removeItem('pin_'+name);
-  alert('PIN reset for '+name);
+  var ap=prompt('Enter the admin PIN to reset '+name+'\u2019s PIN:');
+  if(!ap)return;
+  sbRPC('reset_pin',{p_name:name,p_admin_pin:ap}).then(function(ok){
+    if(ok)alert(name+'\u2019s PIN was cleared. They\u2019ll set a new one on next login.');
+    else alert('Reset failed \u2014 wrong admin PIN (or central PINs aren\u2019t enabled yet).');
+  }).catch(function(){ localStorage.removeItem('pin_'+name); alert('Central reset unavailable; cleared the local PIN for '+name+' on this device only.'); });
 }
 
 function clearAll(){
