@@ -1294,14 +1294,29 @@ function renderRequestForm(){
   H+='</div>';
   el.innerHTML=H;
 }
+function downscaleImage(file,maxDim,quality){
+  return new Promise(function(resolve){
+    if(!file.type||file.type.indexOf('image/')!==0){resolve(file);return;}
+    var url=URL.createObjectURL(file); var img=new Image();
+    img.onload=function(){
+      var w=img.width,h=img.height,scale=Math.min(1,maxDim/Math.max(w,h));
+      var cw=Math.max(1,Math.round(w*scale)),ch=Math.max(1,Math.round(h*scale));
+      var cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+      cv.getContext('2d').drawImage(img,0,0,cw,ch); URL.revokeObjectURL(url);
+      try{cv.toBlob(function(blob){resolve(blob||file);},'image/jpeg',quality||0.7);}catch(e){resolve(file);}
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);resolve(file);};
+    img.src=url;
+  });
+}
 function uploadReqPhotos(files){
   if(!files.length)return Promise.resolve([]);
-  var paths=[], chain=Promise.resolve();
-  files.forEach(function(f){
-    var path='requests/'+Date.now()+'_'+f.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-    chain=chain.then(function(){ return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':f.type||'application/octet-stream','x-upsert':'true'},body:f}).then(function(r){ if(r.ok)paths.push(path); }).catch(function(){}); });
-  });
-  return chain.then(function(){return paths;});
+  return Promise.all(files.map(function(f){
+    return downscaleImage(f,1280,0.7).then(function(blob){
+      var path='requests/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg';
+      return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'image/jpeg','x-upsert':'true'},body:blob}).then(function(r){return r.ok?path:null;}).catch(function(){return null;});
+    });
+  })).then(function(paths){return paths.filter(Boolean);});
 }
 function submitRequest(btn){
   var name=rqVal('rq-name'), dept=gid('rq-dept').value, work=rqVal('rq-work');
@@ -1401,14 +1416,16 @@ function reqAddNote(id){
 }
 function logFromRequest(r){
   var now=new Date();
+  var ph=[]; try{ph=JSON.parse(r.photos||'[]');}catch(x){}
+  var urls=ph.map(function(p){return SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(p);});
+  var ctx='Reported by '+(r.reporter||'?')+' ('+(r.department||'')+')'+(r.contact?' \u2022 '+r.contact:'');
   var e={ id:Date.now(), date:entryAnchor(null), shift:(isDay()?'Day':'Night'),
     type:'completed', priority:'info',
     assetName:r.asset_name||r.department||'General', assetCode:r.asset_code||'',
-    issue:'Work Request', desc:'Completed work request from '+(r.reporter||'?')+' ('+(r.department||'')+'): '+(r.work||'')+(r.contact?' [contact: '+r.contact+']':''),
+    issue:(r.work||'Work request'), desc:ctx,
     start:'', end:'', dt:0, machineDown:'', coMins:0, coType:'', partName:'', partQty:'1',
-    photos:(function(){try{return JSON.parse(r.photos||'[]');}catch(x){return [];}})(), photo:null,
+    photos:urls, photo:(urls[0]||null),
     who:user, loggedAt:now.toISOString(), shiftNote:'' };
-  e.photo=e.photos[0]||null;
   entries.push(e); allE.push(e); try{syncEntry(e);}catch(x){} save();
 }
 
@@ -1563,12 +1580,12 @@ function syncUtil(rec){
     .then(function(r){return r.json();})
     .then(function(existing){
       var body=JSON.stringify({date:rec.date,time:rec.time,by_who:rec.by,
-        w3:rec.w3||null,w5:rec.w5||null,gas:rec.gas||null,elec:rec.elec||null,
-        boil:rec.boil||null,past:rec.past||null,cool:rec.cool||null,steam:rec.steam||null,
-        chiller_start:rec.chstart||null,chiller_proc:rec.chproc||null,
-        warmcell:rec.warmcell||null,
-        bc1:rec.bc1||null,bc2:rec.bc2||null,bc3:rec.bc3||null,bc4:rec.bc4||null,
-        bc5:rec.bc5||null,bc6:rec.bc6||null,bc7:rec.bc7||null,bc8:rec.bc8||null,stack:rec.stack||null,ch_glycol:rec.ch_glycol||null});
+        w3:(rec.w3==null?null:rec.w3),w5:(rec.w5==null?null:rec.w5),gas:(rec.gas==null?null:rec.gas),elec:(rec.elec==null?null:rec.elec),
+        boil:(rec.boil==null?null:rec.boil),past:(rec.past==null?null:rec.past),cool:(rec.cool==null?null:rec.cool),steam:(rec.steam==null?null:rec.steam),
+        chiller_start:(rec.chstart==null?null:rec.chstart),chiller_proc:(rec.chproc==null?null:rec.chproc),
+        warmcell:(rec.warmcell==null?null:rec.warmcell),
+        bc1:(rec.bc1==null?null:rec.bc1),bc2:(rec.bc2==null?null:rec.bc2),bc3:(rec.bc3==null?null:rec.bc3),bc4:(rec.bc4==null?null:rec.bc4),
+        bc5:(rec.bc5==null?null:rec.bc5),bc6:(rec.bc6==null?null:rec.bc6),bc7:(rec.bc7==null?null:rec.bc7),bc8:(rec.bc8==null?null:rec.bc8),stack:(rec.stack==null?null:rec.stack),ch_glycol:(rec.ch_glycol==null?null:rec.ch_glycol)});
       if(existing&&existing.length>0){
         return sbFetch('bbw_util_log?date=eq.'+rec.date,{method:'PATCH',body:body,headers:{'Prefer':'return=minimal'}});
       }else{
