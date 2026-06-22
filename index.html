@@ -550,7 +550,7 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   // returns to foreground so the shift clock + This Shift view don't show stale data.
   function onForeground(){
     try{updateClock();}catch(e){}
-    try{if(user){loadFromSB();}}catch(e){}
+    try{if(user && (Date.now()-(window._lastSbLoad||0)>120000)){loadFromSB();}}catch(e){}
   }
   document.addEventListener('visibilitychange',function(){if(!document.hidden)onForeground();});
   window.addEventListener('focus',onForeground);
@@ -715,8 +715,8 @@ function loginUser(name){
   try{renderAll();}catch(e){console.error('renderAll',e);}
   try{showPage('pg-app');}catch(e){console.error('showPage',e);}
   try{checkUBanner();}catch(e){console.error('checkUBanner',e);}
-  // Refresh every 30 seconds
-  setInterval(function(){if(user)loadFromSB();},30000);
+  // Refresh every 5 minutes (was 30s — that polling was the main egress driver)
+  setInterval(function(){if(user)loadFromSB();},300000);
   // Long press chip for admin
   var chip=gid('uchip');
   if(chip){
@@ -1567,6 +1567,7 @@ function deleteFromSB(sbId){
 }
 
 function loadFromSB(){
+  window._lastSbLoad=Date.now();
   try{loadRequests().then(function(){updateReqBadge();injectPinnedRequests();});}catch(e){}
   var today=td();
   var yesterday=new Date();yesterday.setDate(yesterday.getDate()-3);
