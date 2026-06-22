@@ -478,7 +478,7 @@ var TRANS = {
     rep_tab:'Reports', rep_tap:'Tap an asset to view its Calibration, Service and PM documents', rep_tapedit:' and upload files', rep_search:'Search asset name or code…', rep_noassets:'No assets found',
     doc_calibration:'Calibration', doc_service:'Service Reports', doc_pms:'PMs', doc_filters:'Filters', doc_allassets:'All assets', doc_all:'All', doc_upload:'Upload PDF to ', doc_nodocs:'No documents yet.', doc_view:'View', doc_loading:'Loading…',
     flt_intro:'Filters in use for this asset — model, quantity, and next change due.', flt_add:'Add filter record', flt_none_e:'No filter records yet.', flt_none_v:'No filter records yet — ask Praful or Lahcen to add them.', flt_nextdue:'Next due', flt_last:'Last changed ', flt_qty:'Qty ', flt_every:'every ',
-    req_tab:'Requests', req_wr:'Work Requests', req_open:'open', req_noopen:'No open requests right now.', req_follow:'Cross-dept Follow-ups', req_nofollow:'None right now. Technicians can raise one with the "Follow-up" log type.', req_completed:'Completed', st_new:'New', st_inprogress:'In Progress', st_done:'Done', req_start:'Start', req_markdone:'Mark done', req_addnote:'Add note', req_by:'By ', req_closedby:'Closed by ', req_loggedlog:' • logged to work log', req_noteprompt:'Add a note (visible to everyone):', req_photo:'Photo ', req_loading:'Loading requests…', pin_open:'Open Work Requests', pin_viewall:'View all ›', req_followtag:'FOLLOW-UP', req_raisedby:'Raised by ', followup:'Follow-up',
+    req_tab:'Requests', req_viewdetails:'View details', req_wr:'Work Requests', req_open:'open', req_noopen:'No open requests right now.', req_follow:'Cross-dept Follow-ups', req_nofollow:'None right now. Technicians can raise one with the "Follow-up" log type.', req_completed:'Completed', st_new:'New', st_inprogress:'In Progress', st_done:'Done', req_start:'Start', req_markdone:'Mark done', req_addnote:'Add note', req_by:'By ', req_closedby:'Closed by ', req_loggedlog:' • logged to work log', req_noteprompt:'Add a note (visible to everyone):', req_photo:'Photo ', req_loading:'Loading requests…', pin_open:'Open Work Requests', pin_viewall:'View all ›', req_followtag:'FOLLOW-UP', req_raisedby:'Raised by ', followup:'Follow-up',
   },
   uk: {
     mylog: '\u0416\u0443\u0440\u043d\u0430\u043b', shift: '\u0417\u043c\u0456\u043d\u0430', prev: '\u041f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u044f', util: '\u041a\u043e\u043c\u0443\u043d\u0430\u043b\u044c\u043d\u0456', more: '\u0411\u0456\u043b\u044c\u0448\u0435', schedule: '\u0413\u0440\u0430\u0444\u0456\u043a', assets: '\u0410\u043a\u0442\u0438\u0432\u0438',
@@ -505,7 +505,7 @@ var TRANS = {
     rep_tab:'Звіти', rep_tap:'Торкніться активу, щоб переглянути документи калібрування, обслуговування та ТО', rep_tapedit:' та завантажити файли', rep_search:'Пошук назви або коду активу…', rep_noassets:'Активів не знайдено',
     doc_calibration:'Калібрування', doc_service:'Звіти про обслуговування', doc_pms:'ТО', doc_filters:'Фільтри', doc_allassets:'Усі активи', doc_all:'Усі', doc_upload:'Завантажити PDF: ', doc_nodocs:'Поки немає документів.', doc_view:'Переглянути', doc_loading:'Завантаження…',
     flt_intro:'Фільтри для цього активу — модель, кількість і дата наступної заміни.', flt_add:'Додати запис про фільтр', flt_none_e:'Поки немає записів про фільтри.', flt_none_v:'Поки немає записів — попросіть Praful або Lahcen додати їх.', flt_nextdue:'Наступна заміна', flt_last:'Остання заміна ', flt_qty:'К-сть ', flt_every:'кожні ',
-    req_tab:'Заявки', req_wr:'Заявки на роботу', req_open:'відкритих', req_noopen:'Зараз немає відкритих заявок.', req_follow:'Міжвідділкові звернення', req_nofollow:'Зараз немає. Техніки можуть створити запис типу «Подальші дії».', req_completed:'Виконано', st_new:'Нова', st_inprogress:'В роботі', st_done:'Виконано', req_start:'Почати', req_markdone:'Позначити виконаним', req_addnote:'Додати нотатку', req_by:'Від ', req_closedby:'Закрив(ла) ', req_loggedlog:' • записано в журнал', req_noteprompt:'Додайте нотатку (видно всім):', req_photo:'Фото ', req_loading:'Завантаження заявок…', pin_open:'Відкриті заявки', pin_viewall:'Переглянути всі ›', req_followtag:'ЗВЕРНЕННЯ', req_raisedby:'Подав(ла) ', followup:'Подальші дії',
+    req_tab:'Заявки', req_viewdetails:'Переглянути деталі', req_wr:'Заявки на роботу', req_open:'відкритих', req_noopen:'Зараз немає відкритих заявок.', req_follow:'Міжвідділкові звернення', req_nofollow:'Зараз немає. Техніки можуть створити запис типу «Подальші дії».', req_completed:'Виконано', st_new:'Нова', st_inprogress:'В роботі', st_done:'Виконано', req_start:'Почати', req_markdone:'Позначити виконаним', req_addnote:'Додати нотатку', req_by:'Від ', req_closedby:'Закрив(ла) ', req_loggedlog:' • записано в журнал', req_noteprompt:'Додайте нотатку (видно всім):', req_photo:'Фото ', req_loading:'Завантаження заявок…', pin_open:'Відкриті заявки', pin_viewall:'Переглянути всі ›', req_followtag:'ЗВЕРНЕННЯ', req_raisedby:'Подав(ла) ', followup:'Подальші дії',
   }
 };
 
@@ -1365,8 +1365,9 @@ function reqCard(r){
   if(done&&r.closed_by) chips+='<span style="color:#16a34a">'+T('req_closedby')+rqEsc(r.closed_by)+'</span>';
   if(chips) H+='<div style="display:flex;gap:12px;margin-top:7px;font-size:11px">'+chips+'<span style="margin-left:auto;color:#f59e0b">'+T('pin_viewall')+'</span></div>';
   else H+='<div style="text-align:right;margin-top:4px;font-size:11px;color:#f59e0b">'+T('pin_viewall')+'</div>';
+  H+='<button onclick="event.stopPropagation();openRequest('+r.id+')" style="width:100%;margin-top:10px;background:#2563eb;border:none;color:#fff;font-size:13.5px;font-weight:700;padding:12px;border-radius:9px;cursor:pointer">'+T('req_viewdetails')+' \u203a</button>';
   if(typeof user!=='undefined'&&user){
-    H+='<div onclick="event.stopPropagation()" style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap">';
+    H+='<div onclick="event.stopPropagation()" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">';
     if(r.status==='new') H+='<button onclick="reqSetStatus('+r.id+',\'in_progress\')" style="'+rqBtn('#3b82f6')+'">'+T('req_start')+'</button>';
     if(!done) H+='<button onclick="reqSetStatus('+r.id+',\'done\')" style="'+rqBtn('#16a34a')+'">'+T('req_markdone')+'</button>';
     H+='<button onclick="reqAddNote('+r.id+')" style="'+rqBtn('#52525b')+'">'+T('req_addnote')+'</button>';
@@ -1981,6 +1982,7 @@ function renderAssets(){
   var totalDT=Object.values(assetDT).reduce(function(a,b){return a+b;},0);
   var mnames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var H='';
+  H+='<div style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace">build '+BUILD+'</div>';
 
   // Summary tiles
   H+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">';
@@ -2984,6 +2986,7 @@ function renderCalendarModule(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
+  var BUILD='2026-06-22b';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
