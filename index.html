@@ -1355,15 +1355,18 @@ function reqCard(r){
   var notes=[]; try{notes=JSON.parse(r.notes||'[]');}catch(e){}
   var photos=[]; try{photos=JSON.parse(r.photos||'[]');}catch(e){}
   var done=r.status==='done';
-  var H='<div style="background:var(--surface);border:1px solid '+(done?'var(--border)':'rgba(245,158,11,.35)')+';border-left:3px solid '+(done?'#16a34a':'#f59e0b')+';border-radius:11px;padding:13px 14px;margin-bottom:10px">';
+  var H='<div onclick="openRequest('+r.id+')" style="background:var(--surface);border:1px solid '+(done?'var(--border)':'rgba(245,158,11,.35)')+';border-left:3px solid '+(done?'#16a34a':'#f59e0b')+';border-radius:11px;padding:13px 14px;margin-bottom:10px;cursor:pointer">';
   H+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><div style="font-size:14.5px;font-weight:700;color:#fff">'+rqEsc(r.asset_name||r.department)+'</div>'+reqStatusPill(r.status)+'</div>';
-  H+='<div style="font-size:13px;color:var(--text-1);line-height:1.5;margin-bottom:7px">'+rqEsc(r.work)+'</div>';
-  H+='<div style="font-size:11px;color:var(--text-3)">'+T('req_by')+rqEsc(r.reporter)+' \u2022 '+rqEsc(r.department)+(r.contact?' \u2022 '+rqEsc(r.contact):'')+' \u2022 '+docFmtDate(r.created_at)+'</div>';
-  if(photos.length){ H+='<div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">'; photos.forEach(function(pth,i){ var u=SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(pth); H+='<a href="'+u+'" target="_blank" style="font-size:12px;color:#60a5fa">\ud83d\udcce '+T('req_photo')+(i+1)+'</a>'; }); H+='</div>'; }
-  if(done&&r.closed_by){ H+='<div style="font-size:11px;color:#16a34a;margin-top:6px">'+T('req_closedby')+rqEsc(r.closed_by)+T('req_loggedlog')+'</div>'; }
-  if(notes.length){ H+='<div style="margin-top:9px;border-top:1px solid var(--surface-2);padding-top:7px">'; notes.forEach(function(n){ H+='<div style="font-size:11.5px;color:var(--text-2);margin-bottom:4px"><b style="color:#fff">'+rqEsc(n.by)+'</b> '+rqEsc(n.text)+' <span style="color:var(--text-3)">\u2022 '+docFmtDate(n.at)+'</span></div>'; }); H+='</div>'; }
+  H+='<div style="font-size:13px;color:var(--text-1);line-height:1.5;margin-bottom:7px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+rqEsc(r.work)+'</div>';
+  H+='<div style="font-size:11px;color:var(--text-3)">'+T('req_by')+rqEsc(r.reporter)+' \u2022 '+rqEsc(r.department)+' \u2022 '+docFmtDate(r.created_at)+'</div>';
+  var chips='';
+  if(photos.length) chips+='<span style="color:#60a5fa">\ud83d\udcce '+photos.length+'</span>';
+  if(notes.length) chips+='<span style="color:var(--text-3)">\ud83d\udcac '+notes.length+'</span>';
+  if(done&&r.closed_by) chips+='<span style="color:#16a34a">'+T('req_closedby')+rqEsc(r.closed_by)+'</span>';
+  if(chips) H+='<div style="display:flex;gap:12px;margin-top:7px;font-size:11px">'+chips+'<span style="margin-left:auto;color:#f59e0b">'+T('pin_viewall')+'</span></div>';
+  else H+='<div style="text-align:right;margin-top:4px;font-size:11px;color:#f59e0b">'+T('pin_viewall')+'</div>';
   if(typeof user!=='undefined'&&user){
-    H+='<div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap">';
+    H+='<div onclick="event.stopPropagation()" style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap">';
     if(r.status==='new') H+='<button onclick="reqSetStatus('+r.id+',\'in_progress\')" style="'+rqBtn('#3b82f6')+'">'+T('req_start')+'</button>';
     if(!done) H+='<button onclick="reqSetStatus('+r.id+',\'done\')" style="'+rqBtn('#16a34a')+'">'+T('req_markdone')+'</button>';
     H+='<button onclick="reqAddNote('+r.id+')" style="'+rqBtn('#52525b')+'">'+T('req_addnote')+'</button>';
@@ -1372,6 +1375,37 @@ function reqCard(r){
   H+='</div>';
   return H;
 }
+function closeRequestDetail(){ var m=gid('req-detail-modal'); if(m)m.remove(); }
+function openRequest(id){
+  var r=REQUESTS.filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
+  var notes=[]; try{notes=JSON.parse(r.notes||'[]');}catch(e){}
+  var photos=[]; try{photos=JSON.parse(r.photos||'[]');}catch(e){}
+  closeRequestDetail();
+  var H='<div id="req-detail-modal" onclick="if(event.target===this)closeRequestDetail()" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:300;display:flex;align-items:flex-end;justify-content:center">';
+  H+='<div style="background:var(--bg);width:100%;max-width:600px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;border-top:1px solid var(--border)">';
+  H+='<div style="position:sticky;top:0;background:var(--bg);padding:15px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;z-index:1"><div style="font-size:15px;font-weight:800;color:#fff">'+T('req_wr')+'</div><button onclick="closeRequestDetail()" style="background:var(--surface-2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer">\u00d7</button></div>';
+  H+='<div style="padding:16px">';
+  H+='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px"><div style="font-size:19px;font-weight:800;color:#fff">'+rqEsc(r.asset_name||r.department)+(r.asset_code?' <span style="font-size:12px;color:var(--text-3);font-family:monospace">'+rqEsc(r.asset_code)+'</span>':'')+'</div>'+reqStatusPill(r.status)+'</div>';
+  H+='<div style="font-size:15px;color:var(--text-1);line-height:1.6;white-space:pre-wrap;margin-bottom:14px">'+rqEsc(r.work)+'</div>';
+  H+='<div style="background:var(--surface);border-radius:10px;padding:12px;font-size:13px;color:var(--text-2);margin-bottom:14px">';
+  H+='<div style="margin-bottom:5px">'+T('req_by')+'<b style="color:#fff">'+rqEsc(r.reporter)+'</b> \u2022 '+rqEsc(r.department)+'</div>';
+  if(r.contact)H+='<div style="margin-bottom:5px">\u2709\ufe0f '+rqEsc(r.contact)+'</div>';
+  H+='<div style="color:var(--text-3)">'+docFmtDate(r.created_at)+'</div>';
+  if(done_by_line(r))H+=done_by_line(r);
+  H+='</div>';
+  if(photos.length){ H+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'; photos.forEach(function(pth){ var u=SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(pth); H+='<img src="'+u+'" onclick="openLB(\''+u+'\',\''+rqEsc(r.asset_name||'')+'\')" style="width:92px;height:92px;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)">'; }); H+='</div>'; }
+  if(notes.length){ H+='<div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">Notes</div>'; notes.forEach(function(n){ H+='<div style="font-size:12.5px;color:var(--text-2);margin-bottom:6px;background:var(--surface);border-radius:8px;padding:9px 11px"><b style="color:#fff">'+rqEsc(n.by)+'</b> '+rqEsc(n.text)+'<div style="font-size:10px;color:var(--text-3);margin-top:3px">'+docFmtDate(n.at)+'</div></div>'; }); }
+  if(typeof user!=='undefined'&&user){
+    H+='<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">';
+    if(r.status==='new')H+='<button onclick="reqSetStatus('+r.id+',\'in_progress\');closeRequestDetail()" style="'+rqBtn('#3b82f6')+'">'+T('req_start')+'</button>';
+    if(r.status!=='done')H+='<button onclick="reqSetStatus('+r.id+',\'done\');closeRequestDetail()" style="'+rqBtn('#16a34a')+'">'+T('req_markdone')+'</button>';
+    H+='<button onclick="reqAddNote('+r.id+');closeRequestDetail()" style="'+rqBtn('#52525b')+'">'+T('req_addnote')+'</button>';
+    H+='</div>';
+  }
+  H+='</div></div></div>';
+  var d=document.createElement('div'); d.innerHTML=H; document.body.appendChild(d.firstChild);
+}
+function done_by_line(r){ return (r.status==='done'&&r.closed_by)?'<div style="color:#16a34a;margin-top:5px">'+T('req_closedby')+rqEsc(r.closed_by)+T('req_loggedlog')+'</div>':''; }
 function followCard(e){
   var H='<div style="background:var(--surface);border-left:3px solid #a855f7;border-radius:11px;padding:12px 14px;margin-bottom:8px">';
   H+='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:14px;font-weight:700;color:#fff">'+rqEsc(e.assetName||'General')+'</div><span style="font-size:10px;font-weight:700;color:#a855f7;background:rgba(168,85,247,.15);padding:3px 9px;border-radius:999px">'+T('req_followtag')+'</span></div>';
