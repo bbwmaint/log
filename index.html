@@ -2091,7 +2091,6 @@ function renderAssets(){
   var totalDT=Object.values(assetDT).reduce(function(a,b){return a+b;},0);
   var mnames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var H='';
-  H+='<div style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace">build '+BUILD+'</div>';
 
   // Summary tiles
   H+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">';
@@ -2724,9 +2723,11 @@ function seedCMMS(){
 function renderCMMS(){
   var el=gid('pane-cmms'); if(!el)return;
   if(!isEditor()){el.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-3)">This section is for managers only.</div>';return;}
-  el.innerHTML='<div style="text-align:center;color:var(--text-3);padding:36px;font-size:14px">Loading CMMS\u2026</div>';
+  var cached=(typeof CMMS_PMS!=='undefined'&&CMMS_PMS&&CMMS_PMS.length);
+  if(cached){ try{renderCMMSView();}catch(e){} }
+  else { el.innerHTML='<div style="text-align:center;color:var(--text-3);padding:36px;font-size:14px">Loading CMMS\u2026</div>'; }
   loadCMMS().then(function(){renderCMMSView();}).catch(function(e){
-    el.innerHTML='<div style="padding:20px;color:#f87171;font-size:13px;line-height:1.6">Couldn\u2019t load CMMS: '+e.message+'.<br><br>Make sure the <b>bbw_pms</b> and <b>bbw_wos</b> tables exist (run the SQL), then reopen this tab.</div>';
+    if(!cached)el.innerHTML='<div style="padding:20px;color:#f87171;font-size:13px;line-height:1.6">Couldn\u2019t load CMMS: '+e.message+'.<br><br>Make sure the <b>bbw_pms</b> and <b>bbw_wos</b> tables exist (run the SQL), then reopen this tab.</div>';
   });
 }
 function cmmsSub(s){CMMS_SUB=s;renderCMMSView();}
@@ -3253,39 +3254,60 @@ function calShift(days){var d=new Date(CAL_WEEK);d.setDate(d.getDate()+days);CAL
 function calToday(){CAL_WEEK=null;renderCalendarModule();}
 function renderCalendarModule(){
   var host=gid('cmms-cal'); if(!host)return;
-  host.innerHTML='<div style="text-align:center;color:var(--text-3);padding:26px;font-size:13px">Loading\u2026</div>';
-  loadWOs(true).then(function(){
-    if(!CAL_WEEK){var d=new Date();d.setDate(d.getDate()-d.getDay());CAL_WEEK=pmDateOnly(d);}
-    var days=[]; for(var i=0;i<7;i++){var d=new Date(CAL_WEEK);d.setDate(d.getDate()+i);days.push(d);}
-    var today=pmISO(new Date());
-    var wkLabel=CAL_WEEK.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+' \u2013 '+days[6].toLocaleDateString('en-CA',{month:'short',day:'numeric'});
-    var H='<div style="display:flex;align-items:center;gap:8px;margin-bottom:13px">';
-    H+='<button onclick="calShift(-7)" class="btn-ghost" style="padding:8px 12px;font-size:14px">\u2039</button>';
-    H+='<div style="flex:1;text-align:center;font-size:14px;font-weight:700;color:var(--text)">'+wkLabel+'</div>';
-    H+='<button onclick="calShift(7)" class="btn-ghost" style="padding:8px 12px;font-size:14px">\u203a</button>';
-    H+='<button onclick="calToday()" class="btn-ghost" style="padding:8px 12px;font-size:12px">Today</button>';
+  var cached=(WOS_LOADED&&typeof CMMS_PMS!=='undefined'&&CMMS_PMS&&CMMS_PMS.length);
+  if(!cached)host.innerHTML='<div style="text-align:center;color:var(--text-3);padding:26px;font-size:13px">Loading\u2026</div>';
+  var jobs=[loadWOs(true)]; if(typeof loadCMMS==='function')jobs.push(loadCMMS());
+  Promise.all(jobs).then(function(){drawCalendar(host);}).catch(function(e){host.innerHTML='<div style="padding:18px;color:#f87171;font-size:13px">'+e.message+'</div>';});
+}
+function drawCalendar(host){
+  if(!CAL_WEEK){var d0=new Date();d0.setDate(d0.getDate()-d0.getDay());CAL_WEEK=pmDateOnly(d0);}
+  var days=[]; for(var i=0;i<7;i++){var d=new Date(CAL_WEEK);d.setDate(d.getDate()+i);days.push(d);}
+  var today=pmISO(new Date());
+  var wkLabel=CAL_WEEK.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+' \u2013 '+days[6].toLocaleDateString('en-CA',{month:'short',day:'numeric'});
+  var H='<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">';
+  H+='<button onclick="calShift(-7)" class="btn-ghost" style="padding:8px 13px;font-size:15px">\u2039</button>';
+  H+='<div style="flex:1;text-align:center;font-size:14px;font-weight:700;color:var(--text)">'+wkLabel+'</div>';
+  H+='<button onclick="calShift(7)" class="btn-ghost" style="padding:8px 13px;font-size:15px">\u203a</button>';
+  H+='<button onclick="calToday()" class="btn-ghost" style="padding:8px 13px;font-size:12px">Today</button>';
+  H+='</div>';
+  // legend
+  var legend=[['Preventive','#60a5fa'],['Inspection','#c084fc'],['Calibration','#fbbf24'],['Food Safety','#34d399']];
+  H+='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-size:10.5px;color:var(--text-3)">'+legend.map(function(l){return '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:'+l[1]+'"></span>'+l[0]+'</span>';}).join('')+'</div>';
+  // gather items: WOs by due_date + scheduled PMs (next_due) not already covered by a WO
+  var byDay={};
+  (WOS||[]).forEach(function(w){ if(!w.due_date)return; (byDay[w.due_date]=byDay[w.due_date]||[]).push({kind:'wo',desc:w.description,asset:w.asset,who:w.assignee,type:w.wo_type,status:w.status,id:w.id}); });
+  var covered={}; (WOS||[]).forEach(function(w){ if(w.pm_id&&w.due_date)covered[w.pm_id+'|'+w.due_date]=1; });
+  (CMMS_PMS||[]).forEach(function(pp){ if(pp.active===false||!pp.next_due)return; if(covered[pp.id+'|'+pp.next_due])return; (byDay[pp.next_due]=byDay[pp.next_due]||[]).push({kind:'pm',desc:pp.description,asset:pp.asset,who:pp.assignee,type:pp.pm_type,id:pp.id}); });
+  days.forEach(function(d){
+    var iso=pmISO(d), isToday=iso===today;
+    var list=(byDay[iso]||[]).sort(function(a,b){return (a.who||'').localeCompare(b.who||'');});
+    H+='<div style="margin-bottom:13px">';
+    H+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;padding-bottom:6px;border-bottom:1px solid var(--border)"><div style="font-size:13px;font-weight:700;color:'+(isToday?'#fff':'var(--text-2)')+'">'+d.toLocaleDateString('en-CA',{weekday:'long'})+' '+d.getDate()+'</div>'+(isToday?'<span style="font-size:9px;background:#fff;color:#000;padding:2px 7px;border-radius:999px;font-weight:800">TODAY</span>':'')+'<span style="margin-left:auto;font-size:11px;color:var(--text-3)">'+(list.length?list.length+(list.length>1?' jobs':' job'):'')+'</span></div>';
+    if(!list.length)H+='<div style="font-size:11.5px;color:var(--text-3);padding:2px 0 2px 2px">No scheduled work</div>';
+    else H+=list.map(function(it){
+      var c=pmTypeColor(it.type);
+      var od=it.kind==='wo'&&it.status!=='completed'&&iso<today;
+      var rightLbl=it.kind==='wo'?(od?'OVERDUE':((WO_STATUS[it.status]||WO_STATUS.open).label.toUpperCase())):'SCHEDULED';
+      var rightCol=od?'#f87171':(it.kind==='wo'?((WO_STATUS[it.status]||WO_STATUS.open).col):c);
+      var click=it.kind==='wo'?('openWOComplete('+it.id+')'):('openPMForm('+it.id+')');
+      return '<div onclick="'+click+'" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:7px;border-left:3px solid '+c+';cursor:pointer">'+
+        '<div style="min-width:0;flex:1"><div style="font-size:12.5px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(it.desc||'')+'</div>'+
+        '<div style="font-size:10.5px;color:var(--text-3)">'+(it.type?it.type+' \u00b7 ':'')+(it.who||'\u2014')+' \u00b7 '+(it.asset||'')+'</div></div>'+
+        '<span style="font-size:9px;color:'+rightCol+';font-weight:800;white-space:nowrap">'+rightLbl+'</span></div>';
+    }).join('');
     H+='</div>';
-    var byDay={}; WOS.forEach(function(w){if(!w.due_date)return;(byDay[w.due_date]=byDay[w.due_date]||[]).push(w);});
-    days.forEach(function(d){
-      var iso=pmISO(d), isToday=iso===today;
-      var list=(byDay[iso]||[]).sort(function(a,b){return (a.assignee||'').localeCompare(b.assignee||'');});
-      H+='<div style="margin-bottom:11px">';
-      H+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:12.5px;font-weight:700;color:'+(isToday?'#fff':'var(--text-2)')+'">'+d.toLocaleDateString('en-CA',{weekday:'long'})+' '+d.getDate()+'</div>'+(isToday?'<span style="font-size:9px;background:#fff;color:#000;padding:2px 7px;border-radius:999px;font-weight:800">TODAY</span>':'')+'<span style="margin-left:auto;font-size:11px;color:var(--text-3)">'+(list.length||'')+'</span></div>';
-      if(!list.length)H+='<div style="font-size:11.5px;color:var(--text-3);padding:4px 0 4px 2px">\u2014</div>';
-      else H+=list.map(function(w){var st=WO_STATUS[w.status]||WO_STATUS.open;var od=w.status!=='completed'&&iso<today;return '<div style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:var(--surface);border:1px solid var(--border);border-radius:9px;margin-bottom:6px;border-left:3px solid '+st.col+'"><div style="min-width:0;flex:1"><div style="font-size:12.5px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(w.description||'')+'</div><div style="font-size:10.5px;color:var(--text-3)">'+(w.assignee||'\u2014')+' \u00b7 '+(w.asset||'')+'</div></div><span style="font-size:9px;color:'+st.col+';font-weight:800;white-space:nowrap">'+(od?'OVERDUE':st.label.toUpperCase())+'</span></div>';}).join('');
-      H+='</div>';
-    });
-    host.innerHTML=H;
-  }).catch(function(e){host.innerHTML='<div style="padding:18px;color:#f87171;font-size:13px">'+e.message+'</div>';});
+  });
+  host.innerHTML=H;
 }
 
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-23c';
+  var BUILD='2026-06-23d';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
+  H+='<div style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace">build '+BUILD+'</div>';
 
   // ── PMs (admin only) ──
   if(isAdmin){
