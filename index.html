@@ -1409,12 +1409,52 @@ function openRequest(id){
 }
 function done_by_line(r){ return (r.status==='done'&&r.closed_by)?'<div style="color:#16a34a;margin-top:5px">'+T('req_closedby')+rqEsc(r.closed_by)+T('req_loggedlog')+'</div>':''; }
 function followCard(e){
-  var H='<div style="background:var(--surface);border-left:3px solid #a855f7;border-radius:11px;padding:12px 14px;margin-bottom:8px">';
+  var H='<div onclick="openFollowup('+"'"+'+e.id+'+"'"+')" style="background:var(--surface);border-left:3px solid #a855f7;border-radius:11px;padding:12px 14px;margin-bottom:8px;cursor:pointer">';
   H+='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:14px;font-weight:700;color:#fff">'+rqEsc(e.assetName||'General')+'</div><span style="font-size:10px;font-weight:700;color:#a855f7;background:rgba(168,85,247,.15);padding:3px 9px;border-radius:999px">'+T('req_followtag')+'</span></div>';
-  H+='<div style="font-size:12.5px;color:var(--text-1);margin:5px 0;line-height:1.5">'+rqEsc(e.desc||'')+'</div>';
-  H+='<div style="font-size:11px;color:var(--text-3)">'+T('req_raisedby')+rqEsc(e.who||'')+' \u2022 '+rqEsc(e.date||'')+'</div>';
+  H+='<div style="font-size:12.5px;color:var(--text-1);margin:5px 0;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+rqEsc(e.desc||'')+'</div>';
+  H+='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:11px;color:var(--text-3)">'+T('req_raisedby')+rqEsc(e.who||'')+' \u2022 '+rqEsc(e.date||'')+'</div><span style="font-size:11px;color:#a855f7">'+T('req_viewdetails')+' \u203a</span></div>';
   H+='</div>';
   return H;
+}
+function openFollowup(id){
+  var e=allE.filter(function(x){return ''+x.id===''+id;})[0]; if(!e)return;
+  closeRequestDetail();
+  var photos=e.photos||[]; if(typeof photos==='string'){try{photos=JSON.parse(photos);}catch(x){photos=[];}}
+  if(!photos.length&&e.photo)photos=[e.photo];
+  var H='<div id="req-detail-modal" onclick="if(event.target===this)closeRequestDetail()" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:300;display:flex;align-items:flex-end;justify-content:center">';
+  H+='<div style="background:var(--bg);width:100%;max-width:600px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;border-top:1px solid var(--border)">';
+  H+='<div style="position:sticky;top:0;background:var(--bg);padding:15px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"><div style="font-size:15px;font-weight:800;color:#a855f7">'+T('req_followtag')+'</div><button onclick="closeRequestDetail()" style="background:var(--surface-2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer">\u00d7</button></div>';
+  H+='<div style="padding:16px">';
+  H+='<div style="font-size:19px;font-weight:800;color:#fff;margin-bottom:10px">'+rqEsc(e.assetName||'General')+(e.assetCode?' <span style="font-size:12px;color:var(--text-3);font-family:monospace">'+rqEsc(e.assetCode)+'</span>':'')+'</div>';
+  H+='<div style="font-size:15px;color:var(--text-1);line-height:1.6;white-space:pre-wrap;margin-bottom:14px">'+rqEsc(e.desc||e.issue||'')+'</div>';
+  H+='<div style="background:var(--surface);border-radius:10px;padding:12px;font-size:13px;color:var(--text-2);margin-bottom:14px">';
+  H+='<div style="margin-bottom:5px">'+T('req_by')+'<b style="color:#fff">'+rqEsc(e.who||'')+'</b></div>';
+  H+='<div style="color:var(--text-3)">'+rqEsc(e.date||'')+(e.shift?' \u00b7 '+rqEsc(e.shift):'')+'</div></div>';
+  if(photos.length){ H+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'; photos.forEach(function(u){ var us=(''+u).replace(/'/g,'%27'); H+='<img src="'+us+'" onclick="openLB(\''+us+'\',\''+rqEsc(e.assetName||'')+'\')" style="width:92px;height:92px;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)">'; }); H+='</div>'; }
+  H+='</div></div></div>';
+  var d=document.createElement('div'); d.innerHTML=H; document.body.appendChild(d.firstChild);
+}
+function resetCMMSSchedule(){
+  if(!isEditor())return;
+  if(!confirm('Reset CMMS schedule?\n\nThis DELETES all '+WOS.length+' work orders and re-baselines every active PM from today (daily PMs become due tomorrow, weekly in 7 days, monthly next month, etc.). Nothing will be overdue. This cannot be undone.'))return;
+  var today=pmISO(new Date());
+  sbFetch('bbw_wos?id=gte.0',{method:'DELETE',headers:{'Prefer':'return=minimal'}}).then(function(){
+    WOS=[]; WOS_LOADED=true;
+    var groups={};
+    CMMS_PMS.forEach(function(p){ if(p.active===false)return; (groups[p.freq]=groups[p.freq]||[]).push(p); });
+    var jobs=Object.keys(groups).map(function(freq){
+      var nd; try{nd=pmAdvanceISO(freq,today);}catch(e){nd=today;}
+      groups[freq].forEach(function(p){p.next_due=nd;p.last_done=today;});
+      return sbFetch('bbw_pms?freq=eq.'+encodeURIComponent(freq)+'&active=eq.true',{method:'PATCH',body:JSON.stringify({next_due:nd,last_done:today,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}});
+    });
+    Promise.all(jobs).then(function(){
+      try{updateCmmsBadge();}catch(e){}
+      try{if(gid('cmms-wos'))renderWOModule();}catch(e){}
+      try{injectMyPMTasks();}catch(e){}
+      var n=CMMS_PMS.filter(function(p){return p.active!==false;}).length;
+      alert('Done \u2705  '+n+' PMs re-baselined from today \u2014 first jobs appear tomorrow. All work orders cleared.');
+    }).catch(function(e){alert('PMs reset partly failed: '+e.message);});
+  }).catch(function(e){alert('Reset failed: '+e.message);});
 }
 function drawRequests(){
   var el=gid('pane-requests'); if(!el)return;
@@ -2785,6 +2825,7 @@ function renderWOModule(){
     H+='<button onclick="doGenerateWOs(this)" class="btn-primary" style="flex:1;padding:11px;font-size:13px">\u2699\ufe0f Generate due WOs</button>';
     H+='<button onclick="openWOForm()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px">+ Work order</button>';
     H+='</div>';
+    H+='<button onclick="resetCMMSSchedule()" class="btn-ghost" style="width:100%;padding:10px;font-size:12.5px;margin-bottom:11px;color:#f87171;border-color:rgba(248,113,113,.4)">\u21bb Reset schedule — start fresh from today</button>';
     H+='<div style="display:flex;gap:7px;margin-bottom:12px">';
     H+='<select onchange="WO_FILTER.status=this.value;renderWOList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px">'+
        ['open','assigned','in_progress','completed','all'].map(function(s){return '<option value="'+s+'"'+(WO_FILTER.status===s?' selected':'')+'>'+(s==='all'?'All statuses':WO_STATUS[s].label)+'</option>';}).join('')+'</select>';
@@ -3092,7 +3133,7 @@ function renderCalendarModule(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-22c';
+  var BUILD='2026-06-22d';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
