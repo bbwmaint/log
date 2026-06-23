@@ -342,7 +342,7 @@ var TECHS=["Praful", "Lahcen", "Viktor", "Adam", "Abin", "Akshay", "Anupam", "Ma
 var ADMIN="Praful";
 var EDITORS=["Praful","Lahcen"];   // can edit CMMS + Reports (audit control)
 // ====== CMMS ON/OFF SWITCH ======  set to true to show the CMMS tab, false to hide it for everyone
-var CMMS_ENABLED=false;
+var CMMS_ENABLED=true;
 // Role per person; anyone not listed is a Maintenance Technician.
 var ROLES={Lahcen:'Maintenance Manager',Praful:'Maintenance Co-ordinator',Viktor:'Maintenance Supervisor'};
 var ROLES_UK={Lahcen:'\u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0437 \u043e\u0431\u0441\u043b\u0443\u0433\u043e\u0432\u0443\u0432\u0430\u043d\u043d\u044f',Praful:'\u041a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u043e\u0440 \u0437 \u043e\u0431\u0441\u043b\u0443\u0433\u043e\u0432\u0443\u0432\u0430\u043d\u043d\u044f',Viktor:'\u041a\u0435\u0440\u0456\u0432\u043d\u0438\u043a \u0437 \u043e\u0431\u0441\u043b\u0443\u0433\u043e\u0432\u0443\u0432\u0430\u043d\u043d\u044f'};
@@ -478,7 +478,7 @@ var TRANS = {
     rep_tab:'Reports', rep_tap:'Tap an asset to view its Calibration, Service and PM documents', rep_tapedit:' and upload files', rep_search:'Search asset name or code…', rep_noassets:'No assets found',
     doc_calibration:'Calibration', doc_service:'Service Reports', doc_pms:'PMs', doc_filters:'Filters', doc_allassets:'All assets', doc_all:'All', doc_upload:'Upload PDF to ', doc_nodocs:'No documents yet.', doc_view:'View', doc_loading:'Loading…',
     flt_intro:'Filters in use for this asset — model, quantity, and next change due.', flt_add:'Add filter record', flt_none_e:'No filter records yet.', flt_none_v:'No filter records yet — ask Praful or Lahcen to add them.', flt_nextdue:'Next due', flt_last:'Last changed ', flt_qty:'Qty ', flt_every:'every ',
-    req_tab:'Requests', req_viewdetails:'View details', req_wr:'Work Requests', req_open:'open', req_noopen:'No open requests right now.', req_follow:'Cross-dept Follow-ups', req_nofollow:'None right now. Technicians can raise one with the "Follow-up" log type.', req_completed:'Completed', st_new:'New', st_inprogress:'In Progress', st_done:'Done', req_start:'Start', req_markdone:'Mark done', req_addnote:'Add note', req_by:'By ', req_closedby:'Closed by ', req_loggedlog:' • logged to work log', req_noteprompt:'Add a note (visible to everyone):', req_photo:'Photo ', req_loading:'Loading requests…', pin_open:'Open Work Requests', pin_viewall:'View all ›', req_followtag:'FOLLOW-UP', req_raisedby:'Raised by ', followup:'Follow-up',
+    req_tab:'Requests', req_viewdetails:'View details', req_wr:'Work Requests', req_open:'open', req_noopen:'No open requests right now.', req_follow:'Cross-dept Follow-ups', req_nofollow:'None right now. Technicians can raise one with the "Follow-up" log type.', req_completed:'Completed', st_new:'New', st_inprogress:'In Progress', st_done:'Done', req_start:'Start', req_markdone:'Mark done', req_addnote:'Add note', req_by:'By ', req_closedby:'Closed by ', req_loggedlog:' • logged to work log', req_noteprompt:'Add a note (visible to everyone):', req_photo:'Photo ', req_loading:'Loading requests…', pin_open:'Open Work Requests', pin_viewall:'View all ›', req_followtag:'FOLLOW-UP', req_raisedby:'Raised by ', followup:'Follow-up', pm_due_title:'PM tasks due', pm_overdue:'Overdue', pm_due:'Due', pm_done:'Done', wo_complete_title:'Complete work order', wo_hours:'Hours spent', wo_parts:'Parts used (optional)', wo_parts_ph:'e.g. 2x belt, 1x seal', wo_note:'Notes (optional)', wo_note_ph:'What was done, findings…', wo_mark_complete:'Mark complete', cmms_trend:'On-time compliance trend',
   },
   uk: {
     mylog: '\u0416\u0443\u0440\u043d\u0430\u043b', shift: '\u0417\u043c\u0456\u043d\u0430', prev: '\u041f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u044f', util: '\u041a\u043e\u043c\u0443\u043d\u0430\u043b\u044c\u043d\u0456', more: '\u0411\u0456\u043b\u044c\u0448\u0435', schedule: '\u0413\u0440\u0430\u0444\u0456\u043a', assets: '\u0410\u043a\u0442\u0438\u0432\u0438',
@@ -505,7 +505,7 @@ var TRANS = {
     rep_tab:'Звіти', rep_tap:'Торкніться активу, щоб переглянути документи калібрування, обслуговування та ТО', rep_tapedit:' та завантажити файли', rep_search:'Пошук назви або коду активу…', rep_noassets:'Активів не знайдено',
     doc_calibration:'Калібрування', doc_service:'Звіти про обслуговування', doc_pms:'ТО', doc_filters:'Фільтри', doc_allassets:'Усі активи', doc_all:'Усі', doc_upload:'Завантажити PDF: ', doc_nodocs:'Поки немає документів.', doc_view:'Переглянути', doc_loading:'Завантаження…',
     flt_intro:'Фільтри для цього активу — модель, кількість і дата наступної заміни.', flt_add:'Додати запис про фільтр', flt_none_e:'Поки немає записів про фільтри.', flt_none_v:'Поки немає записів — попросіть Praful або Lahcen додати їх.', flt_nextdue:'Наступна заміна', flt_last:'Остання заміна ', flt_qty:'К-сть ', flt_every:'кожні ',
-    req_tab:'Заявки', req_viewdetails:'Переглянути деталі', req_wr:'Заявки на роботу', req_open:'відкритих', req_noopen:'Зараз немає відкритих заявок.', req_follow:'Міжвідділкові звернення', req_nofollow:'Зараз немає. Техніки можуть створити запис типу «Подальші дії».', req_completed:'Виконано', st_new:'Нова', st_inprogress:'В роботі', st_done:'Виконано', req_start:'Почати', req_markdone:'Позначити виконаним', req_addnote:'Додати нотатку', req_by:'Від ', req_closedby:'Закрив(ла) ', req_loggedlog:' • записано в журнал', req_noteprompt:'Додайте нотатку (видно всім):', req_photo:'Фото ', req_loading:'Завантаження заявок…', pin_open:'Відкриті заявки', pin_viewall:'Переглянути всі ›', req_followtag:'ЗВЕРНЕННЯ', req_raisedby:'Подав(ла) ', followup:'Подальші дії',
+    req_tab:'Заявки', req_viewdetails:'Переглянути деталі', req_wr:'Заявки на роботу', req_open:'відкритих', req_noopen:'Зараз немає відкритих заявок.', req_follow:'Міжвідділкові звернення', req_nofollow:'Зараз немає. Техніки можуть створити запис типу «Подальші дії».', req_completed:'Виконано', st_new:'Нова', st_inprogress:'В роботі', st_done:'Виконано', req_start:'Почати', req_markdone:'Позначити виконаним', req_addnote:'Додати нотатку', req_by:'Від ', req_closedby:'Закрив(ла) ', req_loggedlog:' • записано в журнал', req_noteprompt:'Додайте нотатку (видно всім):', req_photo:'Фото ', req_loading:'Завантаження заявок…', pin_open:'Відкриті заявки', pin_viewall:'Переглянути всі ›', req_followtag:'ЗВЕРНЕННЯ', req_raisedby:'Подав(ла) ', followup:'Подальші дії', pm_due_title:'Завдання ТО', pm_overdue:'Прострочено', pm_due:'Термін', pm_done:'Готово', wo_complete_title:'Завершити наряд', wo_hours:'Витрачені години', wo_parts:'Використані деталі (необов’язково)', wo_parts_ph:'напр. 2x ремінь, 1x ущільнення', wo_note:'Нотатки (необов’язково)', wo_note_ph:'Що зроблено, виявлено…', wo_mark_complete:'Позначити виконаним', cmms_trend:'Тренд своєчасності',
   }
 };
 
@@ -713,6 +713,7 @@ function loginUser(name){
   try{loadUtilFromSB();}catch(e){console.error('loadUtil',e);}
   try{loadPMOverrides();}catch(e){console.error('loadPMOverrides',e);}
   try{renderAll();}catch(e){console.error('renderAll',e);}
+  try{autoGenerateWOs();}catch(e){}
   try{showPage('pg-app');}catch(e){console.error('showPage',e);}
   try{checkUBanner();}catch(e){console.error('checkUBanner',e);}
   // Refresh every 5 minutes (was 30s — that polling was the main egress driver)
@@ -760,7 +761,7 @@ function showTab(name){
   if(name==='assets')renderAssets();
   if(name==='reports')renderReports();
   if(name==='requests')renderRequests();
-  if(name==='log')injectPinnedRequests();
+  if(name==='log'){injectPinnedRequests();injectMyPMTasks();}
   if(name==='schedule')renderSchedule();
   if(name==='cmms'){try{renderCMMS();}catch(e){gid('pane-cmms').innerHTML='<div style="padding:20px;color:#f87171;font-size:12px">'+e.message+'</div>';}}
   if(name==='more'){try{renderMore();}catch(e){gid('pane-more').innerHTML='<div style="padding:20px;color:red;font-family:monospace;font-size:12px">ERROR: '+e.message+'<br>'+e.stack.replace(/</g,"&lt;").replace(/\n/g,"<br>")+'</div>';}}
@@ -1570,6 +1571,7 @@ function deleteFromSB(sbId){
 function loadFromSB(){
   window._lastSbLoad=Date.now();
   try{loadRequests().then(function(){updateReqBadge();injectPinnedRequests();});}catch(e){}
+  try{loadWOs(true).then(function(){injectMyPMTasks();updateCmmsBadge();});}catch(e){}
   var today=td();
   var yesterday=new Date();yesterday.setDate(yesterday.getDate()-3);
   var yd=localDateStr(yesterday);
@@ -2776,7 +2778,7 @@ var WO_STATUS={open:{label:'Open',col:'#9b9ba3'},assigned:{label:'Assigned',col:
 function renderWOModule(){
   var host=gid('cmms-wos'); if(!host)return;
   host.innerHTML='<div style="text-align:center;color:var(--text-3);padding:24px;font-size:13px">Loading work orders\u2026</div>';
-  loadWOs(true).then(function(){
+  generateWOs().then(function(){return loadWOs(true);}).then(function(){
     var assignees=Array.from(new Set(WOS.map(function(w){return w.assignee;}).filter(Boolean))).sort();
     var H='';
     H+='<div style="display:flex;gap:8px;margin-bottom:11px">';
@@ -2834,7 +2836,7 @@ function renderWOList(){
     if(w.status==='open')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Assign</button>';
     if(w.status==='assigned')H+='<button onclick="woStatus('+w.id+',\'in_progress\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Start</button>';
     if(w.status==='in_progress')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Pause</button>';
-    if(w.status!=='completed')H+='<button onclick="completeWO('+w.id+')" class="btn-primary" style="flex:1;height:31px;font-size:12px">Complete</button>';
+    if(w.status!=='completed')H+='<button onclick="openWOComplete('+w.id+')" class="btn-primary" style="flex:1;height:31px;font-size:12px">Complete</button>';
     if(w.status==='completed')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Reopen</button>';
     H+='<button onclick="openWOForm('+w.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Edit</button>';
     H+='<button onclick="deleteWO('+w.id+')" class="btn-ghost" style="width:42px;height:31px;font-size:12px;color:var(--bad)">\u2715</button>';
@@ -2847,18 +2849,121 @@ function renderWOList(){
 function woStatus(id,status){
   sbFetch('bbw_wos?id=eq.'+id,{method:'PATCH',body:JSON.stringify({status:status,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}}).then(function(){var w=WOS.filter(function(x){return x.id===id;})[0];if(w)w.status=status;renderWOList();});
 }
-function completeWO(id){
+function completeWO(id, extras){
+  extras=extras||{};
   var w=WOS.filter(function(x){return x.id===id;})[0]; if(!w)return;
   var today=pmISO(new Date());
+  var noteParts=[]; if(extras.parts)noteParts.push('Parts: '+extras.parts); if(extras.note)noteParts.push(extras.note);
   var patch={status:'completed',completed_by:user,completed_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(extras.hours!=null&&extras.hours!=='')patch.hours_spent=parseFloat(extras.hours);
+  if(noteParts.length)patch.notes=(w.notes?w.notes+' \u2022 ':'')+noteParts.join(' \u2022 ');
   sbFetch('bbw_wos?id=eq.'+id,{method:'PATCH',body:JSON.stringify(patch),headers:{'Prefer':'return=minimal'}}).then(function(){
     Object.assign(w,patch);
     if(w.pm_id){
       var p=CMMS_PMS.filter(function(x){return x.id===w.pm_id;})[0];
       if(p&&p.freq){var nd=pmAdvanceISO(p.freq,today);sbFetch('bbw_pms?id=eq.'+p.id,{method:'PATCH',body:JSON.stringify({next_due:nd,last_done:today,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}}).then(function(){p.next_due=nd;p.last_done=today;});}
     }
-    renderWOList();
+    try{logFromWO(w, extras);}catch(e){}
+    try{if(gid('wo-list'))renderWOList();}catch(e){}
+    try{updateCmmsBadge();}catch(e){}
+    try{if(gid('pane-log')&&gid('pane-log').style.display!=='none'){renderLog();injectPinnedRequests();injectMyPMTasks();}}catch(e){}
   });
+}
+function logFromWO(w, extras){
+  extras=extras||{};
+  var now=new Date();
+  var bits=['PM '+(w.pm_code||w.wo_code||'')];
+  if(extras.parts)bits.push('Parts: '+extras.parts);
+  if(extras.note)bits.push(extras.note);
+  var e={ id:Date.now(), date:entryAnchor(null), shift:(isDay()?'Day':'Night'),
+    type:'completed', priority:'info',
+    assetName:w.asset||'General', assetCode:w.asset_code||'',
+    issue:w.description||'PM', desc:bits.join(' \u2022 '),
+    start:'', end:'', dt:0, machineDown:'', coMins:0, coType:'', partName:(extras.parts||''), partQty:'1',
+    photos:[], photo:null,
+    who:user, loggedAt:now.toISOString(), shiftNote:'' };
+  entries.push(e); allE.push(e); try{syncEntry(e);}catch(x){} save();
+}
+function closeWOComplete(){ var m=gid('wo-complete-modal'); if(m)m.remove(); }
+function openWOComplete(id){
+  var w=WOS.filter(function(x){return x.id===id;})[0]; if(!w)return;
+  closeWOComplete();
+  var inp='width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px;box-sizing:border-box';
+  var H='<div id="wo-complete-modal" onclick="if(event.target===this)closeWOComplete()" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:320;display:flex;align-items:flex-end;justify-content:center">';
+  H+='<div style="background:var(--bg);width:100%;max-width:600px;border-radius:18px 18px 0 0;border-top:1px solid var(--border);padding:18px 16px 26px;max-height:90vh;overflow-y:auto">';
+  H+='<div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:3px">'+T('wo_complete_title')+'</div>';
+  H+='<div style="font-size:13px;color:var(--text-2);margin-bottom:14px">'+rqEsc(w.description||'')+' \u00b7 '+rqEsc(w.asset||'')+'</div>';
+  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_hours')+'</label><input id="wo-c-hours" type="number" step="0.25" min="0" value="'+(w.hours_est||'')+'" style="'+inp+';margin-bottom:12px">';
+  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_parts')+'</label><input id="wo-c-parts" style="'+inp+';margin-bottom:12px" placeholder="'+T('wo_parts_ph')+'">';
+  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_note')+'</label><textarea id="wo-c-note" rows="3" style="'+inp+';resize:vertical;margin-bottom:16px" placeholder="'+T('wo_note_ph')+'"></textarea>';
+  H+='<div style="display:flex;gap:9px"><button onclick="closeWOComplete()" style="flex:1;padding:13px;background:var(--surface-2);border:1px solid var(--border);color:#fff;border-radius:10px;font-size:14px;cursor:pointer">'+T('Cancel')+'</button>';
+  H+='<button onclick="doWOComplete('+w.id+')" style="flex:2;padding:13px;background:#16a34a;border:none;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">'+T('wo_mark_complete')+'</button></div>';
+  H+='</div></div>';
+  var d=document.createElement('div'); d.innerHTML=H; document.body.appendChild(d.firstChild);
+}
+function doWOComplete(id){
+  var hours=gid('wo-c-hours')?gid('wo-c-hours').value:'';
+  var parts=gid('wo-c-parts')?gid('wo-c-parts').value:'';
+  var note=gid('wo-c-note')?gid('wo-c-note').value:'';
+  closeWOComplete();
+  completeWO(id,{hours:hours,parts:parts,note:note});
+}
+function autoGenerateWOs(){
+  if(!CMMS_ENABLED||!isEditor())return Promise.resolve(0);
+  return generateWOs().then(function(n){ try{updateCmmsBadge();}catch(e){} try{injectMyPMTasks();}catch(e){} return n; }).catch(function(){return 0;});
+}
+function updateCmmsBadge(){
+  var btn=gid('tab-cmms'); if(!btn)return;
+  var today=pmISO(new Date());
+  var overdue=WOS.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<today;}).length;
+  btn.innerHTML='CMMS'+(overdue?'<span style="color:#f87171;font-weight:800"> '+overdue+'</span>':'');
+}
+function injectMyPMTasks(){
+  var pane=gid('pane-log'); if(!pane)return;
+  var ex=gid('mypm-tasks'); if(ex)ex.remove();
+  if(!WOS_LOADED||typeof user==='undefined'||!user)return;
+  var today=pmISO(new Date());
+  var mine=WOS.filter(function(w){return w.status!=='completed'&&w.assignee===user&&w.due_date&&w.due_date<=today;});
+  if(!mine.length)return;
+  mine.sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');});
+  var H='<div id="mypm-tasks" style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.35);border-radius:12px;padding:12px 13px;margin-bottom:14px">';
+  H+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px"><span style="font-size:15px">\ud83d\udd27</span><span style="font-size:12px;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:.04em">'+T('pm_due_title')+' \u00b7 '+mine.length+'</span></div>';
+  mine.forEach(function(w){
+    var overdue=w.due_date<today;
+    H+='<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(96,165,250,.15)">';
+    H+='<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--text);font-weight:600">'+rqEsc(w.description||'')+'</div>';
+    H+='<div style="font-size:11px;color:'+(overdue?'#f87171':'var(--text-3)')+'">'+rqEsc(w.asset||'')+' \u00b7 '+(overdue?T('pm_overdue'):T('pm_due'))+' '+w.due_date+'</div></div>';
+    H+='<button onclick="openWOComplete('+w.id+')" style="background:#2563eb;border:none;color:#fff;font-size:12px;font-weight:700;padding:9px 15px;border-radius:8px;cursor:pointer;white-space:nowrap">'+T('pm_done')+'</button>';
+    H+='</div>';
+  });
+  H+='</div>';
+  var d=document.createElement('div'); d.innerHTML=H;
+  var pinned=gid('req-pinned');
+  if(pinned) pane.insertBefore(d.firstChild, pinned.nextSibling);
+  else pane.insertBefore(d.firstChild, pane.firstChild);
+}
+function cmmsTrendHTML(todayISO){
+  var base=new Date(todayISO+'T00:00:00'); var months=[];
+  for(var i=5;i>=0;i--){ months.push(new Date(base.getFullYear(),base.getMonth()-i,1)); }
+  var bars=months.map(function(d){
+    var ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    var sched=WOS.filter(function(w){return (w.due_date||'').slice(0,7)===ym;});
+    var onTime=sched.filter(function(w){return w.status==='completed'&&w.completed_at&&w.completed_at.slice(0,10)<=w.due_date;}).length;
+    return {label:d.toLocaleDateString('en-CA',{month:'short'}),pct:sched.length?Math.round(onTime/sched.length*100):null,n:sched.length};
+  });
+  var H='<div style="font-size:12px;font-weight:700;color:var(--text);margin:18px 0 9px">'+T('cmms_trend')+'</div>';
+  H+='<div style="display:flex;align-items:flex-end;gap:6px;height:96px;padding:8px 6px;background:var(--surface);border:1px solid var(--border);border-radius:10px">';
+  bars.forEach(function(b){
+    var h=b.pct==null?3:Math.max(4,Math.round(b.pct*0.62));
+    var col=b.pct==null?'var(--border-2)':(b.pct>=90?'#34d399':b.pct>=75?'#fbbf24':'#f87171');
+    H+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;justify-content:flex-end">';
+    H+='<div style="font-size:9px;color:var(--text-3)">'+(b.pct==null?'\u2013':b.pct+'%')+'</div>';
+    H+='<div style="width:78%;height:'+h+'px;background:'+col+';border-radius:4px 4px 0 0"></div>';
+    H+='<div style="font-size:9px;color:var(--text-3)">'+b.label+'</div>';
+    H+='</div>';
+  });
+  H+='</div>';
+  return H;
 }
 function deleteWO(id){
   var w=WOS.filter(function(x){return x.id===id;})[0]; if(!w)return;
@@ -2939,6 +3044,7 @@ function renderComplianceModule(){
     H+=ctile('Open',open);
     H+=ctile('In progress',inprog);
     H+='</div>';
+    H+=cmmsTrendHTML(today);
     // by-tech backlog
     var techMap={};
     WOS.forEach(function(w){if(w.status==='completed')return;var t=w.assignee||'\u2014';techMap[t]=techMap[t]||{t:t,n:0,od:0};techMap[t].n++;if(w.due_date&&w.due_date<today)techMap[t].od++;});
@@ -2986,7 +3092,7 @@ function renderCalendarModule(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-22b';
+  var BUILD='2026-06-22c';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
