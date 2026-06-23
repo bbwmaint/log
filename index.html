@@ -76,16 +76,16 @@
   .dz-kpis{grid-template-columns:repeat(4,1fr);gap:15px}
   .dz-grid{grid-template-columns:1.45fr 1fr;gap:16px}
   #pg-app{padding-left:248px}
-  #tabbar{position:fixed!important;left:0;top:0;bottom:0;width:248px;flex-direction:column!important;overflow-y:auto!important;overflow-x:hidden!important;border-bottom:none!important;border-right:1px solid var(--border)!important;background:#0c0c0e!important;padding:18px 12px 16px!important;gap:1px;z-index:60}
+  #tabbar{position:fixed!important;left:0;top:0;bottom:0;width:248px;box-sizing:border-box;flex-direction:column!important;overflow-y:auto!important;overflow-x:hidden!important;border-bottom:none!important;border-right:1px solid var(--border)!important;background:#0c0c0e!important;padding:20px 12px 16px!important;gap:1px;z-index:60}
   #tabbar>button{width:100%!important;text-align:left!important;border-bottom:none!important;border-radius:8px!important;padding:10px 13px!important;margin-bottom:1px;font-size:13.5px!important;color:var(--text-2)!important;white-space:nowrap;flex:0 0 auto!important}
   #tabbar>button:hover{background:var(--surface)!important;color:#fff!important}
   #tabbar>button.dz-active{background:var(--surface-2)!important;color:#fff!important}
   .tab-ic{display:inline-block!important;width:18px;height:18px;vertical-align:-4px;margin-right:11px;color:var(--text-3)}
   .tab-ic svg{width:18px;height:18px;display:block}
   #tabbar>button.dz-active .tab-ic{color:#c8a24b}
-  .side-brand{display:block!important;padding:2px 10px 15px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:12px}
-  .side-brand img{width:138px;display:block;margin-bottom:8px}
-  .side-sub{font-size:9px;letter-spacing:.2em;color:var(--text-3);text-transform:uppercase;font-weight:700;padding-left:2px}
+  .side-brand{display:block!important;padding:2px 13px 16px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:12px;overflow:hidden}
+  .side-brand img{width:136px;max-width:100%;display:block;margin-bottom:9px}
+  .side-sub{font-size:9px;letter-spacing:.14em;color:var(--text-3);text-transform:uppercase;font-weight:700;white-space:nowrap}
   .hdr-logo{display:none!important}
   #content{padding:24px 30px!important}
 }
@@ -1192,7 +1192,7 @@ function backToReports(){ DOC_ASSET=null; renderReports(); }
 
 function renderDocView(){
   var el=gid('pane-reports'); if(!el)return; var a=DOC_ASSET;
-  var H='<button onclick="backToReports()" style="background:none;border:none;color:#60a5fa;font-size:15px;cursor:pointer;padding:4px 0;margin-bottom:8px">\u2190 '+T('doc_allassets')+'</button>';
+  var H='<button onclick="backToReports()" style="display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 14px;border-radius:9px;margin-bottom:14px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+T('doc_allassets')+'</button>';
   H+='<div style="font-size:18px;font-weight:800;color:#fff">'+a.n+'</div>';
   H+='<div style="font-size:12px;color:var(--text-3);font-family:monospace;margin-bottom:14px">'+a.c+'</div>';
   var cats=[['calibration',T('doc_calibration')],['service',T('doc_service')],['pm',T('doc_pms')],['filters',T('doc_filters')]];
@@ -3268,7 +3268,7 @@ function renderCalendarModule(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-23a';
+  var BUILD='2026-06-23b';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
