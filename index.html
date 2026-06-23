@@ -1429,6 +1429,67 @@ function reqCard(r){
 function closeRequestDetail(){ var m=gid('req-detail-modal'); if(m)m.remove(); }
 function isDesktop(){return !!(window.matchMedia&&window.matchMedia('(min-width:1000px)').matches);}
 function mdSelect(id){try{Array.prototype.forEach.call(document.querySelectorAll('#pane-requests [data-reqid]'),function(c){c.classList.toggle('md-sel',c.getAttribute('data-reqid')===''+id);});}catch(e){}}
+function _issLoadImg(src){return new Promise(function(res){try{var im=new Image();im.crossOrigin='anonymous';im.onload=function(){res(im);};im.onerror=function(){res(null);};im.src=src;}catch(e){res(null);}});}
+function _issImgData(im){try{var c=document.createElement('canvas');var mx=900,sc=Math.min(1,mx/(im.naturalWidth||im.width||1));c.width=Math.round((im.naturalWidth||im.width)*sc);c.height=Math.round((im.naturalHeight||im.height)*sc);c.getContext('2d').drawImage(im,0,0,c.width,c.height);return {url:c.toDataURL('image/jpeg',0.8),w:c.width,h:c.height};}catch(e){return null;}}
+function buildIssuePDFBlob(info, photoUrls){
+  var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; var doc=new JS({unit:'pt',format:'letter'});
+  var W=doc.internal.pageSize.getWidth(), Hp=doc.internal.pageSize.getHeight(), m=48, y=58;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(150); doc.text('BRUNSWICK BIERWORKS \u00b7 MAINTENANCE', m, y); y+=22;
+  doc.setFontSize(19); doc.setTextColor(20); doc.text('Maintenance Issue', m, y); y+=12;
+  doc.setDrawColor(210); doc.setLineWidth(1); doc.line(m,y,W-m,y); y+=26;
+  doc.setFontSize(16); doc.setTextColor(0); doc.text((info.title||'Issue')+(info.code?'   ('+info.code+')':''), m, y); y+=22;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(110);
+  var meta='Reported by '+(info.reporter||'\u2014')+(info.dept?'   \u00b7   '+info.dept:'')+(info.date?'        '+info.date:'')+(info.shift?'  \u00b7  '+info.shift:'');
+  doc.text(meta, m, y); y+=24;
+  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(150); doc.text('REQUEST', m, y); y+=6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(12); doc.setTextColor(25);
+  var ask='Please check this issue.'; var lines=doc.splitTextToSize(ask+'\n\n'+(info.issueText||''), W-2*m);
+  doc.text(lines, m, y+12); y+= lines.length*15 + 26;
+  return Promise.all((photoUrls||[]).slice(0,6).map(_issLoadImg)).then(function(imgs){
+    imgs=imgs.map(function(im){return im?_issImgData(im):null;}).filter(Boolean);
+    if(imgs.length){
+      doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(150);
+      if(y>Hp-120){doc.addPage();y=58;} doc.text('PHOTOS', m, y); y+=14;
+      var gap=10, cols=3, cellW=(W-2*m-(cols-1)*gap)/cols, x=m, rowH=0;
+      imgs.forEach(function(d){ var h=cellW*(d.h/d.w);
+        if(x+cellW>W-m+1){x=m;y+=rowH+gap;rowH=0;}
+        if(y+h>Hp-48){doc.addPage();y=58;x=m;rowH=0;}
+        try{doc.addImage(d.url,'JPEG',x,y,cellW,h);}catch(e){}
+        x+=cellW+gap; rowH=Math.max(rowH,h);
+      });
+    }
+    return doc.output('blob');
+  });
+}
+function fallbackEmailNoTo(subject,summary,blob,fname){
+  try{ downloadBlob(blob,fname); }catch(e){}
+  var body=summary+'\n\n\u2014\nThe PDF ("'+fname+'") was downloaded to this device \u2014 attach it before sending.';
+  setTimeout(function(){ window.location.href='mailto:?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body); },400);
+}
+function emailIssue(info, photoUrls, btn){
+  var subject='Maintenance issue \u2014 '+(info.title||'Issue')+(info.code?' ('+info.code+')':'');
+  var summary='Please check this issue:\n\n'+(info.issueText||'')+'\n\nReported by '+(info.reporter||'\u2014')+(info.dept?' \u00b7 '+info.dept:'')+(info.date?' \u00b7 '+info.date:'')+'\n\n\u2014 Maintenance, Brunswick Bierworks';
+  var fname=('Issue_'+(info.code||info.title||'BBW')).replace(/[^a-z0-9]+/gi,'_').replace(/_+$/,'')+'.pdf';
+  if(btn){btn.disabled=true;btn.dataset.t=btn.textContent;btn.textContent='Preparing\u2026';}
+  buildIssuePDFBlob(info, photoUrls).then(function(blob){
+    if(btn){btn.disabled=false;btn.textContent=btn.dataset.t;}
+    var file=new File([blob],fname,{type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:subject,text:summary}).catch(function(e){ if(e&&e.name==='AbortError')return; fallbackEmailNoTo(subject,summary,blob,fname); });
+    } else { fallbackEmailNoTo(subject,summary,blob,fname); }
+  }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent=btn.dataset.t;} alert('Could not build the PDF: '+e.message); });
+}
+function emailRequestIssue(id, btn){
+  var r=REQUESTS.filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
+  var photos=[]; try{photos=JSON.parse(r.photos||'[]');}catch(e){}
+  var urls=photos.map(function(p){return SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(p);});
+  emailIssue({title:r.asset_name||r.department||'Work Request', code:r.asset_code||'', issueText:r.work||'', reporter:r.reporter||'', dept:r.department||'', date:r.created_at?(''+r.created_at).slice(0,10):'', shift:''}, urls, btn);
+}
+function emailFollowupIssue(id, btn){
+  var e=allE.filter(function(x){return ''+x.id===''+id;})[0]; if(!e)return;
+  var photos=e.photos||[]; if(typeof photos==='string'){try{photos=JSON.parse(photos);}catch(x){photos=[];}} if(!photos.length&&e.photo)photos=[e.photo];
+  emailIssue({title:e.assetName||'Follow-up', code:e.assetCode||'', issueText:e.desc||e.issue||'', reporter:e.who||'', dept:'', date:e.date||'', shift:e.shift||''}, photos, btn);
+}
 function requestDetailBody(r){
   var notes=[];try{notes=JSON.parse(r.notes||'[]');}catch(e){}
   var photos=[];try{photos=JSON.parse(r.photos||'[]');}catch(e){}
@@ -1444,7 +1505,8 @@ function requestDetailBody(r){
   if(photos.length){ H+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'; photos.forEach(function(pth){ var u=SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(pth); H+='<img src="'+u+'" onclick="openLB(\''+u+'\',\''+rqEsc(r.asset_name||'')+'\')" style="width:92px;height:92px;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)">'; }); H+='</div>'; }
   if(notes.length){ H+='<div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">Notes</div>'; notes.forEach(function(n){ H+='<div style="font-size:12.5px;color:var(--text-2);margin-bottom:6px;background:var(--surface);border-radius:8px;padding:9px 11px"><b style="color:#fff">'+rqEsc(n.by)+'</b> '+rqEsc(n.text)+'<div style="font-size:10px;color:var(--text-3);margin-top:3px">'+docFmtDate(n.at)+'</div></div>'; }); }
   if(typeof user!=='undefined'&&user){
-    H+='<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">';
+    H+='<button onclick="emailRequestIssue('+r.id+',this)" style="width:100%;margin-top:16px;background:transparent;border:1px solid #2563eb;color:#60a5fa;font-size:13.5px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">\u2709\ufe0f Email this issue (PDF)</button>';
+    H+='<div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">';
     if(r.status==='new')H+='<button onclick="reqSetStatus('+r.id+',\'in_progress\');closeRequestDetail()" style="'+rqBtn('#3b82f6')+'">'+T('req_start')+'</button>';
     if(r.status!=='done')H+='<button onclick="reqSetStatus('+r.id+',\'done\');closeRequestDetail()" style="'+rqBtn('#16a34a')+'">'+T('req_markdone')+'</button>';
     H+='<button onclick="reqAddNote('+r.id+');closeRequestDetail()" style="'+rqBtn('#52525b')+'">'+T('req_addnote')+'</button>';
@@ -1462,6 +1524,7 @@ function followupDetailBody(e){
   H+='<div style="margin-bottom:5px">'+T('req_by')+'<b style="color:#fff">'+rqEsc(e.who||'')+'</b></div>';
   H+='<div style="color:var(--text-3)">'+rqEsc(e.date||'')+(e.shift?' \u00b7 '+rqEsc(e.shift):'')+'</div></div>';
   if(photos.length){ H+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'; photos.forEach(function(u){ var us=(''+u).replace(/'/g,'%27'); H+='<img src="'+us+'" onclick="openLB(\''+us+'\',\''+rqEsc(e.assetName||'')+'\')" style="width:92px;height:92px;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)">'; }); H+='</div>'; }
+  H+='<button onclick="emailFollowupIssue('+e.id+',this)" style="width:100%;margin-top:8px;background:transparent;border:1px solid #2563eb;color:#60a5fa;font-size:13.5px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">\u2709\ufe0f Email this issue (PDF)</button>';
   return H;
 }
 function openRequest(id){
@@ -3303,7 +3366,7 @@ function drawCalendar(host){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-23d';
+  var BUILD='2026-06-23e';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
