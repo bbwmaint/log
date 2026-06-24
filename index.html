@@ -1076,8 +1076,17 @@ function renderPhotoThumbs(){
 function removePhoto(i){photos.splice(i,1);renderPhotoThumbs();
 }
 
+function toast(msg,bad){
+  try{var t=document.createElement('div');t.textContent=msg;
+    t.style.cssText='position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:'+(bad?'#b91c1c':'#16a34a')+';color:#fff;padding:12px 22px;border-radius:12px;font-size:15px;font-weight:700;z-index:9999;box-shadow:0 10px 34px rgba(0,0,0,.45);max-width:90%;text-align:center';
+    document.body.appendChild(t);
+    setTimeout(function(){t.style.transition='opacity .4s';t.style.opacity='0';setTimeout(function(){t.remove();},420);},2000);
+  }catch(e){}
+}
 function submitEntry(){
-  if(!ctype){alert('Select a type first');return;}
+ try{
+  var _wasEdit=!!editId;
+  if(!ctype){alert('Please pick a type at the top (Completed, Pending, Ongoing, etc.) before saving.');try{var _t=document.querySelector('[id^="tp-"]');if(_t&&_t.scrollIntoView)_t.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}return;}
   var entry={id:editId||Date.now(),date:(function(){
       var st=gid('f-start').value;
       if(st){
@@ -1131,11 +1140,18 @@ function submitEntry(){
         .catch(function(err){console.warn('Edit sync failed',err);});
     } else {
       // Entry was never synced to Supabase yet — create it now instead of leaving it orphaned.
-      syncEntry(entry);
+      try{syncEntry(entry);}catch(_e){console.warn('sync threw',_e);}
     }
-  }else{entries.push(entry);allE.push(entry);syncEntry(entry);}
+  }else{entries.push(entry);allE.push(entry);try{syncEntry(entry);}catch(_e){console.warn('sync threw',_e);}}
   save();
   closeSheet();renderAll();checkUBanner();
+  try{toast(_wasEdit?'Entry updated \u2713':'Logged \u2713');}catch(_e){}
+ }catch(err){
+  console.error('submitEntry failed',err);
+  try{save();}catch(_s){}
+  try{renderAll();}catch(_r){}
+  alert('Could not fully save this entry:\n'+(err&&err.message?err.message:err)+'\n\nWhat you typed is still here \u2014 please screenshot this message and send it to Praful.');
+ }
 }
 
 function save(){
@@ -3369,7 +3385,7 @@ function drawCalendar(host){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-23f';
+  var BUILD='2026-06-24a';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
