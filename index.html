@@ -1595,13 +1595,14 @@ function fallbackEmailNoTo(subject,summary,blob,fname){
 }
 function emailIssue(info, photoUrls, btn){
   var subject='Maintenance issue \u2014 '+(info.title||'Issue')+(info.code?' ('+info.code+')':'');
-  var summary='Please check this issue:\n\n'+(info.issueText||'')+'\n\nReported by '+(info.reporter||'\u2014')+(info.dept?' \u00b7 '+info.dept:'')+(info.date?' \u00b7 '+info.date:'')+'\n\n\u2014 Maintenance, Brunswick Bierworks';
+  var summary='Please check this issue:\n\n'+(info.issueText||'')+'\n\nReported by '+(info.reporter||'\u2014')+(info.dept?' \u00b7 '+info.dept:'')+(info.date?' \u00b7 '+info.date:'');
   var fname=('Issue_'+(info.code||info.title||'BBW')).replace(/[^a-z0-9]+/gi,'_').replace(/_+$/,'')+'.pdf';
   if(btn){btn.disabled=true;btn.dataset.t=btn.textContent;btn.textContent='Preparing\u2026';}
   buildIssuePDFBlob(info, photoUrls).then(function(blob){
     if(btn){btn.disabled=false;btn.textContent=btn.dataset.t;}
     var file=new File([blob],fname,{type:'application/pdf'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
+    var isMobile=/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches);
+    if(isMobile && navigator.canShare && navigator.canShare({files:[file]})){
       navigator.share({files:[file],title:subject,text:summary}).catch(function(e){ if(e&&e.name==='AbortError')return; fallbackEmailNoTo(subject,summary,blob,fname); });
     } else { fallbackEmailNoTo(subject,summary,blob,fname); }
   }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent=btn.dataset.t;} alert('Could not build the PDF: '+e.message); });
@@ -1651,8 +1652,22 @@ function followupDetailBody(e){
   H+='<div style="margin-bottom:5px">'+T('req_by')+'<b style="color:#fff">'+rqEsc(e.who||'')+'</b></div>';
   H+='<div style="color:var(--text-3)">'+rqEsc(e.date||'')+(e.shift?' \u00b7 '+rqEsc(e.shift):'')+'</div></div>';
   if(photos.length){ H+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'; photos.forEach(function(u){ var us=(''+u).replace(/'/g,'%27'); H+='<img src="'+us+'" onclick="openLB(\''+us+'\',\''+rqEsc(e.assetName||'')+'\')" style="width:92px;height:92px;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)">'; }); H+='</div>'; }
+  H+='<button onclick="resolveFollowup('+e.id+',this)" style="width:100%;margin-top:8px;background:#16a34a;border:none;color:#fff;font-size:14px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">\u2713 Mark complete</button>';
   H+='<button onclick="emailFollowupIssue('+e.id+',this)" style="width:100%;margin-top:8px;background:transparent;border:1px solid #2563eb;color:#60a5fa;font-size:13.5px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">\u2709\ufe0f Email this issue (PDF)</button>';
   return H;
+}
+function resolveFollowup(id, btn){
+  var e=allE.filter(function(x){return ''+x.id===''+id;})[0]; if(!e)return;
+  if(!confirm('Mark this follow-up complete? It will be cleared from the follow-up list and the notification.'))return;
+  e.type='completed';
+  try{save();}catch(_){}
+  if(e.sbId){ sbFetch('bbw_worklog?id=eq.'+e.sbId,{method:'PATCH',body:JSON.stringify({type:'completed'}),headers:{'Prefer':'return=minimal'}}).catch(function(){}); }
+  try{closeRequestDetail();}catch(_){}
+  try{var pane=gid('req-detail-pane'); if(pane&&isDesktop())pane.innerHTML='<div class="md-empty">'+T('req_selectone')+'</div>';}catch(_){}
+  try{if(gid('pane-requests'))drawRequests();}catch(_){}
+  try{updateReqBadge();}catch(_){}
+  try{updateCmmsBadge();}catch(_){}
+  try{toast('Follow-up completed \u2713');}catch(_){}
 }
 function openRequest(id){
   var r=REQUESTS.filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
@@ -3526,7 +3541,7 @@ function drawCalendar(host){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-24c';
+  var BUILD='2026-06-24d';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
