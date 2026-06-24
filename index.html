@@ -57,6 +57,7 @@
   .tnum{font-variant-numeric:tabular-nums}
 </style>
 <style id="bbw-desktop">
+html{color-scheme:dark}
 .dz-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px}
 .dz-kpi{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:15px 16px}
 .dz-lbl{font-size:11px;color:var(--text-2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:9px}
@@ -158,7 +159,7 @@
 
     <!-- FOOTER -->
     <div style="padding:14px 24px;border-top:1px solid #2a2a2a;text-align:center">
-      <button id="pin-back" onclick="showNames()" style="display:none;font-size:13px;color:var(--text-2);cursor:pointer;border:none;background:none;padding:4px 8px">&#8592; Back</button>
+      <button id="pin-back" onclick="showNames()" style="display:none;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
     </div>
   </div>
 
@@ -271,7 +272,7 @@
   </div>
   <div id="fg-assignedto" style="display:none;margin-bottom:14px">
     <div style="font-size:12px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Reassign To (Admin Only)</div>
-    <select id="f-assignedto" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 13px;font-size:16px;color:#fff;outline:none"></select>
+    <select id="f-assignedto" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 13px;font-size:16px;color:#fff;outline:none;color-scheme:dark"></select>
   </div>
 
   <!-- TIME FIELDS -->
@@ -301,7 +302,7 @@
         </div>
         <div>
           <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Changeover Type</div>
-          <select id="f-cotype" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none">
+          <select id="f-cotype" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none;color-scheme:dark">
             <option value="">N/A</option>
             <option value="product">Product changeover</option>
             <option value="format">Format change</option>
@@ -318,7 +319,7 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
           <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Machine Status</div>
-          <select id="f-machinedown" onchange="toggleDT(this.value)" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none">
+          <select id="f-machinedown" onchange="toggleDT(this.value)" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none;color-scheme:dark">
             <option value="">Running — no downtime</option>
             <option value="yes">Machine was DOWN</option>
             <option value="partial">Partial — reduced speed</option>
@@ -751,6 +752,7 @@ function loginUser(name){
   try{var _tc=gid('tab-cmms');if(_tc)_tc.style.display=(isEditor()&&CMMS_ENABLED)?'':'none';}catch(e){}
   try{var _td=gid('tab-dash');if(_td)_td.style.display=isEditor()?'':'none';}catch(e){}
   try{enhanceDesktop();}catch(e){}
+  try{ensureLogoPNG();}catch(e){}
   try{gid('uav').textContent=name.charAt(0);}catch(e){console.error('uav',e);}
   try{gid('unm').textContent=name;}catch(e){console.error('unm',e);}
   try{gid('exp-m') && (gid('exp-m').value=new Date().getMonth());}catch(e){}
@@ -1434,7 +1436,7 @@ function _issImgData(im){try{var c=document.createElement('canvas');var mx=900,s
 function buildIssuePDFBlob(info, photoUrls){
   var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; var doc=new JS({unit:'pt',format:'letter'});
   var W=doc.internal.pageSize.getWidth(), Hp=doc.internal.pageSize.getHeight(), m=48, y=58;
-  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(150); doc.text('BRUNSWICK BIERWORKS \u00b7 MAINTENANCE', m, y); y+=22;
+  if(window.__logoDark){try{var _lh=24,_lw=_lh*((window.__logoW||1996)/(window.__logoH||881));doc.addImage(window.__logoDark,'PNG',m,y-16,_lw,_lh);}catch(e){doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(150);doc.text('BRUNSWICK BIERWORKS \u00b7 MAINTENANCE',m,y);}}else{doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(150);doc.text('BRUNSWICK BIERWORKS \u00b7 MAINTENANCE',m,y);} y+=22;
   doc.setFontSize(19); doc.setTextColor(20); doc.text('Maintenance Issue', m, y); y+=12;
   doc.setDrawColor(210); doc.setLineWidth(1); doc.line(m,y,W-m,y); y+=26;
   doc.setFontSize(16); doc.setTextColor(0); doc.text((info.title||'Issue')+(info.code?'   ('+info.code+')':''), m, y); y+=22;
@@ -1874,7 +1876,7 @@ function showReassignModal(pmIdx){
   html+='</div>';
   html+='<div style="padding:16px 20px">';
   html+='<div style="font-size:12px;color:var(--text-2);margin-bottom:8px">Select technician</div>';
-  html+='<select id="reassign-tech" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:12px;font-size:15px;color:#fff;outline:none;margin-bottom:14px">';
+  html+='<select id="reassign-tech" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:12px;font-size:15px;color:#fff;outline:none;color-scheme:dark;margin-bottom:14px">';
   TECHS.forEach(function(t){html+='<option value="'+t+'"'+(t===current?' selected':'')+'>'+t+'</option>';});
   html+='</select>';
   html+='<button onclick="doReassign('+pmIdx+',false)" style="width:100%;padding:12px;background:#fff;color:#000;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">Today Only</button>';
@@ -2237,7 +2239,7 @@ function showAssetDetail(assetName){
   var H='<div id="asset-detail-modal" style="position:fixed;inset:0;background:var(--bg);z-index:500;overflow-y:auto;padding:0">';
   // Header
   H+='<div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;gap:12px;z-index:10">';
-  H+='<button onclick="closeAssetDetail()" style="background:none;border:none;color:#60a5fa;font-size:16px;cursor:pointer;padding:4px 8px">&#8592; Back</button>';
+  H+='<button onclick="closeAssetDetail()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>';
   H+='<div style="flex:1"><div style="font-size:16px;font-weight:700;color:#fff">'+assetName+'</div>';
   H+='<div style="font-size:11px;color:var(--text-3)">'+logs.length+' total logs</div></div>';
   H+='</div>';
@@ -2576,7 +2578,7 @@ function openDashboard(){
   ov=document.createElement('div');ov.id='dash-overlay';
   ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column';
   ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
-    '<button onclick="closeDashboard()" class="btn-ghost" style="padding:7px 11px;font-size:13px">\u2039 Back</button>'+
+    '<button onclick="closeDashboard()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'+
     '<div style="font-size:15px;font-weight:700;color:var(--text)">Dashboard</div>'+
     '<input type="month" id="dash-month" value="'+m+'" max="'+m+'" onchange="renderDashboard(this.value)" style="margin-left:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-size:13px">'+
     '</div><div id="dash-body" style="flex:1;overflow-y:auto;padding:14px 14px 90px"></div>';
@@ -2686,7 +2688,8 @@ function dashboardPDF(){
   var RF='helvetica';try{if(typeof DEJAVU_REG!=='undefined'){doc.addFileToVFS('DejaVu.ttf',DEJAVU_REG);doc.addFont('DejaVu.ttf','DejaVu','normal');doc.addFileToVFS('DejaVu-Bold.ttf',DEJAVU_BOLD);doc.addFont('DejaVu-Bold.ttf','DejaVu','bold');RF='DejaVu';}}catch(e){}
   var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=40,y=46;
   doc.setFillColor(20,20,22);doc.rect(0,0,W,6,'F');
-  doc.setFont(RF,'bold');doc.setFontSize(17);doc.setTextColor(20,20,22);doc.text('BRUNSWICK BIERWORKS',M,y);
+  doc.setTextColor(20,20,22);
+  if(window.__logoDark){try{var _lh=24,_lw=_lh*((window.__logoW||1996)/(window.__logoH||881));doc.addImage(window.__logoDark,'PNG',M,y-18,_lw,_lh);}catch(e){doc.setFont(RF,'bold');doc.setFontSize(17);doc.text('BRUNSWICK BIERWORKS',M,y);}}else{doc.setFont(RF,'bold');doc.setFontSize(17);doc.text('BRUNSWICK BIERWORKS',M,y);}
   doc.setFont(RF,'normal');doc.setFontSize(10);doc.setTextColor(120,120,130);doc.text('Maintenance Dashboard \u2014 '+D.label,M,y+15);y+=40;
   // KPI line
   var k=D.kpis;
@@ -2822,11 +2825,11 @@ function renderPMModule(){
   H+='<input id="pm-search" value="'+CMMS_FILTER.q.replace(/"/g,'&quot;')+'" oninput="CMMS_FILTER.q=this.value;cmmsRenderPMList()" placeholder="Search code, asset, description\u2026" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;color:var(--text);font-size:14px;outline:none">';
   H+='<button onclick="openPMForm()" class="btn-primary" style="padding:10px 14px;font-size:14px;white-space:nowrap">+ PM</button>';
   H+='</div>';
-  function sel(id,label,opts,val){var o='<option value="">'+label+'</option>'+opts.map(function(x){return '<option value="'+x+'"'+(x===val?' selected':'')+'>'+x+'</option>';}).join('');return '<select onchange="CMMS_FILTER.'+id+'=this.value;cmmsRenderPMList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px">'+o+'</select>';}
+  function sel(id,label,opts,val){var o='<option value="">'+label+'</option>'+opts.map(function(x){return '<option value="'+x+'"'+(x===val?' selected':'')+'>'+x+'</option>';}).join('');return '<select onchange="CMMS_FILTER.'+id+'=this.value;cmmsRenderPMList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px;color-scheme:dark">'+o+'</select>';}
   H+='<div style="display:flex;gap:7px;margin-bottom:12px">';
   H+=sel('type','All types',types,CMMS_FILTER.type);
   H+=sel('assignee','All techs',assignees,CMMS_FILTER.assignee);
-  H+='<select onchange="CMMS_FILTER.status=this.value;cmmsRenderPMList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px"><option value="active"'+(CMMS_FILTER.status==='active'?' selected':'')+'>Active</option><option value="paused"'+(CMMS_FILTER.status==='paused'?' selected':'')+'>Paused</option><option value="all"'+(CMMS_FILTER.status==='all'?' selected':'')+'>All</option></select>';
+  H+='<select onchange="CMMS_FILTER.status=this.value;cmmsRenderPMList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px;color-scheme:dark"><option value="active"'+(CMMS_FILTER.status==='active'?' selected':'')+'>Active</option><option value="paused"'+(CMMS_FILTER.status==='paused'?' selected':'')+'>Paused</option><option value="all"'+(CMMS_FILTER.status==='all'?' selected':'')+'>All</option></select>';
   H+='</div>';
   H+='<div id="pm-list"></div>';
   host.innerHTML=H;
@@ -2886,7 +2889,7 @@ function openPMForm(id){
   var prioOpts=['','Low','Medium','High','Highest'].map(function(t){return '<option'+(t===p.priority?' selected':'')+'>'+(t||'\u2014')+'</option>';}).join('');
   var assetList=(typeof ASSETS!=='undefined'?ASSETS:[]).map(function(a){return '<option value="'+a.n+'|'+a.c+'"'+(a.n===p.asset?' selected':'')+'>'+a.n+' ('+a.c+')</option>';}).join('');
   function fld(label,inner){return '<div style="margin-bottom:11px"><div style="font-size:11px;color:var(--text-2);margin-bottom:4px">'+label+'</div>'+inner+'</div>';}
-  var ist='width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px;color:var(--text);font-size:14px;outline:none;box-sizing:border-box';
+  var ist='width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px;color:var(--text);font-size:14px;outline:none;box-sizing:border-box;color-scheme:dark';
   var H='<div id="pm-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:700;display:flex;align-items:flex-end;justify-content:center">';
   H+='<div style="background:var(--bg);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;padding:18px 18px 28px;border:1px solid var(--border)">';
   H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:17px;font-weight:700;color:var(--text)">'+(id?'Edit PM':'New PM')+'</div><button onclick="closePMForm()" class="btn-ghost" style="padding:6px 12px;font-size:13px">Close</button></div>';
@@ -3366,7 +3369,7 @@ function drawCalendar(host){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-23e';
+  var BUILD='2026-06-23f';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -3727,6 +3730,18 @@ function reportLoading(on){
 }
 
 // Build a real PDF (jsPDF + autotable) and return the Blob.
+function ensureLogoPNG(){
+  if(window.__logoDark||window.__logoTried)return; window.__logoTried=true;
+  var el=document.querySelector('.hdr-logo'); if(!el)return; var src=el.getAttribute('src'); if(!src)return;
+  var im=new Image();
+  im.onload=function(){ try{
+    var c=document.createElement('canvas'); c.width=im.naturalWidth; c.height=im.naturalHeight;
+    var ctx=c.getContext('2d'); ctx.drawImage(im,0,0);
+    ctx.globalCompositeOperation='source-in'; ctx.fillStyle='#141416'; ctx.fillRect(0,0,c.width,c.height);
+    window.__logoDark=c.toDataURL('image/png'); window.__logoW=im.naturalWidth; window.__logoH=im.naturalHeight;
+  }catch(e){} };
+  im.src=src;
+}
 function buildReportPDF(R){
   function pdfSafe(s){return String(s==null?'':s).replace(/\u26A0/g,'!').replace(/\u2713/g,'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/\u2014/g,'-').replace(/\u2026/g,'...').replace(/[\u2192]/g,'->');}
   var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
@@ -3744,7 +3759,7 @@ function buildReportPDF(R){
   doc.setFillColor(17,17,17); doc.rect(0,0,W,6,'F');
   y=44;
   doc.setTextColor(17,17,17); doc.setFont(RF,'bold'); doc.setFontSize(17);
-  doc.text('BRUNSWICK BIERWORKS', M, y);
+  if(window.__logoDark){try{var _lh=24,_lw=_lh*((window.__logoW||1996)/(window.__logoH||881));doc.addImage(window.__logoDark,'PNG',M,y-22,_lw,_lh);}catch(e){doc.text('BRUNSWICK BIERWORKS', M, y);}}else{doc.text('BRUNSWICK BIERWORKS', M, y);}
   doc.setFont(RF,'normal'); doc.setFontSize(10.5); doc.setTextColor(120,120,120);
   doc.text('Maintenance Shift Handover Report', M, y+15);
   var shiftLabel=(R.shift==='Day'?'Day Shift  07:00–19:00':'Night Shift  19:00–07:00');
