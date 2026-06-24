@@ -1560,31 +1560,74 @@ function _issLoadImg(src){return new Promise(function(res){try{var im=new Image(
 function _issImgData(im){try{var c=document.createElement('canvas');var mx=900,sc=Math.min(1,mx/(im.naturalWidth||im.width||1));c.width=Math.round((im.naturalWidth||im.width)*sc);c.height=Math.round((im.naturalHeight||im.height)*sc);c.getContext('2d').drawImage(im,0,0,c.width,c.height);return {url:c.toDataURL('image/jpeg',0.8),w:c.width,h:c.height};}catch(e){return null;}}
 function buildIssuePDFBlob(info, photoUrls){
   var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; var doc=new JS({unit:'pt',format:'letter'});
-  var W=doc.internal.pageSize.getWidth(), Hp=doc.internal.pageSize.getHeight(), m=48, y=58;
-  if(window.__logoDark){try{var _lh=24,_lw=_lh*((window.__logoW||1996)/(window.__logoH||881));doc.addImage(window.__logoDark,'PNG',m,y-16,_lw,_lh);}catch(e){doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(150);doc.text('BRUNSWICK BIERWORKS \u00b7 MAINTENANCE',m,y);}}else{doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(150);doc.text('BRUNSWICK BIERWORKS \u00b7 MAINTENANCE',m,y);} y+=22;
-  doc.setFontSize(19); doc.setTextColor(20); doc.text('Maintenance Issue', m, y); y+=12;
-  doc.setDrawColor(210); doc.setLineWidth(1); doc.line(m,y,W-m,y); y+=26;
-  doc.setFontSize(16); doc.setTextColor(0); doc.text((info.title||'Issue')+(info.code?'   ('+info.code+')':''), m, y); y+=22;
-  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(110);
-  var meta='Reported by '+(info.reporter||'\u2014')+(info.dept?'   \u00b7   '+info.dept:'')+(info.date?'        '+info.date:'')+(info.shift?'  \u00b7  '+info.shift:'');
-  doc.text(meta, m, y); y+=24;
-  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(150); doc.text('REQUEST', m, y); y+=6;
-  doc.setFont('helvetica','normal'); doc.setFontSize(12); doc.setTextColor(25);
-  var ask='Please check this issue.'; var lines=doc.splitTextToSize(ask+'\n\n'+(info.issueText||''), W-2*m);
-  doc.text(lines, m, y+12); y+= lines.length*15 + 26;
+  var W=doc.internal.pageSize.getWidth(), Hp=doc.internal.pageSize.getHeight(), M=48;
+  var RED=[192,57,43], INK=[26,26,26], GREY=[138,143,150], LINE=[226,228,231];
+  function sF(a){doc.setFillColor(a[0],a[1],a[2]);} function sT(a){doc.setTextColor(a[0],a[1],a[2]);} function sD(a){doc.setDrawColor(a[0],a[1],a[2]);}
+  // logo (top-left)
+  var topY=52;
+  if(window.__logoDark){try{var _lh=22,_lw=_lh*((window.__logoW||400)/(window.__logoH||177));doc.addImage(window.__logoDark,'PNG',M,topY-17,_lw,_lh);}catch(e){}}
+  // ticket box (top-right)
+  var bw=190, bx=W-M-bw, by=44, bh=78;
+  sD(INK); doc.setLineWidth(1.3); doc.roundedRect(bx,by,bw,bh,7,7,'S');
+  sF(INK); doc.roundedRect(bx,by,bw,21,7,7,'F'); doc.rect(bx,by+11,bw,10,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); sT([255,255,255]); doc.text('ISSUE TICKET',bx+bw/2,by+14,{align:'center'});
+  var tk=info.ticket||('ISS-'+((info.code||'BBW').replace(/[^A-Za-z0-9]/g,''))+'-'+((info.date||'').replace(/-/g,'').slice(4)||'0000'));
+  var rows=[['No.',tk,INK],['Priority',(info.priority||'\u2014').toString().toUpperCase(),(info.priority?RED:GREY)],['Status','OPEN',INK]];
+  var ry=by+36;
+  rows.forEach(function(r){ doc.setFont('helvetica','normal');doc.setFontSize(9.5);sT(GREY);doc.text(r[0],bx+13,ry);
+    doc.setFont('helvetica','bold');sT(r[2]);doc.text(''+r[1],bx+bw-13,ry,{align:'right'}); ry+=15.5; });
+  // title block (left)
+  var ty=topY+24;
+  doc.setFont('helvetica','bold');doc.setFontSize(10);sT(RED);doc.text('MAINTENANCE ISSUE',M,ty); ty+=22;
+  doc.setFontSize(24);sT(INK);
+  var titleStr=(info.title||'Issue'); var maxTitleW=bx-M-16;
+  var tline=doc.splitTextToSize(titleStr,maxTitleW)[0]; if(tline!==titleStr)tline=tline.replace(/\s+\S*$/,'')+'\u2026';
+  doc.text(tline,M,ty); var tw=doc.getTextWidth(tline);
+  if(info.code){doc.setFont('helvetica','normal');doc.setFontSize(12);sT(GREY);doc.text(''+info.code,M+tw+10,ty);}
+  // red rule
+  var y=Math.max(ty+20, by+bh+20);
+  sD(RED);doc.setLineWidth(2.5);doc.line(M,y,W-M,y); y+=24;
+  // meta strip
+  var cells=[];
+  if(info.reporter)cells.push(['Reported by',info.reporter]);
+  if(info.dept)cells.push(['Department',info.dept]);
+  if(info.date)cells.push(['Date',info.date]);
+  if(info.shift)cells.push(['Shift',info.shift]);
+  if(cells.length){
+    var stripH=46, cw=(W-2*M)/cells.length;
+    sD(LINE);doc.setLineWidth(1);doc.roundedRect(M,y,W-2*M,stripH,7,7,'S');
+    cells.forEach(function(c,i){ var cx=M+i*cw;
+      if(i){sD(LINE);doc.line(cx,y+8,cx,y+stripH-8);}
+      doc.setFont('helvetica','bold');doc.setFontSize(8);sT(GREY);doc.text((''+c[0]).toUpperCase(),cx+14,y+18);
+      doc.setFont('helvetica','bold');doc.setFontSize(11.5);sT(INK);
+      var v=doc.splitTextToSize(''+c[1],cw-26)[0]; doc.text(v,cx+14,y+34); });
+    y+=stripH+30;
+  }
+  function sectionHead(label){ sF(RED);doc.rect(M,y-8,16,3.2,'F'); doc.setFont('helvetica','bold');doc.setFontSize(10.5);sT(INK);doc.text(label,M+25,y); y+=20; }
+  // reported issue
+  sectionHead('REPORTED ISSUE');
+  doc.setFont('helvetica','normal');doc.setFontSize(12.5);sT([42,42,42]);
+  var lines=doc.splitTextToSize(info.issueText||'\u2014', W-2*M);
+  doc.text(lines,M,y+2); y+= lines.length*16 + 26;
+  // photos + footer
+  function footer(){ var fy=Hp-30; sF(INK);doc.rect(0,fy,W,30,'F'); doc.setFont('helvetica','normal');doc.setFontSize(8.5);sT([185,188,193]);
+    doc.text('Brunswick Bierworks Maintenance',M,fy+18.5);
+    doc.text('maintenance@brunswickbierworks.com \u00b7 647-564-7006',W-M,fy+18.5,{align:'right'}); }
   return Promise.all((photoUrls||[]).slice(0,6).map(_issLoadImg)).then(function(imgs){
     imgs=imgs.map(function(im){return im?_issImgData(im):null;}).filter(Boolean);
     if(imgs.length){
-      doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(150);
-      if(y>Hp-120){doc.addPage();y=58;} doc.text('PHOTOS', m, y); y+=14;
-      var gap=10, cols=3, cellW=(W-2*m-(cols-1)*gap)/cols, x=m, rowH=0;
+      if(y>Hp-160){doc.addPage();y=58;}
+      sectionHead('PHOTO EVIDENCE');
+      var gap=14, cols=2, cellW=(W-2*M-(cols-1)*gap)/cols, x=M, rowH=0;
       imgs.forEach(function(d){ var h=cellW*(d.h/d.w);
-        if(x+cellW>W-m+1){x=m;y+=rowH+gap;rowH=0;}
-        if(y+h>Hp-48){doc.addPage();y=58;x=m;rowH=0;}
+        if(x+cellW>W-M+1){x=M;y+=rowH+gap;rowH=0;}
+        if(y+h>Hp-60){doc.addPage();y=58;x=M;rowH=0;}
         try{doc.addImage(d.url,'JPEG',x,y,cellW,h);}catch(e){}
+        sD(LINE);doc.setLineWidth(1);doc.rect(x,y,cellW,h,'S');
         x+=cellW+gap; rowH=Math.max(rowH,h);
       });
     }
+    footer();
     return doc.output('blob');
   });
 }
@@ -1611,12 +1654,12 @@ function emailRequestIssue(id, btn){
   var r=REQUESTS.filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
   var photos=[]; try{photos=JSON.parse(r.photos||'[]');}catch(e){}
   var urls=photos.map(function(p){return SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(p);});
-  emailIssue({title:r.asset_name||r.department||'Work Request', code:r.asset_code||'', issueText:r.work||'', reporter:r.reporter||'', dept:r.department||'', date:r.created_at?(''+r.created_at).slice(0,10):'', shift:''}, urls, btn);
+  emailIssue({title:r.asset_name||r.department||'Work Request', code:r.asset_code||'', issueText:r.work||'', reporter:r.reporter||'', dept:r.department||'', date:r.created_at?(''+r.created_at).slice(0,10):'', shift:'', priority:r.priority||''}, urls, btn);
 }
 function emailFollowupIssue(id, btn){
   var e=allE.filter(function(x){return ''+x.id===''+id;})[0]; if(!e)return;
   var photos=e.photos||[]; if(typeof photos==='string'){try{photos=JSON.parse(photos);}catch(x){photos=[];}} if(!photos.length&&e.photo)photos=[e.photo];
-  emailIssue({title:e.assetName||'Follow-up', code:e.assetCode||'', issueText:e.desc||e.issue||'', reporter:e.who||'', dept:'', date:e.date||'', shift:e.shift||''}, photos, btn);
+  emailIssue({title:e.assetName||'Follow-up', code:e.assetCode||'', issueText:e.desc||e.issue||'', reporter:e.who||'', dept:'', date:e.date||'', shift:e.shift||'', priority:e.priority||''}, photos, btn);
 }
 function requestDetailBody(r){
   var notes=[];try{notes=JSON.parse(r.notes||'[]');}catch(e){}
@@ -3538,10 +3581,57 @@ function drawCalendar(host){
   host.innerHTML=H;
 }
 
+var BBW_TABLES=['bbw_worklog','bbw_util_log','bbw_pm_overrides','bbw_schedule','bbw_pms','bbw_wos','bbw_docs','bbw_doc_folders','bbw_filters','bbw_requests','bbw_pins'];
+function exportAllBackup(btn){
+  if(user!==ADMIN){alert('Admin only.');return;}
+  var _t=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Preparing backup\u2026';}
+  var jobs=BBW_TABLES.map(function(t){ return sbFetch(t+'?select=*').then(function(r){return r.json();}).then(function(rows){return [t,Array.isArray(rows)?rows:[]];}).catch(function(){return [t,[]];}); });
+  Promise.all(jobs).then(function(pairs){
+    var out={exported_at:new Date().toISOString(),app:'BBW Maintenance Work Log',tables:{}};
+    pairs.forEach(function(p){out.tables[p[0]]=p[1];});
+    var blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+    downloadBlob(blob,'BBW_backup_'+pmISO(new Date())+'.json');
+    if(btn){btn.disabled=false;btn.textContent=_t;}
+    try{toast('Backup downloaded \u2713');}catch(e){}
+  }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent=_t;} alert('Backup failed: '+e.message); });
+}
+function openKillSwitch(){
+  if(user!==ADMIN){alert('Admin only.');return;}
+  var H='<div id="kill-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:900;display:flex;align-items:center;justify-content:center;padding:20px">';
+  H+='<div style="background:#140a0a;border:1px solid #ef4444;border-radius:16px;padding:22px;width:100%;max-width:430px;max-height:90vh;overflow-y:auto">';
+  H+='<div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">\uD83D\uDD25 Wipe everything</div>';
+  H+='<div style="font-size:13.5px;color:#e7d3d3;line-height:1.6;margin-bottom:12px">This permanently deletes <b>ALL</b> data and uploaded files for the whole team:</div>';
+  H+='<div style="font-size:12.5px;color:var(--text-2);line-height:1.9;background:#1d0e0e;border-radius:9px;padding:11px 14px;margin-bottom:14px">\u2022 All shift logs &amp; utility logs<br>\u2022 All work orders &amp; PM schedules<br>\u2022 All work requests &amp; follow-ups<br>\u2022 All documents, folders &amp; uploaded files<br>\u2022 Schedules, filters &amp; pins</div>';
+  H+='<div style="font-size:13px;color:#fca5a5;font-weight:700;margin-bottom:14px">There is no undo. If you have not downloaded a backup, cancel and do that first.</div>';
+  H+='<div style="font-size:12px;color:var(--text-3);margin-bottom:7px">Type <b style="color:#fff">DELETE EVERYTHING</b> to enable the button:</div>';
+  H+='<input id="kill-confirm" type="text" autocomplete="off" autocapitalize="characters" oninput="var g=gid(\'kill-go\');if(g)g.disabled=(this.value!==\'DELETE EVERYTHING\')" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:11px;color:#fff;font-size:14px;margin-bottom:14px;outline:none">';
+  H+='<div style="display:flex;gap:9px">';
+  H+='<button onclick="closeKill()" style="flex:1;padding:12px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:14px;font-weight:700;border-radius:9px;cursor:pointer">Cancel</button>';
+  H+='<button id="kill-go" disabled onclick="wipeEverything()" style="flex:1;padding:12px;background:#7f1d1d;border:1px solid #ef4444;color:#fff;font-size:14px;font-weight:800;border-radius:9px;cursor:pointer">Wipe now</button>';
+  H+='</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function closeKill(){ var m=gid('kill-modal'); if(m)m.remove(); }
+function wipeEverything(){
+  if(user!==ADMIN)return;
+  var go=gid('kill-go'); if(go){go.disabled=true;go.textContent='Wiping\u2026';}
+  sbFetch('bbw_docs?select=storage_path').then(function(r){return r.json();}).then(function(rows){
+    var paths=(Array.isArray(rows)?rows:[]).map(function(d){return d.storage_path;}).filter(Boolean);
+    return paths.length? fetch(SB+'/storage/v1/object/'+DOC_BUCKET,{method:'DELETE',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/json'},body:JSON.stringify({prefixes:paths})}).catch(function(){}) : Promise.resolve();
+  }).catch(function(){}).then(function(){
+    return Promise.all(BBW_TABLES.map(function(t){ return sbFetch(t+'?id=not.is.null',{method:'DELETE',headers:{'Prefer':'return=minimal'}}).catch(function(){}); }));
+  }).then(function(){
+    try{localStorage.clear();}catch(e){}
+    try{if(window.caches&&caches.keys)caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});});}catch(e){}
+    closeKill();
+    document.body.innerHTML='<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0b;color:#fff;text-align:center;padding:30px;font-family:-apple-system,sans-serif"><div><div style="font-size:42px;margin-bottom:14px">\uD83D\uDD25</div><div style="font-size:20px;font-weight:800;margin-bottom:8px">System wiped</div><div style="font-size:14px;color:#9aa0a8;max-width:340px;line-height:1.6">All data and uploaded files have been permanently deleted. You can close this page.</div></div></div>';
+  }).catch(function(e){ if(go){go.disabled=false;go.textContent='Wipe now';} alert('Wipe encountered an error: '+(e&&e.message||e)); });
+}
+
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-24e';
+  var BUILD='2026-06-24f';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -3689,6 +3779,14 @@ function renderMore(){
     H+="'</div>'";
   }
 
+  if(isAdmin){
+    H+='<div style="background:#1a0c0c;border:1px solid rgba(239,68,68,.4);border-radius:12px;padding:16px;margin:22px 0 12px">';
+    H+='<div style="font-size:13px;font-weight:800;color:#ef4444;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">\u26A0\uFE0F Danger Zone</div>';
+    H+='<div style="font-size:12.5px;color:var(--text-3);line-height:1.5;margin-bottom:14px">Permanently erase the entire system \u2014 every log, work order, PM, request, document and uploaded file, for the whole team. There is no undo. Download a backup first.</div>';
+    H+='<button onclick="exportAllBackup(this)" style="width:100%;padding:12px;margin-bottom:9px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:700;border-radius:9px;cursor:pointer">\u2B07\uFE0F Download full backup (JSON)</button>';
+    H+='<button onclick="openKillSwitch()" style="width:100%;padding:12px;background:#7f1d1d;border:1px solid #ef4444;color:#fff;font-size:13.5px;font-weight:800;border-radius:9px;cursor:pointer">\uD83D\uDD25 Wipe everything permanently</button>';
+    H+='</div>';
+  }
   el.innerHTML=H;
 
   // Load saved EJS and DB stats
