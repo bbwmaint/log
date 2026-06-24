@@ -3541,7 +3541,7 @@ function drawCalendar(host){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-24d';
+  var BUILD='2026-06-24e';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -3907,10 +3907,12 @@ function ensureLogoPNG(){
   var el=document.querySelector('.hdr-logo'); if(!el)return; var src=el.getAttribute('src'); if(!src)return;
   var im=new Image();
   im.onload=function(){ try{
-    var c=document.createElement('canvas'); c.width=im.naturalWidth; c.height=im.naturalHeight;
-    var ctx=c.getContext('2d'); ctx.drawImage(im,0,0);
-    ctx.globalCompositeOperation='source-in'; ctx.fillStyle='#141416'; ctx.fillRect(0,0,c.width,c.height);
-    window.__logoDark=c.toDataURL('image/png'); window.__logoW=im.naturalWidth; window.__logoH=im.naturalHeight;
+    var maxW=400, sw=im.naturalWidth||maxW, sh=im.naturalHeight||1;
+    var scale=Math.min(1, maxW/sw), w=Math.max(1,Math.round(sw*scale)), h=Math.max(1,Math.round(sh*scale));
+    var c=document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx=c.getContext('2d'); ctx.drawImage(im,0,0,w,h);
+    ctx.globalCompositeOperation='source-in'; ctx.fillStyle='#141416'; ctx.fillRect(0,0,w,h);
+    window.__logoDark=c.toDataURL('image/png'); window.__logoW=w; window.__logoH=h;
   }catch(e){} };
   im.src=src;
 }
