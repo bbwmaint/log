@@ -598,6 +598,7 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
 
 // INIT - run immediately, no wait
 (function init(){
+  try{checkSystemDisabled();}catch(e){}
   try{entries=JSON.parse(localStorage.getItem('bbw_e')||'[]');}catch(e){entries=[];}
   try{allE=JSON.parse(localStorage.getItem('bbw_ae')||'[]');}catch(e){allE=[];}
   try{utilLogs=JSON.parse(localStorage.getItem('bbw_util')||'[]');}catch(e){utilLogs=[];}
@@ -770,6 +771,7 @@ function pinBad(msg){ gid('pin-err').textContent=msg; for(var i=0;i<4;i++){var d
 function pinMismatch(){ gid('pin-err').textContent='PINs do not match'; for(var i=0;i<4;i++){var d=gid('d'+i);d.style.background='#ef4444';d.style.borderColor='#ef4444';} setTimeout(function(){pbuf='';psfirst='';updDots();gid('pin-msg').textContent='Try again';},800); }
 
 function loginUser(name){
+  if(SYSTEM_DEAD)return;
   user=name;
   try{var _tc=gid('tab-cmms');if(_tc)_tc.style.display=(isEditor()&&CMMS_ENABLED)?'':'none';}catch(e){}
   try{var _td=gid('tab-dash');if(_td)_td.style.display=isEditor()?'':'none';}catch(e){}
@@ -1262,11 +1264,12 @@ function renderDocList(){
   years.forEach(function(y){ H+='<button onclick="docYear('+y+')" style="'+yearChipStyle(DOC_YEAR==y)+'">'+y+'</button>'; });
   H+='</div>';
   if(isEditor()){
-    H+='<div style="display:flex;gap:8px;margin-bottom:12px">';
-    H+='<div onclick="docUploadPick()" style="flex:1;border:1.5px dashed var(--border);border-radius:10px;padding:13px;text-align:center;color:#60a5fa;font-size:13px;font-weight:600;cursor:pointer">+ '+T('doc_upload')+docCatLabel(DOC_CAT)+'</div>';
-    H+='<div onclick="docNewFolder()" style="border:1.5px solid var(--border);border-radius:10px;padding:13px 15px;text-align:center;color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">\uD83D\uDCC1 New folder</div>';
+    H+='<div id="doc-dropzone" onclick="docUploadPick(null)" ondragover="event.preventDefault();this.style.borderColor=\'#60a5fa\';this.style.background=\'rgba(96,165,250,.08)\'" ondragleave="this.style.borderColor=\'\';this.style.background=\'var(--surface)\'" ondrop="this.style.borderColor=\'\';this.style.background=\'var(--surface)\';docDrop(event,null)" style="border:1.5px dashed var(--border);border-radius:12px;padding:17px;text-align:center;cursor:pointer;margin-bottom:10px;background:var(--surface);transition:border-color .15s,background .15s">';
+    H+='<div style="display:flex;align-items:center;justify-content:center;gap:9px;color:var(--text-2)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M12 3v13M7 8l5-5 5 5"/></svg><span style="font-size:13px;font-weight:600">Drag &amp; drop PDFs here, or tap to choose</span></div>';
+    H+='<div style="font-size:11px;color:var(--text-3);margin-top:4px">Multiple files \u00b7 '+docCatLabel(DOC_CAT)+'</div>';
     H+='</div>';
-    H+='<input type="file" id="doc-file" accept="application/pdf,image/*" style="display:none" onchange="docUpload(this)">';
+    H+='<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button onclick="docNewFolder()" style="'+docBtnStyle()+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2 2 0 0 1 5 5.5h3l2 2.2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/></svg>New folder</button></div>';
+    H+='<input type="file" id="doc-file" accept="application/pdf,image/*" multiple style="display:none" onchange="docUpload(this)">';
   }
   var shown=catDocs.filter(function(d){return DOC_YEAR==='all'||d.year==DOC_YEAR;});
   shown.sort(function(a,b){return (b.created_at||'').localeCompare(a.created_at||'');});
@@ -1280,14 +1283,16 @@ function renderDocList(){
     var files=shown.filter(function(d){return d.folder===fname;});
     var open=DOC_FOLD_OPEN[fname]!==false;
     var enc=encodeURIComponent(fname);
-    H+='<div style="margin-bottom:9px;border:1px solid var(--border);border-radius:11px;overflow:hidden">';
+    var dragAttrs=' ondragover="event.preventDefault();this.style.background=\'rgba(96,165,250,.10)\'" ondragleave="this.style.background=\'\'" ondrop="this.style.background=\'\';docDrop(event,decodeURIComponent(\''+enc+'\'))"';
+    H+='<div style="margin-bottom:9px;border:1px solid var(--border);border-radius:11px;overflow:hidden"'+dragAttrs+'>';
     H+='<div style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--surface-2)">';
     H+='<div onclick="docToggleFolder(decodeURIComponent(\''+enc+'\'))" style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;min-width:0"><span style="font-size:16px">\uD83D\uDCC1</span><span style="font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+rqEsc(fname)+'</span><span style="font-size:11px;color:var(--text-3)">'+files.length+'</span></div>';
+    if(isEditor())H+='<button onclick="docUploadPick(decodeURIComponent(\''+enc+'\'))" style="display:inline-flex;align-items:center;gap:5px;background:none;border:1px solid var(--border);color:var(--text-2);font-size:11.5px;font-weight:600;cursor:pointer;padding:5px 10px;border-radius:8px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Add files</button>';
     if(isEditor())H+='<button onclick="docRenameFolder(decodeURIComponent(\''+enc+'\'))" style="background:none;border:none;color:var(--text-3);font-size:11.5px;cursor:pointer;padding:4px 6px">Rename</button>';
     if(isEditor())H+='<button onclick="docDeleteFolder(decodeURIComponent(\''+enc+'\'))" style="background:none;border:none;color:#ef4444;font-size:11.5px;cursor:pointer;padding:4px 6px">Delete</button>';
     H+='<span onclick="docToggleFolder(decodeURIComponent(\''+enc+'\'))" style="color:var(--text-3);cursor:pointer;display:inline-block;transform:rotate('+(open?'90':'0')+'deg);transition:.15s;font-size:16px">\u203A</span>';
     H+='</div>';
-    if(open){ H+='<div style="padding:9px 9px 1px">'; H+= files.length?files.map(docRow).join(''):'<div style="padding:14px;text-align:center;color:var(--text-3);font-size:12px">Empty \u2014 use \u201CMove\u201D on a file to add it here</div>'; H+='</div>'; }
+    if(open){ H+='<div style="padding:9px 9px 1px">'; H+= files.length?files.map(docRow).join(''):'<div style="padding:16px;text-align:center;color:var(--text-3);font-size:12px">Empty \u2014 drag files here or use \u201CAdd files\u201D</div>'; H+='</div>'; }
     H+='</div>';
   });
   body.innerHTML=H;
@@ -1303,19 +1308,8 @@ function loadDocs(){
     if(DOC_ASSET&&DOC_CAT!=='filters')renderDocList();
   });
 }
-function docUploadPick(){ var f=gid('doc-file'); if(f)f.click(); }
-function docUpload(input){
-  var file=input.files&&input.files[0]; if(!file)return;
-  var yr=(DOC_YEAR!=='all')?DOC_YEAR:new Date().getFullYear();
-  var safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-  var path=DOC_ASSET.c+'/'+DOC_CAT+'/'+yr+'/'+Date.now()+'_'+safe;
-  var body=gid('doc-body'); var prev=body?body.innerHTML:''; if(body)body.innerHTML='<div style="padding:24px;text-align:center;color:#60a5fa">Uploading '+file.name+'\u2026</div>';
-  fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},body:file})
-   .then(function(r){ if(!r.ok)throw new Error('storage '+r.status); return sbFetch('bbw_docs',{method:'POST',body:JSON.stringify({asset_code:DOC_ASSET.c,asset_name:DOC_ASSET.n,category:DOC_CAT,year:yr,filename:file.name,storage_path:path,uploaded_by:user})}); })
-   .then(function(r){ return r.json(); })
-   .then(function(){ input.value=''; DOCS=[]; loadDocs(); })
-   .catch(function(e){ alert('Upload failed: '+e.message+'.\nMake sure the "bbw-docs" storage bucket and bbw_docs table are set up.'); if(body)body.innerHTML=prev; });
-}
+function docUploadPick(folder){ DOC_UPLOAD_TARGET=folder||null; var f=gid('doc-file'); if(f)f.click(); }
+function docUpload(input){ docUploadFiles(input.files, DOC_UPLOAD_TARGET); try{input.value='';}catch(e){} DOC_UPLOAD_TARGET=null; }
 function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 function docRow(d){
   var H='<div style="background:var(--surface);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:11px">';
@@ -1323,8 +1317,8 @@ function docRow(d){
   H+='<div style="flex:1;min-width:0;cursor:pointer" onclick="docOpen(\''+d.id+'\')">';
   H+='<div style="font-size:13.5px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(d.filename||'document')+'</div>';
   H+='<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+(d.year||'')+' \u2022 '+(d.uploaded_by||'')+' \u2022 '+docFmtDate(d.created_at)+'</div></div>';
-  H+='<button onclick="docOpen(\''+d.id+'\')" style="background:var(--surface-3);border:none;color:#60a5fa;font-size:12px;padding:7px 11px;border-radius:8px;cursor:pointer">'+T('doc_view')+'</button>';
-  if(isEditor()) H+='<button onclick="docMove(\''+d.id+'\')" style="background:var(--surface-3);border:none;color:var(--text-2);font-size:12px;padding:7px 11px;border-radius:8px;cursor:pointer">Move</button>';
+  H+='<button onclick="docOpen(\''+d.id+'\')" style="display:inline-flex;align-items:center;gap:5px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px;cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>'+T('doc_view')+'</button>';
+  if(isEditor()) H+='<button onclick="docMove(\''+d.id+'\')" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:12px;font-weight:600;padding:7px 11px;border-radius:8px;cursor:pointer">Move</button>';
   if(isEditor()) H+='<button onclick="docDelete(\''+d.id+'\')" style="background:none;border:none;color:#ef4444;font-size:12px;padding:7px 2px;cursor:pointer">'+T('Delete')+'</button>';
   H+='</div>';
   return H;
@@ -1383,6 +1377,29 @@ function docMoveApply(id,choice){
   if(modal)modal.remove();
   applyMove(choice==='__none__'?null:choice);
 }
+function docBtnStyle(){ return 'display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer;white-space:nowrap'; }
+var DOC_UPLOAD_TARGET=null;
+function docUploadFiles(fileList, folder){
+  var files=Array.prototype.slice.call(fileList||[]).filter(Boolean); if(!files.length)return;
+  if(folder)DOC_FOLD_OPEN[folder]=true;
+  var yr=(DOC_YEAR!=='all')?DOC_YEAR:new Date().getFullYear();
+  var body=gid('doc-body'); var prev=body?body.innerHTML:'';
+  var done=0, failed=0;
+  function status(){ if(body)body.innerHTML='<div style="padding:34px;text-align:center;color:#60a5fa;font-size:13.5px">Uploading '+Math.min(done+1,files.length)+' of '+files.length+'\u2026<div style="margin-top:12px;height:6px;background:var(--surface-2);border-radius:6px;overflow:hidden"><div style="height:100%;background:#60a5fa;width:'+Math.round(done/files.length*100)+'%;transition:.2s"></div></div></div>'; }
+  status();
+  function uploadOne(i){
+    if(i>=files.length){ DOCS=[]; loadDocs(); if(failed)alert(failed+' of '+files.length+' file(s) failed to upload.'); else { try{toast(files.length+' file'+(files.length>1?'s':'')+' uploaded \u2713');}catch(e){} } return; }
+    var file=files[i];
+    var safe=(file.name||'file').replace(/[^a-zA-Z0-9._-]/g,'_');
+    var path=DOC_ASSET.c+'/'+DOC_CAT+'/'+yr+'/'+Date.now()+'_'+i+'_'+safe;
+    fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},body:file})
+     .then(function(r){ if(!r.ok)throw new Error('storage '+r.status); return sbFetch('bbw_docs',{method:'POST',body:JSON.stringify({asset_code:DOC_ASSET.c,asset_name:DOC_ASSET.n,category:DOC_CAT,year:yr,filename:file.name,storage_path:path,uploaded_by:user,folder:folder||null}),headers:{'Prefer':'return=minimal'}}); })
+     .then(function(r){ if(!r.ok)throw new Error('db '+r.status); done++; status(); uploadOne(i+1); })
+     .catch(function(e){ failed++; done++; console.warn('upload failed',file.name,e); status(); uploadOne(i+1); });
+  }
+  uploadOne(0);
+}
+function docDrop(ev, folder){ try{ev.preventDefault();}catch(e){} var dt=ev.dataTransfer; if(dt&&dt.files&&dt.files.length)docUploadFiles(dt.files, folder||null); }
 function docOpen(id){ var d=DOCS.filter(function(x){return ''+x.id===''+id;})[0]; if(!d)return; window.open(SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(d.storage_path),'_blank'); }
 function docDelete(id){ var d=DOCS.filter(function(x){return ''+x.id===''+id;})[0]; if(!d)return; if(!confirm('Delete "'+(d.filename||'this file')+'"? This cannot be undone.'))return;
   fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(d.storage_path),{method:'DELETE',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY}})
@@ -2931,13 +2948,18 @@ var CMMS_FILTER={q:'',type:'',assignee:'',status:'active'};
 function cmmsParseAsset(s){var m=String(s||'').match(/^(.*?)\s*\(([^)]+)\)\s*$/);if(m)return {name:m[1].trim(),code:m[2].trim()};return {name:(s||'').trim(),code:''};}
 
 function loadCMMS(force){
-  if(CMMS_LOADED&&!force)return Promise.resolve(CMMS_PMS);
+  if(CMMS_LOADED&&CMMS_PMS.length&&!force)return Promise.resolve(CMMS_PMS);
   return sbFetch('bbw_pms?select=*&order=code.asc&limit=5000').then(function(r){
     if(!r.ok)throw new Error('bbw_pms table not found');return r.json();
   }).then(function(rows){
-    if(!rows.length)return seedCMMS().then(function(){return sbFetch('bbw_pms?select=*&order=code.asc&limit=5000').then(function(r){return r.json();});});
-    return rows;
-  }).then(function(rows){CMMS_PMS=rows||[];CMMS_LOADED=true;return CMMS_PMS;});
+    if((!rows||!rows.length)&&!window.__cmmsSeedTried){ window.__cmmsSeedTried=true; return seedCMMS().then(function(){return sbFetch('bbw_pms?select=*&order=code.asc&limit=5000').then(function(r){return r.json();});}).catch(function(){return rows||[];}); }
+    return rows||[];
+  }).then(function(rows){
+    if(rows&&rows.length){CMMS_PMS=rows;CMMS_LOADED=true;return CMMS_PMS;}
+    CMMS_LOADED=true;
+    if(!CMMS_PMS.length && !window.__cmmsRetried){ window.__cmmsRetried=true; return new Promise(function(res){setTimeout(res,700);}).then(function(){ return sbFetch('bbw_pms?select=*&order=code.asc&limit=5000').then(function(r){return r.json();}).then(function(r2){ if(r2&&r2.length)CMMS_PMS=r2; return CMMS_PMS; }); }); }
+    return CMMS_PMS;
+  });
 }
 function seedCMMS(){
   var today=new Date();
@@ -2977,6 +2999,14 @@ function renderCMMSView(){
 
 function renderPMModule(){
   var host=gid('cmms-pms'); if(!host)return;
+  if(!CMMS_PMS||!CMMS_PMS.length){
+    if((window.__pmEmptyTries||0)>=2){ host.innerHTML='<div style="text-align:center;color:var(--text-3);padding:30px;font-size:13px">No PMs loaded.<br><button onclick="window.__pmEmptyTries=0;loadCMMS(true).then(function(){renderPMModule();})" class="btn-ghost" style="margin-top:12px;padding:8px 18px">Reload</button></div>'; return; }
+    window.__pmEmptyTries=(window.__pmEmptyTries||0)+1;
+    host.innerHTML='<div style="text-align:center;color:var(--text-3);padding:30px;font-size:13px">Loading PMs\u2026</div>';
+    loadCMMS(true).then(function(){ if(gid('cmms-pms'))renderPMModule(); }).catch(function(){ if(gid('cmms-pms'))renderPMModule(); });
+    return;
+  }
+  window.__pmEmptyTries=0;
   var types=Array.from(new Set(CMMS_PMS.map(function(p){return p.pm_type;}).filter(Boolean))).sort();
   var assignees=Array.from(new Set(CMMS_PMS.map(function(p){return p.assignee;}).filter(Boolean))).sort();
   var H='';
@@ -2997,8 +3027,8 @@ function renderPMModule(){
 function pmFilter(){
   var f=CMMS_FILTER, q=f.q.toLowerCase().trim();
   return CMMS_PMS.filter(function(p){
-    if(f.status==='active'&&!p.active)return false;
-    if(f.status==='paused'&&p.active)return false;
+    if(f.status==='active'&&p.active===false)return false;
+    if(f.status==='paused'&&p.active!==false)return false;
     if(f.type&&p.pm_type!==f.type)return false;
     if(f.assignee&&p.assignee!==f.assignee)return false;
     if(q){var hay=((p.code||'')+' '+(p.asset||'')+' '+(p.asset_code||'')+' '+(p.description||'')+' '+(p.freq||'')).toLowerCase();if(hay.indexOf(q)<0)return false;}
@@ -3344,6 +3374,47 @@ function renderDashboard(){
   if(typeof loadRequests==='function')jobs.push(loadRequests());
   Promise.all(jobs).then(function(){drawDashboard(el);}).catch(function(){drawDashboard(el);});
 }
+function closeDashDrill(){var m=gid('dash-drill');if(m)m.remove();}
+function dashDrill(kind){
+  var today=pmISO(new Date()); var teamView=(user===ADMIN);
+  var reqs=(typeof REQUESTS!=='undefined'?REQUESTS:[])||[]; var wos=(typeof WOS!=='undefined'?WOS:[])||[];
+  var title='', rows=[];
+  if(kind==='requests'){ title='Open requests'; rows=reqs.filter(function(r){return r.status!=='done';}).map(function(r){return {t:(r.asset_name||r.department||'Request'),s:'By '+(r.reporter||'')+(r.department?' \u00b7 '+r.department:''),click:'openRequest('+r.id+')'};}); }
+  else if(kind==='overdue'){ title='Overdue work orders'; rows=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<today;}).sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');}).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:'')+' \u00b7 due '+w.due_date,click:'openWOComplete('+w.id+')',bad:true};}); }
+  else if(kind==='ontime'){ var ym=today.slice(0,7); title='Scheduled this month'; rows=wos.filter(function(w){return (w.due_date||'').slice(0,7)===ym;}).map(function(w){var done=w.status==='completed'; var ot=done&&w.completed_at&&w.completed_at.slice(0,10)<=w.due_date; return {t:w.description,s:(w.asset||'')+' \u00b7 due '+w.due_date,badge:done?(ot?'On time':'Late'):'Open',badcol:done?(ot?'#10b981':'#ef4444'):'#9b9ba3',click:'openWOComplete('+w.id+')'};}); }
+  else { title='PMs due today'; var dueAll=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today;}); rows=(teamView?dueAll:dueAll.filter(function(w){return w.assignee===user;})).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:''),click:'openWOComplete('+w.id+')',bad:w.due_date<today};}); }
+  var H='<div id="dash-drill" onclick="if(event.target===this)closeDashDrill()" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:760;display:flex;align-items:center;justify-content:center;padding:20px">';
+  H+='<div style="background:var(--bg);border:1px solid var(--border);border-radius:15px;width:100%;max-width:470px;max-height:84vh;display:flex;flex-direction:column;overflow:hidden">';
+  H+='<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border)"><div style="font-size:16px;font-weight:800;color:#fff">'+title+'<span style="font-size:13px;color:var(--text-3);font-weight:600"> \u00b7 '+rows.length+'</span></div><button onclick="closeDashDrill()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:31px;height:31px;border-radius:8px;cursor:pointer;font-size:15px">\u2715</button></div>';
+  H+='<div style="overflow-y:auto;padding:12px 14px">';
+  if(!rows.length)H+='<div style="text-align:center;color:var(--text-3);padding:34px;font-size:13px">Nothing here right now.</div>';
+  rows.forEach(function(r){ H+='<div onclick="closeDashDrill();'+(r.click||'')+'" style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;background:var(--surface);margin-bottom:8px;cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600;color:#fff">'+rqEsc(r.t||'')+'</div><div style="font-size:11.5px;color:'+(r.bad?'#f87171':'var(--text-3)')+';margin-top:2px">'+rqEsc(r.s||'')+'</div></div>'+(r.badge?'<span style="font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;background:'+(r.badcol||'#9b9ba3')+'22;color:'+(r.badcol||'#9b9ba3')+'">'+r.badge+'</span>':'')+'</div>'; });
+  H+='</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function utilTrendHTML(){
+  var logs=(typeof utilLogs!=='undefined'?utilLogs:[]||[]).filter(function(r){return r&&r.date;}).slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+  logs=logs.slice(-14);
+  var meters=[['gas','Gas','#f59e0b'],['elec','Electric','#60a5fa'],['w3','Water','#34d399'],['steam','Steam','#c084fc']];
+  var H='<div class="dz-h3">Utilities trend <span style="font-size:11px;color:var(--text-3);font-weight:500">last '+logs.length+' readings</span></div>';
+  if(logs.length<2){ H+='<div style="color:var(--text-3);font-size:13px;padding:6px 0">Not enough utility readings logged yet to show a trend.</div>'; return H; }
+  var any=false;
+  meters.forEach(function(m){
+    var pts=[]; logs.forEach(function(r,i){var v=parseFloat(r[m[0]]); if(!isNaN(v))pts.push([i,v]);});
+    if(pts.length<2)return; any=true;
+    var ys=pts.map(function(x){return x[1];}); var mn=Math.min.apply(null,ys),mx=Math.max.apply(null,ys); var rng=(mx-mn)||1;
+    var W=240,Hh=32;
+    var poly=pts.map(function(x){var px=(x[0]/(logs.length-1))*W; var py=Hh-((x[1]-mn)/rng)*(Hh-4)-2; return px.toFixed(1)+','+py.toFixed(1);}).join(' ');
+    var last=ys[ys.length-1], prev=ys.length>1?ys[ys.length-2]:last; var up=last>prev, flat=last===prev;
+    H+='<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--border)">';
+    H+='<div style="flex:0 0 66px;font-size:12px;color:var(--text-2);font-weight:600"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+m[2]+';margin-right:6px"></span>'+m[1]+'</div>';
+    H+='<svg viewBox="0 0 '+W+' '+Hh+'" preserveAspectRatio="none" style="flex:1;height:32px"><polyline points="'+poly+'" fill="none" stroke="'+m[2]+'" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+    H+='<div style="flex:0 0 70px;text-align:right;font-size:12.5px;font-weight:700;color:#fff">'+( (last%1)?last.toFixed(1):last )+' <span style="font-size:10px;color:'+(flat?'var(--text-3)':(up?'#f87171':'#34d399'))+'">'+(flat?'\u2192':(up?'\u2191':'\u2193'))+'</span></div>';
+    H+='</div>';
+  });
+  if(!any)H+='<div style="color:var(--text-3);font-size:13px;padding:6px 0">Readings logged, but no numeric meter values to trend.</div>';
+  return H;
+}
 function drawDashboard(el){
   var today=pmISO(new Date());
   var reqs=(typeof REQUESTS!=='undefined'?REQUESTS:[])||[];
@@ -3355,21 +3426,23 @@ function drawDashboard(el){
   var sched=wos.filter(function(w){return (w.due_date||'').slice(0,7)===ym;});
   var onTime=sched.filter(function(w){return w.status==='completed'&&w.completed_at&&w.completed_at.slice(0,10)<=w.due_date;}).length;
   var pct=sched.length?Math.round(onTime/sched.length*100):null;
-  var dueToday=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today;});
+  var teamView=(user===ADMIN);
+  var dueToday=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today&&(teamView||w.assignee===user);});
   var techMap={}; wos.forEach(function(w){if(w.status==='completed')return;var t=w.assignee||'Unassigned';techMap[t]=techMap[t]||{t:t,n:0,od:0};techMap[t].n++;if(w.due_date&&w.due_date<today)techMap[t].od++;});
   var techs=Object.keys(techMap).map(function(k){return techMap[k];}).sort(function(a,b){return b.n-a.n;}).slice(0,6);
   var maxN=techs.reduce(function(m,x){return Math.max(m,x.n);},1);
   var openList=reqs.filter(function(r){return r.status!=='done';}).slice(0,5);
-  function kpi(lbl,val,sub,col){return '<div class="dz-kpi" style="border-left:3px solid '+col+'"><div class="dz-lbl">'+lbl+'</div><div class="dz-v" style="color:'+col+'">'+val+'</div><div class="dz-sub">'+(sub||'')+'</div></div>';}
+  function kpi(lbl,val,sub,col,kind){return '<div class="dz-kpi" onclick="dashDrill(\''+kind+'\')" style="border-left:3px solid '+col+';cursor:pointer"><div class="dz-lbl">'+lbl+' <span style=\"float:right;color:var(--text-3);font-weight:700\">\u203A</span></div><div class="dz-v" style="color:'+col+'">'+val+'</div><div class="dz-sub">'+(sub||'')+'</div></div>';}
   var H='<div class="dz-wrap">';
   H+='<div style="font-size:20px;font-weight:800;letter-spacing:-.4px;margin-bottom:16px">Good '+(new Date().getHours()<12?'morning':new Date().getHours()<18?'afternoon':'evening')+', '+rqEsc(user||'')+'</div>';
   H+='<div class="dz-kpis">';
-  H+=kpi('Open requests',openReq,(follow?follow+' follow-up'+(follow>1?'s':'')+' pending':'none pending'),'#60a5fa');
-  H+=kpi('Overdue work orders',overdue,(overdue?'needs attention':'all on track'),overdue?'#ef4444':'#10b981');
-  H+=kpi('On-time this month',(pct==null?'\u2014':pct+'%'),sched.length+' scheduled',(pct==null||pct>=90)?'#10b981':(pct>=75?'#f59e0b':'#ef4444'));
-  H+=kpi('PMs due today',dueToday.length,'across the team','#f59e0b');
+  H+=kpi('Open requests',openReq,(follow?follow+' follow-up'+(follow>1?'s':'')+' pending':'none pending'),'#60a5fa','requests');
+  H+=kpi('Overdue work orders',overdue,(overdue?'needs attention':'all on track'),overdue?'#ef4444':'#10b981','overdue');
+  H+=kpi('On-time this month',(pct==null?'\u2014':pct+'%'),sched.length+' scheduled',(pct==null||pct>=90)?'#10b981':(pct>=75?'#f59e0b':'#ef4444'),'ontime');
+  H+=kpi('PMs due today',dueToday.length,(teamView?'across the team':'your PMs due'),'#f59e0b','pms');
   H+='</div><div class="dz-grid"><div>';
   H+='<div class="dz-card" style="margin-bottom:16px">'+(typeof cmmsTrendHTML==='function'?cmmsTrendHTML(today):'')+'</div>';
+  H+='<div class="dz-card" style="margin-bottom:16px">'+(typeof utilTrendHTML==='function'?utilTrendHTML():'')+'</div>';
   H+='<div class="dz-card"><div class="dz-h3">Open work by technician</div>';
   if(!techs.length)H+='<div style="color:var(--text-3);font-size:13px;padding:6px 0">No open work orders.</div>';
   techs.forEach(function(x){var w=Math.round(x.n/maxN*100);H+='<div class="dz-row"><div style="flex:0 0 92px;font-weight:600;font-size:13.5px">'+rqEsc(x.t)+'</div><div class="dz-bar"><i style="width:'+w+'%"></i></div><div style="flex:0 0 88px;text-align:right;font-size:11.5px;color:var(--text-3)">'+x.n+' open'+(x.od?' \u00b7 '+x.od+' od':'')+'</div></div>';});
@@ -3533,6 +3606,7 @@ function renderComplianceModule(){
 var CAL_WEEK=null;
 function calShift(days){var d=new Date(CAL_WEEK);d.setDate(d.getDate()+days);CAL_WEEK=pmDateOnly(d);renderCalendarModule();}
 function calToday(){CAL_WEEK=null;renderCalendarModule();}
+function calGoto(v){ if(!v)return; var pp=v.split('-'); if(pp.length<3)return; var d=new Date(parseInt(pp[0]),parseInt(pp[1])-1,parseInt(pp[2])); d.setDate(d.getDate()-d.getDay()); CAL_WEEK=pmDateOnly(d); renderCalendarModule(); }
 function renderCalendarModule(){
   var host=gid('cmms-cal'); if(!host)return;
   var cached=(WOS_LOADED&&typeof CMMS_PMS!=='undefined'&&CMMS_PMS&&CMMS_PMS.length);
@@ -3545,11 +3619,12 @@ function drawCalendar(host){
   var days=[]; for(var i=0;i<7;i++){var d=new Date(CAL_WEEK);d.setDate(d.getDate()+i);days.push(d);}
   var today=pmISO(new Date());
   var wkLabel=CAL_WEEK.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+' \u2013 '+days[6].toLocaleDateString('en-CA',{month:'short',day:'numeric'});
-  var H='<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">';
+  var H='<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">';
   H+='<button onclick="calShift(-7)" class="btn-ghost" style="padding:8px 13px;font-size:15px">\u2039</button>';
-  H+='<div style="flex:1;text-align:center;font-size:14px;font-weight:700;color:var(--text)">'+wkLabel+'</div>';
+  H+='<button onclick="var d=gid(\'cal-date\');if(d){if(d.showPicker){try{d.showPicker();}catch(e){d.focus();}}else{d.focus();}}" style="flex:1;text-align:center;font-size:14px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;padding:6px">'+wkLabel+' \u25be</button>';
   H+='<button onclick="calShift(7)" class="btn-ghost" style="padding:8px 13px;font-size:15px">\u203a</button>';
   H+='<button onclick="calToday()" class="btn-ghost" style="padding:8px 13px;font-size:12px">Today</button>';
+  H+='<input type="date" id="cal-date" value="'+pmISO(CAL_WEEK)+'" onchange="calGoto(this.value)" title="Jump to the week of a date" style="background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:7px 9px;color:var(--text);font-size:12px;color-scheme:dark;cursor:pointer">';
   H+='</div>';
   // legend
   var legend=[['Preventive','#60a5fa'],['Inspection','#c084fc'],['Calibration','#fbbf24'],['Food Safety','#34d399']];
@@ -3595,6 +3670,14 @@ function exportAllBackup(btn){
     try{toast('Backup downloaded \u2713');}catch(e){}
   }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent=_t;} alert('Backup failed: '+e.message); });
 }
+var SYSTEM_DEAD=false;
+function showDecommissioned(){
+  SYSTEM_DEAD=true;
+  try{document.body.innerHTML='<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0b;color:#e5e7eb;text-align:center;padding:30px;font-family:-apple-system,BlinkMacSystemFont,sans-serif"><div style="max-width:380px"><div style="font-size:74px;font-weight:800;letter-spacing:-3px;color:#1f2937;line-height:1">404</div><div style="font-size:19px;font-weight:700;color:#fff;margin:16px 0 8px">System unavailable</div><div style="font-size:14px;color:#6b7280;line-height:1.6">This maintenance system has been permanently decommissioned and is no longer available.</div></div></div>';document.title='404 \u2014 Unavailable';}catch(e){}
+}
+function checkSystemDisabled(){
+  try{ return sbFetch('bbw_system?select=disabled&id=eq.1').then(function(r){return r.json();}).then(function(rows){ if(Array.isArray(rows)&&rows[0]&&rows[0].disabled){ showDecommissioned(); return true; } return false; }).catch(function(){return false;}); }catch(e){ return Promise.resolve(false); }
+}
 function openKillSwitch(){
   if(user!==ADMIN){alert('Admin only.');return;}
   var H='<div id="kill-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:900;display:flex;align-items:center;justify-content:center;padding:20px">';
@@ -3615,23 +3698,37 @@ function closeKill(){ var m=gid('kill-modal'); if(m)m.remove(); }
 function wipeEverything(){
   if(user!==ADMIN)return;
   var go=gid('kill-go'); if(go){go.disabled=true;go.textContent='Wiping\u2026';}
-  sbFetch('bbw_docs?select=storage_path').then(function(r){return r.json();}).then(function(rows){
-    var paths=(Array.isArray(rows)?rows:[]).map(function(d){return d.storage_path;}).filter(Boolean);
-    return paths.length? fetch(SB+'/storage/v1/object/'+DOC_BUCKET,{method:'DELETE',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/json'},body:JSON.stringify({prefixes:paths})}).catch(function(){}) : Promise.resolve();
+  Promise.all([
+    sbFetch('bbw_docs?select=storage_path').then(function(r){return r.json();}).catch(function(){return [];}),
+    sbFetch('bbw_requests?select=photos').then(function(r){return r.json();}).catch(function(){return [];}),
+    sbFetch('bbw_worklog?select=photos').then(function(r){return r.json();}).catch(function(){return [];})
+  ]).then(function(res){
+    var paths=[];
+    function add(p){ if(p&&typeof p==='string'&&p.indexOf('data:')!==0&&p.indexOf('http')!==0&&paths.indexOf(p)<0)paths.push(p); }
+    function addArr(s){ try{var a=JSON.parse(s||'[]'); if(Array.isArray(a))a.forEach(add);}catch(e){} }
+    (Array.isArray(res[0])?res[0]:[]).forEach(function(d){add(d.storage_path);});
+    (Array.isArray(res[1])?res[1]:[]).forEach(function(r){addArr(r.photos);});
+    (Array.isArray(res[2])?res[2]:[]).forEach(function(r){addArr(r.photos);});
+    if(!paths.length)return Promise.resolve();
+    var batches=[]; for(var i=0;i<paths.length;i+=100)batches.push(paths.slice(i,i+100));
+    return Promise.all(batches.map(function(b){ return fetch(SB+'/storage/v1/object/'+DOC_BUCKET,{method:'DELETE',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/json'},body:JSON.stringify({prefixes:b})}).catch(function(){}); }));
   }).catch(function(){}).then(function(){
     return Promise.all(BBW_TABLES.map(function(t){ return sbFetch(t+'?id=not.is.null',{method:'DELETE',headers:{'Prefer':'return=minimal'}}).catch(function(){}); }));
   }).then(function(){
+    return sbFetch('bbw_system?on_conflict=id',{method:'POST',body:JSON.stringify({id:1,disabled:true,disabled_at:new Date().toISOString()}),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}}).catch(function(){});
+  }).then(function(){
     try{localStorage.clear();}catch(e){}
     try{if(window.caches&&caches.keys)caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});});}catch(e){}
+    try{if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});});}catch(e){}
     closeKill();
-    document.body.innerHTML='<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0b;color:#fff;text-align:center;padding:30px;font-family:-apple-system,sans-serif"><div><div style="font-size:42px;margin-bottom:14px">\uD83D\uDD25</div><div style="font-size:20px;font-weight:800;margin-bottom:8px">System wiped</div><div style="font-size:14px;color:#9aa0a8;max-width:340px;line-height:1.6">All data and uploaded files have been permanently deleted. You can close this page.</div></div></div>';
+    showDecommissioned();
   }).catch(function(e){ if(go){go.disabled=false;go.textContent='Wipe now';} alert('Wipe encountered an error: '+(e&&e.message||e)); });
 }
 
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-24f';
+  var BUILD='2026-06-24l';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -4476,29 +4573,30 @@ if('serviceWorker' in navigator){
   });
 }
 
+function schedChip(val,color){ if(val==null||val==='\u2014'||!(''+val).trim())return '<span style="font-size:12.5px;color:var(--text-3)">\u2014</span>'; return '<span style="display:inline-flex;align-items:center;font-size:12.5px;font-weight:600;color:#fff;background:var(--surface-2);border-left:2.5px solid '+color+';border-radius:7px;padding:6px 11px">'+rqEsc(''+val)+'</span>'; }
 function renderSchedule(){
   var el=gid('pane-schedule');if(!el)return;
   // Reload from storage in case it was uploaded in this session
   loadSchedulesFromStorage();
   var H='';
-  H+='<div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:12px">';
-  H+='<div style="font-size:12px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Shift Schedule</div>';
+  H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px">';
+  var _wd=new Date(), _we=new Date(); _we.setDate(_we.getDate()+6);
+  var _wr=_wd.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+' \u2013 '+_we.toLocaleDateString('en-CA',{month:'short',day:'numeric'});
+  H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:15px"><div style="font-size:14px;font-weight:800;color:#fff">Shift Schedule</div><div style="font-size:11px;color:var(--text-3)">'+_wr+'</div></div>';
   if(!Object.keys(techSchedule).length){
-    H+='<div style="color:var(--text-3);font-size:13px;font-style:italic">No schedule uploaded. Go to More &#8594; Upload Schedules.</div>';
+    H+='<div style="text-align:center;padding:22px;color:var(--text-3);font-size:13px">No schedule uploaded yet.<br><span style="font-size:11.5px">Go to More \u2192 Upload Schedules.</span></div>';
   }else{
+    H+='<div style="display:flex;gap:12px;padding-bottom:9px;border-bottom:1px solid var(--border);margin-bottom:3px"><div style="min-width:84px"></div>';
+    H+='<div style="flex:1;font-size:10px;font-weight:800;color:#f59e0b;text-transform:uppercase;letter-spacing:.07em">\u2600\uFE0F Day \u00b7 07\u201319</div>';
+    H+='<div style="flex:1;font-size:10px;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:.07em">\uD83C\uDF19 Night \u00b7 19\u201307</div></div>';
     for(var d=0;d<7;d++){
       var dt2=new Date();dt2.setDate(dt2.getDate()+d);
-      var ds=localDateStr(dt2);
-      var dayName=dt2.toLocaleDateString('en-CA',{weekday:'short',month:'short',day:'numeric'});
-      var sc=techSchedule[ds]||{};
-      var isT=d===0;
-      H+='<div style="display:flex;align-items:center;padding:9px 0;border-bottom:1px solid var(--surface-2);gap:10px">';
-      H+='<div style="min-width:76px;font-size:12px;color:'+(isT?'#fff':'var(--text-2)')+';font-weight:'+(isT?'700':'400')+'">'+dayName+'</div>';
-      H+='<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-      H+='<div style="font-size:11px"><span style="color:#f59e0b">&#9728; </span><span style="color:#ccc">'+(sc.day||'\u2014')+'</span></div>';
-      H+='<div style="font-size:11px"><span style="color:#60a5fa">&#127769; </span><span style="color:#ccc">'+(sc.night||'\u2014')+'</span></div>';
-      H+='</div>';
-      if(sc.comment)H+='<div style="font-size:10px;color:#ef4444;font-style:italic">'+sc.comment+'</div>';
+      var ds=localDateStr(dt2); var sc=techSchedule[ds]||{}; var isT=d===0;
+      var wname=dt2.toLocaleDateString('en-CA',{weekday:'short'}); var mday=dt2.toLocaleDateString('en-CA',{month:'short',day:'numeric'});
+      H+='<div style="display:flex;align-items:center;gap:12px;padding:11px 8px;margin:0 -8px;border-radius:9px;border-bottom:1px solid var(--surface-2)'+(isT?';background:rgba(96,165,250,.07)':'')+'">';
+      H+='<div style="min-width:84px;line-height:1.25"><div style="font-size:13px;font-weight:'+(isT?'800':'600')+';color:'+(isT?'#fff':'var(--text-2)')+'">'+wname+'</div><div style="font-size:10.5px;color:var(--text-3)">'+mday+'</div>'+(isT?'<div style="font-size:8px;font-weight:800;color:#60a5fa;letter-spacing:.1em;margin-top:1px">TODAY</div>':'')+'</div>';
+      H+='<div style="flex:1">'+schedChip(sc.day,'#f59e0b')+'</div>';
+      H+='<div style="flex:1;display:flex;align-items:center;gap:8px;min-width:0">'+schedChip(sc.night,'#60a5fa')+(sc.comment?'<span style="font-size:10px;font-weight:700;color:#fb923c;background:rgba(251,146,60,.13);padding:3px 8px;border-radius:6px;white-space:nowrap;margin-left:auto">'+rqEsc(sc.comment)+'</span>':'')+'</div>';
       H+='</div>';
     }
   }
