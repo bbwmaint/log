@@ -21,13 +21,15 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
 <title>BBW Work Log</title>
 <style>
   :root{
-    --bg:#0a0a0b; --surface:#141416; --surface-2:var(--surface-2); --surface-3:#26262b;
+    --bg:#0a0a0b; --surface:#141416; --surface-2:#1d1d21; --surface-3:#26262b;
     --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.14);
     --text:#fafafa; --text-2:#9b9ba3; --text-3:#5f5f67;
     --ok:#34d399; --warn:#fbbf24; --bad:#f87171; --info:#9b9ba3;
     --radius:14px; --radius-sm:10px;
   }
   *{ -webkit-tap-highlight-color: transparent; }
+  input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+  input[type=number]{-moz-appearance:textfield}
   body{ background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
   input, select, textarea, button { -webkit-appearance: none; }
   ::-webkit-scrollbar{width:8px;height:8px}
@@ -2493,9 +2495,10 @@ function renderUtil(){
 
   function fieldRow(id, label, placeholder){
     var v=today&&today[id]!=null?today[id]:'';
-    return '<div><div style="font-size:12px;color:var(--text-2);margin-bottom:4px">'+label+'</div>'+
-      '<input type="number" id="'+id+'" value="'+v+'" placeholder="'+placeholder+'" '+
-      'style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:15px;color:#fff;outline:none;font-family:monospace"></div>';
+    return '<div style="min-width:0">'+
+      '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</div>'+
+      '<input type="number" inputmode="decimal" id="'+id+'" value="'+v+'" placeholder="'+placeholder+'" '+
+      'style="width:100%;box-sizing:border-box;-webkit-appearance:none;-moz-appearance:textfield;appearance:none;margin:0;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 12px;font-size:15px;color:#fff;outline:none;font-family:ui-monospace,SFMono-Regular,monospace"></div>';
   }
 
   function fieldRowLevel(id, label, placeholder, max, unit){
@@ -2506,9 +2509,9 @@ function renderUtil(){
     return '<div>'+
       '<div style="font-size:12px;color:var(--text-2);margin-bottom:4px">'+label+'</div>'+
       '<div style="display:flex;align-items:center;gap:8px">'+
-      '<input type="number" id="'+id+'" value="'+v+'" placeholder="0" min="0" max="'+max+'" step="0.5" '+
+      '<input type="number" inputmode="decimal" id="'+id+'" value="'+v+'" placeholder="0" min="0" max="'+max+'" step="0.5" '+
       'oninput="updateLevel(this)" data-max="'+max+'" '+
-      'style="width:70px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:14px;color:var(--text);outline:none;font-family:monospace;flex-shrink:0"><div style="flex:1">'+
+      'style="width:70px;box-sizing:border-box;-webkit-appearance:none;-moz-appearance:textfield;appearance:none;margin:0;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:9px;font-size:14px;color:#fff;outline:none;font-family:ui-monospace,SFMono-Regular,monospace;flex-shrink:0"><div style="flex:1">'+
       '<div style="height:8px;background:var(--surface-3);border-radius:4px;overflow:hidden">'+
       '<div id="lvl-'+id+'" style="height:100%;background:'+bc+';border-radius:4px;width:'+pct+'%;transition:width .3s,background .3s"></div>'+
       '</div>'+
@@ -2519,8 +2522,8 @@ function renderUtil(){
 
   function section(title, color, rows){
     return '<div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:12px">'+
-      '<div style="font-size:12px;font-weight:700;color:'+color+';text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">'+title+'</div>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+rows+'</div>'+
+      '<div style="font-size:12px;font-weight:700;color:'+color+';text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">'+title+'</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;column-gap:16px;row-gap:14px">'+rows+'</div>'+
       '</div>';
   }
 
@@ -4053,37 +4056,23 @@ function flDashBad(){var e=gid('fldash-err');if(e)e.textContent='Incorrect PIN';
 function flDashSubmitPin(){
   var v=(gid('fldash-pin')&&gid('fldash-pin').value||'').trim();
   if(!v){flDashBad();return;}
-  // Central PIN is the source of truth when one has been set; otherwise the default/local PIN works.
+  // Local/default PIN is accepted immediately so a freshly-changed PIN always works on this device.
+  if(v===flDashLocalPin()){flDashGood();return;}
+  // Secondary: a PIN that was set centrally on another device.
   sbRPC('verify_pin',{p_name:'__fldash__',p_pin:v}).then(function(ok){
-    if(ok){localStorage.setItem('bbw_fldash_pin',v);return flDashGood();}
-    return sbRPC('pin_status',{p_name:'__fldash__'}).then(function(st){
-      if(st==='set'){flDashBad();}                       // a central PIN exists and this isn't it
-      else if(v===flDashLocalPin()){flDashGood();}        // no central PIN yet -> default/local
-      else flDashBad();
-    }).catch(function(){ if(v===flDashLocalPin())flDashGood(); else flDashBad(); });
-  }).catch(function(){ if(v===flDashLocalPin())flDashGood(); else flDashBad(); });
+    if(ok){localStorage.setItem('bbw_fldash_pin',v);flDashGood();} else flDashBad();
+  }).catch(function(){flDashBad();});
 }
-// Change the supervisor PIN (cross-device via central PINs; authorised with the admin PIN).
+// Change the supervisor PIN. Single step — whoever is already inside the dashboard (or the admin More tab) is authorised.
 function flDashChangePin(){
   var np=prompt('New 4-digit forklift-supervisor PIN:'); if(np===null)return; np=np.trim();
   if(!/^\d{4}$/.test(np)){alert('PIN must be exactly 4 digits.');return;}
   var c=prompt('Re-enter the new PIN to confirm:'); if(c===null)return;
   if(c.trim()!==np){alert('The PINs did not match. Nothing changed.');return;}
-  var ap=prompt('Enter the ADMIN PIN to authorise this change:'); if(!ap)return;
-  sbRPC('reset_pin',{p_name:'__fldash__',p_admin_pin:ap.trim()}).then(function(ok){
-    if(ok){
-      return sbRPC('set_pin',{p_name:'__fldash__',p_pin:np}).then(function(){
-        localStorage.setItem('bbw_fldash_pin',np);
-        alert('Forklift-supervisor PIN updated to '+np+'. It works on every device.');
-      });
-    }else{
-      localStorage.setItem('bbw_fldash_pin',np);
-      alert('That admin PIN was rejected (or central PINs aren\u2019t set up). The PIN was changed on THIS device only — other devices keep the old one.');
-    }
-  }).catch(function(){
-    localStorage.setItem('bbw_fldash_pin',np);
-    alert('Couldn\u2019t reach the server. The PIN was changed on THIS device only.');
-  });
+  localStorage.setItem('bbw_fldash_pin',np);
+  // Best-effort cross-device sync — no extra prompt.
+  try{ sbRPC('set_pin',{p_name:'__fldash__',p_pin:np}).catch(function(){}); }catch(e){}
+  alert('Forklift-supervisor PIN updated to '+np+'.');
 }
 function flDashLock(){FLDASH_OK=false;FLDASH_ROWS=null;openFlDashGate();}
 function flDashShiftMonth(delta){if(!FLDASH_MONTH)FLDASH_MONTH=new Date();FLDASH_MONTH=new Date(FLDASH_MONTH.getFullYear(),FLDASH_MONTH.getMonth()+delta,1);renderFlDash();}
@@ -4187,7 +4176,7 @@ function flDashCSV(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-24r';
+  var BUILD='2026-06-24s';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -5089,10 +5078,15 @@ function renderSchedule(){
       var dt2=new Date();dt2.setDate(dt2.getDate()+d);
       var ds=localDateStr(dt2); var sc=techSchedule[ds]||{}; var isT=d===0;
       var wname=dt2.toLocaleDateString('en-CA',{weekday:'short'}); var mday=dt2.toLocaleDateString('en-CA',{month:'short',day:'numeric'});
-      H+='<div style="display:flex;align-items:center;gap:12px;padding:11px 8px;margin:0 -8px;border-radius:9px;border-bottom:1px solid var(--surface-2)'+(isT?';background:rgba(96,165,250,.07)':'')+'">';
+      H+='<div style="padding:11px 8px;margin:0 -8px;border-radius:9px;border-bottom:1px solid var(--surface-2)'+(isT?';background:rgba(96,165,250,.07)':'')+'">';
+      H+='<div style="display:flex;align-items:center;gap:12px">';
       H+='<div style="min-width:84px;line-height:1.25"><div style="font-size:13px;font-weight:'+(isT?'800':'600')+';color:'+(isT?'#fff':'var(--text-2)')+'">'+wname+'</div><div style="font-size:10.5px;color:var(--text-3)">'+mday+'</div>'+(isT?'<div style="font-size:8px;font-weight:800;color:#60a5fa;letter-spacing:.1em;margin-top:1px">TODAY</div>':'')+'</div>';
-      H+='<div style="flex:1">'+schedChip(sc.day,'#f59e0b')+'</div>';
-      H+='<div style="flex:1;display:flex;align-items:center;gap:8px;min-width:0">'+schedChip(sc.night,'#60a5fa')+(sc.comment?'<span style="font-size:10px;font-weight:700;color:#fb923c;background:rgba(251,146,60,.13);padding:3px 8px;border-radius:6px;white-space:nowrap;margin-left:auto">'+rqEsc(sc.comment)+'</span>':'')+'</div>';
+      H+='<div style="flex:1;min-width:0">'+schedChip(sc.day,'#f59e0b')+'</div>';
+      H+='<div style="flex:1;min-width:0">'+schedChip(sc.night,'#60a5fa')+'</div>';
+      H+='</div>';
+      if(sc.comment){
+        H+='<div style="margin-top:8px;padding-left:96px"><span style="display:inline-block;max-width:100%;font-size:10.5px;font-weight:700;color:#fb923c;background:rgba(251,146,60,.15);border:1px solid rgba(251,146,60,.3);padding:3px 9px;border-radius:6px;line-height:1.4">'+rqEsc(sc.comment)+'</span></div>';
+      }
       H+='</div>';
     }
   }
