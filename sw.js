@@ -1,6 +1,6 @@
 // BBW Work Log — Service Worker
 // Bump CACHE to force all devices onto fresh code.
-const CACHE = 'bbw-v29';
+const CACHE = 'bbw-v31';
 
 const PRECACHE = [
   './',

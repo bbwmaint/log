@@ -4029,13 +4029,16 @@ function openForkliftQR(){
 function flDashEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function flDashMonLabel(d){return ['January','February','March','April','May','June','July','August','September','October','November','December'][d.getMonth()]+' '+d.getFullYear();}
 function flDashMonKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+// Company logo (uses the same image as the app header); falls back to a forklift glyph if missing.
+function flDashLogo(h){var el=document.querySelector('.hdr-logo')||document.querySelector('img[src^="data:image"]');var src=el?el.getAttribute('src'):'';return src?'<img src="'+src+'" alt="BBW" style="height:'+h+'px;display:block">':'<span style="font-size:'+h+'px">\uD83D\uDE9C</span>';}
+function flDashLocalPin(){return localStorage.getItem('bbw_fldash_pin')||FLDASH_PIN;}
 function openFlDashGate(){
   try{document.title='Forklift Inspections — BBW';}catch(e){}
   var ex=gid('fldash');if(ex)ex.remove();
   if(FLDASH_OK){renderFlDash();return;}
   var H='<div id="fldash" style="position:fixed;inset:0;background:#0b0d10;z-index:9500;overflow-y:auto;color:#e7e7ea;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif">';
   H+='<div style="max-width:380px;margin:0 auto;padding:64px 22px 40px;text-align:center">';
-  H+='<div style="font-size:40px;margin-bottom:6px">\uD83D\uDE9C</div>';
+  H+='<div style="display:flex;justify-content:center;margin-bottom:14px">'+flDashLogo(34)+'</div>';
   H+='<div style="font-size:20px;font-weight:800;color:#fff">Forklift Inspections</div>';
   H+='<div style="font-size:13px;color:#8b8b94;margin:6px 0 26px">Supervisor access</div>';
   H+='<input id="fldash-pin" type="password" inputmode="numeric" autocomplete="off" placeholder="Enter PIN" onkeydown="if(event.key===\'Enter\')flDashSubmitPin()" style="width:100%;background:#16181d;border:1px solid #2a2d35;border-radius:11px;padding:14px;font-size:18px;color:#fff;text-align:center;letter-spacing:.3em;outline:none;box-sizing:border-box;color-scheme:dark">';
@@ -4045,10 +4048,42 @@ function openFlDashGate(){
   document.body.insertAdjacentHTML('beforeend',H);
   setTimeout(function(){var i=gid('fldash-pin');if(i)i.focus();},80);
 }
+function flDashGood(){FLDASH_OK=true;FLDASH_MONTH=new Date();renderFlDash();}
+function flDashBad(){var e=gid('fldash-err');if(e)e.textContent='Incorrect PIN';var i=gid('fldash-pin');if(i){i.value='';i.focus();}}
 function flDashSubmitPin(){
   var v=(gid('fldash-pin')&&gid('fldash-pin').value||'').trim();
-  if(v===FLDASH_PIN){FLDASH_OK=true;FLDASH_MONTH=new Date();renderFlDash();}
-  else{var e=gid('fldash-err');if(e)e.textContent='Incorrect PIN';var i=gid('fldash-pin');if(i){i.value='';i.focus();}}
+  if(!v){flDashBad();return;}
+  // Central PIN is the source of truth when one has been set; otherwise the default/local PIN works.
+  sbRPC('verify_pin',{p_name:'__fldash__',p_pin:v}).then(function(ok){
+    if(ok){localStorage.setItem('bbw_fldash_pin',v);return flDashGood();}
+    return sbRPC('pin_status',{p_name:'__fldash__'}).then(function(st){
+      if(st==='set'){flDashBad();}                       // a central PIN exists and this isn't it
+      else if(v===flDashLocalPin()){flDashGood();}        // no central PIN yet -> default/local
+      else flDashBad();
+    }).catch(function(){ if(v===flDashLocalPin())flDashGood(); else flDashBad(); });
+  }).catch(function(){ if(v===flDashLocalPin())flDashGood(); else flDashBad(); });
+}
+// Change the supervisor PIN (cross-device via central PINs; authorised with the admin PIN).
+function flDashChangePin(){
+  var np=prompt('New 4-digit forklift-supervisor PIN:'); if(np===null)return; np=np.trim();
+  if(!/^\d{4}$/.test(np)){alert('PIN must be exactly 4 digits.');return;}
+  var c=prompt('Re-enter the new PIN to confirm:'); if(c===null)return;
+  if(c.trim()!==np){alert('The PINs did not match. Nothing changed.');return;}
+  var ap=prompt('Enter the ADMIN PIN to authorise this change:'); if(!ap)return;
+  sbRPC('reset_pin',{p_name:'__fldash__',p_admin_pin:ap.trim()}).then(function(ok){
+    if(ok){
+      return sbRPC('set_pin',{p_name:'__fldash__',p_pin:np}).then(function(){
+        localStorage.setItem('bbw_fldash_pin',np);
+        alert('Forklift-supervisor PIN updated to '+np+'. It works on every device.');
+      });
+    }else{
+      localStorage.setItem('bbw_fldash_pin',np);
+      alert('That admin PIN was rejected (or central PINs aren\u2019t set up). The PIN was changed on THIS device only — other devices keep the old one.');
+    }
+  }).catch(function(){
+    localStorage.setItem('bbw_fldash_pin',np);
+    alert('Couldn\u2019t reach the server. The PIN was changed on THIS device only.');
+  });
 }
 function flDashLock(){FLDASH_OK=false;FLDASH_ROWS=null;openFlDashGate();}
 function flDashShiftMonth(delta){if(!FLDASH_MONTH)FLDASH_MONTH=new Date();FLDASH_MONTH=new Date(FLDASH_MONTH.getFullYear(),FLDASH_MONTH.getMonth()+delta,1);renderFlDash();}
@@ -4072,8 +4107,9 @@ function renderFlDash(){
   if(!FLDASH_MONTH)FLDASH_MONTH=new Date();
   var H='<div id="fldash" style="position:fixed;inset:0;background:#0b0d10;z-index:9500;overflow-y:auto;color:#e7e7ea;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif">';
   H+='<div style="position:sticky;top:0;background:#111317;border-bottom:1px solid #23262e;padding:12px 16px;display:flex;align-items:center;gap:10px;z-index:5">';
-  H+='<div style="font-size:22px">\uD83D\uDE9C</div>';
+  H+='<div style="display:flex;align-items:center">'+flDashLogo(24)+'</div>';
   H+='<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:#fff">Forklift Inspections</div><div style="font-size:11px;color:#8b8b94">Brunswick Bierworks</div></div>';
+  H+='<button onclick="flDashChangePin()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Change PIN</button>';
   H+='<button onclick="flDashLock()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Lock</button>';
   H+='</div>';
   H+='<div style="max-width:920px;margin:0 auto;padding:16px 16px 60px">';
@@ -4151,15 +4187,15 @@ function flDashCSV(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-24q';
+  var BUILD='2026-06-24r';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
-  H+='<div style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace">build '+BUILD+'</div>';
+  H+='<div onclick="dangerTap()" style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace;cursor:default;user-select:none">build '+BUILD+'</div>';
   H+='<button onclick="openForkliftMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDE9C Forklift Inspection</button>';
 
-  // ── PMs (admin only) ──
-  if(isAdmin){
+  // ── PMs now live in the dedicated CMMS tab; hidden here ──
+  if(false){
     var today=new Date();
     var dow=today.toLocaleDateString('en-US',{weekday:'long'});
     var dom=today.getDate();
@@ -4268,6 +4304,9 @@ function renderMore(){
       H+='<button onclick="resetPin(\''+t+'\')" style="padding:9px 4px;border-radius:8px;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);color:#ef4444;font-size:11px;font-weight:600;cursor:pointer">'+t+'</button>';
     });
     H+='</div>';
+    H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Forklift Supervisor Access</div>';
+    H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-bottom:8px">Supervisor page: <b>'+flBaseURL()+'?fldash</b></div>';
+    H+='<button onclick="flDashChangePin()" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:16px">\uD83D\uDD11 Change forklift-supervisor PIN</button>';
     H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Auto-Send (EmailJS)</div>';
     H+='<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Service ID</div><input id="ejs-s" type="text" placeholder="service_xxxxxxx" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;color:#fff;outline:none"></div>';
     H+='<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Template ID</div><input id="ejs-t" type="text" placeholder="template_xxxxxxx" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;color:#fff;outline:none"></div>';
@@ -4298,10 +4337,10 @@ function renderMore(){
     H+='<input type="text" id="co-asset-input" placeholder="Asset name e.g. FILLER" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none">';
     H+='<button onclick="addCOAsset()" style="padding:10px 16px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Add</button>';
     H+='</div>';
-    H+="'</div>'";
+    H+='</div>';
   }
 
-  if(isAdmin){
+  if(isAdmin && window.__dangerUnlocked){
     H+='<div style="background:#1a0c0c;border:1px solid rgba(239,68,68,.4);border-radius:12px;padding:16px;margin:22px 0 12px">';
     H+='<div style="font-size:13px;font-weight:800;color:#ef4444;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">\u26A0\uFE0F Danger Zone</div>';
     H+='<div style="font-size:12.5px;color:var(--text-3);line-height:1.5;margin-bottom:14px">Permanently erase the entire system \u2014 every log, work order, PM, request, document and uploaded file, for the whole team. There is no undo. Download a backup first.</div>';
@@ -4384,6 +4423,20 @@ function resetPin(name){
     if(ok)alert(name+'\u2019s PIN was cleared. They\u2019ll set a new one on next login.');
     else alert('Reset failed \u2014 wrong admin PIN (or central PINs aren\u2019t enabled yet).');
   }).catch(function(){ localStorage.removeItem('pin_'+name); alert('Central reset unavailable; cleared the local PIN for '+name+' on this device only.'); });
+}
+// Secret reveal for the Danger Zone: tap the build number 7 times quickly, then enter the admin PIN.
+var __dangerTaps=0, __dangerLast=0;
+function dangerTap(){
+  var now=Date.now();
+  if(now-__dangerLast>1500)__dangerTaps=0;
+  __dangerLast=now; __dangerTaps++;
+  if(__dangerTaps>=7){
+    __dangerTaps=0;
+    var p=prompt('Enter the admin PIN to reveal advanced tools:');
+    if(p===null)return;
+    if(p.trim()===APIN){window.__dangerUnlocked=true;renderMore();}
+    else alert('Incorrect.');
+  }
 }
 
 function clearAll(){
