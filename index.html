@@ -4063,16 +4063,25 @@ function flDashSubmitPin(){
     if(ok){localStorage.setItem('bbw_fldash_pin',v);flDashGood();} else flDashBad();
   }).catch(function(){flDashBad();});
 }
-// Change the supervisor PIN. Single step — whoever is already inside the dashboard (or the admin More tab) is authorised.
-function flDashChangePin(){
-  var np=prompt('New 4-digit forklift-supervisor PIN:'); if(np===null)return; np=np.trim();
-  if(!/^\d{4}$/.test(np)){alert('PIN must be exactly 4 digits.');return;}
-  var c=prompt('Re-enter the new PIN to confirm:'); if(c===null)return;
-  if(c.trim()!==np){alert('The PINs did not match. Nothing changed.');return;}
-  localStorage.setItem('bbw_fldash_pin',np);
-  // Best-effort cross-device sync — no extra prompt.
-  try{ sbRPC('set_pin',{p_name:'__fldash__',p_pin:np}).catch(function(){}); }catch(e){}
-  alert('Forklift-supervisor PIN updated to '+np+'.');
+// Change the supervisor PIN. Gated by the CURRENT PIN (single authorisation).
+// fromAdmin=true (the admin More tab) skips that prompt since the admin is already authorised.
+function flDashChangePin(fromAdmin){
+  function doChange(){
+    var np=prompt('New 4-digit forklift-supervisor PIN:'); if(np===null)return; np=np.trim();
+    if(!/^\d{4}$/.test(np)){alert('PIN must be exactly 4 digits.');return;}
+    var c=prompt('Re-enter the new PIN to confirm:'); if(c===null)return;
+    if(c.trim()!==np){alert('The PINs did not match. Nothing changed.');return;}
+    localStorage.setItem('bbw_fldash_pin',np);
+    try{ sbRPC('set_pin',{p_name:'__fldash__',p_pin:np}).catch(function(){}); }catch(e){}
+    alert('Forklift-supervisor PIN updated to '+np+'.');
+  }
+  if(fromAdmin===true){ doChange(); return; }
+  var cur=prompt('Enter the current forklift-supervisor PIN:'); if(cur===null)return; cur=cur.trim();
+  if(cur===flDashLocalPin()){ doChange(); return; }
+  // Fall back to the central PIN for a value set on another device.
+  sbRPC('verify_pin',{p_name:'__fldash__',p_pin:cur}).then(function(ok){
+    if(ok){ doChange(); } else { alert('That PIN was incorrect. Nothing changed.'); }
+  }).catch(function(){ alert('That PIN was incorrect. Nothing changed.'); });
 }
 function flDashLock(){FLDASH_OK=false;FLDASH_ROWS=null;openFlDashGate();}
 function flDashShiftMonth(delta){if(!FLDASH_MONTH)FLDASH_MONTH=new Date();FLDASH_MONTH=new Date(FLDASH_MONTH.getFullYear(),FLDASH_MONTH.getMonth()+delta,1);renderFlDash();}
@@ -4176,7 +4185,7 @@ function flDashCSV(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-24s';
+  var BUILD='2026-06-24u';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -4295,7 +4304,7 @@ function renderMore(){
     H+='</div>';
     H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Forklift Supervisor Access</div>';
     H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-bottom:8px">Supervisor page: <b>'+flBaseURL()+'?fldash</b></div>';
-    H+='<button onclick="flDashChangePin()" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:16px">\uD83D\uDD11 Change forklift-supervisor PIN</button>';
+    H+='<button onclick="flDashChangePin(true)" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:16px">\uD83D\uDD11 Change forklift-supervisor PIN</button>';
     H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Auto-Send (EmailJS)</div>';
     H+='<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Service ID</div><input id="ejs-s" type="text" placeholder="service_xxxxxxx" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;color:#fff;outline:none"></div>';
     H+='<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Template ID</div><input id="ejs-t" type="text" placeholder="template_xxxxxxx" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;color:#fff;outline:none"></div>';
@@ -5059,47 +5068,241 @@ if('serviceWorker' in navigator){
 }
 
 function schedChip(val,color){ if(val==null||val==='\u2014'||!(''+val).trim())return '<span style="font-size:12.5px;color:var(--text-3)">\u2014</span>'; return '<span style="display:inline-flex;align-items:center;font-size:12.5px;font-weight:600;color:#fff;background:var(--surface-2);border-left:2.5px solid '+color+';border-radius:7px;padding:6px 11px">'+rqEsc(''+val)+'</span>'; }
+/* ===== Shift Schedule: month calendar + in-app editing + production/efficiency ===== */
+var schedMonth=null;      // Date pinned to the 1st of the displayed month
+var schedSelDate=null;    // 'YYYY-MM-DD' currently open in the editor
+var schedEdit=null;       // working copy while editing a day
+var schedChartObj=null;   // Chart.js instance for the month trend
+
+function prodRate(){ var r=techSchedule&&+techSchedule.__rate__; if(r&&r>0)return r; r=+localStorage.getItem('bbw_prod_rate'); return (r&&r>0)?r:60000; }
+function setProdRate(v){ v=+v; if(!v||v<=0)return; techSchedule.__rate__=v; try{localStorage.setItem('bbw_prod_rate',String(v));}catch(e){} }
+function schedNames(s){ if(Array.isArray(s))return s.slice(); if(s==null)return []; return (''+s).split(/[\/,]/).map(function(x){return x.trim();}).filter(Boolean); }
+function schedJoin(a){ return (a||[]).join(' / '); }
+function schedEffPct(cans){ var t=prodRate()*12; if(!t||!cans)return null; return Math.round(cans/t*1000)/10; }
+function schedEffColor(p){ if(p==null)return 'var(--text-3)'; if(p>=85)return '#34d399'; if(p>=70)return '#fbbf24'; return '#f87171'; }
+function schedFmt(n){ return (+n||0).toLocaleString('en-CA'); }
+function schedMiniLabel(names){ if(!names.length)return ''; var f=names[0]; if(f.length>6)f=f.slice(0,6); return names.length>1?(f+'+'+(names.length-1)):f; }
+function schedPersist(){ try{localStorage.setItem('bbw_tech_sched',JSON.stringify(techSchedule));}catch(e){} try{saveScheduleToSB('tech',techSchedule);}catch(e){} }
+
 function renderSchedule(){
-  var el=gid('pane-schedule');if(!el)return;
-  // Reload from storage in case it was uploaded in this session
+  var el=gid('pane-schedule'); if(!el)return;
   loadSchedulesFromStorage();
+  if(!schedMonth){ var n=new Date(); schedMonth=new Date(n.getFullYear(),n.getMonth(),1); }
   var H='';
-  H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px">';
-  var _wd=new Date(), _we=new Date(); _we.setDate(_we.getDate()+6);
-  var _wr=_wd.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+' \u2013 '+_we.toLocaleDateString('en-CA',{month:'short',day:'numeric'});
-  H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:15px"><div style="font-size:14px;font-weight:800;color:#fff">Shift Schedule</div><div style="font-size:11px;color:var(--text-3)">'+_wr+'</div></div>';
-  if(!Object.keys(techSchedule).length){
-    H+='<div style="text-align:center;padding:22px;color:var(--text-3);font-size:13px">No schedule uploaded yet.<br><span style="font-size:11.5px">Go to More \u2192 Upload Schedules.</span></div>';
-  }else{
-    H+='<div style="display:flex;gap:12px;padding-bottom:9px;border-bottom:1px solid var(--border);margin-bottom:3px"><div style="min-width:84px"></div>';
-    H+='<div style="flex:1;font-size:10px;font-weight:800;color:#f59e0b;text-transform:uppercase;letter-spacing:.07em">\u2600\uFE0F Day \u00b7 07\u201319</div>';
-    H+='<div style="flex:1;font-size:10px;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:.07em">\uD83C\uDF19 Night \u00b7 19\u201307</div></div>';
-    for(var d=0;d<7;d++){
-      var dt2=new Date();dt2.setDate(dt2.getDate()+d);
-      var ds=localDateStr(dt2); var sc=techSchedule[ds]||{}; var isT=d===0;
-      var wname=dt2.toLocaleDateString('en-CA',{weekday:'short'}); var mday=dt2.toLocaleDateString('en-CA',{month:'short',day:'numeric'});
-      H+='<div style="padding:11px 8px;margin:0 -8px;border-radius:9px;border-bottom:1px solid var(--surface-2)'+(isT?';background:rgba(96,165,250,.07)':'')+'">';
-      H+='<div style="display:flex;align-items:center;gap:12px">';
-      H+='<div style="min-width:84px;line-height:1.25"><div style="font-size:13px;font-weight:'+(isT?'800':'600')+';color:'+(isT?'#fff':'var(--text-2)')+'">'+wname+'</div><div style="font-size:10.5px;color:var(--text-3)">'+mday+'</div>'+(isT?'<div style="font-size:8px;font-weight:800;color:#60a5fa;letter-spacing:.1em;margin-top:1px">TODAY</div>':'')+'</div>';
-      H+='<div style="flex:1;min-width:0">'+schedChip(sc.day,'#f59e0b')+'</div>';
-      H+='<div style="flex:1;min-width:0">'+schedChip(sc.night,'#60a5fa')+'</div>';
-      H+='</div>';
-      if(sc.comment){
-        H+='<div style="margin-top:8px;padding-left:96px"><span style="display:inline-block;max-width:100%;font-size:10.5px;font-weight:700;color:#fb923c;background:rgba(251,146,60,.15);border:1px solid rgba(251,146,60,.3);padding:3px 9px;border-radius:6px;line-height:1.4">'+rqEsc(sc.comment)+'</span></div>';
-      }
-      H+='</div>';
-    }
+  H+=schedMonthCardHTML();
+  H+=schedSummaryHTML();
+  H+=schedProdRunsHTML();
+  el.innerHTML=H;
+  setTimeout(schedDrawChart,0);
+}
+
+function schedShiftMonth(delta){ schedMonth=new Date(schedMonth.getFullYear(),schedMonth.getMonth()+delta,1); renderSchedule(); }
+function schedToday(){ var n=new Date(); schedMonth=new Date(n.getFullYear(),n.getMonth(),1); renderSchedule(); }
+function schedEditRate(){ var v=prompt('Target line rate (cans per hour):',prodRate()); if(v==null)return; v=parseInt((''+v).replace(/[^0-9]/g,''),10); if(!v||v<=0){toast('Enter a positive number',true);return;} setProdRate(v); schedPersist(); renderSchedule(); }
+
+function schedMonthCardHTML(){
+  var y=schedMonth.getFullYear(), m=schedMonth.getMonth();
+  var monthName=schedMonth.toLocaleDateString('en-CA',{month:'long',year:'numeric'});
+  var todayStr=localDateStr(new Date());
+  var first=new Date(y,m,1); var startGrid=new Date(y,m,1-first.getDay());
+  var H='<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 14px;margin-bottom:14px">';
+  H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">';
+  H+='<button onclick="schedShiftMonth(-1)" style="background:var(--surface-2);border:1px solid var(--border);color:#fff;width:34px;height:34px;border-radius:9px;font-size:18px;cursor:pointer">\u2039</button>';
+  H+='<div style="text-align:center"><div style="font-size:15px;font-weight:800;color:#fff">'+monthName+'</div><div onclick="schedToday()" style="font-size:10px;color:#60a5fa;cursor:pointer;margin-top:1px">Jump to today</div></div>';
+  H+='<button onclick="schedShiftMonth(1)" style="background:var(--surface-2);border:1px solid var(--border);color:#fff;width:34px;height:34px;border-radius:9px;font-size:18px;cursor:pointer">\u203A</button>';
+  H+='</div>';
+  H+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px">';
+  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(function(w){ H+='<div style="text-align:center;font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.04em">'+w+'</div>'; });
+  H+='</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
+  for(var i=0;i<42;i++){
+    var dt=new Date(startGrid.getFullYear(),startGrid.getMonth(),startGrid.getDate()+i);
+    var ds=localDateStr(dt); var inM=dt.getMonth()===m; var isTod=ds===todayStr;
+    var sc=techSchedule[ds]||{};
+    var dn=schedNames(sc.day), nn=schedNames(sc.night), vac=sc.vac||[];
+    var dC=+sc.dCans||0, nC=+sc.nCans||0, tot=dC+nC;
+    var effP=tot?Math.round(tot/(prodRate()*24)*1000)/10:null;
+    H+='<div onclick="openDayEditor(\''+ds+'\')" style="position:relative;min-height:60px;background:'+(inM?'var(--surface-2)':'transparent')+';border:1px solid '+(isTod?'#60a5fa':'var(--border)')+';border-radius:8px;padding:4px 3px 8px;cursor:pointer;opacity:'+(inM?'1':'.38')+';overflow:hidden">';
+    H+='<div style="font-size:9.5px;font-weight:800;color:'+(isTod?'#60a5fa':'var(--text-2)')+';line-height:1">'+dt.getDate()+'</div>';
+    if(vac.length)H+='<div style="position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:#fb923c"></div>';
+    H+='<div style="display:flex;flex-direction:column;gap:2px;margin-top:3px">';
+    if(dn.length)H+='<div style="font-size:8px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,.14);border-radius:3px;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35">'+rqEsc(schedMiniLabel(dn))+'</div>';
+    if(nn.length)H+='<div style="font-size:8px;font-weight:700;color:#60a5fa;background:rgba(96,165,250,.14);border-radius:3px;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35">'+rqEsc(schedMiniLabel(nn))+'</div>';
+    H+='</div>';
+    if(tot>0)H+='<div style="position:absolute;left:3px;right:3px;bottom:2px;height:3px;border-radius:2px;background:'+schedEffColor(effP)+'"></div>';
+    H+='</div>';
   }
   H+='</div>';
-  H+='<div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:12px">';
+  H+='<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:11px;font-size:9px;color:var(--text-3)">';
+  H+='<span><span style="display:inline-block;width:8px;height:8px;background:#f59e0b;border-radius:2px;margin-right:3px"></span>Day</span>';
+  H+='<span><span style="display:inline-block;width:8px;height:8px;background:#60a5fa;border-radius:2px;margin-right:3px"></span>Night</span>';
+  H+='<span><span style="display:inline-block;width:8px;height:8px;background:#fb923c;border-radius:50%;margin-right:3px"></span>Vacation</span>';
+  H+='<span><span style="display:inline-block;width:8px;height:3px;background:#34d399;border-radius:2px;margin-right:3px;vertical-align:middle"></span>Efficiency</span>';
+  H+='</div>';
+  if(isEditor())H+='<div style="font-size:10px;color:var(--text-3);margin-top:8px;text-align:center">Tap any day to assign shifts, vacation &amp; production</div>';
+  H+='</div>';
+  return H;
+}
+
+function schedMonthStats(){
+  var y=schedMonth.getFullYear(), m=schedMonth.getMonth();
+  var days=new Date(y,m+1,0).getDate();
+  var totD=0,totN=0,daily=[],labels=[],effs=[];
+  for(var i=1;i<=days;i++){
+    var k=localDateStr(new Date(y,m,i)); var sc=techSchedule[k]||{};
+    var d=+sc.dCans||0, n=+sc.nCans||0; totD+=d; totN+=n;
+    daily.push(d+n); labels.push(i);
+    var ep=schedEffPct(d); if(ep!=null)effs.push(ep);
+    var enp=schedEffPct(n); if(enp!=null)effs.push(enp);
+  }
+  var avg=effs.length?Math.round(effs.reduce(function(a,b){return a+b;},0)/effs.length*10)/10:null;
+  return {totD:totD,totN:totN,total:totD+totN,daily:daily,labels:labels,avgEff:avg,shifts:effs.length};
+}
+
+function schedStatBox(label,val,col){ return '<div style="background:var(--surface-2);border-radius:9px;padding:9px 8px;text-align:center"><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">'+label+'</div><div style="font-size:14px;font-weight:800;color:'+col+'">'+val+'</div></div>'; }
+
+function schedSummaryHTML(){
+  var st=schedMonthStats();
+  var H='<div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:12px">';
+  H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">';
+  H+='<div style="font-size:12px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:.06em">Month Production</div>';
+  H+='<div onclick="schedEditRate()" style="font-size:10px;color:var(--text-2);cursor:pointer">Target: '+schedFmt(prodRate())+'/hr \u270E</div>';
+  H+='</div>';
+  if(!st.total){
+    H+='<div style="color:var(--text-3);font-size:13px;font-style:italic">No production logged this month. Tap a day to enter cans for each shift \u2014 efficiency is figured against the target rate automatically.</div>';
+  }else{
+    H+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">';
+    H+=schedStatBox('Total cans',schedFmt(st.total),'#fff');
+    H+=schedStatBox('Avg efficiency',(st.avgEff==null?'\u2014':st.avgEff+'%'),schedEffColor(st.avgEff));
+    H+=schedStatBox('Day / Night',schedFmt(st.totD)+' / '+schedFmt(st.totN),'#9b9ba3');
+    H+='</div><div style="height:150px"><canvas id="schedChart"></canvas></div>';
+  }
+  H+='</div>';
+  return H;
+}
+
+function schedDrawChart(){
+  if(typeof Chart==='undefined')return;
+  var cv=gid('schedChart'); if(!cv)return;
+  var st=schedMonthStats(); if(!st.total)return;
+  try{ if(schedChartObj)schedChartObj.destroy(); }catch(e){}
+  schedChartObj=new Chart(cv.getContext('2d'),{type:'bar',
+    data:{labels:st.labels,datasets:[{label:'Cans',data:st.daily,backgroundColor:'#60a5fa',borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return schedFmt(c.parsed.y)+' cans';}}}},
+      scales:{x:{ticks:{color:'#9b9ba3',font:{size:8},maxRotation:0,autoSkip:true,maxTicksLimit:16},grid:{display:false}},
+              y:{ticks:{color:'#9b9ba3',font:{size:9},callback:function(v){return v>=1000?(v/1000)+'k':v;}},grid:{color:'rgba(255,255,255,.06)'}}}}});
+}
+
+function schedChipsHTML(kind){
+  var sel=schedEdit[kind]||[];
+  var col=kind==='day'?'#f59e0b':(kind==='night'?'#60a5fa':'#fb923c');
+  return TECHS.map(function(n){
+    var on=sel.indexOf(n)>=0;
+    return '<button onclick="schedTogglePick(\''+kind+'\',\''+n+'\')" style="font-size:12px;font-weight:600;padding:7px 11px;border-radius:8px;cursor:pointer;border:1px solid '+(on?col:'var(--border-2)')+';background:'+(on?col:'transparent')+';color:'+(on?'#0a0a0b':'var(--text-2)')+'">'+n+'</button>';
+  }).join('');
+}
+function schedTogglePick(kind,name){ var a=schedEdit[kind]; var i=a.indexOf(name); if(i>=0)a.splice(i,1); else a.push(name); var c=gid('se-'+kind); if(c)c.innerHTML=schedChipsHTML(kind); }
+function schedCansInput(kind,val){ schedEdit[kind==='d'?'dCans':'nCans']=val; var p=schedEffPct(+val||0); var s=gid('se-eff-'+kind); if(s){s.textContent=(p==null?'\u2014':p+'%'); s.style.color=schedEffColor(p);} }
+
+function schedReadRow(label,color,names){ return '<div style="margin-bottom:11px"><div style="font-size:10px;font-weight:700;color:'+color+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">'+label+'</div><div style="font-size:14px;color:#fff">'+(names.length?rqEsc(names.join(', ')):'<span style="color:var(--text-3)">\u2014</span>')+'</div></div>'; }
+
+function schedCanField(kind,label,val){
+  var p=schedEffPct(+val||0);
+  return '<div style="min-width:0"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px"><span style="font-size:11.5px;color:var(--text-2)">'+label+'</span><span id="se-eff-'+kind+'" style="font-size:11px;font-weight:700;color:'+schedEffColor(p)+'">'+(p==null?'\u2014':p+'%')+'</span></div>'+
+    '<input type="number" inputmode="numeric" id="se-cans-'+kind+'" value="'+(val===''||val==null?'':val)+'" oninput="schedCansInput(\''+kind+'\',this.value)" placeholder="0" style="width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;margin:0;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:10px 11px;font-size:15px;color:#fff;outline:none;font-family:ui-monospace,monospace"></div>';
+}
+
+function closeDayEditor(){ var m=gid('sched-editor'); if(m)m.remove(); }
+
+function openDayEditor(ds){
+  closeDayEditor();
+  schedSelDate=ds;
+  var sc=techSchedule[ds]||{};
+  schedEdit={day:schedNames(sc.day),night:schedNames(sc.night),vac:(sc.vac||[]).slice(),dCans:(sc.dCans!=null?sc.dCans:''),nCans:(sc.nCans!=null?sc.nCans:''),note:(sc.comment||'')};
+  var canEdit=isEditor();
+  var dt=new Date(+ds.slice(0,4),+ds.slice(5,7)-1,+ds.slice(8,10));
+  var title=dt.toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric'});
+  var H='<div id="sched-editor" onclick="if(event.target===this)closeDayEditor()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:flex;align-items:flex-end;justify-content:center">';
+  H+='<div style="background:var(--surface);width:100%;max-width:560px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:16px 16px 28px;border:1px solid var(--border);box-sizing:border-box">';
+  H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:16px;font-weight:800;color:#fff">'+title+'</div><button onclick="closeDayEditor()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:32px;height:32px;border-radius:9px;font-size:17px;cursor:pointer">\u00D7</button></div>';
+  if(!canEdit){
+    H+=schedReadRow('\u2600\uFE0F Day shift','#f59e0b',schedEdit.day);
+    H+=schedReadRow('\uD83C\uDF19 Night shift','#60a5fa',schedEdit.night);
+    H+=schedReadRow('Vacation','#fb923c',schedEdit.vac);
+    var dP=schedEffPct(+sc.dCans||0), nP=schedEffPct(+sc.nCans||0);
+    if((+sc.dCans||0)||(+sc.nCans||0)){
+      H+='<div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Production</div>';
+      H+='<div style="font-size:13px;color:#fff;line-height:1.7">Day '+schedFmt(+sc.dCans||0)+' cans'+(dP!=null?' <span style="color:'+schedEffColor(dP)+'">('+dP+'%)</span>':'')+'<br>Night '+schedFmt(+sc.nCans||0)+' cans'+(nP!=null?' <span style="color:'+schedEffColor(nP)+'">('+nP+'%)</span>':'')+'</div>';
+    }
+    if(sc.comment)H+='<div style="margin-top:11px;font-size:13px;color:var(--text-2)">'+rqEsc(sc.comment)+'</div>';
+    H+='<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:18px">Read-only \u2014 only schedulers can edit</div>';
+  }else{
+    H+='<div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">\u2600\uFE0F Day shift</div>';
+    H+='<div id="se-day" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px">'+schedChipsHTML('day')+'</div>';
+    H+='<div style="font-size:11px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">\uD83C\uDF19 Night shift</div>';
+    H+='<div id="se-night" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px">'+schedChipsHTML('night')+'</div>';
+    H+='<div style="font-size:11px;font-weight:700;color:#fb923c;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">On vacation</div>';
+    H+='<div id="se-vac" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px">'+schedChipsHTML('vac')+'</div>';
+    H+='<div style="font-size:11px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Production volume</div>';
+    H+='<div style="display:grid;grid-template-columns:1fr 1fr;column-gap:14px;row-gap:6px;margin-bottom:16px">';
+    H+=schedCanField('d','Day cans',schedEdit.dCans);
+    H+=schedCanField('n','Night cans',schedEdit.nCans);
+    H+='</div>';
+    H+='<div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">Note (optional)</div>';
+    H+='<textarea id="se-note" oninput="schedEdit.note=this.value" placeholder="e.g. CIP overrun, training\u2026" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:10px;font-size:14px;color:#fff;outline:none;min-height:54px;font-family:inherit;resize:vertical;margin-bottom:10px">'+rqEsc(schedEdit.note)+'</textarea>';
+    H+='<button onclick="schedSaveDay()" style="width:100%;padding:13px;background:#2563eb;border:none;color:#fff;font-size:15px;font-weight:700;border-radius:11px;cursor:pointer;margin-bottom:16px">Save day</button>';
+    H+='<div style="border-top:1px solid var(--border);padding-top:14px"><div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Apply to a date range</div>';
+    H+='<div style="font-size:11px;color:var(--text-3);margin-bottom:9px">Uses the picks above \u2014 e.g. set a weekly rotation, or mark a week-long vacation in one go.</div>';
+    H+='<div style="display:flex;gap:8px;margin-bottom:9px">';
+    H+='<input type="date" id="se-rng-start" value="'+ds+'" style="flex:1;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:9px;font-size:13px;color:#fff;outline:none;color-scheme:dark">';
+    H+='<input type="date" id="se-rng-end" value="'+ds+'" style="flex:1;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:9px;font-size:13px;color:#fff;outline:none;color-scheme:dark">';
+    H+='</div><div style="display:flex;flex-wrap:wrap;gap:7px">';
+    H+='<button onclick="schedApplyRange(\'shifts\')" style="flex:1;min-width:108px;padding:10px;background:var(--surface-2);border:1px solid var(--border-2);color:#fff;font-size:12.5px;font-weight:600;border-radius:9px;cursor:pointer">Apply shifts</button>';
+    H+='<button onclick="schedApplyRange(\'vac\')" style="flex:1;min-width:108px;padding:10px;background:rgba(251,146,60,.14);border:1px solid rgba(251,146,60,.4);color:#fb923c;font-size:12.5px;font-weight:600;border-radius:9px;cursor:pointer">Add vacation</button>';
+    H+='<button onclick="schedApplyRange(\'clearvac\')" style="flex:1;min-width:108px;padding:10px;background:transparent;border:1px solid var(--border-2);color:var(--text-2);font-size:12.5px;font-weight:600;border-radius:9px;cursor:pointer">Clear vacation</button>';
+    H+='</div></div>';
+  }
+  H+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+
+function schedSaveDay(){
+  var ds=schedSelDate; var o=techSchedule[ds]||{};
+  o.day=schedJoin(schedEdit.day); o.night=schedJoin(schedEdit.night); o.vac=schedEdit.vac.slice();
+  if(schedEdit.dCans===''||schedEdit.dCans==null){delete o.dCans;} else {o.dCans=+schedEdit.dCans||0;}
+  if(schedEdit.nCans===''||schedEdit.nCans==null){delete o.nCans;} else {o.nCans=+schedEdit.nCans||0;}
+  o.comment=schedEdit.note||'';
+  techSchedule[ds]=o;
+  schedPersist(); toast('Saved'); closeDayEditor(); renderSchedule();
+}
+
+function schedApplyRange(mode){
+  var s=gid('se-rng-start')&&gid('se-rng-start').value, e=gid('se-rng-end')&&gid('se-rng-end').value;
+  if(!s||!e){toast('Pick start and end dates',true);return;}
+  if(e<s){var t=s;s=e;e=t;}
+  var cur=new Date(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10));
+  var end=new Date(+e.slice(0,4),+e.slice(5,7)-1,+e.slice(8,10));
+  var count=0,guard=0;
+  while(cur<=end&&guard<400){
+    var k=localDateStr(cur); var o=techSchedule[k]||{};
+    if(mode==='shifts'){ o.day=schedJoin(schedEdit.day); o.night=schedJoin(schedEdit.night); }
+    else if(mode==='vac'){ var v=(o.vac||[]).slice(); schedEdit.vac.forEach(function(n){ if(v.indexOf(n)<0)v.push(n); }); o.vac=v; }
+    else if(mode==='clearvac'){ if(schedEdit.vac.length){ o.vac=(o.vac||[]).filter(function(n){return schedEdit.vac.indexOf(n)<0;}); } else { o.vac=[]; } }
+    techSchedule[k]=o; count++; guard++; cur.setDate(cur.getDate()+1);
+  }
+  schedPersist();
+  toast(count+' day'+(count===1?'':'s')+' updated');
+  closeDayEditor(); renderSchedule();
+}
+
+function schedProdRunsHTML(){
+  var H='<div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:12px">';
   H+='<div style="font-size:12px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Production Runs &#8212; Next 48h</div>';
   if(!scheduleRuns.length){
     H+='<div style="color:var(--text-3);font-size:13px;font-style:italic">No production schedule uploaded. Go to More &#8594; Upload Schedules.</div>';
   }else{
-    var now2=new Date();
-    var cut=new Date(now2.getTime()+48*3600000);
+    var now2=new Date(); var cut=new Date(now2.getTime()+48*3600000);
     var runs=scheduleRuns.filter(function(r){return r.startDt&&r.startDt>=now2&&r.startDt<=cut;});
-    if(!runs.length){H+='<div style="color:var(--text-3);font-size:13px">No runs in next 48 hours.</div>';}
+    if(!runs.length){ H+='<div style="color:var(--text-3);font-size:13px">No runs in next 48 hours.</div>'; }
     else{
       var prev2=null;
       runs.forEach(function(run){
@@ -5136,8 +5339,9 @@ function renderSchedule(){
     }
   }
   H+='</div>';
-  el.innerHTML=H;
+  return H;
 }
+
 
 function getUpcomingChangeovers(hoursAhead){
   var now3=new Date(),cut2=new Date(now3.getTime()+hoursAhead*3600000);
@@ -5214,7 +5418,21 @@ function parseTechSchedule(input){
       var ws=wb.Sheets['Schedule']||wb.Sheets[wb.SheetNames[0]];
       // Use raw:true to get Date objects from SheetJS
       var data=XLSX.utils.sheet_to_json(ws,{header:1,raw:true});
+      // Expand merged cells: a note entered once and merged across several day-columns
+      // (e.g. "Abin on vacation" spanning a week) otherwise only lands on the first day.
+      try{
+        (ws['!merges']||[]).forEach(function(m){
+          var v=(data[m.s.r]||[])[m.s.c];
+          if(v==null||v==='')return;
+          for(var r=m.s.r;r<=m.e.r;r++){
+            if(!data[r])data[r]=[];
+            for(var c=m.s.c;c<=m.e.c;c++){ if(data[r][c]==null||data[r][c]==='')data[r][c]=v; }
+          }
+        });
+      }catch(_e){}
+      var _oldSched=techSchedule||{};
       techSchedule={};
+      if(_oldSched.__rate__)techSchedule.__rate__=_oldSched.__rate__;
       var dates=data[0],day=data[1],night=data[2],comments=data[3];
       if(!dates)return;
       for(var c=1;c<dates.length;c++){
@@ -5235,6 +5453,8 @@ function parseTechSchedule(input){
         if(dt3.getUTCHours()===0&&dt3.getHours()!==0){yr=dt3.getUTCFullYear();mo=dt3.getUTCMonth();dy=dt3.getUTCDate();}
         var ds=yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(dy).padStart(2,'0');
         techSchedule[ds]={day:day&&day[c]?String(day[c]).trim():'',night:night&&night[c]?String(night[c]).trim():'',comment:comments&&comments[c]?String(comments[c]).trim():''};
+        var _od=_oldSched[ds];
+        if(_od){ if(_od.vac&&_od.vac.length)techSchedule[ds].vac=_od.vac.slice(); if(_od.dCans!=null)techSchedule[ds].dCans=_od.dCans; if(_od.nCans!=null)techSchedule[ds].nCans=_od.nCans; if(!techSchedule[ds].comment&&_od.comment)techSchedule[ds].comment=_od.comment; }
       }
       try{localStorage.setItem('bbw_tech_sched',JSON.stringify(techSchedule));}catch(ex){}
       if(el){el.textContent='\u2713 '+Object.keys(techSchedule).length+' days loaded \u2014 syncing...';el.style.color='#4ade80';}
