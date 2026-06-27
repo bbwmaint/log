@@ -13,6 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>/* qrcode-generator 1.4.4 (MIT) */
 var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=new Array(t),e=0;e<t;e+=1){r[e]=new Array(t);for(var n=0;n<t;n+=1)r[e][n]=null}return r}(l=4*u+17),e(0,0),e(l-7,0),e(0,l-7),i(),o(),v(t,r),7<=u&&h(t),null==n&&(n=w(u,f,c)),d(n,r)}var u=t,f=y[r],g=null,l=0,n=null,c=[],s={},e=function(t,r){for(var e=-1;e<=7;e+=1)if(!(t+e<=-1||l<=t+e))for(var n=-1;n<=7;n+=1)r+n<=-1||l<=r+n||(g[t+e][r+n]=0<=e&&e<=6&&(0==n||6==n)||0<=n&&n<=6&&(0==e||6==e)||2<=e&&e<=4&&2<=n&&n<=4)},o=function(){for(var t=8;t<l-8;t+=1)null==g[t][6]&&(g[t][6]=t%2==0);for(var r=8;r<l-8;r+=1)null==g[6][r]&&(g[6][r]=r%2==0)},i=function(){for(var t=B.getPatternPosition(u),r=0;r<t.length;r+=1)for(var e=0;e<t.length;e+=1){var n=t[r],o=t[e];if(null==g[n][o])for(var i=-2;i<=2;i+=1)for(var a=-2;a<=2;a+=1)g[n+i][o+a]=-2==i||2==i||-2==a||2==a||0==i&&0==a}},h=function(t){for(var r=B.getBCHTypeNumber(u),e=0;e<18;e+=1){var n=!t&&1==(r>>e&1);g[Math.floor(e/3)][e%3+l-8-3]=n}for(e=0;e<18;e+=1){n=!t&&1==(r>>e&1);g[e%3+l-8-3][Math.floor(e/3)]=n}},v=function(t,r){for(var e=f<<3|r,n=B.getBCHTypeInfo(e),o=0;o<15;o+=1){var i=!t&&1==(n>>o&1);o<6?g[o][8]=i:o<8?g[o+1][8]=i:g[l-15+o][8]=i}for(o=0;o<15;o+=1){i=!t&&1==(n>>o&1);o<8?g[8][l-o-1]=i:o<9?g[8][15-o-1+1]=i:g[8][15-o-1]=i}g[l-8][8]=!t},d=function(t,r){for(var e=-1,n=l-1,o=7,i=0,a=B.getMaskFunction(r),u=l-1;0<u;u-=2)for(6==u&&(u-=1);;){for(var f=0;f<2;f+=1)if(null==g[n][u-f]){var c=!1;i<t.length&&(c=1==(t[i]>>>o&1)),a(n,u-f)&&(c=!c),g[n][u-f]=c,-1==(o-=1)&&(i+=1,o=7)}if((n+=e)<0||l<=n){n-=e,e=-e;break}}},w=function(t,r,e){for(var n=b.getRSBlocks(t,r),o=M(),i=0;i<e.length;i+=1){var a=e[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var u=0;for(i=0;i<n.length;i+=1)u+=n[i].dataCount;if(o.getLengthInBits()>8*u)throw"code length overflow. ("+o.getLengthInBits()+">"+8*u+")";for(o.getLengthInBits()+4<=8*u&&o.put(0,4);o.getLengthInBits()%8!=0;)o.putBit(!1);for(;!(o.getLengthInBits()>=8*u||(o.put(236,8),o.getLengthInBits()>=8*u));)o.put(17,8);return function(t,r){for(var e=0,n=0,o=0,i=new Array(r.length),a=new Array(r.length),u=0;u<r.length;u+=1){var f=r[u].dataCount,c=r[u].totalCount-f;n=Math.max(n,f),o=Math.max(o,c),i[u]=new Array(f);for(var g=0;g<i[u].length;g+=1)i[u][g]=255&t.getBuffer()[g+e];e+=f;var l=B.getErrorCorrectPolynomial(c),h=C(i[u],l.getLength()-1).mod(l);a[u]=new Array(l.getLength()-1);for(g=0;g<a[u].length;g+=1){var s=g+h.getLength()-a[u].length;a[u][g]=0<=s?h.getAt(s):0}}var v=0;for(g=0;g<r.length;g+=1)v+=r[g].totalCount;var d=new Array(v),w=0;for(g=0;g<n;g+=1)for(u=0;u<r.length;u+=1)g<i[u].length&&(d[w]=i[u][g],w+=1);for(g=0;g<o;g+=1)for(u=0;u<r.length;u+=1)g<a[u].length&&(d[w]=a[u][g],w+=1);return d}(o,n)};s.addData=function(t,r){var e=null;switch(r=r||"Byte"){case"Numeric":e=x(t);break;case"Alphanumeric":e=m(t);break;case"Byte":e=L(t);break;case"Kanji":e=D(t);break;default:throw"mode:"+r}c.push(e),n=null},s.isDark=function(t,r){if(t<0||l<=t||r<0||l<=r)throw t+","+r;return g[t][r]},s.getModuleCount=function(){return l},s.make=function(){if(u<1){for(var t=1;t<40;t++){for(var r=b.getRSBlocks(t,f),e=M(),n=0;n<c.length;n++){var o=c[n];e.put(o.getMode(),4),e.put(o.getLength(),B.getLengthInBits(o.getMode(),t)),o.write(e)}var i=0;for(n=0;n<r.length;n++)i+=r[n].dataCount;if(e.getLengthInBits()<=8*i)break}u=t}a(!1,function(){for(var t=0,r=0,e=0;e<8;e+=1){a(!0,e);var n=B.getLostPoint(s);(0==e||n<t)&&(t=n,r=e)}return r}())},s.createTableTag=function(t,r){t=t||2;var e="";e+='<table style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: "+(r=void 0===r?4*t:r)+"px;",e+='">',e+="<tbody>";for(var n=0;n<s.getModuleCount();n+=1){e+="<tr>";for(var o=0;o<s.getModuleCount();o+=1)e+='<td style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: 0px;",e+=" width: "+t+"px;",e+=" height: "+t+"px;",e+=" background-color: ",e+=s.isDark(n,o)?"#000000":"#ffffff",e+=";",e+='"/>';e+="</tr>"}return e+="</tbody>",e+="</table>"},s.createSvgTag=function(t,r,e,n){var o={};"object"==typeof t&&(t=(o=t).cellSize,r=o.margin,e=o.alt,n=o.title),t=t||2,r=void 0===r?4*t:r,(e="string"==typeof e?{text:e}:e||{}).text=e.text||null,e.id=e.text?e.id||"qrcode-description":null,(n="string"==typeof n?{text:n}:n||{}).text=n.text||null,n.id=n.text?n.id||"qrcode-title":null;var i,a,u,f,c=s.getModuleCount()*t+2*r,g="";for(f="l"+t+",0 0,"+t+" -"+t+",0 0,-"+t+"z ",g+='<svg version="1.1" xmlns="http://www.w3.org/2000/svg"',g+=o.scalable?"":' width="'+c+'px" height="'+c+'px"',g+=' viewBox="0 0 '+c+" "+c+'" ',g+=' preserveAspectRatio="xMinYMin meet"',g+=n.text||e.text?' role="img" aria-labelledby="'+p([n.id,e.id].join(" ").trim())+'"':"",g+=">",g+=n.text?'<title id="'+p(n.id)+'">'+p(n.text)+"</title>":"",g+=e.text?'<description id="'+p(e.id)+'">'+p(e.text)+"</description>":"",g+='<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>',g+='<path d="',a=0;a<s.getModuleCount();a+=1)for(u=a*t+r,i=0;i<s.getModuleCount();i+=1)s.isDark(a,i)&&(g+="M"+(i*t+r)+","+u+f);return g+='" stroke="transparent" fill="black"/>',g+="</svg>"},s.createDataURL=function(o,t){o=o||2,t=void 0===t?4*o:t;var r=s.getModuleCount()*o+2*t,i=t,a=r-t;return I(r,r,function(t,r){if(i<=t&&t<a&&i<=r&&r<a){var e=Math.floor((t-i)/o),n=Math.floor((r-i)/o);return s.isDark(n,e)?0:1}return 1})},s.createImgTag=function(t,r,e){t=t||2,r=void 0===r?4*t:r;var n=s.getModuleCount()*t+2*r,o="";return o+="<img",o+=' src="',o+=s.createDataURL(t,r),o+='"',o+=' width="',o+=n,o+='"',o+=' height="',o+=n,o+='"',e&&(o+=' alt="',o+=p(e),o+='"'),o+="/>"};var p=function(t){for(var r="",e=0;e<t.length;e+=1){var n=t.charAt(e);switch(n){case"<":r+="&lt;";break;case">":r+="&gt;";break;case"&":r+="&amp;";break;case'"':r+="&quot;";break;default:r+=n}}return r};return s.createASCII=function(t,r){if((t=t||1)<2)return function(t){t=void 0===t?2:t;var r,e,n,o,i,a=1*s.getModuleCount()+2*t,u=t,f=a-t,c={"██":"█","█ ":"▀"," █":"▄","  ":" "},g={"██":"▀","█ ":"▀"," █":" ","  ":" "},l="";for(r=0;r<a;r+=2){for(n=Math.floor((r-u)/1),o=Math.floor((r+1-u)/1),e=0;e<a;e+=1)i="█",u<=e&&e<f&&u<=r&&r<f&&s.isDark(n,Math.floor((e-u)/1))&&(i=" "),u<=e&&e<f&&u<=r+1&&r+1<f&&s.isDark(o,Math.floor((e-u)/1))?i+=" ":i+="█",l+=t<1&&f<=r+1?g[i]:c[i];l+="\n"}return a%2&&0<t?l.substring(0,l.length-a-1)+Array(1+a).join("▀"):l.substring(0,l.length-1)}(r);t-=1,r=void 0===r?2*t:r;var e,n,o,i,a=s.getModuleCount()*t+2*r,u=r,f=a-r,c=Array(t+1).join("██"),g=Array(t+1).join("  "),l="",h="";for(e=0;e<a;e+=1){for(o=Math.floor((e-u)/t),h="",n=0;n<a;n+=1)i=1,u<=n&&n<f&&u<=e&&e<f&&s.isDark(o,Math.floor((n-u)/t))&&(i=0),h+=i?c:g;for(o=0;o<t;o+=1)l+=h+"\n"}return l.substring(0,l.length-1)},s.renderTo2dContext=function(t,r){r=r||2;for(var e=s.getModuleCount(),n=0;n<e;n++)for(var o=0;o<e;o++)t.fillStyle=s.isDark(n,o)?"black":"white",t.fillRect(n*r,o*r,r,r)},s}i.stringToBytes=(i.stringToBytesFuncs={default:function(t){for(var r=[],e=0;e<t.length;e+=1){var n=t.charCodeAt(e);r.push(255&n)}return r}}).default,i.createStringToBytes=function(u,f){var i=function(){function t(){var t=r.read();if(-1==t)throw"eof";return t}for(var r=S(u),e=0,n={};;){var o=r.read();if(-1==o)break;var i=t(),a=t()<<8|t();n[String.fromCharCode(o<<8|i)]=a,e+=1}if(e!=f)throw e+" != "+f;return n}(),a="?".charCodeAt(0);return function(t){for(var r=[],e=0;e<t.length;e+=1){var n=t.charCodeAt(e);if(n<128)r.push(n);else{var o=i[t.charAt(e)];"number"==typeof o?(255&o)==o?r.push(o):(r.push(o>>>8),r.push(255&o)):r.push(a)}}return r}};var r,t,a=1,u=2,o=4,f=8,y={L:1,M:0,Q:3,H:2},e=0,n=1,c=2,g=3,l=4,h=5,s=6,v=7,B=(r=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],(t={}).getBCHTypeInfo=function(t){for(var r=t<<10;0<=d(r)-d(1335);)r^=1335<<d(r)-d(1335);return 21522^(t<<10|r)},t.getBCHTypeNumber=function(t){for(var r=t<<12;0<=d(r)-d(7973);)r^=7973<<d(r)-d(7973);return t<<12|r},t.getPatternPosition=function(t){return r[t-1]},t.getMaskFunction=function(t){switch(t){case e:return function(t,r){return(t+r)%2==0};case n:return function(t,r){return t%2==0};case c:return function(t,r){return r%3==0};case g:return function(t,r){return(t+r)%3==0};case l:return function(t,r){return(Math.floor(t/2)+Math.floor(r/3))%2==0};case h:return function(t,r){return t*r%2+t*r%3==0};case s:return function(t,r){return(t*r%2+t*r%3)%2==0};case v:return function(t,r){return(t*r%3+(t+r)%2)%2==0};default:throw"bad maskPattern:"+t}},t.getErrorCorrectPolynomial=function(t){for(var r=C([1],0),e=0;e<t;e+=1)r=r.multiply(C([1,w.gexp(e)],0));return r},t.getLengthInBits=function(t,r){if(1<=r&&r<10)switch(t){case a:return 10;case u:return 9;case o:case f:return 8;default:throw"mode:"+t}else if(r<27)switch(t){case a:return 12;case u:return 11;case o:return 16;case f:return 10;default:throw"mode:"+t}else{if(!(r<41))throw"type:"+r;switch(t){case a:return 14;case u:return 13;case o:return 16;case f:return 12;default:throw"mode:"+t}}},t.getLostPoint=function(t){for(var r=t.getModuleCount(),e=0,n=0;n<r;n+=1)for(var o=0;o<r;o+=1){for(var i=0,a=t.isDark(n,o),u=-1;u<=1;u+=1)if(!(n+u<0||r<=n+u))for(var f=-1;f<=1;f+=1)o+f<0||r<=o+f||0==u&&0==f||a==t.isDark(n+u,o+f)&&(i+=1);5<i&&(e+=3+i-5)}for(n=0;n<r-1;n+=1)for(o=0;o<r-1;o+=1){var c=0;t.isDark(n,o)&&(c+=1),t.isDark(n+1,o)&&(c+=1),t.isDark(n,o+1)&&(c+=1),t.isDark(n+1,o+1)&&(c+=1),0!=c&&4!=c||(e+=3)}for(n=0;n<r;n+=1)for(o=0;o<r-6;o+=1)t.isDark(n,o)&&!t.isDark(n,o+1)&&t.isDark(n,o+2)&&t.isDark(n,o+3)&&t.isDark(n,o+4)&&!t.isDark(n,o+5)&&t.isDark(n,o+6)&&(e+=40);for(o=0;o<r;o+=1)for(n=0;n<r-6;n+=1)t.isDark(n,o)&&!t.isDark(n+1,o)&&t.isDark(n+2,o)&&t.isDark(n+3,o)&&t.isDark(n+4,o)&&!t.isDark(n+5,o)&&t.isDark(n+6,o)&&(e+=40);var g=0;for(o=0;o<r;o+=1)for(n=0;n<r;n+=1)t.isDark(n,o)&&(g+=1);return e+=Math.abs(100*g/r/r-50)/5*10},t);function d(t){for(var r=0;0!=t;)r+=1,t>>>=1;return r}var w=function(){for(var r=new Array(256),e=new Array(256),t=0;t<8;t+=1)r[t]=1<<t;for(t=8;t<256;t+=1)r[t]=r[t-4]^r[t-5]^r[t-6]^r[t-8];for(t=0;t<255;t+=1)e[r[t]]=t;var n={glog:function(t){if(t<1)throw"glog("+t+")";return e[t]},gexp:function(t){for(;t<0;)t+=255;for(;256<=t;)t-=255;return r[t]}};return n}();function C(n,o){if(void 0===n.length)throw n.length+"/"+o;var r=function(){for(var t=0;t<n.length&&0==n[t];)t+=1;for(var r=new Array(n.length-t+o),e=0;e<n.length-t;e+=1)r[e]=n[e+t];return r}(),i={getAt:function(t){return r[t]},getLength:function(){return r.length},multiply:function(t){for(var r=new Array(i.getLength()+t.getLength()-1),e=0;e<i.getLength();e+=1)for(var n=0;n<t.getLength();n+=1)r[e+n]^=w.gexp(w.glog(i.getAt(e))+w.glog(t.getAt(n)));return C(r,0)},mod:function(t){if(i.getLength()-t.getLength()<0)return i;for(var r=w.glog(i.getAt(0))-w.glog(t.getAt(0)),e=new Array(i.getLength()),n=0;n<i.getLength();n+=1)e[n]=i.getAt(n);for(n=0;n<t.getLength();n+=1)e[n]^=w.gexp(w.glog(t.getAt(n))+r);return C(e,0).mod(t)}};return i}function p(){var e=[],o={writeByte:function(t){e.push(255&t)},writeShort:function(t){o.writeByte(t),o.writeByte(t>>>8)},writeBytes:function(t,r,e){r=r||0,e=e||t.length;for(var n=0;n<e;n+=1)o.writeByte(t[n+r])},writeString:function(t){for(var r=0;r<t.length;r+=1)o.writeByte(t.charCodeAt(r))},toByteArray:function(){return e},toString:function(){var t="";t+="[";for(var r=0;r<e.length;r+=1)0<r&&(t+=","),t+=e[r];return t+="]"}};return o}var k,A,b=(k=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12,7,37,13],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],(A={}).getRSBlocks=function(t,r){var e=function(t,r){switch(r){case y.L:return k[4*(t-1)+0];case y.M:return k[4*(t-1)+1];case y.Q:return k[4*(t-1)+2];case y.H:return k[4*(t-1)+3];default:return}}(t,r);if(void 0===e)throw"bad rs block @ typeNumber:"+t+"/errorCorrectionLevel:"+r;for(var n,o,i=e.length/3,a=[],u=0;u<i;u+=1)for(var f=e[3*u+0],c=e[3*u+1],g=e[3*u+2],l=0;l<f;l+=1)a.push((n=g,o=void 0,(o={}).totalCount=c,o.dataCount=n,o));return a},A),M=function(){var e=[],n=0,o={getBuffer:function(){return e},getAt:function(t){var r=Math.floor(t/8);return 1==(e[r]>>>7-t%8&1)},put:function(t,r){for(var e=0;e<r;e+=1)o.putBit(1==(t>>>r-e-1&1))},getLengthInBits:function(){return n},putBit:function(t){var r=Math.floor(n/8);e.length<=r&&e.push(0),t&&(e[r]|=128>>>n%8),n+=1}};return o},x=function(t){var r=a,n=t,e={getMode:function(){return r},getLength:function(t){return n.length},write:function(t){for(var r=n,e=0;e+2<r.length;)t.put(o(r.substring(e,e+3)),10),e+=3;e<r.length&&(r.length-e==1?t.put(o(r.substring(e,e+1)),4):r.length-e==2&&t.put(o(r.substring(e,e+2)),7))}},o=function(t){for(var r=0,e=0;e<t.length;e+=1)r=10*r+i(t.charAt(e));return r},i=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);throw"illegal char :"+t};return e},m=function(t){var r=u,n=t,e={getMode:function(){return r},getLength:function(t){return n.length},write:function(t){for(var r=n,e=0;e+1<r.length;)t.put(45*o(r.charAt(e))+o(r.charAt(e+1)),11),e+=2;e<r.length&&t.put(o(r.charAt(e)),6)}},o=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);if("A"<=t&&t<="Z")return t.charCodeAt(0)-"A".charCodeAt(0)+10;switch(t){case" ":return 36;case"$":return 37;case"%":return 38;case"*":return 39;case"+":return 40;case"-":return 41;case".":return 42;case"/":return 43;case":":return 44;default:throw"illegal char :"+t}};return e},L=function(t){var r=o,e=i.stringToBytes(t),n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=0;r<e.length;r+=1)t.put(e[r],8)}};return n},D=function(t){var r=f,e=i.stringToBytesFuncs.SJIS;if(!e)throw"sjis not supported.";!function(){var t=e("友");if(2!=t.length||38726!=(t[0]<<8|t[1]))throw"sjis not supported."}();var o=e(t),n={getMode:function(){return r},getLength:function(t){return~~(o.length/2)},write:function(t){for(var r=o,e=0;e+1<r.length;){var n=(255&r[e])<<8|255&r[e+1];if(33088<=n&&n<=40956)n-=33088;else{if(!(57408<=n&&n<=60351))throw"illegal char at "+(e+1)+"/"+n;n-=49472}n=192*(n>>>8&255)+(255&n),t.put(n,13),e+=2}if(e<r.length)throw"illegal char at "+(e+1)}};return n},S=function(t){var e=t,n=0,o=0,i=0,r={read:function(){for(;i<8;){if(n>=e.length){if(0==i)return-1;throw"unexpected end of file./"+i}var t=e.charAt(n);if(n+=1,"="==t)return i=0,-1;t.match(/^\s$/)||(o=o<<6|a(t.charCodeAt(0)),i+=6)}var r=o>>>i-8&255;return i-=8,r}},a=function(t){if(65<=t&&t<=90)return t-65;if(97<=t&&t<=122)return t-97+26;if(48<=t&&t<=57)return t-48+52;if(43==t)return 62;if(47==t)return 63;throw"c:"+t};return r},I=function(t,r,e){for(var n=function(t,r){var n=t,o=r,l=new Array(t*r),e={setPixel:function(t,r,e){l[r*n+t]=e},write:function(t){t.writeString("GIF87a"),t.writeShort(n),t.writeShort(o),t.writeByte(128),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(255),t.writeByte(255),t.writeByte(255),t.writeString(","),t.writeShort(0),t.writeShort(0),t.writeShort(n),t.writeShort(o),t.writeByte(0);var r=i(2);t.writeByte(2);for(var e=0;255<r.length-e;)t.writeByte(255),t.writeBytes(r,e,255),e+=255;t.writeByte(r.length-e),t.writeBytes(r,e,r.length-e),t.writeByte(0),t.writeString(";")}},i=function(t){for(var r=1<<t,e=1+(1<<t),n=t+1,o=h(),i=0;i<r;i+=1)o.add(String.fromCharCode(i));o.add(String.fromCharCode(r)),o.add(String.fromCharCode(e));var a=p(),u=function(t){var e=t,n=0,o=0,r={write:function(t,r){if(t>>>r!=0)throw"length over";for(;8<=n+r;)e.writeByte(255&(t<<n|o)),r-=8-n,t>>>=8-n,n=o=0;o|=t<<n,n+=r},flush:function(){0<n&&e.writeByte(o)}};return r}(a);u.write(r,n);var f=0,c=String.fromCharCode(l[f]);for(f+=1;f<l.length;){var g=String.fromCharCode(l[f]);f+=1,o.contains(c+g)?c+=g:(u.write(o.indexOf(c),n),o.size()<4095&&(o.size()==1<<n&&(n+=1),o.add(c+g)),c=g)}return u.write(o.indexOf(c),n),u.write(e,n),u.flush(),a.toByteArray()},h=function(){var r={},e=0,n={add:function(t){if(n.contains(t))throw"dup key:"+t;r[t]=e,e+=1},size:function(){return e},indexOf:function(t){return r[t]},contains:function(t){return void 0!==r[t]}};return n};return e}(t,r),o=0;o<r;o+=1)for(var i=0;i<t;i+=1)n.setPixel(i,o,e(i,o));var a=p();n.write(a);for(var u=function(){function e(t){a+=String.fromCharCode(r(63&t))}var n=0,o=0,i=0,a="",t={},r=function(t){if(t<0);else{if(t<26)return 65+t;if(t<52)return t-26+97;if(t<62)return t-52+48;if(62==t)return 43;if(63==t)return 47}throw"n:"+t};return t.writeByte=function(t){for(n=n<<8|255&t,o+=8,i+=1;6<=o;)e(n>>>o-6),o-=6},t.flush=function(){if(0<o&&(e(n<<6-o),o=n=0),i%3!=0)for(var t=3-i%3,r=0;r<t;r+=1)a+="="},t.toString=function(){return a},t}(),f=a.toByteArray(),c=0;c<f.length;c+=1)u.writeByte(f[c]);return u.flush(),"data:image/gif;base64,"+u};return i}();qrcode.stringToBytesFuncs["UTF-8"]=function(t){return function(t){for(var r=[],e=0;e<t.length;e++){var n=t.charCodeAt(e);n<128?r.push(n):n<2048?r.push(192|n>>6,128|63&n):n<55296||57344<=n?r.push(224|n>>12,128|n>>6&63,128|63&n):(e++,n=65536+((1023&n)<<10|1023&t.charCodeAt(e)),r.push(240|n>>18,128|n>>12&63,128|n>>6&63,128|63&n))}return r}(t)},function(t){"function"==typeof define&&define.amd?define([],t):"object"==typeof exports&&(module.exports=t())}(function(){return qrcode});
 </script>
@@ -609,9 +610,10 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   try{utilLogs=JSON.parse(localStorage.getItem('bbw_util')||'[]');}catch(e){utilLogs=[];}
   localStorage.removeItem('bbw_sess');
   var REQ_MODE=(location.hash.indexOf('request')>=0)||/[?&]request/.test(location.search);
+  var FLDASH_MODE=(location.hash.indexOf('fldash')>=0)||/[?&]fldash/.test(location.search);
   var _flm=(location.hash.match(/fl=([A-Za-z0-9]+)/)||location.search.match(/[?&]fl=([A-Za-z0-9]+)/));
   var FL_MODE=!!(_flm&&flUnitValid(_flm[1]));
-  try{var _keep=localStorage.getItem('bbw_keepuser');if(!REQ_MODE&&!FL_MODE&&_keep&&TECHS.indexOf(_keep)>=0){setTimeout(function(){loginUser(_keep);},0);}}catch(e){}
+  try{var _keep=localStorage.getItem('bbw_keepuser');if(!REQ_MODE&&!FL_MODE&&!FLDASH_MODE&&_keep&&TECHS.indexOf(_keep)>=0){setTimeout(function(){loginUser(_keep);},0);}}catch(e){}
   var savedLang=localStorage.getItem('bbw_lang')||'en';
   buildNames();
   buildTemplates();
@@ -631,7 +633,7 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   document.addEventListener('visibilitychange',function(){if(!document.hidden)onForeground();});
   window.addEventListener('focus',onForeground);
   window.addEventListener('pageshow',onForeground);
-  if(FL_MODE){lang=savedLang;showPage('pg-pin');setTimeout(function(){openForkliftChecklist(_flm[1].toUpperCase());},40);}else if(REQ_MODE){lang=savedLang;showPage('pg-request');renderRequestForm();}else{showPage('pg-pin');}
+  if(FLDASH_MODE){lang=savedLang;openFlDashGate();}else if(FL_MODE){lang=savedLang;showPage('pg-pin');setTimeout(function(){openForkliftChecklist(_flm[1].toUpperCase());},40);}else if(REQ_MODE){lang=savedLang;showPage('pg-request');renderRequestForm();}else{showPage('pg-pin');}
   // Keyboard support for PIN pad
   document.addEventListener('keydown', function(e){
     var pg = gid('pg-pin');
@@ -1491,6 +1493,7 @@ function renderRequestForm(){
   H+=fld(T('rq_work'),'<textarea id="rq-work" rows="4" style="'+inp+';resize:vertical" placeholder="'+T('rq_workph')+'"></textarea>');
   H+=fld(T('rq_photos'),'<input type="file" id="rq-photos" accept="image/*" multiple style="'+inp+'">');
   H+=fld(T('rq_contact'),'<input id="rq-contact" style="'+inp+'" placeholder="'+T('rq_contactph')+'">');
+  H+='<label style="display:flex;align-items:flex-start;gap:10px;margin:2px 0 12px;cursor:pointer;font-size:13.5px;color:var(--text-2);line-height:1.4"><input type="checkbox" id="rq-notify" checked style="width:18px;height:18px;accent-color:#2563eb;flex-shrink:0;margin-top:1px"> '+(lang==='uk'?'Сповістити команду ТО електронною поштою':'Email the maintenance team about this request')+'</label>';
   H+='<button onclick="submitRequest(this)" style="width:100%;padding:15px;background:linear-gradient(95deg,#2563eb,#3b82f6);border:none;border-radius:11px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px">'+T('rq_submit')+'</button>';
   H+='<div style="text-align:center;margin-top:20px;font-size:11px;color:var(--text-3)">'+T('rq_footer')+'</div>';
   H+='</div>';
@@ -1526,12 +1529,17 @@ function submitRequest(btn){
   var asel=gid('rq-asset'), ac='', an='';
   if(asel&&asel.value){ ac=asel.value; an=asel.options[asel.selectedIndex].text.replace(/\s*\([^)]*\)\s*$/,''); }
   var contact=rqVal('rq-contact');
+  var notify=gid('rq-notify')?gid('rq-notify').checked:true;
   var files=(gid('rq-photos')&&gid('rq-photos').files)?Array.prototype.slice.call(gid('rq-photos').files):[];
   btn.disabled=true; btn.textContent=T('rq_submitting');
-  uploadReqPhotos(files).then(function(paths){
-    return sbFetch('bbw_requests',{method:'POST',body:JSON.stringify({reporter:name,department:dept,asset_name:an||null,asset_code:ac||null,work:work,contact:contact||null,photos:JSON.stringify(paths),notes:'[]',status:'new'})});
+  var _paths=[];
+  uploadReqPhotos(files).then(function(paths){ _paths=paths||[];
+    return sbFetch('bbw_requests',{method:'POST',body:JSON.stringify({reporter:name,department:dept,asset_name:an||null,asset_code:ac||null,work:work,contact:contact||null,photos:JSON.stringify(_paths),notes:'[]',status:'new'})});
   }).then(function(r){ if(!r.ok&&r.status!==201)throw new Error('HTTP '+r.status); return r.json(); })
-   .then(function(){ requestSubmitted(); })
+   .then(function(){
+     if(notify){ try{ notifyMaintenance({type:'request',subject:'New maintenance request: '+(an||dept||name),body:work+'\n\nFrom: '+name+(dept?(' ('+dept+')'):'')+(contact?('\nContact: '+contact):'')+(an?('\nAsset: '+an+(ac?(' ['+ac+']'):'')):''),reporter:name,department:dept,asset_name:an,asset_code:ac,contact:contact,photos:_paths.map(flPubUrl)}); }catch(e){} }
+     requestSubmitted();
+   })
    .catch(function(e){ btn.disabled=false; btn.textContent=T('rq_submit'); alert('Could not submit the request: '+e.message+'.'); });
 }
 function requestSubmitted(){
@@ -2971,6 +2979,14 @@ var CMMS_FILTER={q:'',type:'',assignee:'',status:'active'};
 
 function cmmsParseAsset(s){var m=String(s||'').match(/^(.*?)\s*\(([^)]+)\)\s*$/);if(m)return {name:m[1].trim(),code:m[2].trim()};return {name:(s||'').trim(),code:''};}
 
+// Build PM rows from the baked-in static PMS list so the PMs tab is NEVER blank
+// even if the bbw_pms table is empty or anon INSERT is blocked by RLS.
+function cmmsLocalPMs(){
+  var today=new Date();
+  return PMS.map(function(p,i){var a=cmmsParseAsset(p.asset);return {id:'L'+i,_local:true,code:p.code,asset:a.name,asset_code:a.code,description:p.desc,freq:p.freq,priority:p.priority||'',assignee:p.assignee||'',hours:p.hours?parseFloat(p.hours):null,pm_type:p.type||'',active:true,next_due:pmNextDueISO(p.freq,today)};});
+}
+// Keep only real objects so one malformed row can never break the whole module.
+function cmmsClean(rows){ return (rows||[]).filter(function(p){return p&&typeof p==='object';}); }
 function loadCMMS(force){
   if(CMMS_LOADED&&CMMS_PMS.length&&!force)return Promise.resolve(CMMS_PMS);
   return sbFetch('bbw_pms?select=*&order=code.asc&limit=5000').then(function(r){
@@ -2979,9 +2995,15 @@ function loadCMMS(force){
     if((!rows||!rows.length)&&!window.__cmmsSeedTried){ window.__cmmsSeedTried=true; return seedCMMS().then(function(){return sbFetch('bbw_pms?select=*&order=code.asc&limit=5000').then(function(r){return r.json();});}).catch(function(){return rows||[];}); }
     return rows||[];
   }).then(function(rows){
-    if(rows&&rows.length){CMMS_PMS=rows;CMMS_LOADED=true;return CMMS_PMS;}
+    rows=cmmsClean(rows);
+    if(rows.length){CMMS_PMS=rows;CMMS_LOADED=true;return CMMS_PMS;}
     CMMS_LOADED=true;
-    if(!CMMS_PMS.length && !window.__cmmsRetried){ window.__cmmsRetried=true; return new Promise(function(res){setTimeout(res,700);}).then(function(){ return sbFetch('bbw_pms?select=*&order=code.asc&limit=5000').then(function(r){return r.json();}).then(function(r2){ if(r2&&r2.length)CMMS_PMS=r2; return CMMS_PMS; }); }); }
+    if(!CMMS_PMS.length && !window.__cmmsRetried){ window.__cmmsRetried=true; return new Promise(function(res){setTimeout(res,700);}).then(function(){ return sbFetch('bbw_pms?select=*&order=code.asc&limit=5000').then(function(r){return r.json();}).then(function(r2){ r2=cmmsClean(r2); if(r2.length){CMMS_PMS=r2;return CMMS_PMS;} if(!CMMS_PMS.length){CMMS_PMS=cmmsLocalPMs();} return CMMS_PMS; }); }); }
+    if(!CMMS_PMS.length){CMMS_PMS=cmmsLocalPMs();}
+    return CMMS_PMS;
+  }).catch(function(e){
+    // Network/table error: still show the full PM list from local data rather than a blank/red screen.
+    if(!CMMS_PMS.length){CMMS_PMS=cmmsLocalPMs();CMMS_LOADED=true;}
     return CMMS_PMS;
   });
 }
@@ -3051,6 +3073,7 @@ function renderPMModule(){
 function pmFilter(){
   var f=CMMS_FILTER, q=f.q.toLowerCase().trim();
   return CMMS_PMS.filter(function(p){
+    if(!p||typeof p!=='object')return false;
     if(f.status==='active'&&p.active===false)return false;
     if(f.status==='paused'&&p.active!==false)return false;
     if(f.type&&p.pm_type!==f.type)return false;
@@ -3068,9 +3091,17 @@ function pmDueChip(p){
 }
 function cmmsRenderPMList(){
   var host=gid('pm-list'); if(!host)return;
+  try{ cmmsRenderPMListInner(host); }
+  catch(e){
+    try{console.error('PM list render failed:',e);}catch(_){}
+    host.innerHTML='<div style="color:var(--text-3);text-align:center;padding:26px;font-size:13px">Couldn\u2019t draw the PM list.<br><button onclick="loadCMMS(true).then(function(){renderPMModule();})" class="btn-ghost" style="margin-top:12px;padding:8px 18px">Reload</button></div>';
+  }
+}
+function cmmsRenderPMListInner(host){
   var list=pmFilter();
   if(!list.length){host.innerHTML='<div style="color:var(--text-3);text-align:center;padding:30px;font-size:13px">No PMs match.</div>';return;}
   host.innerHTML='<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">'+list.length+' PM'+(list.length>1?'s':'')+'</div>'+list.map(function(p){
+   try{
     var pc={Highest:'#f87171',High:'#fb923c',Medium:'#fbbf24',Low:'#9b9ba3'}[p.priority]||'var(--text-3)';
     var H='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:9px'+(p.active?'':';opacity:.55')+'">';
     H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">';
@@ -3086,16 +3117,18 @@ function cmmsRenderPMList(){
     H+='<span style="margin-left:auto">'+pmDueChip(p)+'</span>';
     H+='</div>';
     H+='<div style="display:flex;gap:8px;margin-top:11px;padding-top:10px;border-top:1px solid var(--border)">';
-    H+='<button onclick="openPMForm('+p.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Edit</button>';
-    H+='<button onclick="togglePM('+p.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">'+(p.active?'Pause':'Activate')+'</button>';
-    H+='<button onclick="deletePM('+p.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px;color:var(--bad)">Delete</button>';
+    H+='<button onclick="openPMForm(\''+p.id+'\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Edit</button>';
+    H+='<button onclick="togglePM(\''+p.id+'\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">'+(p.active?'Pause':'Activate')+'</button>';
+    H+='<button onclick="deletePM(\''+p.id+'\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px;color:var(--bad)">Delete</button>';
     H+='</div></div>';
     return H;
+   }catch(rowErr){ try{console.error('PM row skipped:',rowErr,p);}catch(_){ } return ''; }
   }).join('');
 }
 
+function pmIsLocal(id){return /^L\d+$/.test(String(id));}
 function openPMForm(id){
-  var p=id?CMMS_PMS.filter(function(x){return x.id===id;})[0]:{code:'',asset:'',asset_code:'',description:'',freq:'',priority:'',assignee:'',hours:'',pm_type:'Preventive',active:true,next_due:''};
+  var p=id?CMMS_PMS.filter(function(x){return x.id==id;})[0]:{code:'',asset:'',asset_code:'',description:'',freq:'',priority:'',assignee:'',hours:'',pm_type:'Preventive',active:true,next_due:''};
   if(!p)return;
   var techOpts=['','Abin','Adam','Akshay','Akshaylal','Anupam','Lahcen','Maksym','Praful','Sachin','Sergei','Technicians','Viktor','Vitalii','Yassine','Yehor'].map(function(t){return '<option'+(t===p.assignee?' selected':'')+'>'+t+'</option>';}).join('');
   var typeOpts=['Preventive','Inspection','Calibration','Food Safety PM'].map(function(t){return '<option'+(t===p.pm_type?' selected':'')+'>'+t+'</option>';}).join('');
@@ -3113,7 +3146,7 @@ function openPMForm(id){
   H+='<div style="display:flex;gap:9px">'+fld('Type','<select id="pf-type" style="'+ist+'">'+typeOpts+'</select>')+fld('Priority','<select id="pf-prio" style="'+ist+'">'+prioOpts+'</select>')+'</div>';
   H+='<div style="display:flex;gap:9px">'+fld('Assignee','<select id="pf-assignee" style="'+ist+'"><option value=""></option>'+techOpts+'</select>')+fld('Est. hours','<input id="pf-hours" type="number" step="0.05" value="'+(p.hours!=null?p.hours:'')+'" style="'+ist+'">')+'</div>';
   H+=fld('Next due (auto from frequency if blank)', '<input id="pf-nextdue" type="date" value="'+(p.next_due||'')+'" style="'+ist+'">');
-  H+='<button onclick="savePM('+(id||'')+')" class="btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:6px">'+(id?'Save changes':'Create PM')+'</button>';
+  H+='<button onclick="savePM('+(id?'\''+id+'\'':'')+')" class="btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:6px">'+(id?'Save changes':'Create PM')+'</button>';
   H+='</div></div>';
   var ex=gid('pm-modal'); if(ex)ex.remove();
   document.body.insertAdjacentHTML('beforeend',H);
@@ -3127,6 +3160,7 @@ function savePM(id){
   var nd=gid('pf-nextdue').value||pmNextDueISO(freq,new Date());
   var rec={code:gid('pf-code').value.trim(),asset:av[0]||'',asset_code:av[1]||'',description:gid('pf-desc').value.trim(),freq:freq,pm_type:gid('pf-type').value,priority:gid('pf-prio').value,assignee:gid('pf-assignee').value,hours:gid('pf-hours').value?parseFloat(gid('pf-hours').value):null,next_due:nd||null,updated_at:new Date().toISOString()};
   if(!rec.description){alert('Add a description');return;}
+  if(pmIsLocal(id)){alert('These PMs are shown from the built-in list. To save edits, the bbw_pms table needs to accept writes (check Supabase RLS), then reopen this tab.');return;}
   var path=id?'bbw_pms?id=eq.'+id:'bbw_pms';
   var method=id?'PATCH':'POST';
   if(!id)rec.active=true;
@@ -3137,13 +3171,15 @@ function savePM(id){
   }).catch(function(e){alert('Save failed: '+e.message);});
 }
 function togglePM(id){
-  var p=CMMS_PMS.filter(function(x){return x.id===id;})[0]; if(!p)return;
+  var p=CMMS_PMS.filter(function(x){return x.id==id;})[0]; if(!p)return;
+  if(pmIsLocal(id)){p.active=!p.active;cmmsRenderPMList();return;}
   sbFetch('bbw_pms?id=eq.'+id,{method:'PATCH',body:JSON.stringify({active:!p.active}),headers:{'Prefer':'return=minimal'}}).then(function(){p.active=!p.active;cmmsRenderPMList();});
 }
 function deletePM(id){
-  var p=CMMS_PMS.filter(function(x){return x.id===id;})[0]; if(!p)return;
+  var p=CMMS_PMS.filter(function(x){return x.id==id;})[0]; if(!p)return;
   if(!confirm('Delete '+(p.code||'this PM')+'? This cannot be undone.'))return;
-  sbFetch('bbw_pms?id=eq.'+id,{method:'DELETE',headers:{'Prefer':'return=minimal'}}).then(function(){CMMS_PMS=CMMS_PMS.filter(function(x){return x.id!==id;});cmmsRenderPMList();});
+  if(pmIsLocal(id)){CMMS_PMS=CMMS_PMS.filter(function(x){return x.id!=id;});cmmsRenderPMList();return;}
+  sbFetch('bbw_pms?id=eq.'+id,{method:'DELETE',headers:{'Prefer':'return=minimal'}}).then(function(){CMMS_PMS=CMMS_PMS.filter(function(x){return x.id!=id;});cmmsRenderPMList();});
 }
 
 // ═══════════════ CMMS — Work Orders ═══════════════
@@ -3752,7 +3788,53 @@ function wipeEverything(){
 
 // ===== Forklift Pre-Operation Inspection Checklist =====
 var FORKLIFTS=['F1','F2','F3','F4','D1'];
+// Forklift supervisor dashboard — standalone login at  <site>/?fldash  (see openFlDashGate).
+// CHANGE THIS PIN to whatever you want the forklift supervisor to use:
+var FLDASH_PIN='2468';
+var FLDASH_OK=false; var FLDASH_MONTH=null; var FLDASH_ROWS=null;
+// Forklift operator first names (for the Operator dropdown). Edit this list to add/remove drivers.
+var FL_DRIVERS=['Armando','Kenderson','Rudolph','Yadhukrishna','Anthony','Sandesh','Robert','Taha','Dayne','Innocent','Saide','Anton Van','Harikrishnan'];
 var FL_PICKS={}; var FL_SHIFT='AM';
+var NOTIFY_HOOK=''; // <-- paste your email webhook / Supabase Edge Function URL here to enable auto-email (see notes)
+function flPubUrl(path){return SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(path);}
+// Send an email through EmailJS using the IDs saved in Settings. Returns a Promise.
+function ejsSend(params){
+  var s=localStorage.getItem('bbw_ejs_s'),t=localStorage.getItem('bbw_ejs_t'),p=localStorage.getItem('bbw_ejs_p');
+  if(!s||!t||!p)return Promise.reject(new Error('EmailJS not configured'));
+  if(!window.emailjs||!emailjs.send)return Promise.reject(new Error('EmailJS SDK not loaded'));
+  return emailjs.send(s,t,params,{publicKey:p});
+}
+function notifyMaintenance(payload){
+ try{ payload=payload||{}; payload.to=MAILTO; payload.at=new Date().toISOString();
+   if(NOTIFY_HOOK){ fetch(NOTIFY_HOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){}); return; }
+   // Client-side EmailJS (configured in Settings → Auto-Send). Template vars: to_email, subject, message, reporter, asset_name, photos.
+   ejsSend({
+     to_email:MAILTO,
+     subject:payload.subject||('BBW Maintenance \u2014 '+(payload.type||'notification')),
+     message:payload.body||payload.message||'',
+     reporter:payload.reporter||payload.operator||'',
+     asset_name:payload.asset_name||payload.asset||'',
+     photos:(payload.photos||[]).join('\n')
+   }).catch(function(){});
+ }catch(e){}
+}
+function uploadForkliftPhotos(files,unit){
+ if(!files||!files.length)return Promise.resolve([]);
+ return Promise.all(Array.prototype.map.call(files,function(f){
+   return downscaleImage(f,1280,0.7).then(function(blob){
+     var path='forklift/'+unit+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg';
+     return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'image/jpeg','x-upsert':'true'},body:blob}).then(function(r){return r.ok?path:null;}).catch(function(){return null;});
+   });
+ })).then(function(pp){return pp.filter(Boolean);});
+}
+function flFileMaintenance(unit,d,flagged,photoPaths){
+ var lines=flagged.map(function(x){return '\u2022 '+x[0]+' \u2014 '+x[1];}).join('\n');
+ var hasTag=flagged.some(function(x){return x[1]==='Tag out';});
+ var work=(hasTag?'[TAG OUT] ':'')+'Forklift '+unit+' pre-op inspection flagged '+flagged.length+' item(s) ('+d.shift+' shift, '+d.date+'):\n'+lines+(d.notes?('\n\nDriver notes: '+d.notes):'');
+ sbFetch('bbw_requests',{method:'POST',body:JSON.stringify({reporter:d.operator||'Forklift driver',department:'Forklift / Driver',asset_name:'Forklift '+unit,asset_code:'PWRLFT',work:work,contact:null,photos:JSON.stringify(photoPaths||[]),notes:'[]',status:'new'})}).then(function(){
+   try{notifyMaintenance({type:'forklift',unit:unit,subject:'Forklift '+unit+' \u2014 '+flagged.length+' item(s) flagged'+(hasTag?' (TAG OUT)':''),body:work,reporter:d.operator,asset_name:'Forklift '+unit,asset_code:'PWRLFT',photos:(photoPaths||[]).map(flPubUrl)});}catch(e){}
+ }).catch(function(e){console.warn('forklift request failed',e);});
+}
 var FL_VISUAL=[
  ['Overhead guard','broken welds, missing bolts or damaged areas?'],
  ['Hydraulic cylinders','leakage or damage in the lift, tilt and attachment cylinders?'],
@@ -3803,6 +3885,7 @@ function openForkliftChecklist(unit){
  var today=pmISO(new Date());
  var op=(typeof user!=='undefined'&&user)?user:'';
  var ist='width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px;color:var(--text);font-size:14px;outline:none;box-sizing:border-box;color-scheme:dark';
+ var wst='width:100%;background:#ffffff;border:1px solid #cbd5e1;border-radius:9px;padding:11px;color:#111827;font-size:15px;outline:none;box-sizing:border-box;color-scheme:light';
  var H='<div id="fl-overlay" style="position:fixed;inset:0;background:var(--bg);z-index:9000;overflow-y:auto;-webkit-overflow-scrolling:touch">';
  H+='<div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:13px 15px;display:flex;align-items:center;gap:11px;z-index:5">';
  H+='<button onclick="closeForkliftChecklist()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>';
@@ -3818,11 +3901,13 @@ function openForkliftChecklist(unit){
  var sh=FL_SHIFT; var slab={AM:'AM (Day)',PM:'PM (Night)',MD:'Mid'};
  ['AM','PM','MD'].forEach(function(s){var on=s===sh;H+='<button type="button" onclick="flPickShift(\''+s+'\',this)" data-val="'+s+'" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid '+(on?'#60a5fa':'var(--border)')+';background:'+(on?'#60a5fa22':'transparent')+';color:'+(on?'#60a5fa':'var(--text-2)')+';font-weight:700;font-size:13px;cursor:pointer">'+slab[s]+'</button>';});
  H+='</div></div>';
- H+='<div style="margin-top:12px">'+flField('Operator','<input id="fl-operator" value="'+flEsc(op)+'" placeholder="Your name" style="'+ist+'">')+'</div>';
+ var drvOpts='<option value="">Select your name\u2026</option>'+FL_DRIVERS.map(function(n){return '<option value="'+flEsc(n)+'"'+(n===op?' selected':'')+'>'+flEsc(n)+'</option>';}).join('');
+ H+='<div style="margin-top:12px">'+flField('Operator','<select id="fl-operator" style="'+ist+'">'+drvOpts+'</select>')+'</div>';
  H+='</div>';
  H+=flSection('Key off &mdash; visual check',FL_VISUAL,'v');
  H+=flSection('Key on &mdash; operational check',FL_OPER,'o');
- H+='<div style="margin-bottom:14px">'+flField('Notes / defects found (optional)','<textarea id="fl-notes" rows="3" style="'+ist+';resize:vertical"></textarea>')+'</div>';
+ H+='<div style="margin-bottom:14px">'+flField('Photos (optional) \u2014 add a photo of any problem','<input type="file" id="fl-photos" accept="image/*" multiple style="'+ist+'">')+'</div>';
+ H+='<div style="margin-bottom:14px">'+flField('Notes / defects found (optional)','<textarea id="fl-notes" rows="3" style="'+wst+';resize:vertical"></textarea>')+'</div>';
  H+='<button onclick="submitForkliftChecklist(\''+unit+'\',this)" class="btn-primary" style="width:100%;padding:15px;font-size:16px">Submit inspection</button>';
  H+='</div></div>';
  document.body.insertAdjacentHTML('beforeend',H);
@@ -3835,19 +3920,26 @@ function flLoadLast(unit){var b=gid('fl-banner');if(!b)return;
 
 function submitForkliftChecklist(unit,btn){
  var op=(gid('fl-operator')&&gid('fl-operator').value.trim())||'';
- if(!op){alert('Please enter the operator name.');return;}
+ if(!op){alert('Please select the operator name.');return;}
  var d={unit:unit,date:(gid('fl-date')&&gid('fl-date').value)||pmISO(new Date()),model:(gid('fl-model')&&gid('fl-model').value.trim())||'',serial:(gid('fl-serial')&&gid('fl-serial').value.trim())||'',shift:FL_SHIFT||flShiftNow(),operator:op,notes:(gid('fl-notes')&&gid('fl-notes').value.trim())||'',
    visual:FL_VISUAL.map(function(it,i){return [it[0],FL_PICKS['v'+i]||'OK'];}),
    oper:FL_OPER.map(function(it,i){return [it[0],FL_PICKS['o'+i]||'OK'];})};
- if(btn){btn.disabled=true;btn.textContent='Saving\u2026';}
- var blob; try{blob=buildForkliftPDFBlob(unit,d);}catch(e){alert('PDF error: '+e.message);if(btn){btn.disabled=false;btn.textContent='Submit inspection';}return;}
- var yr=(new Date(d.date).getFullYear())||new Date().getFullYear();
- var safe=(unit+'_Inspection_'+d.date+'_'+d.shift).replace(/[^a-zA-Z0-9._-]/g,'_')+'.pdf';
- var path='PWRLFT/inspections/'+yr+'/'+Date.now()+'_'+safe;
- fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/pdf','x-upsert':'true'},body:blob})
-  .then(function(r){if(!r.ok)throw new Error('storage '+r.status);return sbFetch('bbw_docs',{method:'POST',body:JSON.stringify({asset_code:'PWRLFT',asset_name:'Forklift',category:'inspections',year:yr,filename:unit+' Inspection '+d.date+' '+d.shift+'.pdf',storage_path:path,uploaded_by:op,folder:unit}),headers:{'Prefer':'return=minimal'}});})
-  .then(function(r){if(!r.ok&&r.status!==201&&r.status!==204)throw new Error('db '+r.status);flChecklistDone(unit,d);try{if(typeof DOC_ASSET!=='undefined'&&DOC_ASSET&&DOC_ASSET.c==='PWRLFT'){DOCS=[];loadDocs();}}catch(e){}})
-  .catch(function(e){alert('Save failed: '+e.message);if(btn){btn.disabled=false;btn.textContent='Submit inspection';}});
+ var files=(gid('fl-photos')&&gid('fl-photos').files)?Array.prototype.slice.call(gid('fl-photos').files):[];
+ if(btn){btn.disabled=true;btn.textContent=files.length?'Uploading photos\u2026':'Saving\u2026';}
+ uploadForkliftPhotos(files,unit).then(function(photoPaths){
+  d.photoPaths=photoPaths; if(btn)btn.textContent='Saving\u2026';
+  var blob=buildForkliftPDFBlob(unit,d);
+  var yr=(new Date(d.date).getFullYear())||new Date().getFullYear();
+  var safe=(unit+'_Inspection_'+d.date+'_'+d.shift).replace(/[^a-zA-Z0-9._-]/g,'_')+'.pdf';
+  var path='PWRLFT/inspections/'+yr+'/'+Date.now()+'_'+safe;
+  return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/pdf','x-upsert':'true'},body:blob})
+   .then(function(r){if(!r.ok)throw new Error('storage '+r.status);return sbFetch('bbw_docs',{method:'POST',body:JSON.stringify({asset_code:'PWRLFT',asset_name:'Forklift',category:'inspections',year:yr,filename:unit+' Inspection '+d.date+' '+d.shift+'.pdf',storage_path:path,uploaded_by:op,folder:unit}),headers:{'Prefer':'return=minimal'}});})
+   .then(function(r){if(!r.ok&&r.status!==201&&r.status!==204)throw new Error('db '+r.status);
+     var flagged=d.visual.concat(d.oper).filter(function(x){return x[1]!=='OK';});
+     if(flagged.length){flFileMaintenance(unit,d,flagged,photoPaths);}
+     flChecklistDone(unit,d);
+     try{if(typeof DOC_ASSET!=='undefined'&&DOC_ASSET&&DOC_ASSET.c==='PWRLFT'){DOCS=[];loadDocs();}}catch(e){}});
+ }).catch(function(e){alert('Save failed: '+e.message);if(btn){btn.disabled=false;btn.textContent='Submit inspection';}});
 }
 
 function flChecklistDone(unit,d){var ov=gid('fl-overlay');if(!ov)return;
@@ -3858,6 +3950,7 @@ function flChecklistDone(unit,d){var ov=gid('fl-overlay');if(!ov)return;
  H+='<div style="font-size:13px;color:var(--text-2);margin-bottom:4px">'+unit+' &middot; '+flEsc(d.date)+' &middot; '+d.shift+' shift</div>';
  H+='<div style="font-size:12px;color:var(--text-3);margin-bottom:18px">Filed to Forklift &rarr; Inspections &rarr; '+unit+'</div>';
  if(flagged.length){H+='<div style="background:#f8717118;border:1px solid #f8717155;border-radius:10px;padding:12px;text-align:left;margin-bottom:18px"><div style="font-size:12px;font-weight:800;color:#f87171;margin-bottom:6px">'+flagged.length+' item(s) flagged</div>'+flagged.map(function(x){return '<div style="font-size:12px;color:var(--text-2)">&bull; '+flEsc(x[0])+' &mdash; '+x[1]+'</div>';}).join('')+'</div>';}
+ if(flagged.length){H+='<div style="font-size:12.5px;color:#34d399;margin-bottom:18px">&#10003; Sent to the maintenance team as a work request'+((d.photoPaths&&d.photoPaths.length)?(' with '+d.photoPaths.length+' photo(s)'):'')+'.</div>';}
  H+='<button onclick="closeForkliftChecklist()" class="btn-primary" style="width:100%;padding:14px;font-size:15px">Done</button>';
  H+='</div></div>';
  ov.innerHTML=H;
@@ -3887,7 +3980,7 @@ function buildForkliftPDFBlob(unit,d){
  }
  section('Key off \u2014 visual check',d.visual);
  section('Key on \u2014 operational check',d.oper);
- if(d.notes){if(y>Hp-120){doc.addPage();y=50;}doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(26,26,26);doc.text('Notes / defects found',M,y);y+=14;doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(50,50,50);var lines=doc.splitTextToSize(d.notes,W-2*M);doc.text(lines,M,y);y+=lines.length*12+8;}
+ if(d.notes){if(y>Hp-120){doc.addPage();y=50;}doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(26,26,26);doc.text('Notes / defects found',M,y);y+=14;doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(50,50,50);var lines=doc.splitTextToSize(d.notes,W-2*M);doc.text(lines,M,y);y+=lines.length*12+8;} if(d.photoPaths&&d.photoPaths.length){if(y>Hp-90){doc.addPage();y=50;}doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(120,124,130);doc.text(d.photoPaths.length+' photo(s) attached to the maintenance work request.',M,y);y+=16;}
  if(y>Hp-90){doc.addPage();y=60;}
  doc.setDrawColor(205);doc.line(M,y,W-M,y);y+=15;
  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(120,124,130);doc.text('Shift + Operator sign-off',M,y);
@@ -3932,10 +4025,133 @@ function openForkliftQR(){
  document.body.insertAdjacentHTML('beforeend',H);
 }
 
+// ═══════════════ Forklift Supervisor Dashboard (standalone, ?fldash) ═══════════════
+function flDashEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function flDashMonLabel(d){return ['January','February','March','April','May','June','July','August','September','October','November','December'][d.getMonth()]+' '+d.getFullYear();}
+function flDashMonKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function openFlDashGate(){
+  try{document.title='Forklift Inspections — BBW';}catch(e){}
+  var ex=gid('fldash');if(ex)ex.remove();
+  if(FLDASH_OK){renderFlDash();return;}
+  var H='<div id="fldash" style="position:fixed;inset:0;background:#0b0d10;z-index:9500;overflow-y:auto;color:#e7e7ea;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif">';
+  H+='<div style="max-width:380px;margin:0 auto;padding:64px 22px 40px;text-align:center">';
+  H+='<div style="font-size:40px;margin-bottom:6px">\uD83D\uDE9C</div>';
+  H+='<div style="font-size:20px;font-weight:800;color:#fff">Forklift Inspections</div>';
+  H+='<div style="font-size:13px;color:#8b8b94;margin:6px 0 26px">Supervisor access</div>';
+  H+='<input id="fldash-pin" type="password" inputmode="numeric" autocomplete="off" placeholder="Enter PIN" onkeydown="if(event.key===\'Enter\')flDashSubmitPin()" style="width:100%;background:#16181d;border:1px solid #2a2d35;border-radius:11px;padding:14px;font-size:18px;color:#fff;text-align:center;letter-spacing:.3em;outline:none;box-sizing:border-box;color-scheme:dark">';
+  H+='<div id="fldash-err" style="font-size:12.5px;color:#f87171;height:18px;margin:8px 0"></div>';
+  H+='<button onclick="flDashSubmitPin()" style="width:100%;padding:14px;background:#fff;color:#000;border:none;border-radius:11px;font-size:15px;font-weight:800;cursor:pointer">Unlock</button>';
+  H+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+  setTimeout(function(){var i=gid('fldash-pin');if(i)i.focus();},80);
+}
+function flDashSubmitPin(){
+  var v=(gid('fldash-pin')&&gid('fldash-pin').value||'').trim();
+  if(v===FLDASH_PIN){FLDASH_OK=true;FLDASH_MONTH=new Date();renderFlDash();}
+  else{var e=gid('fldash-err');if(e)e.textContent='Incorrect PIN';var i=gid('fldash-pin');if(i){i.value='';i.focus();}}
+}
+function flDashLock(){FLDASH_OK=false;FLDASH_ROWS=null;openFlDashGate();}
+function flDashShiftMonth(delta){if(!FLDASH_MONTH)FLDASH_MONTH=new Date();FLDASH_MONTH=new Date(FLDASH_MONTH.getFullYear(),FLDASH_MONTH.getMonth()+delta,1);renderFlDash();}
+// Build a lookup of flagged inspections from bbw_requests, keyed by  UNIT|YYYY-MM-DD
+function flDashLoadFlags(){
+  return sbFetch('bbw_requests?asset_code=eq.PWRLFT&select=asset_name,work,created_at&order=created_at.desc&limit=5000').then(function(r){return r.ok?r.json():[];}).then(function(rows){
+    var map={};
+    (rows||[]).forEach(function(q){
+      var work=q.work||''; var an=q.asset_name||'';
+      var um=an.match(/(F[1-4]|D1)/i)||work.match(/(F[1-4]|D1)/i); var unit=um?um[1].toUpperCase():'';
+      var dm=work.match(/(\d{4}-\d{2}-\d{2})/); var date=dm?dm[1]:((q.created_at||'').slice(0,10));
+      var cm=work.match(/flagged\s+(\d+)\s+item/i); var cnt=cm?parseInt(cm[1]):1;
+      var tag=/\[TAG OUT\]/i.test(work);
+      if(unit&&date){var k=unit+'|'+date; if(!map[k])map[k]={count:0,tag:false}; map[k].count+=cnt; if(tag)map[k].tag=true;}
+    });
+    return map;
+  }).catch(function(){return {};});
+}
+function renderFlDash(){
+  var ex=gid('fldash');if(ex)ex.remove();
+  if(!FLDASH_MONTH)FLDASH_MONTH=new Date();
+  var H='<div id="fldash" style="position:fixed;inset:0;background:#0b0d10;z-index:9500;overflow-y:auto;color:#e7e7ea;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif">';
+  H+='<div style="position:sticky;top:0;background:#111317;border-bottom:1px solid #23262e;padding:12px 16px;display:flex;align-items:center;gap:10px;z-index:5">';
+  H+='<div style="font-size:22px">\uD83D\uDE9C</div>';
+  H+='<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:#fff">Forklift Inspections</div><div style="font-size:11px;color:#8b8b94">Brunswick Bierworks</div></div>';
+  H+='<button onclick="flDashLock()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Lock</button>';
+  H+='</div>';
+  H+='<div style="max-width:920px;margin:0 auto;padding:16px 16px 60px">';
+  // Month switcher + download
+  H+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">';
+  H+='<button onclick="flDashShiftMonth(-1)" style="background:#16181d;border:1px solid #2a2d35;color:#fff;width:38px;height:38px;border-radius:9px;font-size:18px;cursor:pointer">\u2039</button>';
+  H+='<div style="font-size:16px;font-weight:800;color:#fff;min-width:160px;text-align:center">'+flDashMonLabel(FLDASH_MONTH)+'</div>';
+  H+='<button onclick="flDashShiftMonth(1)" style="background:#16181d;border:1px solid #2a2d35;color:#fff;width:38px;height:38px;border-radius:9px;font-size:18px;cursor:pointer">\u203A</button>';
+  H+='<button onclick="FLDASH_MONTH=new Date();renderFlDash()" style="background:#16181d;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;padding:9px 13px;border-radius:9px;cursor:pointer">This month</button>';
+  H+='<div style="flex:1"></div>';
+  H+='<button onclick="flDashCSV()" style="background:#fff;color:#000;border:none;font-size:13px;font-weight:800;padding:10px 16px;border-radius:9px;cursor:pointer">\u2B07 Download month (CSV)</button>';
+  H+='</div>';
+  H+='<div id="fldash-body"><div style="text-align:center;color:#8b8b94;padding:50px;font-size:14px">Loading inspections\u2026</div></div>';
+  H+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+  // Fetch this month's inspections + flag lookup
+  var first=new Date(FLDASH_MONTH.getFullYear(),FLDASH_MONTH.getMonth(),1);
+  var next=new Date(FLDASH_MONTH.getFullYear(),FLDASH_MONTH.getMonth()+1,1);
+  var q='bbw_docs?asset_code=eq.PWRLFT&category=eq.inspections&created_at=gte.'+first.toISOString()+'&created_at=lt.'+next.toISOString()+'&select=filename,folder,uploaded_by,storage_path,created_at&order=created_at.desc&limit=5000';
+  Promise.all([sbFetch(q).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}), flDashLoadFlags()]).then(function(res){
+    var docs=res[0]||[], flags=res[1]||{};
+    var rows=docs.map(function(x){
+      var fn=x.filename||'';
+      var dm=fn.match(/(\d{4}-\d{2}-\d{2})/); var date=dm?dm[1]:((x.created_at||'').slice(0,10));
+      var sm=fn.match(/(\d{4}-\d{2}-\d{2})\s+([A-Za-z]{2,3})/); var shift=sm?sm[2].toUpperCase():'';
+      var unit=(x.folder||'').toUpperCase();
+      var fl=flags[unit+'|'+date]||null;
+      return {date:date,unit:unit,shift:shift,operator:x.uploaded_by||'',flagged:fl?fl.count:0,tag:fl?fl.tag:false,url:flPubUrl(x.storage_path)};
+    });
+    rows.sort(function(a,b){return (a.date<b.date?1:a.date>b.date?-1:0);});
+    FLDASH_ROWS=rows;
+    flDashRenderTable(rows);
+  });
+}
+function flDashRenderTable(rows){
+  var host=gid('fldash-body'); if(!host)return;
+  if(!rows.length){host.innerHTML='<div style="text-align:center;color:#8b8b94;padding:50px;font-size:14px">No inspections logged for '+flDashMonLabel(FLDASH_MONTH)+'.</div>';return;}
+  var flaggedCount=rows.filter(function(r){return r.flagged>0;}).length;
+  var H='<div style="font-size:12px;color:#8b8b94;margin-bottom:10px">'+rows.length+' inspection'+(rows.length>1?'s':'')+(flaggedCount?(' \u00b7 '+flaggedCount+' with flagged items'):'')+'</div>';
+  H+='<div style="overflow-x:auto;border:1px solid #23262e;border-radius:12px">';
+  H+='<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px">';
+  H+='<thead><tr style="background:#15171c;color:#9a9aa3;text-align:left">';
+  ['Date','Unit','Shift','Operator','Flagged','PDF'].forEach(function(h){H+='<th style="padding:11px 13px;font-weight:700;white-space:nowrap;border-bottom:1px solid #23262e">'+h+'</th>';});
+  H+='</tr></thead><tbody>';
+  rows.forEach(function(r,i){
+    var bg=i%2?'#101216':'#0d0f13';
+    var flagCell;
+    if(r.tag){flagCell='<span style="background:#7f1d1d;color:#fff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap">TAG OUT \u00b7 '+r.flagged+'</span>';}
+    else if(r.flagged>0){flagCell='<span style="background:#78350f;color:#fcd34d;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap">'+r.flagged+' flagged</span>';}
+    else{flagCell='<span style="color:#34d399;font-size:12px;font-weight:600">\u2713 OK</span>';}
+    H+='<tr style="background:'+bg+'">';
+    H+='<td style="padding:11px 13px;white-space:nowrap;border-bottom:1px solid #1b1e24">'+flDashEsc(r.date)+'</td>';
+    H+='<td style="padding:11px 13px;font-weight:800;color:#60a5fa;border-bottom:1px solid #1b1e24">'+flDashEsc(r.unit)+'</td>';
+    H+='<td style="padding:11px 13px;border-bottom:1px solid #1b1e24">'+flDashEsc(r.shift)+'</td>';
+    H+='<td style="padding:11px 13px;color:#fff;border-bottom:1px solid #1b1e24">'+flDashEsc(r.operator)+'</td>';
+    H+='<td style="padding:11px 13px;border-bottom:1px solid #1b1e24">'+flagCell+'</td>';
+    H+='<td style="padding:11px 13px;border-bottom:1px solid #1b1e24"><a href="'+r.url+'" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none;font-weight:600">View \u2197</a></td>';
+    H+='</tr>';
+  });
+  H+='</tbody></table></div>';
+  host.innerHTML=H;
+}
+function flDashCSV(){
+  var rows=FLDASH_ROWS||[];
+  if(!rows.length){alert('No inspections to download for '+flDashMonLabel(FLDASH_MONTH)+'.');return;}
+  function esc(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+  var lines=[['Date','Unit','Shift','Operator','Flagged items','Tag out','PDF link'].join(',')];
+  rows.forEach(function(r){lines.push([esc(r.date),esc(r.unit),esc(r.shift),esc(r.operator),esc(r.flagged),esc(r.tag?'YES':''),esc(r.url)].join(','));});
+  var blob=new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='Forklift_Inspections_'+flDashMonKey(FLDASH_MONTH)+'.csv';
+  document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
+}
+
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-24o';
+  var BUILD='2026-06-24q';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -4057,7 +4273,8 @@ function renderMore(){
     H+='<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Template ID</div><input id="ejs-t" type="text" placeholder="template_xxxxxxx" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;color:#fff;outline:none"></div>';
     H+='<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Public Key</div><input id="ejs-p" type="text" placeholder="xxxxxxxxxxxxxxx" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;color:#fff;outline:none"></div>';
     H+='<button onclick="saveEJS()" style="width:100%;padding:12px;background:#fff;color:#000;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">Save & Enable Auto-Send</button>';
-    H+='<button onclick="testEJS()" style="width:100%;padding:12px;background:var(--surface-2);color:#aaa;border:1px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer">Test Send Now</button>';
+    H+='<button onclick="testEJS(this)" style="width:100%;padding:12px;background:var(--surface-2);color:#aaa;border:1px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer">Test Send Now</button>';
+    H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-top:8px">Your EmailJS template must include these variables: <b>to_email</b>, <b>subject</b>, <b>message</b>, <b>reporter</b>, <b>asset_name</b>, <b>photos</b>. Set the template\u2019s \u201cTo email\u201d field to <b>{{to_email}}</b>.</div>';
     H+='</div>';
 
     // Changeover Assets Manager
@@ -4655,10 +4872,28 @@ function saveEJS(){
   alert('Auto-send enabled.');
 }
 
-function testEJS(){
-  var s=gid('ejs-s')?gid('ejs-s').value:'',t=gid('ejs-t')?gid('ejs-t').value:'',p=gid('ejs-p')?gid('ejs-p').value:'';
+function testEJS(btn){
+  var s=gid('ejs-s')?gid('ejs-s').value.trim():'',t=gid('ejs-t')?gid('ejs-t').value.trim():'',p=gid('ejs-p')?gid('ejs-p').value.trim():'';
   if(!s||!t||!p){alert('Fill in all three fields first.');return;}
-  alert('Test send - check your email.');
+  // Persist so ejsSend picks them up
+  localStorage.setItem('bbw_ejs_s',s);localStorage.setItem('bbw_ejs_t',t);localStorage.setItem('bbw_ejs_p',p);
+  if(!window.emailjs||!emailjs.send){alert('EmailJS could not load (check your internet / ad-blocker), then try again.');return;}
+  var orig=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Sending\u2026';}
+  emailjs.send(s,t,{
+    to_email:MAILTO,
+    subject:'BBW test email',
+    message:'This is a test from the BBW Work Log. If you received this, auto-send is working.',
+    reporter:(typeof user!=='undefined'&&user)?user:'BBW',
+    asset_name:'\u2014',
+    photos:''
+  },{publicKey:p}).then(function(){
+    if(btn){btn.disabled=false;btn.textContent=orig;}
+    alert('Test sent to '+MAILTO+'. Check the inbox (and spam).');
+  }).catch(function(err){
+    if(btn){btn.disabled=false;btn.textContent=orig;}
+    var msg=(err&&(err.text||err.message))||'Unknown error';
+    alert('Test failed: '+msg+'\n\nCheck the Service ID, Template ID and Public Key, and make sure the template uses the variables: to_email, subject, message, reporter, asset_name, photos.');
+  });
 }
 
 function doExport(){
