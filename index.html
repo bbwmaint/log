@@ -2508,8 +2508,15 @@ function renderUtil(){
     '<div style="background:rgba(22,163,74,.15);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:10px 12px;font-size:14px;font-weight:600;color:#4ade80;margin-bottom:14px">'+utT('Logged today by')+' '+today.by+' '+utT('at')+' '+today.time+'</div>':
     '<div style="background:rgba(217,119,6,.15);border:1px solid rgba(217,119,6,.3);border-radius:10px;padding:10px 12px;font-size:13px;color:#fbbf24;margin-bottom:14px">'+utT('No readings logged today yet')+'</div>';
 
-  function fieldRow(id, label, placeholder){
+  function fieldRow(id, label, placeholder, allowNeg){
     var v=today&&today[id]!=null?today[id]:'';
+    if(allowNeg){
+      // type=text so mobile keyboards allow the minus sign
+      return '<div style="min-width:0">'+
+        '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</div>'+
+        '<input type="text" inputmode="decimal" id="'+id+'" value="'+v+'" placeholder="'+placeholder+'" pattern="-?[0-9]*\.?[0-9]*" autocomplete="off" '+
+        'style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 12px;font-size:15px;color:#fff;outline:none;font-family:ui-monospace,SFMono-Regular,monospace"></div>';
+    }
     return '<div style="min-width:0">'+
       '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</div>'+
       '<input type="number" inputmode="decimal" id="'+id+'" value="'+v+'" placeholder="'+placeholder+'" '+
@@ -2553,15 +2560,15 @@ function renderUtil(){
     fieldRow('cool',utT('Cooling Tower (L)'),'0.00');
 
   var boilerRows=
-    fieldRow('bc1',utT('Coil C1 (°C)'),'0')+
-    fieldRow('bc2',utT('Coil C2 (°C)'),'0')+
-    fieldRow('bc3',utT('Coil C3 (°C)'),'0')+
-    fieldRow('bc4',utT('Coil C4 (°C)'),'0')+
-    fieldRow('bc5',utT('Coil C5 (°C)'),'0')+
-    fieldRow('bc6',utT('Coil C6 (°C)'),'0')+
-    fieldRow('bc7',utT('Coil C7 (°C)'),'0')+
-    fieldRow('bc8',utT('Coil C8 (°C)'),'0')+
-    fieldRow('stack',utT('Stack Temp (°C)'),'0')+
+    fieldRow('bc1',utT('Coil C1 (°C,true)'),'0')+
+    fieldRow('bc2',utT('Coil C2 (°C,true)'),'0')+
+    fieldRow('bc3',utT('Coil C3 (°C,true)'),'0')+
+    fieldRow('bc4',utT('Coil C4 (°C,true)'),'0')+
+    fieldRow('bc5',utT('Coil C5 (°C,true)'),'0')+
+    fieldRow('bc6',utT('Coil C6 (°C,true)'),'0')+
+    fieldRow('bc7',utT('Coil C7 (°C,true)'),'0')+
+    fieldRow('bc8',utT('Coil C8 (°C,true)'),'0')+
+    fieldRow('stack',utT('Stack Temp (°C,true)'),'0')+
     fieldRow('p_alk',utT('P Alkalinity (ppm)'),'0')+
     fieldRow('m_alk',utT('M Alkalinity (ppm)'),'0')+
     fieldRow('oh_alk',utT('OH Alkalinity (ppm)'),'0')+
@@ -2572,8 +2579,8 @@ function renderUtil(){
 
   var chillerRows=
     fieldRow('chstart',utT('Start Count'),'0')+
-    fieldRow('chproc',utT('Process Temp (°C)'),'0.0')+
-    fieldRow('warmcell',utT('Warmcell Temp (°C)'),'0.0')+
+    fieldRow('chproc',utT('Process Temp (°C,true)'),'0.0')+
+    fieldRow('warmcell',utT('Warmcell Temp (°C,true)'),'0.0')+
     fieldRowLevel('ch_glycol',utT('Glycol Level (%)'),'0.0',100,'%')+
     fieldRow('ch_ph','pH','0.0')+
     fieldRow('ch_purity',utT('Purity (%)'),'0.0');
@@ -4347,7 +4354,7 @@ function flDashLoadShiftReport(date,shift){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-27y';
+  var BUILD='2026-06-27z';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
