@@ -722,7 +722,7 @@ function applyPinMode(mode){
   if(roleEl){roleEl.style.display='block';roleEl.innerHTML='<span style="display:inline-block;padding:5px 13px;border-radius:999px;background:'+rc+'1f;color:'+rc+';font-size:12.5px;font-weight:700;letter-spacing:.03em;border:1px solid '+rc+'55">'+role+'</span>';}
   var enterPin=uk?'\u0411\u0443\u0434\u044c \u043b\u0430\u0441\u043a\u0430, \u0432\u0432\u0435\u0434\u0456\u0442\u044c PIN':'Please enter your PIN';
   gid('pin-sub').textContent=has?enterPin:'First time \u2014 create your PIN';
-  gid('pin-msg').textContent=has?enterPin:'Choose a 4-digit PIN';
+  gid('pin-msg').textContent=has?enterPin:'Enter a 4-digit PIN';
   gid('pin-err').textContent='';
 }
 
@@ -769,13 +769,10 @@ function checkPin(){
       if(pbuf===localStorage.getItem('pin_'+puser)) rememberAndLogin(puser); else pinBad('Incorrect PIN');
     }
   }else{
-    if(!psfirst){ psfirst=pbuf; pbuf=''; updDots(); gid('pin-msg').textContent='Confirm your PIN'; gid('pin-sub').textContent='Enter PIN again'; return; }
-    if(pbuf===psfirst){
-      var np=pbuf;
-      if(PIN_CENTRAL){
-        sbRPC('set_pin',{p_name:puser,p_pin:np}).then(function(created){ if(created)rememberAndLogin(puser); else { applyPinMode('enter'); gid('pin-err').textContent='A PIN already exists \u2014 please enter it'; } }).catch(function(){ pinBad('Network error \u2014 try again'); });
-      }else{ localStorage.setItem('pin_'+puser,np); rememberAndLogin(puser); }
-    }else{ pinMismatch(); }
+    var np=pbuf;
+    if(PIN_CENTRAL){
+      sbRPC('set_pin',{p_name:puser,p_pin:np}).then(function(created){ if(created)rememberAndLogin(puser); else { applyPinMode('enter'); gid('pin-err').textContent='A PIN already exists \u2014 please enter it'; } }).catch(function(){ pinBad('Network error \u2014 try again'); });
+    }else{ localStorage.setItem('pin_'+puser,np); rememberAndLogin(puser); }
   }
 }
 function pinBad(msg){ gid('pin-err').textContent=msg; for(var i=0;i<4;i++){var d=gid('d'+i);d.style.background='#ef4444';d.style.borderColor='#ef4444';} setTimeout(function(){pbuf='';updDots();},700); }
@@ -2592,24 +2589,54 @@ function renderUtil(){
     '</div>';
 
   // History table
-  H+='<div style="background:var(--surface);border-radius:12px;overflow:hidden">';
+  H+='<div style="background:var(--surface);border-radius:12px;overflow:hidden;margin-top:0">';
   H+='<div style="padding:12px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em">'+utT('Recent Readings')+'</div>';
-  H+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace">';
-  H+='<thead><tr style="border-bottom:1px solid var(--border);color:var(--text-3);font-size:10px">';
-  ['Date','W3"','W5"','Gas','Elec','Past','CT','Boil','Steam','C1','C2','C3','C4','C5','C6','C7','C8','Stack','ChStart','ChProc','Warmcell','Glycol%','By'].forEach(function(h){
-    H+='<th style="padding:7px 6px;text-align:right;white-space:nowrap">'+h+'</th>';
+  H+='<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">';
+  H+='<table style="width:100%;border-collapse:collapse;font-size:11px;font-family:ui-monospace,SFMono-Regular,monospace;min-width:900px">';
+  // Group headers
+  H+='<thead>';
+  H+='<tr style="border-bottom:1px solid var(--border)">';
+  H+='<th rowspan="2" style="padding:7px 8px;text-align:left;font-size:10px;font-weight:700;color:var(--text-3);white-space:nowrap;background:#1a1a1e;border-right:1px solid var(--border);position:sticky;left:0;z-index:2">Date</th>';
+  H+='<th colspan="8" style="padding:5px 6px;text-align:center;font-size:9px;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:.06em;background:#0d1825;border-right:1px solid #1e3a5f">'+utT('Monitoring')+'</th>';
+  H+='<th colspan="9" style="padding:5px 6px;text-align:center;font-size:9px;font-weight:800;color:#f97316;text-transform:uppercase;letter-spacing:.06em;background:#1a0d05;border-right:1px solid #5a2d0c">'+utT('Boiler')+'</th>';
+  H+='<th colspan="4" style="padding:5px 6px;text-align:center;font-size:9px;font-weight:800;color:#a78bfa;text-transform:uppercase;letter-spacing:.06em;background:#120d1a;border-right:1px solid var(--border)">'+utT('Chiller')+'</th>';
+  H+='<th rowspan="2" style="padding:7px 6px;text-align:right;font-size:10px;font-weight:700;color:var(--text-3);white-space:nowrap;background:#1a1a1e">By</th>';
+  H+='</tr>';
+  H+='<tr style="border-bottom:2px solid var(--border)">';
+  // Monitoring cols
+  ['W3"','W5"','Gas','Elec','Boil','Past','CT','Steam'].forEach(function(h,i){
+    H+='<th style="padding:5px 5px;text-align:right;font-size:9px;font-weight:600;color:#60a5fa;white-space:nowrap;background:#0d1825'+(i===7?';border-right:1px solid #1e3a5f':'')+'">'+(h)+'</th>';
   });
-  H+='</tr></thead><tbody>';
+  // Boiler cols
+  ['C1','C2','C3','C4','C5','C6','C7','C8','Stk'].forEach(function(h,i){
+    H+='<th style="padding:5px 5px;text-align:right;font-size:9px;font-weight:600;color:#f97316;white-space:nowrap;background:#1a0d05'+(i===8?';border-right:1px solid #5a2d0c':'')+'">'+(h)+'</th>';
+  });
+  // Chiller cols
+  ['Start','Proc°','WCell°','Gly%'].forEach(function(h,i){
+    H+='<th style="padding:5px 5px;text-align:right;font-size:9px;font-weight:600;color:#a78bfa;white-space:nowrap;background:#120d1a'+(i===3?';border-right:1px solid var(--border)':'')+'">'+(h)+'</th>';
+  });
+  H+='</tr>';
+  H+='</thead><tbody>';
   if(!utilLogs.length){
     H+='<tr><td colspan="23" style="text-align:center;padding:20px;color:var(--text-3)">'+utT('No readings yet')+'</td></tr>';
   }else{
-    utilLogs.slice(0,20).forEach(function(r){
-      H+='<tr style="border-bottom:1px solid var(--surface-2)">';
-      H+='<td style="padding:6px;color:#aaa;text-align:left;white-space:nowrap">'+r.date+'</td>';
-      [r.w3,r.w5,r.gas,r.elec,r.past,r.cool,r.boil,r.steam,r.bc1,r.bc2,r.bc3,r.bc4,r.bc5,r.bc6,r.bc7,r.bc8,r.stack,r.chstart,r.chproc,r.warmcell,r.ch_glycol].forEach(function(v){
-        H+='<td style="padding:6px;color:#ccc;text-align:right">'+(v!=null?v:'')+'</td>';
+    utilLogs.slice(0,20).forEach(function(r,ri){
+      var bg=ri%2===0?'':'background:rgba(255,255,255,.02)';
+      H+='<tr style="border-bottom:1px solid rgba(255,255,255,.04);'+bg+'">';
+      H+='<td style="padding:6px 8px;color:#ccc;text-align:left;white-space:nowrap;position:sticky;left:0;background:'+(ri%2===0?'var(--surface)':'#1d1d22')+';border-right:1px solid var(--border);z-index:1">'+r.date+'</td>';
+      // Monitoring: w3,w5,gas,elec,boil,past,cool,steam
+      [r.w3,r.w5,r.gas,r.elec,r.boil,r.past,r.cool,r.steam].forEach(function(v,ci){
+        H+='<td style="padding:5px 5px;color:'+(v!=null?'#93c5fd':'var(--text-3)')+';text-align:right'+(ci===7?';border-right:1px solid #1e3a5f':'')+'">'+(v!=null?v:'\u2013')+'</td>';
       });
-      H+='<td style="padding:6px;color:var(--text-3);text-align:right">'+r.by+'</td>';
+      // Boiler: bc1..bc8, stack
+      [r.bc1,r.bc2,r.bc3,r.bc4,r.bc5,r.bc6,r.bc7,r.bc8,r.stack].forEach(function(v,ci){
+        H+='<td style="padding:5px 5px;color:'+(v!=null?'#fdba74':'var(--text-3)')+';text-align:right'+(ci===8?';border-right:1px solid #5a2d0c':'')+'">'+(v!=null?v:'\u2013')+'</td>';
+      });
+      // Chiller: chstart,chproc,warmcell,ch_glycol
+      [r.chstart,r.chproc,r.warmcell,r.ch_glycol].forEach(function(v,ci){
+        H+='<td style="padding:5px 5px;color:'+(v!=null?'#c4b5fd':'var(--text-3)')+';text-align:right'+(ci===3?';border-right:1px solid var(--border)':'')+'">'+(v!=null?v:'\u2013')+'</td>';
+      });
+      H+='<td style="padding:5px 6px;color:var(--text-3);text-align:right;white-space:nowrap">'+r.by+'</td>';
       H+='</tr>';
     });
   }
@@ -4138,6 +4165,18 @@ function renderFlDash(){
   H+='<div style="flex:1"></div>';
   H+='<button onclick="flDashCSV()" style="background:#fff;color:#000;border:none;font-size:13px;font-weight:800;padding:10px 16px;border-radius:9px;cursor:pointer">\u2B07 Download month (CSV)</button>';
   H+='</div>';
+  // ── Tools panel ──
+  H+='<div style="margin-bottom:18px">';
+  H+='<div style="font-size:11px;font-weight:700;color:#8b8b94;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Tools</div>';
+  H+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px">';
+  H+='<button onclick="openForkliftMenu()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">\uD83D\uDE9C Forklift Inspection</button>';
+  H+='<button onclick="openForkliftQR()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">&#9783; Print QR Codes</button>';
+  H+='</div>';
+  H+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">';
+  H+='<button onclick="flDashShiftReport()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">&#128196; Shift Report</button>';
+  H+='<button id="fldash-csv-btn" onclick="flDashWorkLogCSV(this)" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">\u2B07 Work Log CSV</button>';
+  H+='</div></div>';
+  H+='<div style="border-top:1px solid #23262e;margin-bottom:16px"></div>';
   H+='<div id="fldash-body"><div style="text-align:center;color:#8b8b94;padding:50px;font-size:14px">Loading inspections\u2026</div></div>';
   H+='</div></div>';
   document.body.insertAdjacentHTML('beforeend',H);
@@ -4200,10 +4239,115 @@ function flDashCSV(){
   document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
 }
 
+// ── Supervisor dashboard: Work Log CSV export (no login required) ──
+function flDashWorkLogCSV(btn){
+  if(btn){btn.disabled=true;btn.textContent='Fetching\u2026';}
+  var m=FLDASH_MONTH||new Date();
+  var first=new Date(m.getFullYear(),m.getMonth(),1).toISOString();
+  var next=new Date(m.getFullYear(),m.getMonth()+1,1).toISOString();
+  sbFetch('bbw_worklog?select=*&date=gte.'+first.slice(0,10)+'&date=lt.'+next.slice(0,10)+'&order=date.asc,logged_at.asc&limit=5000')
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){
+      if(!rows||!rows.length){if(btn){btn.disabled=false;btn.textContent='\u2B07 Work Log CSV';}alert('No work log entries for '+flDashMonLabel(m)+'.');return;}
+      function esc(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+      var cols=['Date','Shift','Technician','Asset','Code','Type','Issue','Description','Start','End','DT hrs','Part','Qty','Priority'];
+      var lines=[cols.join(',')];
+      rows.forEach(function(e){lines.push([esc(e.date),esc(e.shift),esc(e.who||''),esc(e.asset_name||''),esc(e.asset_code||''),esc(e.type||''),esc(e.issue||''),esc(e.description||''),esc(e.start_time||''),esc(e.end_time||''),e.downtime_hrs||0,esc(e.part_name||''),esc(e.part_qty||''),esc(e.priority||'')].join(','));});
+      var mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      var blob=new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+      var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+      a.download='BBW_WorkLog_'+mn[m.getMonth()]+m.getFullYear()+'.csv';
+      document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
+      if(btn){btn.disabled=false;btn.textContent='\u2B07 Work Log CSV';}
+    })
+    .catch(function(){if(btn){btn.disabled=false;btn.textContent='\u2B07 Work Log CSV';}alert('Could not fetch work log data.');});
+}
+
+// ── Supervisor dashboard: Shift Report picker (no login required) ──
+function flDashShiftReport(){
+  var now=new Date(),h=now.getHours();
+  var todayStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  var yest=new Date(now.getTime()-86400000);
+  var yesterStr=yest.getFullYear()+'-'+String(yest.getMonth()+1).padStart(2,'0')+'-'+String(yest.getDate()).padStart(2,'0');
+  var opts=[];
+  if(h>=19||h<7)opts.push({label:'Tonight Night Shift ('+todayStr+' 19:00-07:00)',date:todayStr,shift:'Night'});
+  opts.push({label:'Today Day Shift ('+todayStr+' 07:00-19:00)',date:todayStr,shift:'Day'});
+  opts.push({label:'Yesterday Night Shift ('+yesterStr+' 19:00-07:00)',date:yesterStr,shift:'Night'});
+  opts.push({label:'Yesterday Day Shift ('+yesterStr+' 07:00-19:00)',date:yesterStr,shift:'Day'});
+  var ex=gid('fldash-rpt-modal');if(ex)ex.remove();
+  var H='<div id="fldash-rpt-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9600;display:flex;align-items:center;justify-content:center;padding:18px" onclick="if(event.target===this)this.remove()">';
+  H+='<div style="background:#111317;border:1px solid #2a2d35;border-radius:16px;width:100%;max-width:380px;overflow:hidden">';
+  H+='<div style="padding:16px 18px;border-bottom:1px solid #23262e"><div style="font-size:16px;font-weight:800;color:#fff">Shift Report</div><div style="font-size:12px;color:#8b8b94;margin-top:2px">Select the shift period to view</div></div>';
+  H+='<div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">';
+  opts.forEach(function(opt,i){
+    H+='<button onclick="document.getElementById(\'fldash-rpt-modal\').remove();flDashLoadShiftReport(\''+opt.date+'\',\''+opt.shift+'\')" style="width:100%;padding:13px 14px;background:#16181d;color:#e7e7ea;border:1px solid #2a2d35;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;text-align:left">'+opt.label+'</button>';
+  });
+  H+='<button onclick="document.getElementById(\'fldash-rpt-modal\').remove()" style="width:100%;padding:10px;background:none;color:#8b8b94;border:none;font-size:13px;cursor:pointer">Cancel</button>';
+  H+='</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+
+function flDashLoadShiftReport(date,shift){
+  var ex=gid('fldash-rpt-modal');if(ex)ex.remove();
+  var loadEl=document.createElement('div');
+  loadEl.id='fldash-rpt-loading';
+  loadEl.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9600;display:flex;align-items:center;justify-content:center;color:#e7e7ea;font-size:15px;font-family:-apple-system,sans-serif';
+  loadEl.textContent='Loading shift data\u2026';
+  document.body.appendChild(loadEl);
+  sbFetch('bbw_worklog?select=*&date=eq.'+date+'&shift=eq.'+encodeURIComponent(shift)+'&order=logged_at.asc&limit=2000')
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){
+      var l=gid('fldash-rpt-loading');if(l)l.remove();
+      rows=rows||[];
+      var shiftLabel=shift==='Day'?'Day Shift (07:00\u201319:00)':'Night Shift (19:00\u201307:00)';
+      var techs=[...new Set(rows.map(function(e){return e.who;}))].filter(Boolean);
+      var totalDT=rows.filter(function(e){return e.machine_down==='yes'||e.machine_down==='partial';}).reduce(function(a,e){return a+(+e.downtime_hrs||0);},0);
+      var totalCO=rows.filter(function(e){return e.co_mins>0;}).reduce(function(a,e){return a+(+e.co_mins||0);},0);
+      var done=rows.filter(function(e){return /done|pm|completed/.test(e.type);});
+      var ongoing=rows.filter(function(e){return e.type==='ongoing';});
+      var issues=rows.filter(function(e){return /issue|pending/.test(e.type);});
+      var parts=rows.filter(function(e){return /part/.test(e.type);});
+      var notes=rows.filter(function(e){return e.type==='note';});
+      var W=window.open('','_blank','width=800,height=900');
+      if(!W){alert('Please allow pop-ups to generate the report.');return;}
+      function san(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+      function rows2(items,cols){
+        if(!items.length)return '<tr><td colspan="'+cols+'" style="padding:10px;color:#999;font-style:italic">None this shift</td></tr>';
+        return items.map(function(e){
+          var descCell=(e.issue?'<div style="font-weight:700;margin-bottom:2px">'+san(e.issue)+'</div>':'')+(e.description?'<div style="color:#555;line-height:1.5">'+san(e.description)+'</div>':'');
+          if(cols===4)return '<tr><td style="padding:8px 10px;border-bottom:1px solid #eee;font-weight:600">'+san(e.asset_name||'General')+(e.asset_code?' <span style="color:#999;font-size:11px">('+e.asset_code+')</span>':'')+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee">'+descCell+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee;color:#777;white-space:nowrap">'+(e.start_time?e.start_time+(e.end_time?'-'+e.end_time:''):'')+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee;color:#777">'+san(e.who||'')+'</td></tr>';
+          return '<tr><td style="padding:8px 10px;border-bottom:1px solid #eee;font-weight:600">'+san(e.asset_name||'General')+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee">'+descCell+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee;color:#777">'+san(e.who||'')+'</td></tr>';
+        }).join('');
+      }
+      function sec(title,color,headers,items,cols){
+        return '<div style="margin-bottom:28px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="width:4px;height:22px;background:'+color+';border-radius:2px"></div><h3 style="margin:0;font-size:15px;font-weight:700;color:#111">'+title+'</h3><span style="font-size:13px;color:#999">('+items.length+')</span></div><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'+headers.map(function(h){return '<th style="padding:9px 10px;text-align:left;background:#f8f8f8;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#777;border-bottom:2px solid '+color+'">'+h+'</th>';}).join('')+'</tr></thead><tbody>'+rows2(items,cols)+'</tbody></table></div>';
+      }
+      var H='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BBW Shift Report</title><style>body{font-family:-apple-system,sans-serif;margin:0;padding:32px;color:#111}@media print{.noprint{display:none!important}}</style></head><body>';
+      H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:20px;border-bottom:2px solid #111;margin-bottom:24px">';
+      H+='<div><h1 style="margin:0;font-size:22px;font-weight:800">Shift Handover Report</h1><div style="font-size:14px;color:#777;margin-top:6px">'+shiftLabel+' &bull; '+date+'</div></div>';
+      H+='<div style="text-align:right"><div style="font-size:13px;color:#777;margin-bottom:4px">Technicians</div><div style="font-size:14px;font-weight:600">'+(techs.join(', ')||'\u2014')+'</div></div></div>';
+      H+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px">';
+      H+='<div style="background:#f5f5f7;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:800">'+rows.length+'</div><div style="font-size:11px;color:#777;text-transform:uppercase;margin-top:2px">Total Tasks</div></div>';
+      H+='<div style="background:#fef2f2;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:800;color:#dc2626">'+issues.length+'</div><div style="font-size:11px;color:#777;text-transform:uppercase;margin-top:2px">Pending Issues</div></div>';
+      H+='<div style="background:#fff7ed;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:800;color:#ea580c">'+parts.length+'</div><div style="font-size:11px;color:#777;text-transform:uppercase;margin-top:2px">Parts Needed</div></div>';
+      H+='<div style="background:#fffbeb;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:800;color:#d97706">'+totalDT.toFixed(1)+'h</div><div style="font-size:11px;color:#777;text-transform:uppercase;margin-top:2px">Downtime</div></div>';
+      H+='</div>';
+      H+=(issues.length?sec('Pending Issues \u2014 Next Shift Must Action','#dc2626',['Asset','Description','Technician'],issues,3):'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px;margin-bottom:28px;font-weight:600;color:#16a34a">\u2713 No pending issues \u2014 clean handover</div>');
+      H+=sec('Work Completed This Shift','#16a34a',['Asset','Description','Time','Technician'],done,4);
+      if(ongoing.length)H+=sec('In Progress','#d97706',['Asset','Description','Time','Technician'],ongoing,4);
+      if(parts.length)H+=sec('Parts to Order','#ea580c',['Part Name','Asset','Qty','Requested By'],parts,4);
+      if(notes.length)H+=sec('Notes','#6b7280',['Asset','Note','Time','Technician'],notes,4);
+      H+='<div class="noprint" style="text-align:center;margin-top:32px"><button onclick="window.print()" style="background:#111;color:#fff;border:none;padding:12px 28px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">Print / Save PDF</button></div>';
+      H+='</body></html>';
+      W.document.open();W.document.write(H);W.document.close();
+    })
+    .catch(function(){var l=gid('fldash-rpt-loading');if(l)l.remove();alert('Could not load shift data.');});
+}
+
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-24w';
+  var BUILD='2026-06-27y';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -5195,7 +5339,7 @@ function schedMonthCardHTML(){
     if(paceDaily>0&&tot>0){ var pp=tot/paceDaily*100; paceCol=schedEffColor(pp); }
     H+='<div onclick="openDayEditor(\''+ds+'\')" style="position:relative;min-height:60px;background:'+(inM?'var(--surface-2)':'transparent')+';border:1px solid '+(isTod?'#60a5fa':'var(--border)')+';border-radius:8px;padding:4px 3px 8px;cursor:pointer;opacity:'+(inM?'1':'.38')+';overflow:hidden">';
     H+='<div style="font-size:9.5px;font-weight:800;color:'+(isTod?'#60a5fa':'var(--text-2)')+';line-height:1">'+dt.getDate()+'</div>';
-    if(vac.length)H+='<div style="position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:#e879f9"></div>';
+    if(vac.length)H+='<div style="position:absolute;top:2px;right:2px;background:#9333ea;color:#fff;font-size:7px;font-weight:800;letter-spacing:.03em;border-radius:3px;padding:1px 3px;line-height:1.4">VAC</div>';
     H+='<div style="display:flex;flex-direction:column;gap:2px;margin-top:3px">';
     if(dn.length)H+='<div style="font-size:8px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,.14);border-radius:3px;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35">'+rqEsc(schedMiniLabel(dn))+'</div>';
     if(nn.length)H+='<div style="font-size:8px;font-weight:700;color:#60a5fa;background:rgba(96,165,250,.14);border-radius:3px;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35">'+rqEsc(schedMiniLabel(nn))+'</div>';
@@ -5207,7 +5351,7 @@ function schedMonthCardHTML(){
   H+='<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:11px;font-size:9px;color:var(--text-3)">';
   H+='<span><span style="display:inline-block;width:8px;height:8px;background:#f59e0b;border-radius:2px;margin-right:3px"></span>'+schT('Day')+'</span>';
   H+='<span><span style="display:inline-block;width:8px;height:8px;background:#60a5fa;border-radius:2px;margin-right:3px"></span>'+schT('Night')+'</span>';
-  H+='<span><span style="display:inline-block;width:8px;height:8px;background:#e879f9;border-radius:50%;margin-right:3px"></span>'+schT('Vacation')+'</span>';
+  H+='<span><span style="display:inline-block;background:#9333ea;color:#fff;font-size:7px;font-weight:800;border-radius:3px;padding:1px 3px;margin-right:3px;line-height:1.4">VAC</span>'+schT('Vacation')+'</span>';
   H+='<span><span style="display:inline-block;width:8px;height:3px;background:#34d399;border-radius:2px;margin-right:3px;vertical-align:middle"></span>'+schT('Efficiency')+'</span>';
   H+='</div>';
   if(isEditor())H+='<div style="font-size:10px;color:var(--text-3);margin-top:8px;text-align:center">'+schT('Tap any day to assign shifts, vacation & production')+'</div>';
