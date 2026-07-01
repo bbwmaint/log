@@ -4508,7 +4508,7 @@ function flDashLoadShiftReport(date,shift){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-30a';
+  var BUILD='2026-07-01a';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -5426,6 +5426,7 @@ var SCHED_UK={
   'Apply to a date range':'\u0417\u0430\u0441\u0442\u043e\u0441\u0443\u0432\u0430\u0442\u0438 \u0434\u043e \u0434\u0456\u0430\u043f\u0430\u0437\u043e\u043d\u0443 \u0434\u0430\u0442',
   'Uses the picks above \u2014 e.g. set a weekly rotation, or mark a week-long vacation in one go.':'\u0412\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0454 \u0432\u0438\u0431\u0456\u0440 \u0432\u0438\u0449\u0435 \u2014 \u043d\u0430\u043f\u0440. \u0442\u0438\u0436\u043d\u0435\u0432\u0430 \u0440\u043e\u0442\u0430\u0446\u0456\u044f \u0430\u0431\u043e \u0442\u0438\u0436\u0434\u0435\u043d\u044c \u0432\u0456\u0434\u043f\u0443\u0441\u0442\u043a\u0438 \u0437\u0430 \u043e\u0434\u0438\u043d \u0440\u0430\u0437.',
   'Apply shifts':'\u0417\u0430\u0441\u0442\u043e\u0441\u0443\u0432\u0430\u0442\u0438 \u0437\u043c\u0456\u043d\u0438','Add vacation':'\u0414\u043e\u0434\u0430\u0442\u0438 \u0432\u0456\u0434\u043f\u0443\u0441\u0442\u043a\u0443','Clear vacation':'\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u0438 \u0432\u0456\u0434\u043f\u0443\u0441\u0442\u043a\u0443',
+  'Holiday (closed)':'\u0421\u0432\u044f\u0442\u043e (\u0437\u0430\u043a\u0440\u0438\u0442\u043e)','Holiday (plant closed)':'\u0421\u0432\u044f\u0442\u043e (\u0437\u0430\u0432\u043e\u0434 \u0437\u0430\u043a\u0440\u0438\u0442\u0438\u0439)','Plant closed \u2014 no crew expected':'\u0417\u0430\u0432\u043e\u0434 \u0437\u0430\u043a\u0440\u0438\u0442\u0438\u0439 \u2014 \u0437\u043c\u0456\u043d\u0438 \u043d\u0435\u043c\u0430\u0454','e.g. Canada Day \u2014 leave blank if open':'\u043d\u0430\u043f\u0440. \u0414\u0435\u043d\u044c \u041a\u0430\u043d\u0430\u0434\u0438 \u2014 \u0437\u0430\u043b\u0438\u0448\u0442\u0435 \u043f\u043e\u0440\u043e\u0436\u043d\u0456\u043c, \u044f\u043a\u0449\u043e \u0432\u0456\u0434\u043a\u0440\u0438\u0442\u043e','Apply holiday':'\u0417\u0430\u0441\u0442\u043e\u0441\u0443\u0432\u0430\u0442\u0438 \u0441\u0432\u044f\u0442\u043e',
   'Sick leave':'\u041b\u0456\u043a\u0430\u0440\u043d\u044f\u043d\u0438\u0439','Sick / Medical leave':'\u041b\u0456\u043a\u0430\u0440\u043d\u044f\u043d\u0438\u0439 / \u041c\u0435\u0434\u0438\u0447\u043d\u0430 \u0432\u0456\u0434\u043f\u0443\u0441\u0442\u043a\u0430','Add sick leave':'\u0414\u043e\u0434\u0430\u0442\u0438 \u043b\u0456\u043a\u0430\u0440\u043d\u044f\u043d\u0438\u0439','Clear sick leave':'\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u0438 \u043b\u0456\u043a\u0430\u0440\u043d\u044f\u043d\u0438\u0439',
   'Read-only \u2014 only schedulers can edit':'\u041b\u0438\u0448\u0435 \u0434\u043b\u044f \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434\u0443 \u2014 \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u043c\u043e\u0436\u0443\u0442\u044c \u043b\u0438\u0448\u0435 \u043f\u043b\u0430\u043d\u0443\u0432\u0430\u043b\u044c\u043d\u0438\u043a\u0438',
   'Production':'\u0412\u0438\u0440\u043e\u0431\u043d\u0438\u0446\u0442\u0432\u043e','cans':'\u0431\u0430\u043d\u043e\u043a',
@@ -5501,12 +5502,13 @@ function schedMonthCardHTML(){
     var dt=new Date(startGrid.getFullYear(),startGrid.getMonth(),startGrid.getDate()+i);
     var ds=localDateStr(dt); var inM=dt.getMonth()===m; var isTod=ds===todayStr;
     var sc=techSchedule[ds]||{};
-    var dn=schedNames(sc.day), nn=schedNames(sc.night), vac=sc.vac||[], sick=sc.sick||[];
+    var dn=schedNames(sc.day), nn=schedNames(sc.night), vac=sc.vac||[], sick=sc.sick||[], hol=sc.holiday||'';
     var dC=dHLof(sc), nC=nHLof(sc), tot=dC+nC;
     var paceCol='#34d399';
     if(paceDaily>0&&tot>0){ var pp=tot/paceDaily*100; paceCol=schedEffColor(pp); }
     H+='<div onclick="openDayEditor(\''+ds+'\')" style="position:relative;min-height:60px;background:'+(inM?'var(--surface-2)':'transparent')+';border:1px solid '+(isTod?'#60a5fa':'var(--border)')+';border-radius:8px;padding:4px 3px 8px;cursor:pointer;opacity:'+(inM?'1':'.38')+';overflow:hidden">';
     H+='<div style="font-size:9.5px;font-weight:800;color:'+(isTod?'#60a5fa':'var(--text-2)')+';line-height:1">'+dt.getDate()+'</div>';
+    if(hol)H+='<div title="'+rqEsc(hol)+'" style="margin-top:2px;background:#d97706;color:#fff;font-size:7.5px;font-weight:800;letter-spacing:.02em;border-radius:3px;padding:1px 3px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+rqEsc(hol)+'</div>';
     if(vac.length)H+='<div style="position:absolute;top:2px;right:2px;background:#9333ea;color:#fff;font-size:7px;font-weight:800;letter-spacing:.03em;border-radius:3px;padding:1px 3px;line-height:1.4">VAC</div>';
     if(sick.length)H+='<div style="position:absolute;top:'+(vac.length?'15px':'2px')+';right:2px;background:#16a34a;color:#fff;font-size:7px;font-weight:800;letter-spacing:.03em;border-radius:3px;padding:1px 3px;line-height:1.4">SICK</div>';
     H+='<div style="display:flex;flex-direction:column;gap:2px;margin-top:3px">';
@@ -5522,6 +5524,7 @@ function schedMonthCardHTML(){
   H+='<span><span style="display:inline-block;width:8px;height:8px;background:#60a5fa;border-radius:2px;margin-right:3px"></span>'+schT('Night')+'</span>';
   H+='<span><span style="display:inline-block;background:#9333ea;color:#fff;font-size:7px;font-weight:800;border-radius:3px;padding:1px 3px;margin-right:3px;line-height:1.4">VAC</span>'+schT('Vacation')+'</span>';
   H+='<span><span style="display:inline-block;background:#16a34a;color:#fff;font-size:7px;font-weight:800;border-radius:3px;padding:1px 3px;margin-right:3px;line-height:1.4">SICK</span>'+schT('Sick leave')+'</span>';
+  H+='<span><span style="display:inline-block;background:#d97706;color:#fff;font-size:7px;font-weight:800;border-radius:3px;padding:1px 3px;margin-right:3px;line-height:1.4">HOL</span>'+schT('Holiday (closed)')+'</span>';
   H+='<span><span style="display:inline-block;width:8px;height:3px;background:#34d399;border-radius:2px;margin-right:3px;vertical-align:middle"></span>'+schT('Efficiency')+'</span>';
   H+='</div>';
   if(isEditor())H+='<div style="font-size:10px;color:var(--text-3);margin-top:8px;text-align:center">'+schT('Tap any day to assign shifts, vacation & production')+'</div>';
@@ -5605,7 +5608,7 @@ function openDayEditor(ds){
   closeDayEditor();
   schedSelDate=ds;
   var sc=techSchedule[ds]||{};
-  schedEdit={day:schedNames(sc.day),night:schedNames(sc.night),vac:(sc.vac||[]).slice(),sick:(sc.sick||[]).slice(),
+  schedEdit={day:schedNames(sc.day),night:schedNames(sc.night),vac:(sc.vac||[]).slice(),sick:(sc.sick||[]).slice(),holiday:(sc.holiday||''),
     dHL:(sc.dHL!=null?sc.dHL:(sc.dCans!=null?Math.round(cansToHL(sc.dCans)*10)/10:'')),
     nHL:(sc.nHL!=null?sc.nHL:(sc.nCans!=null?Math.round(cansToHL(sc.nCans)*10)/10:'')),
     note:(sc.comment||'')};
@@ -5616,6 +5619,7 @@ function openDayEditor(ds){
   H+='<div style="background:var(--surface);width:100%;max-width:560px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:16px 16px 28px;border:1px solid var(--border);box-sizing:border-box">';
   H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:16px;font-weight:800;color:#fff;text-transform:capitalize">'+title+'</div><button onclick="closeDayEditor()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:32px;height:32px;border-radius:9px;font-size:17px;cursor:pointer">\u00D7</button></div>';
   if(!canEdit){
+    if(schedEdit.holiday)H+='<div style="background:rgba(217,119,6,.14);border:1px solid rgba(217,119,6,.4);border-radius:9px;padding:9px 11px;margin-bottom:12px"><span style="display:inline-block;background:#d97706;color:#fff;font-size:8px;font-weight:800;border-radius:3px;padding:1px 5px;margin-right:7px;vertical-align:middle">HOLIDAY</span><span style="font-size:13.5px;color:#fff;font-weight:600">'+rqEsc(schedEdit.holiday)+'</span><div style="font-size:11px;color:var(--text-3);margin-top:4px">'+schT('Plant closed \u2014 no crew expected')+'</div></div>';
     H+=schedReadRow('\u2600\uFE0F '+schT('Day shift'),'#f59e0b',schedEdit.day);
     H+=schedReadRow('\uD83C\uDF19 '+schT('Night shift'),'#60a5fa',schedEdit.night);
     H+=schedReadRow(schT('Vacation'),'#e879f9',schedEdit.vac);
@@ -5628,6 +5632,8 @@ function openDayEditor(ds){
     if(sc.comment)H+='<div style="margin-top:11px;font-size:13px;color:var(--text-2)">'+rqEsc(sc.comment)+'</div>';
     H+='<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:18px">'+schT('Read-only \u2014 only schedulers can edit')+'</div>';
   }else{
+    H+='<div style="font-size:11px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">\uD83C\uDFD6\uFE0F '+schT('Holiday (plant closed)')+'</div>';
+    H+='<input id="se-holiday" value="'+rqEsc(schedEdit.holiday)+'" oninput="schedEdit.holiday=this.value" placeholder="'+schT('e.g. Canada Day \u2014 leave blank if open')+'" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 12px;font-size:14px;color:#fff;outline:none;margin-bottom:16px">';
     H+='<div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">\u2600\uFE0F '+schT('Day shift')+'</div>';
     H+='<div id="se-day" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px">'+schedChipsHTML('day')+'</div>';
     H+='<div style="font-size:11px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">\uD83C\uDF19 '+schT('Night shift')+'</div>';
@@ -5655,6 +5661,7 @@ function openDayEditor(ds){
     H+='<button onclick="schedApplyRange(\'clearvac\')" style="flex:1;min-width:108px;padding:10px;background:transparent;border:1px solid var(--border-2);color:var(--text-2);font-size:12.5px;font-weight:600;border-radius:9px;cursor:pointer">'+schT('Clear vacation')+'</button>';
     H+='<button onclick="schedApplyRange(\'sick\')" style="flex:1;min-width:108px;padding:10px;background:rgba(74,222,128,.14);border:1px solid rgba(74,222,128,.4);color:#4ade80;font-size:12.5px;font-weight:600;border-radius:9px;cursor:pointer">'+schT('Add sick leave')+'</button>';
     H+='<button onclick="schedApplyRange(\'clearsick\')" style="flex:1;min-width:108px;padding:10px;background:transparent;border:1px solid var(--border-2);color:var(--text-2);font-size:12.5px;font-weight:600;border-radius:9px;cursor:pointer">'+schT('Clear sick leave')+'</button>';
+    H+='<button onclick="schedApplyRange(\'holiday\')" style="flex:1;min-width:108px;padding:10px;background:rgba(217,119,6,.14);border:1px solid rgba(217,119,6,.4);color:#f59e0b;font-size:12.5px;font-weight:600;border-radius:9px;cursor:pointer">'+schT('Apply holiday')+'</button>';
     H+='</div></div>';
   }
   H+='</div></div>';
@@ -5664,6 +5671,7 @@ function openDayEditor(ds){
 function schedSaveDay(){
   var ds=schedSelDate; var o=techSchedule[ds]||{};
   o.day=schedJoin(schedEdit.day); o.night=schedJoin(schedEdit.night); o.vac=schedEdit.vac.slice(); o.sick=schedEdit.sick.slice();
+  var _hol=(schedEdit.holiday||'').trim(); if(_hol){o.holiday=_hol;}else{delete o.holiday;}
   if(schedEdit.dHL===''||schedEdit.dHL==null){delete o.dHL;} else {o.dHL=+schedEdit.dHL||0;}
   if(schedEdit.nHL===''||schedEdit.nHL==null){delete o.nHL;} else {o.nHL=+schedEdit.nHL||0;}
   delete o.dCans; delete o.nCans;   // migrated to hL
@@ -5686,6 +5694,7 @@ function schedApplyRange(mode){
     else if(mode==='clearvac'){ if(schedEdit.vac.length){ o.vac=(o.vac||[]).filter(function(n){return schedEdit.vac.indexOf(n)<0;}); } else { o.vac=[]; } }
     else if(mode==='sick'){ var sk=(o.sick||[]).slice(); schedEdit.sick.forEach(function(n){ if(sk.indexOf(n)<0)sk.push(n); }); o.sick=sk; }
     else if(mode==='clearsick'){ if(schedEdit.sick.length){ o.sick=(o.sick||[]).filter(function(n){return schedEdit.sick.indexOf(n)<0;}); } else { o.sick=[]; } }
+    else if(mode==='holiday'){ var _h=(schedEdit.holiday||'').trim(); if(_h){o.holiday=_h;}else{delete o.holiday;} }
     techSchedule[k]=o; count++; guard++; cur.setDate(cur.getDate()+1);
   }
   schedPersist();
@@ -5720,16 +5729,16 @@ function schedMonthlyPDF(){
       styles:{fontSize:11, cellPadding:3},
       columnStyles:{0:{fontStyle:'bold', textColor:[90,90,90], cellWidth:150},1:{textColor:[20,20,20]}}});
     var yy=doc.lastAutoTable.finalY+14;
-    var head=[['Date','Day crew','Night crew','Day hL','Night hL','Total hL','Vacation','Sick']];
+    var head=[['Date','Day crew','Night crew','Day hL','Night hL','Total hL','Vacation','Sick','Holiday']];
     var body=[];
     for(var i=1;i<=st.days;i++){
       var dt=new Date(y,m,i); var k=localDateStr(dt); var sc=techSchedule[k]||{};
       var dh=dHLof(sc), nh=nHLof(sc);
-      if(!sc.day&&!sc.night&&!(sc.vac&&sc.vac.length)&&!(sc.sick&&sc.sick.length)&&!dh&&!nh)continue;
+      if(!sc.day&&!sc.night&&!(sc.vac&&sc.vac.length)&&!(sc.sick&&sc.sick.length)&&!sc.holiday&&!dh&&!nh)continue;
       body.push([dt.toLocaleDateString('en-CA',{month:'short',day:'numeric'}), sc.day||'', sc.night||'',
-        dh?hlNum(dh):'', nh?hlNum(nh):'', (dh+nh)?hlNum(dh+nh):'', (sc.vac&&sc.vac.length)?sc.vac.join(', '):'', (sc.sick&&sc.sick.length)?sc.sick.join(', '):'']);
+        dh?hlNum(dh):'', nh?hlNum(nh):'', (dh+nh)?hlNum(dh+nh):'', (sc.vac&&sc.vac.length)?sc.vac.join(', '):'', (sc.sick&&sc.sick.length)?sc.sick.join(', '):'', sc.holiday||'']);
     }
-    if(!body.length)body.push([{content:'No entries this month',colSpan:8,styles:{halign:'center',textColor:[150,150,150]}}]);
+    if(!body.length)body.push([{content:'No entries this month',colSpan:9,styles:{halign:'center',textColor:[150,150,150]}}]);
     doc.autoTable({startY:yy, head:head, body:body, margin:{left:M,right:M},
       styles:{fontSize:9, cellPadding:4},
       headStyles:{fillColor:[20,20,22], textColor:[255,255,255], fontSize:9},
