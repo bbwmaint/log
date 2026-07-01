@@ -800,6 +800,8 @@ function loginUser(name){
   try{checkUBanner();}catch(e){console.error('checkUBanner',e);}
   // Refresh every 5 minutes (was 30s — that polling was the main egress driver)
   setInterval(function(){if(user)loadFromSB();},300000);
+  // Request polling — check for new scanner/barcode requests every 60 s
+  startReqPolling();
   // Long press chip for admin
   var chip=gid('uchip');
   if(chip){
@@ -809,6 +811,123 @@ function loginUser(name){
     chip.addEventListener('click',function(){if(confirm('Sign out?')){user=null;localStorage.removeItem('bbw_keepuser');showPage('pg-pin');showNames();}});
   }
 }
+
+// ═══════════════ REQUEST POLLING & NOTIFICATIONS ═══════════════
+var REQ_POLL_TIMER=null;
+var REQ_SEEN_KEY='bbw_req_seen'; // localStorage: JSON array of seen request IDs
+
+function reqSeenIds(){try{return JSON.parse(localStorage.getItem(REQ_SEEN_KEY)||'[]');}catch(e){return[];}}
+function reqMarkSeen(ids){try{localStorage.setItem(REQ_SEEN_KEY,JSON.stringify(ids));}catch(e){}}
+
+function updateReqBadge(){
+  var btn=document.getElementById('tab-requests'); if(!btn)return;
+  var seen=reqSeenIds();
+  var newCount=REQUESTS.filter(function(r){return r.status==='new'&&seen.indexOf(''+r.id)<0;}).length;
+  // Remove old badge span
+  var old=btn.querySelector('.req-badge'); if(old)old.remove();
+  if(newCount>0){
+    var sp=document.createElement('span');
+    sp.className='req-badge';
+    sp.textContent=newCount;
+    sp.style.cssText='display:inline-flex;align-items:center;justify-content:center;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:999px;min-width:16px;height:16px;padding:0 4px;margin-left:5px;vertical-align:middle;line-height:1';
+    btn.appendChild(sp);
+  }
+}
+
+function showReqToast(req){
+  var ex=document.getElementById('req-toast'); if(ex)ex.remove();
+  var d=document.createElement('div');
+  d.id='req-toast';
+  var asset=req.asset_name||req.department||'Unknown asset';
+  var reporter=req.reporter||'Unknown';
+  d.style.cssText='position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:8000;background:#1e2533;border:1px solid #ef4444;border-radius:14px;padding:14px 18px;max-width:360px;width:calc(100% - 32px);box-shadow:0 8px 32px rgba(0,0,0,.6);cursor:pointer;font-family:-apple-system,sans-serif';
+  d.innerHTML='<div style="display:flex;align-items:flex-start;gap:10px"><div style="font-size:22px;flex-shrink:0">🔔</div><div style="min-width:0"><div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:3px">New Request — '+escHtml(asset)+'</div><div style="font-size:12px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">From: '+escHtml(reporter)+'</div><div style="font-size:11px;color:#60a5fa;margin-top:6px;font-weight:600">Tap to view →</div></div><button onclick="document.getElementById('req-toast').remove();event.stopPropagation()" style="background:none;border:none;color:#666;font-size:18px;cursor:pointer;padding:0;margin-left:4px;flex-shrink:0;align-self:flex-start">×</button></div>';
+  d.addEventListener('click',function(){
+    showTab('requests');
+    setTimeout(function(){try{openRequest(req.id);}catch(e){}},200);
+    d.remove();
+  });
+  document.body.appendChild(d);
+  setTimeout(function(){if(document.getElementById('req-toast')===d)d.remove();},8000);
+}
+
+function maybePushNotify(req){
+  if(!('Notification' in window))return;
+  if(Notification.permission!=='granted')return;
+  var asset=req.asset_name||req.department||'Scanner request';
+  try{
+    new Notification('BBW Maintenance — New Request',{
+      body:asset+'
+From: '+(req.reporter||'Unknown'),
+      icon:'/log/icon-192.png',
+      tag:'bbw-req-'+req.id,
+      requireInteraction:false
+    });
+  }catch(e){}
+}
+
+function pollRequests(){
+  if(!user)return;
+  var seen=reqSeenIds();
+  sbFetch('bbw_requests?select=id,status,reporter,department,asset_name,asset_code,created_at&status=neq.done&order=created_at.desc&limit=100')
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){
+      rows=rows||[];
+      // Find truly new ones (not in REQUESTS at all, or now status=new and not seen)
+      var newOnes=rows.filter(function(r){
+        if(r.status!=='new')return false;
+        if(seen.indexOf(''+r.id)>=0)return false;
+        // Only alert if it arrived in the last 2 minutes (avoid spamming on first load)
+        var age=(Date.now()-new Date(r.created_at).getTime())/1000;
+        return age<120;
+      });
+      // Merge into REQUESTS
+      rows.forEach(function(nr){
+        var idx=REQUESTS.findIndex(function(x){return ''+x.id===''+nr.id;});
+        if(idx>=0){REQUESTS[idx]=Object.assign({},REQUESTS[idx],nr);}
+        else{REQUESTS.unshift(nr);}
+      });
+      // Update badge for all unseen new requests
+      updateReqBadge();
+      // Toast + push for each new arrival
+      newOnes.forEach(function(req){
+        showReqToast(req);
+        maybePushNotify(req);
+      });
+    }).catch(function(){});
+}
+
+function startReqPolling(){
+  if(REQ_POLL_TIMER)clearInterval(REQ_POLL_TIMER);
+  // Initial poll after 3s (let loadFromSB settle first), then every 60s
+  setTimeout(function(){
+    pollRequests();
+    REQ_POLL_TIMER=setInterval(pollRequests,60000);
+  },3000);
+}
+
+// Mark all current new requests as seen when tech opens the Requests tab
+function reqMarkAllSeen(){
+  var ids=REQUESTS.filter(function(r){return r.status==='new';}).map(function(r){return ''+r.id;});
+  var seen=reqSeenIds();
+  ids.forEach(function(id){if(seen.indexOf(id)<0)seen.push(id);});
+  reqMarkSeen(seen);
+  updateReqBadge();
+}
+
+// Request push notification permission (called from More tab)
+function requestPushPermission(){
+  if(!('Notification' in window)){alert('Push notifications are not supported in this browser.');return;}
+  if(Notification.permission==='granted'){alert('Push notifications are already enabled.');return;}
+  Notification.requestPermission().then(function(p){
+    if(p==='granted'){alert('Push notifications enabled! You'll get notified when new requests come in.');}
+    else{alert('Permission denied. You can still see the red badge and toast alerts.');}
+    try{renderMore();}catch(e){}
+  });
+}
+
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
 
 // CLOCK
 function updateClock(){
@@ -845,7 +964,7 @@ function showTab(name){
   if(name==='util')renderUtil();
   if(name==='assets')renderAssets();
   if(name==='reports')renderReports();
-  if(name==='requests')renderRequests();
+  if(name==='requests'){renderRequests();try{reqMarkAllSeen();}catch(e){}}
   if(name==='log'){injectPinnedRequests();injectMyPMTasks();}
   if(name==='schedule')renderSchedule();
   if(name==='dash')renderDashboard();
@@ -1548,7 +1667,7 @@ function requestSubmitted(){
 
 // ---------- In-app inbox ----------
 function loadRequests(){
-  return sbFetch('bbw_requests?select=*&order=created_at.desc').then(function(r){return r.json();}).then(function(rows){ REQUESTS=Array.isArray(rows)?rows:[]; }).catch(function(){ REQUESTS=[]; });
+  return sbFetch('bbw_requests?select=*&order=created_at.desc').then(function(r){return r.json();}).then(function(rows){ REQUESTS=Array.isArray(rows)?rows:[]; try{updateReqBadge();}catch(e){} }).catch(function(){ REQUESTS=[]; });
 }
 function renderRequests(){
   var el=gid('pane-requests'); if(!el)return;
@@ -1801,7 +1920,7 @@ function resetCMMSSchedule(){
     }).catch(function(e){alert('PMs reset partly failed: '+e.message);});
   }).catch(function(e){alert('Reset failed: '+e.message);});
 }
-function drawRequests(){
+function drawRequests(){try{updateReqBadge();}catch(e){}
   var el=gid('pane-requests'); if(!el)return;
   var open=REQUESTS.filter(function(r){return r.status!=='done';});
   var done=REQUESTS.filter(function(r){return r.status==='done';});
@@ -2511,10 +2630,12 @@ function renderUtil(){
   function fieldRow(id, label, placeholder, allowNeg){
     var v=today&&today[id]!=null?today[id]:'';
     if(allowNeg){
-      // type=text so mobile keyboards allow the minus sign
+      // type=text with no inputmode = full keyboard on iOS (has minus key).
+      // oninput: strip anything that isn\'t a valid partial number
       return '<div style="min-width:0">'+
         '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</div>'+
-        '<input type="text" inputmode="decimal" id="'+id+'" value="'+v+'" placeholder="'+placeholder+'" pattern="-?[0-9]*\.?[0-9]*" autocomplete="off" '+
+        '<input type="text" inputmode="text" id="'+id+'" value="'+v+'" placeholder="'+placeholder+'" autocomplete="off" autocorrect="off" spellcheck="false" '+
+        'oninput="this.value=this.value.replace(/[^0-9.\\-]/g,\'\').replace(/(\\-.*?)\\-/g,\'$1\').replace(/(\\..*?)\\./g,\'$1\')" '+
         'style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 12px;font-size:15px;color:#fff;outline:none;font-family:ui-monospace,SFMono-Regular,monospace"></div>';
     }
     return '<div style="min-width:0">'+
@@ -2560,15 +2681,15 @@ function renderUtil(){
     fieldRow('cool',utT('Cooling Tower (L)'),'0.00');
 
   var boilerRows=
-    fieldRow('bc1',utT('Coil C1 (°C,true)'),'0')+
-    fieldRow('bc2',utT('Coil C2 (°C,true)'),'0')+
-    fieldRow('bc3',utT('Coil C3 (°C,true)'),'0')+
-    fieldRow('bc4',utT('Coil C4 (°C,true)'),'0')+
-    fieldRow('bc5',utT('Coil C5 (°C,true)'),'0')+
-    fieldRow('bc6',utT('Coil C6 (°C,true)'),'0')+
-    fieldRow('bc7',utT('Coil C7 (°C,true)'),'0')+
-    fieldRow('bc8',utT('Coil C8 (°C,true)'),'0')+
-    fieldRow('stack',utT('Stack Temp (°C,true)'),'0')+
+    fieldRow('bc1',utT('Coil C1 (°C)'),'0',true)+
+    fieldRow('bc2',utT('Coil C2 (°C)'),'0',true)+
+    fieldRow('bc3',utT('Coil C3 (°C)'),'0',true)+
+    fieldRow('bc4',utT('Coil C4 (°C)'),'0',true)+
+    fieldRow('bc5',utT('Coil C5 (°C)'),'0',true)+
+    fieldRow('bc6',utT('Coil C6 (°C)'),'0',true)+
+    fieldRow('bc7',utT('Coil C7 (°C)'),'0',true)+
+    fieldRow('bc8',utT('Coil C8 (°C)'),'0',true)+
+    fieldRow('stack',utT('Stack Temp (°C)'),'0',true)+
     fieldRow('p_alk',utT('P Alkalinity (ppm)'),'0')+
     fieldRow('m_alk',utT('M Alkalinity (ppm)'),'0')+
     fieldRow('oh_alk',utT('OH Alkalinity (ppm)'),'0')+
@@ -2579,8 +2700,8 @@ function renderUtil(){
 
   var chillerRows=
     fieldRow('chstart',utT('Start Count'),'0')+
-    fieldRow('chproc',utT('Process Temp (°C,true)'),'0.0')+
-    fieldRow('warmcell',utT('Warmcell Temp (°C,true)'),'0.0')+
+    fieldRow('chproc',utT('Process Temp (°C)'),'0.0',true)+
+    fieldRow('warmcell',utT('Warmcell Temp (°C)'),'0.0',true)+
     fieldRowLevel('ch_glycol',utT('Glycol Level (%)'),'0.0',100,'%')+
     fieldRow('ch_ph','pH','0.0')+
     fieldRow('ch_purity',utT('Purity (%)'),'0.0');
@@ -4354,12 +4475,18 @@ function flDashLoadShiftReport(date,shift){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-27z';
+  var BUILD='2026-06-28a';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
   H+='<div onclick="dangerTap()" style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace;cursor:default;user-select:none">build '+BUILD+'</div>';
   H+='<button onclick="openForkliftMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDE9C Forklift Inspection</button>';
+  // Push notification enable button
+  var pushSupported=('Notification' in window);
+  var pushStatus=pushSupported?Notification.permission:'unsupported';
+  if(pushSupported&&pushStatus!=='granted'){
+    H+='<button onclick="requestPushPermission()" style="width:100%;padding:12px;margin-bottom:14px;border-radius:12px;border:1px solid #3b82f6;background:rgba(59,130,246,.12);color:#60a5fa;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDD14 Enable Push Notifications for Requests</button>';
+  }
 
   // ── PMs now live in the dedicated CMMS tab; hidden here ──
   if(false){
