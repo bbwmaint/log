@@ -841,7 +841,12 @@ function showReqToast(req){
   var asset=req.asset_name||req.department||'Unknown asset';
   var reporter=req.reporter||'Unknown';
   d.style.cssText='position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:8000;background:#1e2533;border:1px solid #ef4444;border-radius:14px;padding:14px 18px;max-width:360px;width:calc(100% - 32px);box-shadow:0 8px 32px rgba(0,0,0,.6);cursor:pointer;font-family:-apple-system,sans-serif';
-  d.innerHTML='<div style="display:flex;align-items:flex-start;gap:10px"><div style="font-size:22px;flex-shrink:0">🔔</div><div style="min-width:0"><div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:3px">New Request — '+escHtml(asset)+'</div><div style="font-size:12px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">From: '+escHtml(reporter)+'</div><div style="font-size:11px;color:#60a5fa;margin-top:6px;font-weight:600">Tap to view →</div></div><button onclick="document.getElementById('req-toast').remove();event.stopPropagation()" style="background:none;border:none;color:#666;font-size:18px;cursor:pointer;padding:0;margin-left:4px;flex-shrink:0;align-self:flex-start">×</button></div>';
+  var closeBtn=document.createElement('button');
+  closeBtn.textContent='\u00d7';
+  closeBtn.style.cssText='background:none;border:none;color:#666;font-size:18px;cursor:pointer;padding:0;margin-left:4px;flex-shrink:0;align-self:flex-start';
+  closeBtn.onclick=function(ev){ev.stopPropagation();d.remove();};
+  d.innerHTML='<div style="display:flex;align-items:flex-start;gap:10px"><div style="font-size:22px;flex-shrink:0">\uD83D\uDD14</div><div style="min-width:0"><div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:3px">New Request \u2014 '+escHtml(asset)+'</div><div style="font-size:12px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">From: '+escHtml(reporter)+'</div><div style="font-size:11px;color:#60a5fa;margin-top:6px;font-weight:600">Tap to view \u2192</div></div></div>';
+  d.firstChild.appendChild(closeBtn);
   d.addEventListener('click',function(){
     showTab('requests');
     setTimeout(function(){try{openRequest(req.id);}catch(e){}},200);
@@ -857,8 +862,7 @@ function maybePushNotify(req){
   var asset=req.asset_name||req.department||'Scanner request';
   try{
     new Notification('BBW Maintenance — New Request',{
-      body:asset+'
-From: '+(req.reporter||'Unknown'),
+      body:asset+'\nFrom: '+(req.reporter||'Unknown'),
       icon:'/log/icon-192.png',
       tag:'bbw-req-'+req.id,
       requireInteraction:false
@@ -920,7 +924,7 @@ function requestPushPermission(){
   if(!('Notification' in window)){alert('Push notifications are not supported in this browser.');return;}
   if(Notification.permission==='granted'){alert('Push notifications are already enabled.');return;}
   Notification.requestPermission().then(function(p){
-    if(p==='granted'){alert('Push notifications enabled! You'll get notified when new requests come in.');}
+    if(p==='granted'){alert('Push notifications enabled! You will be notified when new requests come in.');}
     else{alert('Permission denied. You can still see the red badge and toast alerts.');}
     try{renderMore();}catch(e){}
   });
@@ -1667,7 +1671,7 @@ function requestSubmitted(){
 
 // ---------- In-app inbox ----------
 function loadRequests(){
-  return sbFetch('bbw_requests?select=*&order=created_at.desc').then(function(r){return r.json();}).then(function(rows){ REQUESTS=Array.isArray(rows)?rows:[]; try{updateReqBadge();}catch(e){} }).catch(function(){ REQUESTS=[]; });
+  return sbFetch('bbw_requests?select=*&order=created_at.desc').then(function(r){return r.json();}).then(function(rows){ REQUESTS=Array.isArray(rows)?rows:[]; try{updateReqTabCount();}catch(e){} }).catch(function(){ REQUESTS=[]; });
 }
 function renderRequests(){
   var el=gid('pane-requests'); if(!el)return;
@@ -1860,7 +1864,7 @@ function resolveFollowup(id, btn){
   try{closeRequestDetail();}catch(_){}
   try{var pane=gid('req-detail-pane'); if(pane&&isDesktop())pane.innerHTML='<div class="md-empty">'+T('req_selectone')+'</div>';}catch(_){}
   try{if(gid('pane-requests'))drawRequests();}catch(_){}
-  try{updateReqBadge();}catch(_){}
+  try{updateReqTabCount();}catch(_){}
   try{updateCmmsBadge();}catch(_){}
   try{toast('Follow-up completed \u2713');}catch(_){}
 }
@@ -1920,7 +1924,7 @@ function resetCMMSSchedule(){
     }).catch(function(e){alert('PMs reset partly failed: '+e.message);});
   }).catch(function(e){alert('Reset failed: '+e.message);});
 }
-function drawRequests(){try{updateReqBadge();}catch(e){}
+function drawRequests(){try{updateReqTabCount();}catch(e){}
   var el=gid('pane-requests'); if(!el)return;
   var open=REQUESTS.filter(function(r){return r.status!=='done';});
   var done=REQUESTS.filter(function(r){return r.status==='done';});
@@ -1985,11 +1989,12 @@ function injectPinnedRequests(){
   var d=document.createElement('div'); d.id='req-pinned'; d.innerHTML=H;
   pane.insertBefore(d, pane.firstChild);
 }
-function updateReqBadge(){
+function updateReqTabCount(){
   var btn=gid('tab-requests'); if(!btn)return;
   var ic=btn.querySelector('.tab-ic'); var icHTML=ic?ic.outerHTML:'';
-  var n=REQUESTS.filter(function(r){return r.status!=='done';}).length + allE.filter(function(e){return e.type==='followup';}).length;
+  var n=REQUESTS.filter(function(r){return r.status!=='done';}).length + (allE?allE.filter(function(e){return e.type==='followup';}).length:0);
   btn.innerHTML=icHTML+T('req_tab')+(n?'<span style="color:#f59e0b;font-weight:800"> '+n+'</span>':'');
+  try{updateReqTabCount();}catch(e){}
 }
 // =================== END WORK REQUESTS MODULE ===================
 
@@ -4475,7 +4480,7 @@ function flDashLoadShiftReport(date,shift){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-06-28a';
+  var BUILD='2026-06-28b';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
