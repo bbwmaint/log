@@ -4247,7 +4247,7 @@ function openForkliftChecklist(unit){
  var op=(typeof user!=='undefined'&&user)?user:'';
  var ist='width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px;color:var(--text);font-size:14px;outline:none;box-sizing:border-box;color-scheme:dark';
  var wst='width:100%;background:#ffffff;border:1px solid #cbd5e1;border-radius:9px;padding:11px;color:#111827;font-size:15px;outline:none;box-sizing:border-box;color-scheme:light';
- var H='<div id="fl-overlay" style="position:fixed;inset:0;background:var(--bg);z-index:9000;overflow-y:auto;-webkit-overflow-scrolling:touch">';
+ var H='<div id="fl-overlay" style="position:fixed;inset:0;background:var(--bg);z-index:99500;overflow-y:auto;-webkit-overflow-scrolling:touch">';
  H+='<div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:13px 15px;display:flex;align-items:center;gap:11px;z-index:5">';
  H+='<button onclick="closeForkliftChecklist()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>';
  H+='<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:#fff">Forklift Pre-Op Inspection</div><div style="font-size:11px;color:var(--text-3)">Electrical Lift Truck checklist</div></div>';
@@ -4354,14 +4354,14 @@ function buildForkliftPDFBlob(unit,d){
 
 function openForkliftMenu(){
  var ex=gid('fl-menu');if(ex)ex.remove();
- var H='<div id="fl-menu" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:700;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">';
- H+='<div style="background:var(--bg);border:1px solid var(--border);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:520px;padding:18px 18px 26px">';
- H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:17px;font-weight:800;color:#fff">Forklift Inspection</div><button onclick="document.getElementById(\'fl-menu\').remove()" class="btn-ghost" style="padding:6px 12px;font-size:13px">Close</button></div>';
- H+='<div style="font-size:12px;color:var(--text-3);margin-bottom:12px">Pick a unit to fill out a pre-operation checklist:</div>';
+ var H='<div id="fl-menu" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99000;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">';
+ H+='<div style="background:#111317;border:1px solid #2a2d35;border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:520px;padding:18px 18px 26px">';
+ H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:17px;font-weight:800;color:#fff">Forklift Inspection</div><button onclick="document.getElementById(\'fl-menu\').remove()" style="padding:6px 12px;font-size:13px;background:#16181d;border:1px solid #2a2d35;color:#c7c7cf;border-radius:8px;cursor:pointer">Close</button></div>';
+ H+='<div style="font-size:12px;color:#8b8b94;margin-bottom:12px">Pick a unit to fill out a pre-operation checklist:</div>';
  H+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">';
- FORKLIFTS.forEach(function(u){H+='<button onclick="document.getElementById(\'fl-menu\').remove();openForkliftChecklist(\''+u+'\')" style="padding:16px 6px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:#fff;font-size:16px;font-weight:800;cursor:pointer">'+u+'</button>';});
+ FORKLIFTS.forEach(function(u){H+='<button onclick="document.getElementById(\'fl-menu\').remove();openForkliftChecklist(\''+u+'\')" style="padding:16px 6px;border-radius:12px;border:1.5px solid #2a2d35;background:#16181d;color:#fff;font-size:16px;font-weight:800;cursor:pointer">'+u+'</button>';});
  H+='</div>';
- H+='<button onclick="document.getElementById(\'fl-menu\').remove();openForkliftQR()" class="btn-ghost" style="width:100%;padding:12px;font-size:13px">&#9783;&nbsp; Print QR codes for all units</button>';
+ H+='<button onclick="document.getElementById(\'fl-menu\').remove();openForkliftQR()" style="width:100%;padding:12px;font-size:13px;background:#16181d;border:1px solid #2a2d35;color:#c7c7cf;border-radius:9px;cursor:pointer">&#9783;&nbsp; Print QR codes for all units</button>';
  H+='</div></div>';
  document.body.insertAdjacentHTML('beforeend',H);
 }
@@ -4486,7 +4486,7 @@ function renderFlDash(){
   H+='<button onclick="openForkliftQR()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">&#9783; Print QR Codes</button>';
   H+='</div>';
   H+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">';
-  H+='<button onclick="flDashShiftReport()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">&#128196; Shift Report</button>';
+  H+='<button onclick="flDashExportRange()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">&#128196; Inspections PDF</button>';
   H+='<button id="fldash-csv-btn" onclick="flDashWorkLogCSV(this)" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">\u2B07 Work Log CSV</button>';
   H+='</div></div>';
   H+='<div style="border-top:1px solid #23262e;margin-bottom:16px"></div>';
@@ -4577,90 +4577,97 @@ function flDashWorkLogCSV(btn){
 }
 
 // ── Supervisor dashboard: Shift Report picker (no login required) ──
-function flDashShiftReport(){
-  var now=new Date(),h=now.getHours();
-  var todayStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
-  var yest=new Date(now.getTime()-86400000);
-  var yesterStr=yest.getFullYear()+'-'+String(yest.getMonth()+1).padStart(2,'0')+'-'+String(yest.getDate()).padStart(2,'0');
-  var opts=[];
-  if(h>=19||h<7)opts.push({label:'Tonight Night Shift ('+todayStr+' 19:00-07:00)',date:todayStr,shift:'Night'});
-  opts.push({label:'Today Day Shift ('+todayStr+' 07:00-19:00)',date:todayStr,shift:'Day'});
-  opts.push({label:'Yesterday Night Shift ('+yesterStr+' 19:00-07:00)',date:yesterStr,shift:'Night'});
-  opts.push({label:'Yesterday Day Shift ('+yesterStr+' 07:00-19:00)',date:yesterStr,shift:'Day'});
-  var ex=gid('fldash-rpt-modal');if(ex)ex.remove();
-  var H='<div id="fldash-rpt-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9600;display:flex;align-items:center;justify-content:center;padding:18px" onclick="if(event.target===this)this.remove()">';
+function flDashExportRange(){
+  var now=new Date();
+  var first=new Date(now.getFullYear(),now.getMonth(),1);
+  function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  var ex=gid('fldash-rng-modal');if(ex)ex.remove();
+  var H='<div id="fldash-rng-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99000;display:flex;align-items:center;justify-content:center;padding:18px" onclick="if(event.target===this)this.remove()">';
   H+='<div style="background:#111317;border:1px solid #2a2d35;border-radius:16px;width:100%;max-width:380px;overflow:hidden">';
-  H+='<div style="padding:16px 18px;border-bottom:1px solid #23262e"><div style="font-size:16px;font-weight:800;color:#fff">Shift Report</div><div style="font-size:12px;color:#8b8b94;margin-top:2px">Select the shift period to view</div></div>';
-  H+='<div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">';
-  opts.forEach(function(opt,i){
-    H+='<button onclick="document.getElementById(\'fldash-rpt-modal\').remove();flDashLoadShiftReport(\''+opt.date+'\',\''+opt.shift+'\')" style="width:100%;padding:13px 14px;background:#16181d;color:#e7e7ea;border:1px solid #2a2d35;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;text-align:left">'+opt.label+'</button>';
-  });
-  H+='<button onclick="document.getElementById(\'fldash-rpt-modal\').remove()" style="width:100%;padding:10px;background:none;color:#8b8b94;border:none;font-size:13px;cursor:pointer">Cancel</button>';
+  H+='<div style="padding:16px 18px;border-bottom:1px solid #23262e"><div style="font-size:16px;font-weight:800;color:#fff">Inspections PDF</div><div style="font-size:12px;color:#8b8b94;margin-top:2px">Pick a date range \u2014 all forklift inspections in that period will be compiled.</div></div>';
+  H+='<div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">';
+  H+='<div><div style="font-size:11px;color:#8b8b94;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">From</div><input type="date" id="fldash-rng-from" value="'+iso(first)+'" style="width:100%;box-sizing:border-box;background:#16181d;border:1px solid #2a2d35;border-radius:9px;padding:11px;color:#fff;font-size:14px;color-scheme:dark"></div>';
+  H+='<div><div style="font-size:11px;color:#8b8b94;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">To</div><input type="date" id="fldash-rng-to" value="'+iso(now)+'" style="width:100%;box-sizing:border-box;background:#16181d;border:1px solid #2a2d35;border-radius:9px;padding:11px;color:#fff;font-size:14px;color-scheme:dark"></div>';
+  H+='<button onclick="flDashRunRange()" style="width:100%;padding:13px;background:#f59e0b;color:#111;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;margin-top:4px">Generate report</button>';
+  H+='<button onclick="document.getElementById(\'fldash-rng-modal\').remove()" style="width:100%;padding:9px;background:none;color:#8b8b94;border:none;font-size:13px;cursor:pointer">Cancel</button>';
   H+='</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',H);
 }
 
-function flDashLoadShiftReport(date,shift){
-  var ex=gid('fldash-rpt-modal');if(ex)ex.remove();
+function flDashRunRange(){
+  var fromV=gid('fldash-rng-from')&&gid('fldash-rng-from').value;
+  var toV=gid('fldash-rng-to')&&gid('fldash-rng-to').value;
+  if(!fromV||!toV){alert('Please pick both dates.');return;}
+  if(fromV>toV){var t=fromV;fromV=toV;toV=t;}
+  var ex=gid('fldash-rng-modal');if(ex)ex.remove();
   var loadEl=document.createElement('div');
-  loadEl.id='fldash-rpt-loading';
-  loadEl.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9600;display:flex;align-items:center;justify-content:center;color:#e7e7ea;font-size:15px;font-family:-apple-system,sans-serif';
-  loadEl.textContent='Loading shift data\u2026';
+  loadEl.id='fldash-rng-loading';
+  loadEl.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:99000;display:flex;align-items:center;justify-content:center;color:#e7e7ea;font-size:15px;font-family:-apple-system,sans-serif';
+  loadEl.textContent='Compiling inspections\u2026';
   document.body.appendChild(loadEl);
-  sbFetch('bbw_worklog?select=*&date=eq.'+date+'&shift=eq.'+encodeURIComponent(shift)+'&order=logged_at.asc&limit=2000')
-    .then(function(r){return r.ok?r.json():[];})
-    .then(function(rows){
-      var l=gid('fldash-rpt-loading');if(l)l.remove();
-      rows=rows||[];
-      var shiftLabel=shift==='Day'?'Day Shift (07:00\u201319:00)':'Night Shift (19:00\u201307:00)';
-      var techs=[...new Set(rows.map(function(e){return e.who;}))].filter(Boolean);
-      var totalDT=rows.filter(function(e){return e.machine_down==='yes'||e.machine_down==='partial';}).reduce(function(a,e){return a+(+e.downtime_hrs||0);},0);
-      var totalCO=rows.filter(function(e){return e.co_mins>0;}).reduce(function(a,e){return a+(+e.co_mins||0);},0);
-      var done=rows.filter(function(e){return /done|pm|completed/.test(e.type);});
-      var ongoing=rows.filter(function(e){return e.type==='ongoing';});
-      var issues=rows.filter(function(e){return /issue|pending/.test(e.type);});
-      var parts=rows.filter(function(e){return /part/.test(e.type);});
-      var notes=rows.filter(function(e){return e.type==='note';});
-      var W=window.open('','_blank','width=800,height=900');
-      if(!W){alert('Please allow pop-ups to generate the report.');return;}
-      function san(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-      function rows2(items,cols){
-        if(!items.length)return '<tr><td colspan="'+cols+'" style="padding:10px;color:#999;font-style:italic">None this shift</td></tr>';
-        return items.map(function(e){
-          var descCell=(e.issue?'<div style="font-weight:700;margin-bottom:2px">'+san(e.issue)+'</div>':'')+(e.description?'<div style="color:#555;line-height:1.5">'+san(e.description)+'</div>':'');
-          if(cols===4)return '<tr><td style="padding:8px 10px;border-bottom:1px solid #eee;font-weight:600">'+san(e.asset_name||'General')+(e.asset_code?' <span style="color:#999;font-size:11px">('+e.asset_code+')</span>':'')+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee">'+descCell+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee;color:#777;white-space:nowrap">'+(e.start_time?e.start_time+(e.end_time?'-'+e.end_time:''):'')+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee;color:#777">'+san(e.who||'')+'</td></tr>';
-          return '<tr><td style="padding:8px 10px;border-bottom:1px solid #eee;font-weight:600">'+san(e.asset_name||'General')+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee">'+descCell+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee;color:#777">'+san(e.who||'')+'</td></tr>';
-        }).join('');
-      }
-      function sec(title,color,headers,items,cols){
-        return '<div style="margin-bottom:28px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="width:4px;height:22px;background:'+color+';border-radius:2px"></div><h3 style="margin:0;font-size:15px;font-weight:700;color:#111">'+title+'</h3><span style="font-size:13px;color:#999">('+items.length+')</span></div><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'+headers.map(function(h){return '<th style="padding:9px 10px;text-align:left;background:#f8f8f8;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#777;border-bottom:2px solid '+color+'">'+h+'</th>';}).join('')+'</tr></thead><tbody>'+rows2(items,cols)+'</tbody></table></div>';
-      }
-      var H='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BBW Shift Report</title><style>body{font-family:-apple-system,sans-serif;margin:0;padding:32px;color:#111}@media print{.noprint{display:none!important}}</style></head><body>';
-      H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:20px;border-bottom:2px solid #111;margin-bottom:24px">';
-      H+='<div><h1 style="margin:0;font-size:22px;font-weight:800">Shift Handover Report</h1><div style="font-size:14px;color:#777;margin-top:6px">'+shiftLabel+' &bull; '+date+'</div></div>';
-      H+='<div style="text-align:right"><div style="font-size:13px;color:#777;margin-bottom:4px">Technicians</div><div style="font-size:14px;font-weight:600">'+(techs.join(', ')||'\u2014')+'</div></div></div>';
-      H+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px">';
-      H+='<div style="background:#f5f5f7;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:800">'+rows.length+'</div><div style="font-size:11px;color:#777;text-transform:uppercase;margin-top:2px">Total Tasks</div></div>';
-      H+='<div style="background:#fef2f2;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:800;color:#dc2626">'+issues.length+'</div><div style="font-size:11px;color:#777;text-transform:uppercase;margin-top:2px">Pending Issues</div></div>';
-      H+='<div style="background:#fff7ed;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:800;color:#ea580c">'+parts.length+'</div><div style="font-size:11px;color:#777;text-transform:uppercase;margin-top:2px">Parts Needed</div></div>';
-      H+='<div style="background:#fffbeb;border-radius:10px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:800;color:#d97706">'+totalDT.toFixed(1)+'h</div><div style="font-size:11px;color:#777;text-transform:uppercase;margin-top:2px">Downtime</div></div>';
-      H+='</div>';
-      H+=(issues.length?sec('Pending Issues \u2014 Next Shift Must Action','#dc2626',['Asset','Description','Technician'],issues,3):'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px;margin-bottom:28px;font-weight:600;color:#16a34a">\u2713 No pending issues \u2014 clean handover</div>');
-      H+=sec('Work Completed This Shift','#16a34a',['Asset','Description','Time','Technician'],done,4);
-      if(ongoing.length)H+=sec('In Progress','#d97706',['Asset','Description','Time','Technician'],ongoing,4);
-      if(parts.length)H+=sec('Parts to Order','#ea580c',['Part Name','Asset','Qty','Requested By'],parts,4);
-      if(notes.length)H+=sec('Notes','#6b7280',['Asset','Note','Time','Technician'],notes,4);
-      H+='<div class="noprint" style="text-align:center;margin-top:32px"><button onclick="window.print()" style="background:#111;color:#fff;border:none;padding:12px 28px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">Print / Save PDF</button></div>';
-      H+='</body></html>';
-      W.document.open();W.document.write(H);W.document.close();
-    })
-    .catch(function(){var l=gid('fldash-rpt-loading');if(l)l.remove();alert('Could not load shift data.');});
+  // Range is inclusive of the "to" day
+  var toNext=new Date(toV+'T00:00:00'); toNext.setDate(toNext.getDate()+1);
+  var toNextStr=toNext.toISOString().slice(0,10);
+  var q='bbw_docs?asset_code=eq.PWRLFT&category=eq.inspections&created_at=gte.'+fromV+'T00:00:00&created_at=lt.'+toNextStr+'T00:00:00&select=filename,folder,uploaded_by,storage_path,created_at&order=created_at.asc&limit=5000';
+  Promise.all([sbFetch(q).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}), flDashLoadFlags()]).then(function(res){
+    var l=gid('fldash-rng-loading');if(l)l.remove();
+    var rows=res[0]||[];
+    var flags=res[1]||{};
+    if(!rows.length){alert('No inspections found between '+fromV+' and '+toV+'.');return;}
+    var W=window.open('','_blank','width=850,height=950');
+    if(!W){alert('Please allow pop-ups to generate the report.');return;}
+    function san(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    // Group by unit
+    var byUnit={};
+    rows.forEach(function(d){var u=d.folder||'?';(byUnit[u]=byUnit[u]||[]).push(d);});
+    var units=Object.keys(byUnit).sort();
+    var flaggedCount=0;
+    function flagFor(d){
+      var u=d.folder||'';
+      var date=(''+(d.created_at||'')).slice(0,10);
+      return flags[u+'|'+date]||null;
+    }
+    rows.forEach(function(d){var f=flagFor(d);if(f&&f.count)flaggedCount++;});
+    var H='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BBW Forklift Inspections '+fromV+' to '+toV+'</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:32px;color:#111}a{color:#2563eb}@media print{.noprint{display:none!important}}</style></head><body>';
+    H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:18px;border-bottom:2px solid #111;margin-bottom:22px">';
+    H+='<div><h1 style="margin:0;font-size:22px;font-weight:800">Forklift Inspection Report</h1><div style="font-size:14px;color:#777;margin-top:6px">'+fromV+' &nbsp;\u2192&nbsp; '+toV+'</div></div>';
+    H+='<div style="text-align:right;font-size:13px;color:#777">Brunswick Bierworks<br>Generated '+new Date().toLocaleString()+'</div>';
+    H+='</div>';
+    // Summary strip
+    H+='<div style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap">';
+    H+='<div style="flex:1;min-width:120px;background:#f8f8f8;border-radius:10px;padding:14px 16px"><div style="font-size:26px;font-weight:800">'+rows.length+'</div><div style="font-size:12px;color:#777;text-transform:uppercase;letter-spacing:.05em">Inspections</div></div>';
+    H+='<div style="flex:1;min-width:120px;background:#f8f8f8;border-radius:10px;padding:14px 16px"><div style="font-size:26px;font-weight:800">'+units.length+'</div><div style="font-size:12px;color:#777;text-transform:uppercase;letter-spacing:.05em">Units</div></div>';
+    H+='<div style="flex:1;min-width:120px;background:'+(flaggedCount?'#fef2f2':'#f8f8f8')+';border-radius:10px;padding:14px 16px"><div style="font-size:26px;font-weight:800;color:'+(flaggedCount?'#dc2626':'#111')+'">'+flaggedCount+'</div><div style="font-size:12px;color:#777;text-transform:uppercase;letter-spacing:.05em">With flags</div></div>';
+    H+='</div>';
+    // Print button
+    H+='<div class="noprint" style="margin-bottom:22px"><button onclick="window.print()" style="padding:11px 20px;background:#111;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer">\u2399 Print / Save as PDF</button></div>';
+    // Per-unit tables
+    units.forEach(function(u){
+      var list=byUnit[u];
+      H+='<div style="margin-bottom:26px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div style="width:4px;height:22px;background:#f59e0b;border-radius:2px"></div><h3 style="margin:0;font-size:16px;font-weight:800;color:#111">Unit '+san(u)+'</h3><span style="font-size:13px;color:#999">('+list.length+')</span></div>';
+      H+='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>';
+      ['Date & time','Operator','Status','Inspection PDF'].forEach(function(h){H+='<th style="padding:9px 10px;text-align:left;background:#f8f8f8;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#777;border-bottom:2px solid #f59e0b">'+h+'</th>';});
+      H+='</tr></thead><tbody>';
+      list.forEach(function(d){
+        var when=(''+(d.created_at||'')).slice(0,16).replace('T',' ');
+        var fl=flagFor(d);
+        var status=(fl&&fl.count)?'<span style="color:#dc2626;font-weight:700">'+fl.count+' flag'+(fl.count>1?'s':'')+(fl.tag?' \u00b7 TAG OUT':'')+'</span>':'<span style="color:#16a34a;font-weight:600">Pass</span>';
+        var url=flPubUrl(d.storage_path);
+        H+='<tr><td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:nowrap">'+san(when)+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee">'+san(d.uploaded_by||'')+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee">'+status+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee"><a href="'+url+'" target="_blank">Open PDF</a></td></tr>';
+      });
+      H+='</tbody></table></div>';
+    });
+    H+='<div style="margin-top:30px;padding-top:14px;border-top:1px solid #ddd;font-size:11px;color:#999">Each row links to the original inspection PDF stored in the system. Use Print / Save as PDF above to keep this summary.</div>';
+    H+='</body></html>';
+    W.document.open();W.document.write(H);W.document.close();
+  }).catch(function(){var l=gid('fldash-rng-loading');if(l)l.remove();alert('Could not load inspections.');});
 }
+
 
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-02d';
+  var BUILD='2026-07-02e';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
