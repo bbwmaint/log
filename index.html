@@ -4139,6 +4139,47 @@ function uploadForkliftPhotos(files,unit){
    });
  })).then(function(pp){return pp.filter(Boolean);});
 }
+function testFireRequest(btn){
+  if(user!==ADMIN){alert('Admin only.');return;}
+  if(btn){btn.disabled=true;btn.textContent='Sending test request\u2026';}
+  var stamp=new Date().toLocaleString();
+  var body='[TEST] This is a test maintenance request fired from the admin panel at '+stamp+'. Safe to ignore \u2014 delete with "Clear all [TEST] records".';
+  sbFetch('bbw_requests',{method:'POST',body:JSON.stringify({reporter:'[TEST] '+ADMIN,department:'Test / Admin',asset_name:'[TEST] Krones Line 1',asset_code:'TEST',work:body,contact:null,requester_email:'',photos:'[]',notes:'[]',status:'new'})})
+    .then(function(r){ if(!r.ok&&r.status!==201)throw new Error('HTTP '+r.status);
+      try{notifyMaintenance({type:'request',subject:'[TEST] Maintenance request',body:body,reporter:'[TEST] '+ADMIN,department:'Test / Admin',asset_name:'[TEST] Krones Line 1',asset_code:'TEST',photos:[]});}catch(e){}
+      if(btn){btn.textContent='\u2713 Test request sent';setTimeout(function(){btn.disabled=false;btn.textContent='\uD83D\uDCE9 Send test maintenance request';},2500);}
+      alert('Test request created. Check: the maintenance inbox email, the red Requests badge, and (if enabled) a push notification. Then clear it with the button below.');
+      try{REQUESTS=[];loadRequests();}catch(e){}
+    })
+    .catch(function(e){ if(btn){btn.disabled=false;btn.textContent='\uD83D\uDCE9 Send test maintenance request';} alert('Test request failed: '+e.message); });
+}
+
+function testFireForklift(btn){
+  if(user!==ADMIN){alert('Admin only.');return;}
+  if(btn){btn.disabled=true;btn.textContent='Sending test forklift issue\u2026';}
+  var stamp=new Date().toLocaleString();
+  var flagged=[['Lift Chains & rollers','Needs repair'],['Fluid Leaks','Tag out']];
+  var d={unit:'F1',date:pmISO(new Date()),shift:(typeof flShiftNow==='function'?flShiftNow():'A'),operator:'[TEST] '+ADMIN,notes:'Test issue fired from admin panel at '+stamp+'. Safe to ignore.'};
+  try{ flFileMaintenance(d.unit,d,flagged,[]); }catch(e){ if(btn){btn.disabled=false;btn.textContent='\uD83D\uDE9C Send test forklift issue';} alert('Test forklift issue failed: '+e.message); return; }
+  if(btn){btn.textContent='\u2713 Test forklift issue sent';setTimeout(function(){btn.disabled=false;btn.textContent='\uD83D\uDE9C Send test forklift issue';},2500);}
+  alert('Test forklift issue created (F1, TAG OUT + Needs repair). Check the maintenance inbox email, the Requests badge, and push. Then clear it below.');
+  try{REQUESTS=[];loadRequests();}catch(e){}
+}
+
+function testClearAll(btn){
+  if(user!==ADMIN){alert('Admin only.');return;}
+  if(!confirm('Delete ALL test records? This removes any request where asset_code is TEST or the reporter/asset is tagged [TEST].'))return;
+  if(btn){btn.disabled=true;btn.textContent='Clearing\u2026';}
+  // Delete by the TEST markers we set. asset_code=TEST covers test requests; forklift tests use PWRLFT so match reporter too.
+  Promise.all([
+    sbFetch('bbw_requests?asset_code=eq.TEST',{method:'DELETE',headers:{'Prefer':'return=minimal'}}),
+    sbFetch('bbw_requests?reporter=like.*%5BTEST%5D*',{method:'DELETE',headers:{'Prefer':'return=minimal'}})
+  ]).then(function(){
+    if(btn){btn.textContent='\u2713 Cleared';setTimeout(function(){btn.disabled=false;btn.textContent='\uD83E\uDDF9 Clear all [TEST] records';},2000);}
+    try{REQUESTS=[];loadRequests();}catch(e){}
+  }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent='\uD83E\uDDF9 Clear all [TEST] records';} alert('Clear failed: '+e.message); });
+}
+
 function flFileMaintenance(unit,d,flagged,photoPaths){
  var lines=flagged.map(function(x){return '\u2022 '+x[0]+' \u2014 '+x[1];}).join('\n');
  var hasTag=flagged.some(function(x){return x[1]==='Tag out';});
@@ -4611,7 +4652,7 @@ function flDashLoadShiftReport(date,shift){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-01c';
+  var BUILD='2026-07-02a';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';

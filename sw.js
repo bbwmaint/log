@@ -1,6 +1,6 @@
 // BBW Work Log — Service Worker
 // Bump CACHE to force all devices onto fresh code.
-const CACHE = 'bbw-v35';
+const CACHE = 'bbw-v37';
 
 const PRECACHE = [
   './',
@@ -79,6 +79,38 @@ self.addEventListener('fetch', function(e){
         return response;
       }).catch(function(){ return cached; });
       return cached || net;
+    })
+  );
+});
+
+// ── Web Push ─────────────────────────────────────────────
+// Fires even when the app is fully closed. The Edge Function
+// sends a JSON payload {title, body, url, tag}.
+self.addEventListener('push', function(e){
+  var data = {};
+  try { data = e.data ? e.data.json() : {}; } catch(err){ data = { body: (e.data && e.data.text()) || '' }; }
+  var title = data.title || 'BBW Maintenance';
+  var opts = {
+    body: data.body || 'New maintenance request',
+    icon: data.icon || './icon-192.png',
+    badge: data.badge || './icon-192.png',
+    tag: data.tag || 'bbw-req',
+    data: { url: data.url || './' },
+    requireInteraction: !!data.requireInteraction
+  };
+  e.waitUntil(self.registration.showNotification(title, opts));
+});
+
+// Tapping the notification focuses/opens the app
+self.addEventListener('notificationclick', function(e){
+  e.notification.close();
+  var target = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil(
+    self.clients.matchAll({ type:'window', includeUncontrolled:true }).then(function(list){
+      for (var i=0;i<list.length;i++){
+        if ('focus' in list[i]) return list[i].focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
     })
   );
 });
