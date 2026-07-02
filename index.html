@@ -4660,7 +4660,7 @@ function flDashLoadShiftReport(date,shift){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-02b';
+  var BUILD='2026-07-02c';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -5665,8 +5665,10 @@ function schedMonthCardHTML(){
     if(vac.length)H+='<div style="position:absolute;top:2px;right:2px;background:#9333ea;color:#fff;font-size:7px;font-weight:800;letter-spacing:.03em;border-radius:3px;padding:1px 3px;line-height:1.4">VAC</div>';
     if(sick.length)H+='<div style="position:absolute;top:'+(vac.length?'15px':'2px')+';right:2px;background:#16a34a;color:#fff;font-size:7px;font-weight:800;letter-spacing:.03em;border-radius:3px;padding:1px 3px;line-height:1.4">SICK</div>';
     H+='<div style="display:flex;flex-direction:column;gap:2px;margin-top:3px">';
+    if(!hol){
     if(dn.length)H+='<div style="font-size:8px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,.14);border-radius:3px;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35">'+rqEsc(schedMiniLabel(dn))+'</div>';
     if(nn.length)H+='<div style="font-size:8px;font-weight:700;color:#60a5fa;background:rgba(96,165,250,.14);border-radius:3px;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35">'+rqEsc(schedMiniLabel(nn))+'</div>';
+    }
     H+='</div>';
     if(tot>0)H+='<div style="position:absolute;left:3px;right:3px;bottom:2px;height:3px;border-radius:2px;background:'+paceCol+'"></div>';
     H+='</div>';
@@ -5773,8 +5775,10 @@ function openDayEditor(ds){
   H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:16px;font-weight:800;color:#fff;text-transform:capitalize">'+title+'</div><button onclick="closeDayEditor()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:32px;height:32px;border-radius:9px;font-size:17px;cursor:pointer">\u00D7</button></div>';
   if(!canEdit){
     if(schedEdit.holiday)H+='<div style="background:rgba(217,119,6,.14);border:1px solid rgba(217,119,6,.4);border-radius:9px;padding:9px 11px;margin-bottom:12px"><span style="display:inline-block;background:#d97706;color:#fff;font-size:8px;font-weight:800;border-radius:3px;padding:1px 5px;margin-right:7px;vertical-align:middle">HOLIDAY</span><span style="font-size:13.5px;color:#fff;font-weight:600">'+rqEsc(schedEdit.holiday)+'</span><div style="font-size:11px;color:var(--text-3);margin-top:4px">'+schT('Plant closed \u2014 no crew expected')+'</div></div>';
+    if(!schedEdit.holiday){
     H+=schedReadRow('\u2600\uFE0F '+schT('Day shift'),'#f59e0b',schedEdit.day);
     H+=schedReadRow('\uD83C\uDF19 '+schT('Night shift'),'#60a5fa',schedEdit.night);
+    }
     H+=schedReadRow(schT('Vacation'),'#e879f9',schedEdit.vac);
     H+=schedReadRow(schT('Sick leave'),'#4ade80',schedEdit.sick);
     var dh=dHLof(sc), nh=nHLof(sc);
