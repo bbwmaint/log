@@ -250,6 +250,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
 
   <!-- CONTENT -->
   <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg);padding:12px" id="content">
+    <button id="tab-back-btn" onclick="tabGoBack()" style="display:none;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);color:var(--text-2);font-size:12.5px;font-weight:600;cursor:pointer;padding:7px 12px;border-radius:9px;margin-bottom:10px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
     <div id="pane-log"></div>
     <div id="pane-dash" style="display:none"></div>
     <div id="pane-shift" style="display:none"></div>
@@ -856,6 +857,83 @@ function showReqToast(req){
   setTimeout(function(){if(document.getElementById('req-toast')===d)d.remove();},8000);
 }
 
+// ═══ WEB PUSH (app-closed notifications) ═══════════════════
+// Paste your VAPID PUBLIC key here (from `npx web-push generate-vapid-keys`).
+var VAPID_PUBLIC_KEY = '';  // e.g. 'BJ8v...'  <-- REQUIRED for push to work
+
+function urlB64ToUint8(base64){
+  var pad='='.repeat((4-base64.length%4)%4);
+  var b=(base64+pad).replace(/\-/g,'+').replace(/_/g,'/');
+  var raw=atob(b); var out=new Uint8Array(raw.length);
+  for(var i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);
+  return out;
+}
+
+// Save a subscription to Supabase (one row per device, keyed by endpoint)
+function savePushSub(sub){
+  var j=sub.toJSON();
+  var row={
+    endpoint:j.endpoint,
+    p256dh:j.keys&&j.keys.p256dh,
+    auth:j.keys&&j.keys.auth,
+    tech:(typeof user!=='undefined'&&user)?user:null,
+    ua:navigator.userAgent
+  };
+  // Upsert on endpoint so re-enabling doesn't create duplicates
+  return sbFetch('bbw_push_subs',{
+    method:'POST',
+    headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+    body:JSON.stringify(row)
+  });
+}
+
+// Full enable flow: permission -> SW subscribe -> save to DB
+function enableTruePush(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)){
+    alert('This browser does not support push notifications.');return Promise.resolve(false);
+  }
+  if(!VAPID_PUBLIC_KEY){
+    alert('Push is not configured yet (missing VAPID key). Ask the admin to finish setup.');return Promise.resolve(false);
+  }
+  return Notification.requestPermission().then(function(p){
+    if(p!=='granted'){ alert('Permission denied. You will still see in-app alerts when the app is open.'); return false; }
+    return navigator.serviceWorker.ready.then(function(reg){
+      return reg.pushManager.getSubscription().then(function(existing){
+        if(existing)return existing;
+        return reg.pushManager.subscribe({
+          userVisibleOnly:true,
+          applicationServerKey:urlB64ToUint8(VAPID_PUBLIC_KEY)
+        });
+      });
+    }).then(function(sub){
+      return savePushSub(sub).then(function(){
+        try{localStorage.setItem('bbw_push_on','1');}catch(e){}
+        alert('Push notifications are ON for this device. You\'ll get new requests even when the app is closed.');
+        try{renderMore();}catch(e){}
+        return true;
+      });
+    }).catch(function(err){
+      alert('Could not enable push: '+(err&&err.message||err));
+      return false;
+    });
+  });
+}
+
+function disableTruePush(){
+  if(!('serviceWorker' in navigator))return;
+  navigator.serviceWorker.ready.then(function(reg){
+    return reg.pushManager.getSubscription();
+  }).then(function(sub){
+    if(!sub)return;
+    var ep=sub.endpoint;
+    sub.unsubscribe().then(function(){
+      try{sbFetch('bbw_push_subs?endpoint=eq.'+encodeURIComponent(ep),{method:'DELETE'});}catch(e){}
+      try{localStorage.removeItem('bbw_push_on');}catch(e){}
+      try{renderMore();}catch(e){}
+    });
+  });
+}
+
 function maybePushNotify(req){
   if(!('Notification' in window))return;
   if(Notification.permission!=='granted')return;
@@ -952,8 +1030,19 @@ function updateClock(){
 // TABS
 function toggleNav(){ try{document.body.classList.toggle('nav-open');}catch(e){} }
 function closeNav(){ try{document.body.classList.remove('nav-open');}catch(e){} }
+var TAB_HISTORY=[];
+var _tabNavigatingBack=false;
 function showTab(name){
   if(name==='cmms'&&!CMMS_ENABLED)name='log';
+  // Track history so the Back button can return to the previous tab
+  try{
+    var curr=null;
+    ['log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash'].forEach(function(t){
+      var pn=gid('pane-'+t); if(pn&&pn.style.display!=='none')curr=t;
+    });
+    if(!_tabNavigatingBack && curr && curr!==name){ TAB_HISTORY.push(curr); if(TAB_HISTORY.length>25)TAB_HISTORY.shift(); }
+  }catch(e){}
+  _tabNavigatingBack=false;
   ['log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash'].forEach(function(t){
     var pn=gid('pane-'+t); if(pn)pn.style.display='none';
     var tb=gid('tab-'+t);
@@ -974,6 +1063,20 @@ function showTab(name){
   if(name==='dash')renderDashboard();
   if(name==='cmms'){try{renderCMMS();}catch(e){gid('pane-cmms').innerHTML='<div style="padding:20px;color:#f87171;font-size:12px">'+e.message+'</div>';}}
   if(name==='more'){try{renderMore();}catch(e){gid('pane-more').innerHTML='<div style="padding:20px;color:red;font-family:monospace;font-size:12px">ERROR: '+e.message+'<br>'+e.stack.replace(/</g,"&lt;").replace(/\n/g,"<br>")+'</div>';}}
+  try{updateTabBackBtn();}catch(e){}
+}
+
+// Floating Back button for main tabs — returns to the previously viewed tab
+function tabGoBack(){
+  if(!TAB_HISTORY.length){ return; }
+  var target=TAB_HISTORY.pop();
+  _tabNavigatingBack=true;
+  showTab(target);
+}
+function updateTabBackBtn(){
+  var b=gid('tab-back-btn');
+  if(!b)return;
+  b.style.display=TAB_HISTORY.length?'flex':'none';
 }
 
 // ASSET LIST
@@ -4508,18 +4611,29 @@ function flDashLoadShiftReport(date,shift){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-01a';
+  var BUILD='2026-07-01c';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
   H+='<div onclick="dangerTap()" style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace;cursor:default;user-select:none">build '+BUILD+'</div>';
   H+='<button onclick="openForkliftMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDE9C Forklift Inspection</button>';
   // Push notification enable button
-  var pushSupported=('Notification' in window);
-  var pushStatus=pushSupported?Notification.permission:'unsupported';
-  if(pushSupported&&pushStatus!=='granted'){
-    H+='<button onclick="requestPushPermission()" style="width:100%;padding:12px;margin-bottom:14px;border-radius:12px;border:1px solid #3b82f6;background:rgba(59,130,246,.12);color:#60a5fa;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDD14 Enable Push Notifications for Requests</button>';
+  var pushSupported=('serviceWorker' in navigator)&&('PushManager' in window);
+  var pushOn=false; try{pushOn=localStorage.getItem('bbw_push_on')==='1';}catch(e){}
+  // iOS Safari only allows push when the app is installed to the Home Screen
+  var isIOS=/iP(hone|ad|od)/.test(navigator.userAgent);
+  var isStandalone=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches);
+  if(pushSupported){
+    if(isIOS&&!isStandalone){
+      H+='<div style="width:100%;padding:12px 14px;margin-bottom:14px;border-radius:12px;border:1px solid #f59e0b;background:rgba(245,158,11,.12);color:#fbbf24;font-size:12.5px;line-height:1.5;box-sizing:border-box">\uD83D\uDCF2 <b>'+T('To get request alerts on iPhone')+':</b><br>'+T('Tap the Share button, then "Add to Home Screen", open the app from your Home Screen, then come back here to turn on push.')+'</div>';
+    } else if(!pushOn){
+      H+='<button onclick="enableTruePush()" style="width:100%;padding:12px;margin-bottom:14px;border-radius:12px;border:1px solid #3b82f6;background:rgba(59,130,246,.12);color:#60a5fa;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDD14 '+T('Turn on push (get requests when app is closed)')+'</button>';
+    } else {
+      H+='<div style="width:100%;padding:11px 14px;margin-bottom:8px;border-radius:12px;border:1px solid #16a34a;background:rgba(22,163,74,.12);color:#4ade80;font-size:13.5px;font-weight:700;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px">\u2705 '+T('Push is ON for this device')+'</div>';
+      H+='<button onclick="disableTruePush()" style="width:100%;padding:9px;margin-bottom:14px;border-radius:10px;border:1px solid var(--border-2);background:transparent;color:var(--text-2);font-size:12.5px;font-weight:600;cursor:pointer">'+T('Turn off push on this device')+'</button>';
+    }
   }
+  H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin:-4px 2px 16px">'+T('Android & desktop: just tap the button above. iPhone: add the app to your Home Screen first, then open it from there. If the button does nothing, your phone or work profile may block notifications \u2014 you\'ll still see alerts when the app is open.')+'</div>';
 
   // ── PMs now live in the dedicated CMMS tab; hidden here ──
   if(false){
@@ -4641,6 +4755,12 @@ function renderMore(){
     H+='<button onclick="saveEJS()" style="width:100%;padding:12px;background:#fff;color:#000;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">Save & Enable Auto-Send</button>';
     H+='<button onclick="testEJS(this)" style="width:100%;padding:12px;background:var(--surface-2);color:#aaa;border:1px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer">Test Send Now</button>';
     H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-top:8px">Your EmailJS template must include these variables: <b>to_email</b>, <b>subject</b>, <b>message</b>, <b>reporter</b>, <b>asset_name</b>, <b>photos</b>. Set the template\u2019s \u201cTo email\u201d field to <b>{{to_email}}</b>.</div>';
+    H+='<div style="border-top:1px solid var(--border);margin:16px 0 12px"></div>';
+    H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:2px">\uD83E\uDDEA Test Panel (Praful only)</div>';
+    H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-bottom:10px">Fires a real test through the full path \u2014 email + in-app toast/badge + push. Test records are tagged [TEST] and can be cleared below.</div>';
+    H+='<button onclick="testFireRequest(this)" style="width:100%;padding:12px;background:rgba(37,99,235,.15);color:#60a5fa;border:1px solid rgba(37,99,235,.35);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:8px">\uD83D\uDCE9 Send test maintenance request</button>';
+    H+='<button onclick="testFireForklift(this)" style="width:100%;padding:12px;background:rgba(217,119,6,.15);color:#f59e0b;border:1px solid rgba(217,119,6,.35);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:8px">\uD83D\uDE9C Send test forklift issue</button>';
+    H+='<button onclick="testClearAll(this)" style="width:100%;padding:10px;background:transparent;color:var(--text-2);border:1px solid var(--border-2);border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer">\uD83E\uDDF9 Clear all [TEST] records</button>';
     H+='</div>';
 
     // Changeover Assets Manager
