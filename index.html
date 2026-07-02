@@ -4660,7 +4660,7 @@ function flDashLoadShiftReport(date,shift){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-02c';
+  var BUILD='2026-07-02d';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -5516,12 +5516,9 @@ function loadDBStats(){
       '<div>Work log entries:</div><div style="color:#60a5fa">'+wlCount+' rows</div>'+
       '<div>Utility readings:</div><div style="color:#60a5fa">'+ulCount+' rows</div>'+
       '<div>PM overrides:</div><div style="color:#60a5fa">'+pmCount+' rows</div>'+
-      '<div style="margin-top:6px">Est. storage:</div><div style="color:#4ade80;margin-top:6px">~'+estMB+' MB / 500 MB</div>'+
+      '<div style="margin-top:6px">Est. data size:</div><div style="color:#4ade80;margin-top:6px">~'+estMB+' MB</div>'+
       '</div>'+
-      '<div style="margin-top:10px;background:var(--surface-2);border-radius:6px;height:6px;overflow:hidden">'+
-      '<div style="height:100%;background:#4ade80;border-radius:6px;width:'+Math.min(100,(estMB/500)*100).toFixed(2)+'%"></div>'+
-      '</div>'+
-      '<div style="color:var(--text-3);font-size:10px;margin-top:4px">Free tier limit: 500 MB</div>';
+      '<div style="color:var(--text-3);font-size:10px;margin-top:8px;line-height:1.5">Rough estimate from row counts only. For actual database size and your plan\u2019s limits, check the Supabase dashboard \u2192 Settings \u2192 Usage.</div>';
   }).catch(function(){
     el.innerHTML='<span style="color:#ef4444">Could not load stats — check connection</span>';
   });
