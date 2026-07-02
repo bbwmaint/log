@@ -4086,8 +4086,16 @@ var FL_PICKS={}; var FL_SHIFT='AM';
 var NOTIFY_HOOK=''; // <-- paste your email webhook / Supabase Edge Function URL here to enable auto-email (see notes)
 function flPubUrl(path){return SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(path);}
 // Send an email through EmailJS using the IDs saved in Settings. Returns a Promise.
+// EmailJS credentials — hardcoded so every device auto-sends with no setup.
+// These are the safe, public client-side IDs (never put a private/service-role key here).
+var EJS_SERVICE='service_q7rtzse';
+var EJS_TEMPLATE='template_i01whhv';
+var EJS_PUBLIC='8tG4yC5hGPPsxXySm';
 function ejsSend(params){
-  var s=localStorage.getItem('bbw_ejs_s'),t=localStorage.getItem('bbw_ejs_t'),p=localStorage.getItem('bbw_ejs_p');
+  // Hardcoded defaults, with optional localStorage override (legacy devices)
+  var s=localStorage.getItem('bbw_ejs_s')||EJS_SERVICE;
+  var t=localStorage.getItem('bbw_ejs_t')||EJS_TEMPLATE;
+  var p=localStorage.getItem('bbw_ejs_p')||EJS_PUBLIC;
   if(!s||!t||!p)return Promise.reject(new Error('EmailJS not configured'));
   if(!window.emailjs||!emailjs.send)return Promise.reject(new Error('EmailJS SDK not loaded'));
   return emailjs.send(s,t,params,{publicKey:p});
@@ -4652,7 +4660,7 @@ function flDashLoadShiftReport(date,shift){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-02a';
+  var BUILD='2026-07-02b';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -4790,12 +4798,8 @@ function renderMore(){
     H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-bottom:8px">Supervisor page: <b>'+flBaseURL()+'?fldash</b></div>';
     H+='<button onclick="flDashChangePin(true)" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:16px">\uD83D\uDD11 Change forklift-supervisor PIN</button>';
     H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Auto-Send (EmailJS)</div>';
-    H+='<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Service ID</div><input id="ejs-s" type="text" placeholder="service_xxxxxxx" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;color:#fff;outline:none"></div>';
-    H+='<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Template ID</div><input id="ejs-t" type="text" placeholder="template_xxxxxxx" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;color:#fff;outline:none"></div>';
-    H+='<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Public Key</div><input id="ejs-p" type="text" placeholder="xxxxxxxxxxxxxxx" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;color:#fff;outline:none"></div>';
-    H+='<button onclick="saveEJS()" style="width:100%;padding:12px;background:#fff;color:#000;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">Save & Enable Auto-Send</button>';
-    H+='<button onclick="testEJS(this)" style="width:100%;padding:12px;background:var(--surface-2);color:#aaa;border:1px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer">Test Send Now</button>';
-    H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-top:8px">Your EmailJS template must include these variables: <b>to_email</b>, <b>subject</b>, <b>message</b>, <b>reporter</b>, <b>asset_name</b>, <b>photos</b>. Set the template\u2019s \u201cTo email\u201d field to <b>{{to_email}}</b>.</div>';
+    H+='<div style="background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.3);border-radius:9px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#4ade80;line-height:1.5">\u2705 Auto-send is built in \u2014 every device sends automatically, no setup needed.</div>';
+    H+='<button onclick="testEJS(this)" style="width:100%;padding:12px;background:var(--surface-2);color:#fff;border:1px solid var(--border);border-radius:10px;font-size:13.5px;font-weight:600;cursor:pointer">Test Send Now</button>';
     H+='<div style="border-top:1px solid var(--border);margin:16px 0 12px"></div>';
     H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:2px">\uD83E\uDDEA Test Panel (Praful only)</div>';
     H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-bottom:10px">Fires a real test through the full path \u2014 email + in-app toast/badge + push. Test records are tagged [TEST] and can be cleared below.</div>';
@@ -4838,13 +4842,9 @@ function renderMore(){
   }
   el.innerHTML=H;
 
-  // Load saved EJS and DB stats
+  // Load DB stats
   if(isAdmin){
     setTimeout(function(){loadDBStats();},100);
-    var s=localStorage.getItem('bbw_ejs_s'),t=localStorage.getItem('bbw_ejs_t'),p=localStorage.getItem('bbw_ejs_p');
-    if(gid('ejs-s')&&s)gid('ejs-s').value=s;
-    if(gid('ejs-t')&&t)gid('ejs-t').value=t;
-    if(gid('ejs-p')&&p)gid('ejs-p').value=p;
   }
 }
 
@@ -5410,18 +5410,10 @@ function confirmSend(send){
   generateAndSendReport();
 }
 
-function saveEJS(){
-  var s=gid('ejs-s').value.trim(),t=gid('ejs-t').value.trim(),p=gid('ejs-p').value.trim();
-  if(!s||!t||!p){alert('All three fields required.');return;}
-  localStorage.setItem('bbw_ejs_s',s);localStorage.setItem('bbw_ejs_t',t);localStorage.setItem('bbw_ejs_p',p);
-  alert('Auto-send enabled.');
-}
+function saveEJS(){ alert('Auto-send is built in \u2014 nothing to save.'); }
 
 function testEJS(btn){
-  var s=gid('ejs-s')?gid('ejs-s').value.trim():'',t=gid('ejs-t')?gid('ejs-t').value.trim():'',p=gid('ejs-p')?gid('ejs-p').value.trim():'';
-  if(!s||!t||!p){alert('Fill in all three fields first.');return;}
-  // Persist so ejsSend picks them up
-  localStorage.setItem('bbw_ejs_s',s);localStorage.setItem('bbw_ejs_t',t);localStorage.setItem('bbw_ejs_p',p);
+  var s=EJS_SERVICE,t=EJS_TEMPLATE,p=EJS_PUBLIC;
   if(!window.emailjs||!emailjs.send){alert('EmailJS could not load (check your internet / ad-blocker), then try again.');return;}
   var orig=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Sending\u2026';}
   emailjs.send(s,t,{
@@ -5437,7 +5429,7 @@ function testEJS(btn){
   }).catch(function(err){
     if(btn){btn.disabled=false;btn.textContent=orig;}
     var msg=(err&&(err.text||err.message))||'Unknown error';
-    alert('Test failed: '+msg+'\n\nCheck the Service ID, Template ID and Public Key, and make sure the template uses the variables: to_email, subject, message, reporter, asset_name, photos.');
+    alert('Test failed: '+msg);
   });
 }
 
