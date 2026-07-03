@@ -827,7 +827,7 @@ function reqMarkSeen(ids){try{localStorage.setItem(REQ_SEEN_KEY,JSON.stringify(i
 function updateReqBadge(){
   var btn=document.getElementById('tab-requests'); if(!btn)return;
   var seen=reqSeenIds();
-  var newCount=REQUESTS.filter(function(r){return r.status==='new'&&seen.indexOf(''+r.id)<0;}).length;
+  var newCount=REQUESTS.filter(function(r){return r.kind!=='forklift'&&r.status==='new'&&seen.indexOf(''+r.id)<0;}).length;
   // Remove old badge span
   var old=btn.querySelector('.req-badge'); if(old)old.remove();
   if(newCount>0){
@@ -955,12 +955,13 @@ function maybePushNotify(req){
 function pollRequests(){
   if(!user)return;
   var seen=reqSeenIds();
-  sbFetch('bbw_requests?select=id,status,reporter,department,asset_name,asset_code,created_at&status=neq.done&order=created_at.desc&limit=100')
+  sbFetch('bbw_requests?select=id,status,reporter,department,asset_name,asset_code,kind,created_at&status=neq.done&order=created_at.desc&limit=100')
     .then(function(r){return r.ok?r.json():[];})
     .then(function(rows){
       rows=rows||[];
       // Find truly new ones (not in REQUESTS at all, or now status=new and not seen)
       var newOnes=rows.filter(function(r){
+        if(r.kind==='forklift')return false;
         if(r.status!=='new')return false;
         if(seen.indexOf(''+r.id)>=0)return false;
         // Only alert if it arrived in the last 2 minutes (avoid spamming on first load)
@@ -1775,6 +1776,66 @@ function submitRequest(btn){
    })
    .catch(function(e){ btn.disabled=false; btn.textContent=T('rq_submit'); alert('Could not submit the request: '+e.message+'.'); });
 }
+// ═══════════════ Forklift HELP request (QR form for other depts) ═══════════════
+function setFlReqLang(l){ lang=l; try{localStorage.setItem('bbw_lang',l);}catch(e){} renderFlRequestForm(); }
+function renderFlRequestForm(){
+  var el=gid('pg-request'); if(!el)return;
+  var depts=['Blending','Brewing','Lab','Office','Packaging','Production','Taproom','Warehouse'];
+  function fld(label,inner){ return '<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:6px">'+label+'</label>'+inner+'</div>'; }
+  var inp='width:100%;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:#fff;font-size:15px;box-sizing:border-box';
+  function langBtn(code,txt){ var on=lang===code; return '<button onclick="setFlReqLang(\''+code+'\')" style="padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:'+(on?'#fff':'transparent')+';color:'+(on?'#111':'var(--text-3)')+';font-size:12px;font-weight:700;cursor:pointer">'+txt+'</button>'; }
+  var uk=(lang==='uk');
+  var H='<div style="max-width:560px;margin:0 auto;padding:26px 20px;width:100%;box-sizing:border-box">';
+  H+='<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:10px">'+langBtn('en','EN')+langBtn('uk','\u0423\u041a')+'</div>';
+  H+='<div style="font-size:34px;text-align:center;margin-bottom:6px">\uD83D\uDE9C</div>';
+  H+='<div style="font-size:23px;font-weight:800;color:#fff;text-align:center">'+(uk?'\u0417\u0430\u043f\u0438\u0442 \u043d\u0430 \u043d\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0443\u0432\u0430\u0447':'Forklift Help Request')+'</div>';
+  H+='<div style="font-size:13px;color:var(--text-3);text-align:center;margin:6px 0 22px">'+(uk?'\u041f\u043e\u0442\u0440\u0456\u0431\u0435\u043d \u043d\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0443\u0432\u0430\u0447? \u0417\u0430\u043f\u043e\u0432\u043d\u0456\u0442\u044c \u0444\u043e\u0440\u043c\u0443, \u0456 \u043a\u043e\u043c\u0430\u043d\u0434\u0430 \u0434\u043e\u043f\u043e\u043c\u043e\u0436\u0435.':'Need a forklift or driver? Fill this out and the forklift team will help.')+'</div>';
+  H+=fld((uk?'\u0412\u0430\u0448\u0435 \u0456\u043c\'\u044f':'Your name'),'<input id="fq-name" style="'+inp+'">');
+  H+=fld((uk?'\u0412\u0456\u0434\u0434\u0456\u043b':'Department'),'<select id="fq-dept" style="'+inp+';color-scheme:dark">'+depts.map(function(d){return '<option>'+d+'</option>';}).join('')+'</select>');
+  H+=fld((uk?'\u0414\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0430 \u0434\u043e\u043f\u043e\u043c\u043e\u0433\u0430? (\u043d\u0435\u043e\u0431\u043e\u0432\'\u044f\u0437\u043a\u043e\u0432\u043e)':'Where / location (optional)'),'<input id="fq-loc" style="'+inp+'" placeholder="'+(uk?'\u043d\u0430\u043f\u0440. \u0421\u043a\u043b\u0430\u0434, \u041b\u0456\u043d\u0456\u044f 1':'e.g. Warehouse, Line 1 dock')+'">');
+  H+=fld((uk?'\u0429\u043e \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e \u0437\u0440\u043e\u0431\u0438\u0442\u0438?':'What do you need?'),'<textarea id="fq-work" rows="4" style="'+inp+';resize:vertical" placeholder="'+(uk?'\u041e\u043f\u0438\u0448\u0456\u0442\u044c, \u0449\u043e \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e \u043f\u0435\u0440\u0435\u043c\u0456\u0441\u0442\u0438\u0442\u0438 \u0430\u0431\u043e \u0437\u0440\u043e\u0431\u0438\u0442\u0438\u2026':'Describe what needs to be moved or done\u2026')+'"></textarea>');
+  H+=fld((uk?'\u0424\u043e\u0442\u043e (\u043d\u0435\u043e\u0431\u043e\u0432\'\u044f\u0437\u043a\u043e\u0432\u043e)':'Photos (optional)'),'<input type="file" id="fq-photos" accept="image/*" multiple style="'+inp+'">');
+  H+=fld((uk?'\u0412\u0430\u0448 email':'Your email')+' <span style="color:#ef4444">*</span>','<input id="fq-email" type="email" inputmode="email" style="'+inp+'" placeholder="name@company.com">');
+  H+='<button onclick="submitFlRequest(this)" style="width:100%;padding:15px;background:linear-gradient(95deg,#d97706,#f59e0b);border:none;border-radius:11px;color:#111;font-size:16px;font-weight:800;cursor:pointer;margin-top:6px">'+(uk?'\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u0437\u0430\u043f\u0438\u0442':'Submit request')+'</button>';
+  H+='<div style="text-align:center;margin-top:20px;font-size:11px;color:var(--text-3)">Brunswick Bierworks \u2022 Forklift Team</div>';
+  H+='</div>';
+  el.innerHTML=H;
+}
+function submitFlRequest(btn){
+  var name=rqVal('fq-name'), dept=gid('fq-dept').value, loc=rqVal('fq-loc'), work=rqVal('fq-work'), email=rqVal('fq-email');
+  if(!name||!work){ alert(lang==='uk'?'\u0412\u043a\u0430\u0436\u0456\u0442\u044c \u0456\u043c\'\u044f \u0442\u0430 \u0449\u043e \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e.':'Please enter your name and what you need.'); return; }
+  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert(lang==='uk'?'\u0412\u043a\u0430\u0436\u0456\u0442\u044c \u0434\u0456\u0439\u0441\u043d\u0438\u0439 email.':'Please enter a valid email.'); var ee=gid('fq-email'); if(ee){ee.focus();ee.style.borderColor='#ef4444';} return; }
+  var files=(gid('fq-photos')&&gid('fq-photos').files)?Array.prototype.slice.call(gid('fq-photos').files):[];
+  var fullWork=work+(loc?('\n\nLocation: '+loc):'');
+  btn.disabled=true; btn.textContent=(lang==='uk'?'\u041d\u0430\u0434\u0441\u0438\u043b\u0430\u043d\u043d\u044f\u2026':'Submitting\u2026');
+  var _paths=[];
+  uploadReqPhotos(files).then(function(paths){ _paths=paths||[];
+    return sbFetch('bbw_requests',{method:'POST',body:JSON.stringify({reporter:name,department:dept,asset_name:'Forklift Help',asset_code:'FLHELP',work:fullWork,contact:null,requester_email:email,photos:JSON.stringify(_paths),notes:'[]',status:'new',kind:'forklift'})});
+  }).then(function(r){ if(!r.ok&&r.status!==201)throw new Error('HTTP '+r.status); return r.json(); })
+   .then(function(){
+     try{ notifyForkliftTeam({subject:'Forklift help requested: '+dept,body:fullWork+'\n\nFrom: '+name+' ('+dept+')'+'\nEmail: '+email,reporter:name,asset_name:'Forklift Help ('+dept+')',photos:_paths.map(flPubUrl)}); }catch(e){}
+     flRequestSubmitted();
+   })
+   .catch(function(e){ btn.disabled=false; btn.textContent=(lang==='uk'?'\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u0437\u0430\u043f\u0438\u0442':'Submit request'); alert('Could not submit: '+e.message); });
+}
+function flRequestSubmitted(){
+  var el=gid('pg-request'); if(!el)return;
+  var uk=(lang==='uk');
+  el.innerHTML='<div style="max-width:520px;margin:0 auto;padding:64px 26px;text-align:center"><div style="font-size:56px;margin-bottom:14px">\u2705</div><div style="font-size:23px;font-weight:800;color:#fff;margin-bottom:10px">'+(uk?'\u0417\u0430\u043f\u0438\u0442 \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u043d\u043e':'Request submitted')+'</div><div style="font-size:14.5px;color:var(--text-2);line-height:1.6">'+(uk?'\u0414\u044f\u043a\u0443\u0454\u043c\u043e. \u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u043d\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0443\u0432\u0430\u0447\u0430 \u043e\u0442\u0440\u0438\u043c\u0430\u043b\u0430 \u0432\u0430\u0448 \u0437\u0430\u043f\u0438\u0442.':'Thank you. The forklift team has received your request and will follow up. You can close this page now.')+'</div><button onclick="location.hash=\'\';location.reload()" style="margin-top:26px;background:var(--surface-2);border:1px solid var(--border);color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;cursor:pointer">'+(uk?'\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u0449\u0435':'Submit another')+'</button></div>';
+}
+function notifyForkliftTeam(payload){
+  try{ payload=payload||{};
+    ejsSend({
+      to_email:FL_MAILTO,
+      subject:payload.subject||'Forklift help request',
+      message:(payload.body||'')+'\n\n\u2014\nPlease check the BBW Forklift dashboard for more details.',
+      reporter:payload.reporter||'',
+      asset_name:payload.asset_name||'Forklift Help',
+      photos:(payload.photos||[]).join('\n')
+    }).catch(function(){});
+  }catch(e){}
+}
+
 function requestSubmitted(){
   var el=gid('pg-request'); if(!el)return;
   el.innerHTML='<div style="max-width:520px;margin:0 auto;padding:64px 26px;text-align:center"><div style="font-size:56px;margin-bottom:14px">\u2705</div><div style="font-size:23px;font-weight:800;color:#fff;margin-bottom:10px">'+T('rq_thanks_t')+'</div><div style="font-size:14.5px;color:var(--text-2);line-height:1.6">'+T('rq_thanks_b')+'</div><button onclick="location.hash=\'\';location.reload()" style="margin-top:26px;background:var(--surface-2);border:1px solid var(--border);color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;cursor:pointer">'+T('rq_another')+'</button></div>';
@@ -2039,8 +2100,9 @@ function resetCMMSSchedule(){
 }
 function drawRequests(){try{updateReqTabCount();}catch(e){}
   var el=gid('pane-requests'); if(!el)return;
-  var open=REQUESTS.filter(function(r){return r.status!=='done';});
-  var done=REQUESTS.filter(function(r){return r.status==='done';});
+  var maint=REQUESTS.filter(function(r){return r.kind!=='forklift';});
+  var open=maint.filter(function(r){return r.status!=='done';});
+  var done=maint.filter(function(r){return r.status==='done';});
   var followups=allE.filter(function(e){return e.type==='followup';});
   var doneFollow=allE.filter(function(e){return e.type==='followup_done';});
   var H='';
@@ -2105,9 +2167,9 @@ function injectPinnedRequests(){
 function updateReqTabCount(){
   var btn=gid('tab-requests'); if(!btn)return;
   var ic=btn.querySelector('.tab-ic'); var icHTML=ic?ic.outerHTML:'';
-  var n=REQUESTS.filter(function(r){return r.status!=='done';}).length + (allE?allE.filter(function(e){return e.type==='followup';}).length:0);
+  var n=REQUESTS.filter(function(r){return r.kind!=='forklift'&&r.status!=='done';}).length + (allE?allE.filter(function(e){return e.type==='followup';}).length:0);
   btn.innerHTML=icHTML+T('req_tab')+(n?'<span style="color:#f59e0b;font-weight:800"> '+n+'</span>':'');
-  try{updateReqTabCount();}catch(e){}
+  try{updateReqBadge();}catch(e){}
 }
 // =================== END WORK REQUESTS MODULE ===================
 
@@ -4085,7 +4147,7 @@ var FORKLIFTS=['F1','F2','F3','F4','D1'];
 // Forklift supervisor dashboard — standalone login at  <site>/?fldash  (see openFlDashGate).
 // CHANGE THIS PIN to whatever you want the forklift supervisor to use:
 var FLDASH_PIN='2468';
-var FLDASH_OK=false; var FLDASH_MONTH=null; var FLDASH_ROWS=null;
+var FLDASH_OK=false; var FLDASH_MONTH=null; var FLDASH_ROWS=null; var FLDASH_VIEW='inspections'; var FLDASH_REQS=[]; var FLDASH_REQS_OPEN=0;
 // Forklift operator first names (for the Operator dropdown).
 // Default list — the live list is loaded from Supabase (bbw_system.fl_drivers) so the
 // supervisor can edit it from the dashboard without redeploying.
@@ -4397,6 +4459,20 @@ function openForkliftMenu(){
 
 function flBaseURL(){return location.origin+location.pathname;}
 function flQRDataURL(text){var qr=qrcode(0,'M');qr.addData(text);qr.make();return qr.createDataURL(5,8);}
+function flDashRequestQR(){
+  var ex=gid('flreq-qr');if(ex)ex.remove();
+  var url=flBaseURL()+'?flreq';
+  var data='';try{data=flQRDataURL(url);}catch(e){}
+  var H='<div id="flreq-qr" style="position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:99000;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">';
+  H+='<div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:26px;text-align:center;color:#111">';
+  H+='<div style="font-size:19px;font-weight:800;margin-bottom:4px">Forklift Help Request</div>';
+  H+='<div style="font-size:13px;color:#666;margin-bottom:18px">Print &amp; post this. Anyone can scan to request forklift help \u2014 it lands in this dashboard.</div>';
+  if(data)H+='<img src="'+data+'" style="width:230px;height:230px;margin:0 auto 14px;display:block">';
+  H+='<div style="font-size:12px;color:#888;word-break:break-all;margin-bottom:18px">'+url+'</div>';
+  H+='<div style="display:flex;gap:8px"><button onclick="window.print()" style="flex:1;padding:12px;background:#111;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer">Print</button><button onclick="document.getElementById(\'flreq-qr\').remove()" style="flex:1;padding:12px;background:#f0f0f0;color:#111;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer">Close</button></div>';
+  H+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
 function openForkliftQR(){
  var ex=gid('fl-qr');if(ex)ex.remove();
  var base=flBaseURL();
@@ -4524,6 +4600,75 @@ function flDashLoadFlags(){
     return map;
   }).catch(function(){return {};});
 }
+function flDashSetView(v){ FLDASH_VIEW=v; renderFlDash(); }
+
+function flDashReqBadgeCount(){
+  return (FLDASH_REQS||[]).filter(function(r){return r.status!=='done';}).length;
+}
+function flDashUpdateReqBadge(){
+  var b=gid('fldash-req-badge'); if(!b)return;
+  var n=flDashReqBadgeCount();
+  if(n>0){ b.textContent=n; b.style.display='inline-block'; } else { b.style.display='none'; }
+}
+function flDashLoadRequests(){
+  sbFetch('bbw_requests?kind=eq.forklift&select=*&order=created_at.desc&limit=500')
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){ FLDASH_REQS=Array.isArray(rows)?rows:[]; flDashDrawRequests(); flDashUpdateReqBadge(); })
+    .catch(function(){ var b=gid('fldash-reqbody'); if(b)b.innerHTML='<div style="text-align:center;color:#f87171;padding:40px">Could not load requests.</div>'; });
+}
+function flDashReqCard(r){
+  var done=r.status==='done';
+  var stCol=r.status==='new'?'#f59e0b':r.status==='in_progress'?'#3b82f6':r.status==='parts_ordered'?'#a855f7':'#16a34a';
+  var stTxt=r.status==='new'?'NEW':r.status==='in_progress'?'ONGOING':r.status==='parts_ordered'?'PARTS':'DONE';
+  var when=(''+(r.created_at||'')).slice(0,16).replace('T',' ');
+  var photos=[]; try{photos=JSON.parse(r.photos||'[]');}catch(e){}
+  var notes=[]; try{notes=JSON.parse(r.notes||'[]');}catch(e){}
+  var H='<div style="background:#131519;border:1px solid #23262e;border-radius:12px;padding:14px 15px;margin-bottom:10px'+(done?';opacity:.6':'')+'">';
+  H+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">';
+  H+='<div style="font-size:15px;font-weight:800;color:#fff">'+flDashEsc(r.department||'Forklift Help')+'</div>';
+  H+='<span style="background:'+stCol+'22;color:'+stCol+';border:1px solid '+stCol+'55;font-size:9.5px;font-weight:800;border-radius:5px;padding:2px 7px;white-space:nowrap">'+stTxt+'</span>';
+  H+='</div>';
+  H+='<div style="font-size:13.5px;color:#e7e7ea;line-height:1.5;white-space:pre-wrap;margin-bottom:8px">'+flDashEsc(r.work||'')+'</div>';
+  H+='<div style="font-size:11.5px;color:#8b8b94;margin-bottom:'+(photos.length||notes.length?'10px':'12px')+'">By '+flDashEsc(r.reporter||'?')+(r.requester_email?(' \u00b7 '+flDashEsc(r.requester_email)):'')+' \u00b7 '+when+'</div>';
+  if(photos.length){ H+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+photos.map(function(p){var u=flPubUrl(p);return '<a href="'+u+'" target="_blank"><img src="'+u+'" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:1px solid #2a2d35"></a>';}).join('')+'</div>'; }
+  if(notes.length){ H+='<div style="background:#0e1013;border-radius:8px;padding:9px 11px;margin-bottom:10px">'+notes.map(function(n){return '<div style="font-size:12px;color:#c7c7cf;margin-bottom:4px"><b style="color:#fff">'+flDashEsc(n.by||'')+':</b> '+flDashEsc(n.text||'')+'</div>';}).join('')+'</div>'; }
+  // Action buttons
+  H+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">';
+  if(r.status==='new')H+='<button onclick="flDashReqStatus('+r.id+',\'in_progress\')" style="padding:9px;background:#3b82f622;border:1px solid #3b82f655;color:#60a5fa;font-size:12px;font-weight:700;border-radius:8px;cursor:pointer">Start</button>';
+  if(!done)H+='<button onclick="flDashReqStatus('+r.id+',\'done\')" style="padding:9px;background:#16a34a22;border:1px solid #16a34a55;color:#4ade80;font-size:12px;font-weight:700;border-radius:8px;cursor:pointer">Mark done</button>';
+  H+='<button onclick="flDashReqNote('+r.id+')" style="padding:9px;background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:700;border-radius:8px;cursor:pointer">Add note</button>';
+  H+='</div>';
+  H+='</div>';
+  return H;
+}
+function flDashDrawRequests(){
+  var el=gid('fldash-reqbody'); if(!el)return;
+  var open=FLDASH_REQS.filter(function(r){return r.status!=='done';});
+  var done=FLDASH_REQS.filter(function(r){return r.status==='done';});
+  var H='';
+  H+='<div style="font-size:11px;font-weight:700;color:#8b8b94;text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">Open requests'+(open.length?' \u2022 '+open.length:'')+'</div>';
+  if(!open.length)H+='<div style="text-align:center;color:#8b8b94;padding:30px;font-size:13px">No open forklift requests.</div>';
+  else open.forEach(function(r){H+=flDashReqCard(r);});
+  if(done.length){ H+='<div style="font-size:11px;font-weight:700;color:#8b8b94;text-transform:uppercase;letter-spacing:.07em;margin:22px 0 12px">Completed \u2022 '+done.length+'</div>'; done.slice(0,30).forEach(function(r){H+=flDashReqCard(r);}); }
+  el.innerHTML=H;
+}
+function flDashReqStatus(id,status){
+  var r=FLDASH_REQS.filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
+  var patch={status:status};
+  sbFetch('bbw_requests?id=eq.'+id,{method:'PATCH',body:JSON.stringify(patch),headers:{'Prefer':'return=minimal'}})
+    .then(function(){ try{if(r.requester_email)notifyRequester(r,'status',status,'Forklift team');}catch(e){} flDashLoadRequests(); })
+    .catch(function(e){ alert('Failed: '+e.message); });
+}
+function flDashReqNote(id){
+  var r=FLDASH_REQS.filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
+  var txt=prompt('Add a note (the requester will be emailed):'); if(!txt)return;
+  var notes=[]; try{notes=JSON.parse(r.notes||'[]');}catch(e){}
+  notes.push({by:'Forklift team',at:new Date().toISOString(),text:txt});
+  sbFetch('bbw_requests?id=eq.'+id,{method:'PATCH',body:JSON.stringify({notes:JSON.stringify(notes)}),headers:{'Prefer':'return=minimal'}})
+    .then(function(){ try{if(r.requester_email)notifyRequester(r,'note',txt,'Forklift team');}catch(e){} flDashLoadRequests(); })
+    .catch(function(e){ alert('Failed: '+e.message); });
+}
+
 function renderFlDash(){
   var ex=gid('fldash');if(ex)ex.remove();
   if(!FLDASH_MONTH)FLDASH_MONTH=new Date();
@@ -4535,7 +4680,19 @@ function renderFlDash(){
   H+='<button onclick="flDashChangePin()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Change PIN</button>';
   H+='<button onclick="flDashLock()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Lock</button>';
   H+='</div>';
+  // ── View tabs (Inspections | Forklift Requests) ──
+  H+='<div style="background:#0e1013;border-bottom:1px solid #23262e;padding:0 12px;display:flex;gap:4px;position:sticky;top:57px;z-index:4">';
+  H+='<button onclick="flDashSetView(\'inspections\')" style="background:none;border:none;border-bottom:2px solid '+(FLDASH_VIEW==='requests'?'transparent':'#f59e0b')+';color:'+(FLDASH_VIEW==='requests'?'#8b8b94':'#fff')+';font-size:13.5px;font-weight:700;padding:12px 14px;cursor:pointer">Inspections</button>';
+  H+='<button onclick="flDashSetView(\'requests\')" style="background:none;border:none;border-bottom:2px solid '+(FLDASH_VIEW==='requests'?'#f59e0b':'transparent')+';color:'+(FLDASH_VIEW==='requests'?'#fff':'#8b8b94')+';font-size:13.5px;font-weight:700;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:6px">Forklift Requests<span id="fldash-req-badge" style="display:none;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:9px;padding:1px 6px;min-width:16px;text-align:center"></span></button>';
+  H+='</div>';
   H+='<div style="max-width:920px;margin:0 auto;padding:16px 16px 60px">';
+  if(FLDASH_VIEW==='requests'){
+    H+='<div id="fldash-reqbody"><div style="text-align:center;color:#8b8b94;padding:50px;font-size:14px">Loading requests\u2026</div></div>';
+    H+='</div></div>';
+    document.body.insertAdjacentHTML('beforeend',H);
+    flDashLoadRequests();
+    return;
+  }
   // Month switcher + download
   H+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">';
   H+='<button onclick="flDashShiftMonth(-1)" style="background:#16181d;border:1px solid #2a2d35;color:#fff;width:38px;height:38px;border-radius:9px;font-size:18px;cursor:pointer">\u2039</button>';
@@ -4554,12 +4711,15 @@ function renderFlDash(){
   H+='</div>';
   H+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">';
   H+='<button onclick="flDashExportRange()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">&#128196; Inspections PDF</button>';
+  H+='<button onclick="flDashRequestQR()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">&#9783; Help-Request QR</button>';
   H+='<button id="fldash-csv-btn" onclick="flDashWorkLogCSV(this)" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">\u2B07 Work Log CSV</button>';
   H+='</div></div>';
   H+='<div style="border-top:1px solid #23262e;margin-bottom:16px"></div>';
   H+='<div id="fldash-body"><div style="text-align:center;color:#8b8b94;padding:50px;font-size:14px">Loading inspections\u2026</div></div>';
   H+='</div></div>';
   document.body.insertAdjacentHTML('beforeend',H);
+  // Keep the Forklift Requests badge current even on the Inspections view
+  sbFetch('bbw_requests?kind=eq.forklift&status=neq.done&select=id&limit=500').then(function(r){return r.ok?r.json():[];}).then(function(rows){FLDASH_REQS_OPEN=(rows||[]).length;var b=gid('fldash-req-badge');if(b){if(FLDASH_REQS_OPEN>0){b.textContent=FLDASH_REQS_OPEN;b.style.display='inline-block';}else{b.style.display='none';}}}).catch(function(){});
   // Fetch this month's inspections + flag lookup
   var first=new Date(FLDASH_MONTH.getFullYear(),FLDASH_MONTH.getMonth(),1);
   var next=new Date(FLDASH_MONTH.getFullYear(),FLDASH_MONTH.getMonth()+1,1);
@@ -4736,7 +4896,7 @@ function flDashRunRange(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-03e';
+  var BUILD='2026-07-03f';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
