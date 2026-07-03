@@ -2056,7 +2056,7 @@ function reqSetStatus(id,status){
   var patch={status:status};
   if(status==='done'){ patch.closed_by=user; patch.closed_at=new Date().toISOString(); }
   sbFetch('bbw_requests?id=eq.'+id,{method:'PATCH',body:JSON.stringify(patch)})
-    .then(function(){ try{notifyRequester(r,'status',status);}catch(e){} if(status==='done')logFromRequest(r); REQUESTS=[]; return loadRequests(); })
+    .then(function(){ try{notifyRequester(r,'status',status,user);}catch(e){} if(status==='done')logFromRequest(r); REQUESTS=[]; return loadRequests(); })
     .then(function(){ drawRequests(); try{if(gid('req-detail-pane')&&isDesktop()&&REQUESTS.filter(function(x){return ''+x.id===''+id;})[0])openRequest(id);}catch(e){} })
     .catch(function(e){ alert('Update failed: '+e.message); });
 }
@@ -2066,7 +2066,7 @@ function reqAddNote(id){
   var notes=[]; try{notes=JSON.parse(r.notes||'[]');}catch(e){}
   notes.push({by:user,at:new Date().toISOString(),text:txt});
   sbFetch('bbw_requests?id=eq.'+id,{method:'PATCH',body:JSON.stringify({notes:JSON.stringify(notes)})})
-    .then(function(){ try{notifyRequester(r,'note',txt);}catch(e){} REQUESTS=[]; return loadRequests(); }).then(drawRequests)
+    .then(function(){ try{notifyRequester(r,'note',txt,user);}catch(e){} REQUESTS=[]; return loadRequests(); }).then(drawRequests)
     .catch(function(e){ alert('Failed: '+e.message); });
 }
 function logFromRequest(r){
@@ -4120,19 +4120,21 @@ function ejsSend(params){
   if(!window.emailjs||!emailjs.send)return Promise.reject(new Error('EmailJS SDK not loaded'));
   return emailjs.send(s,t,params,{publicKey:p});
 }
-function notifyRequester(req, kind, detail){
+function notifyRequester(req, kind, detail, by){
   // Email the person who raised the request when we add a note or change status.
   try{
     var to=req&&req.requester_email; if(!to)return;
     var asset=req.asset_name||req.department||'your request';
     var subj, msg;
     if(kind==='note'){
+      var byTxt=by?(' by '+by):'';
       subj='Update on your maintenance request \u2014 '+asset;
-      msg='Hi '+(req.reporter||'')+',\n\nA note was added to your maintenance request for "'+asset+'":\n\n"'+detail+'"\n\nWe\'ll keep you posted.\n\n\u2014 Brunswick Bierworks Maintenance';
+      msg='Hi '+(req.reporter||'')+',\n\nA note was added'+byTxt+' to your maintenance request for "'+asset+'":\n\n"'+detail+'"\n\nWe\'ll keep you posted.\n\n\u2014 Brunswick Bierworks Maintenance';
     } else if(kind==='status'){
       var human=detail==='in_progress'?'Ongoing (being worked on)':detail==='parts_ordered'?'Parts ordered — awaiting delivery':detail==='done'?'Completed':detail;
+      var byS=by?(' by '+by):'';
       subj='Your maintenance request is now '+human+' \u2014 '+asset;
-      msg='Hi '+(req.reporter||'')+',\n\nThe status of your maintenance request for "'+asset+'" has changed to: '+human+'.\n\n\u2014 Brunswick Bierworks Maintenance';
+      msg='Hi '+(req.reporter||'')+',\n\nThe status of your maintenance request for "'+asset+'" has changed to: '+human+byS+'.\n\n\u2014 Brunswick Bierworks Maintenance';
     } else { return; }
     ejsSend({
       to_email:to,
@@ -4689,9 +4691,11 @@ function flDashRunRange(){
       return flags[u+'|'+date]||null;
     }
     rows.forEach(function(d){var f=flagFor(d);if(f&&f.count)flaggedCount++;});
+    var _logoEl=document.querySelector('.hdr-logo')||document.querySelector('img[src^="data:image"]');
+    var _logoSrc=_logoEl?_logoEl.getAttribute('src'):'';
     var H='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BBW Forklift Inspections '+fromV+' to '+toV+'</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:32px;color:#111}a{color:#2563eb}@media print{.noprint{display:none!important}}</style></head><body>';
     H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:18px;border-bottom:2px solid #111;margin-bottom:22px">';
-    H+='<div><h1 style="margin:0;font-size:22px;font-weight:800">Forklift Inspection Report</h1><div style="font-size:14px;color:#777;margin-top:6px">'+fromV+' &nbsp;\u2192&nbsp; '+toV+'</div></div>';
+    H+='<div style="display:flex;align-items:center;gap:14px">'+(_logoSrc?'<img src="'+_logoSrc+'" alt="BBW" style="height:40px;display:block">':'')+'<div><h1 style="margin:0;font-size:22px;font-weight:800">Forklift Inspection Report</h1><div style="font-size:14px;color:#777;margin-top:6px">'+fromV+' &nbsp;\u2192&nbsp; '+toV+'</div></div></div>';
     H+='<div style="text-align:right;font-size:13px;color:#777">Brunswick Bierworks<br>Generated '+new Date().toLocaleString()+'</div>';
     H+='</div>';
     // Summary strip
@@ -4728,7 +4732,7 @@ function flDashRunRange(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-03d';
+  var BUILD='2026-07-03e';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
