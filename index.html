@@ -4080,8 +4080,26 @@ var FORKLIFTS=['F1','F2','F3','F4','D1'];
 // CHANGE THIS PIN to whatever you want the forklift supervisor to use:
 var FLDASH_PIN='2468';
 var FLDASH_OK=false; var FLDASH_MONTH=null; var FLDASH_ROWS=null;
-// Forklift operator first names (for the Operator dropdown). Edit this list to add/remove drivers.
-var FL_DRIVERS=['Armando','Kenderson','Rudolph','Yadhukrishna','Anthony','Sandesh','Robert','Taha','Dayne','Innocent','Saide','Anton Van','Harikrishnan'];
+// Forklift operator first names (for the Operator dropdown).
+// Default list — the live list is loaded from Supabase (bbw_system.fl_drivers) so the
+// supervisor can edit it from the dashboard without redeploying.
+var FL_DRIVERS_DEFAULT=['Armando','Kenderson','Rudolph','Yadhukrishna','Anthony','Sandesh','Robert','Taha','Dayne','Innocent','Saide','Anton Van','Harikrishnan'];
+var FL_DRIVERS=FL_DRIVERS_DEFAULT.slice();
+
+function flLoadDrivers(){
+  return sbFetch('bbw_system?select=fl_drivers&id=eq.1').then(function(r){return r.ok?r.json():[];}).then(function(rows){
+    if(Array.isArray(rows)&&rows[0]&&rows[0].fl_drivers){
+      var list; try{list=JSON.parse(rows[0].fl_drivers);}catch(e){list=null;}
+      if(Array.isArray(list)&&list.length)FL_DRIVERS=list;
+    }
+    return FL_DRIVERS;
+  }).catch(function(){return FL_DRIVERS;});
+}
+
+function flSaveDrivers(list){
+  FL_DRIVERS=list.slice();
+  return sbFetch('bbw_system?on_conflict=id',{method:'POST',body:JSON.stringify({id:1,fl_drivers:JSON.stringify(list)}),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});
+}
 var FL_PICKS={}; var FL_SHIFT='AM';
 var NOTIFY_HOOK=''; // <-- paste your email webhook / Supabase Edge Function URL here to enable auto-email (see notes)
 function flPubUrl(path){return SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(path);}
@@ -4241,6 +4259,7 @@ function flSection(title,items,grp){var H='<div style="background:var(--surface)
 
 function openForkliftChecklist(unit){
  unit=(unit||'').toUpperCase(); if(!flUnitValid(unit))unit='F1';
+ try{flLoadDrivers().then(function(){var s=gid('fl-operator');if(s&&FL_DRIVERS&&FL_DRIVERS.length){var cur=s.value;s.innerHTML='<option value="">Select your name\u2026</option>'+FL_DRIVERS.map(function(n){return '<option value="'+flEsc(n)+'"'+(n===cur?' selected':'')+'>'+flEsc(n)+'</option>';}).join('');}});}catch(e){}
  FL_PICKS={}; FL_SHIFT=flShiftNow();
  var ex=gid('fl-overlay'); if(ex)ex.remove();
  var today=pmISO(new Date());
@@ -4409,7 +4428,7 @@ function openFlDashGate(){
   document.body.insertAdjacentHTML('beforeend',H);
   setTimeout(function(){var i=gid('fldash-pin');if(i)i.focus();},80);
 }
-function flDashGood(){FLDASH_OK=true;FLDASH_MONTH=new Date();renderFlDash();}
+function flDashGood(){FLDASH_OK=true;FLDASH_MONTH=new Date();try{flLoadDrivers();}catch(e){}renderFlDash();}
 function flDashBad(){var e=gid('fldash-err');if(e)e.textContent='Incorrect PIN';var i=gid('fldash-pin');if(i){i.value='';i.focus();}}
 function flDashSubmitPin(){
   var v=(gid('fldash-pin')&&gid('fldash-pin').value||'').trim();
@@ -4423,6 +4442,43 @@ function flDashSubmitPin(){
 }
 // Change the supervisor PIN. Gated by the CURRENT PIN (single authorisation).
 // fromAdmin=true (the admin More tab) skips that prompt since the admin is already authorised.
+function flDashEditDrivers(){
+  var ex=gid('fldrv-modal');if(ex)ex.remove();
+  var list=FL_DRIVERS.slice();
+  window._flDrvList=list;
+  function rowsHTML(){
+    return window._flDrvList.map(function(n,i){
+      return '<div style="display:flex;gap:8px;margin-bottom:8px">'+
+        '<input value="'+flDashEsc(n)+'" oninput="window._flDrvList['+i+']=this.value" style="flex:1;background:#16181d;border:1px solid #2a2d35;border-radius:9px;padding:10px 12px;color:#fff;font-size:14px;box-sizing:border-box">'+
+        '<button onclick="window._flDrvList.splice('+i+',1);flDrvRefresh()" style="background:#2a1416;border:1px solid #5b2327;color:#f87171;border-radius:9px;padding:0 13px;font-size:16px;font-weight:800;cursor:pointer">\u00d7</button>'+
+      '</div>';
+    }).join('');
+  }
+  window.flDrvRefresh=function(){var c=gid('fldrv-rows');if(c)c.innerHTML=rowsHTML();};
+  window.flDrvAdd=function(){window._flDrvList.push('');flDrvRefresh();var c=gid('fldrv-rows');if(c){var ins=c.querySelectorAll('input');if(ins.length)ins[ins.length-1].focus();}};
+  window.flDrvSave=function(btn){
+    var clean=window._flDrvList.map(function(s){return (s||'').trim();}).filter(function(s){return s;});
+    // de-dupe, keep order
+    var seen={},out=[];clean.forEach(function(s){var k=s.toLowerCase();if(!seen[k]){seen[k]=1;out.push(s);}});
+    if(!out.length){alert('Add at least one driver.');return;}
+    if(btn){btn.disabled=true;btn.textContent='Saving\u2026';}
+    flSaveDrivers(out).then(function(){
+      var m=gid('fldrv-modal');if(m)m.remove();
+    }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent='Save';} alert('Could not save: '+(e&&e.message||e)); });
+  };
+  var H='<div id="fldrv-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99000;display:flex;align-items:center;justify-content:center;padding:18px" onclick="if(event.target===this)this.remove()">';
+  H+='<div style="background:#111317;border:1px solid #2a2d35;border-radius:16px;width:100%;max-width:420px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden">';
+  H+='<div style="padding:16px 18px;border-bottom:1px solid #23262e"><div style="font-size:16px;font-weight:800;color:#fff">Forklift Drivers</div><div style="font-size:12px;color:#8b8b94;margin-top:2px">Add, edit, or remove names. Saved for everyone.</div></div>';
+  H+='<div id="fldrv-rows" style="padding:16px 18px;overflow-y:auto;flex:1">'+rowsHTML()+'</div>';
+  H+='<div style="padding:12px 18px;border-top:1px solid #23262e">';
+  H+='<button onclick="flDrvAdd()" style="width:100%;padding:11px;background:#16181d;border:1px dashed #3a3d45;color:#c7c7cf;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px">+ Add driver</button>';
+  H+='<div style="display:flex;gap:8px">';
+  H+='<button onclick="document.getElementById(\'fldrv-modal\').remove()" style="flex:1;padding:12px;background:none;border:1px solid #2a2d35;color:#8b8b94;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>';
+  H+='<button onclick="flDrvSave(this)" style="flex:1;padding:12px;background:#f59e0b;border:none;color:#111;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer">Save</button>';
+  H+='</div></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+
 function flDashChangePin(fromAdmin){
   function doChange(){
     var np=prompt('New 4-digit forklift-supervisor PIN:'); if(np===null)return; np=np.trim();
@@ -4465,6 +4521,7 @@ function renderFlDash(){
   H+='<div style="position:sticky;top:0;background:#111317;border-bottom:1px solid #23262e;padding:12px 16px;display:flex;align-items:center;gap:10px;z-index:5">';
   H+='<div style="display:flex;align-items:center">'+flDashLogo(24)+'</div>';
   H+='<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:#fff">Forklift Inspections</div><div style="font-size:11px;color:#8b8b94">Brunswick Bierworks</div></div>';
+  H+='<button onclick="flDashEditDrivers()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Drivers</button>';
   H+='<button onclick="flDashChangePin()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Change PIN</button>';
   H+='<button onclick="flDashLock()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Lock</button>';
   H+='</div>';
@@ -4667,7 +4724,7 @@ function flDashRunRange(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-02e';
+  var BUILD='2026-07-03a';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
