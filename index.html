@@ -4411,7 +4411,8 @@ function flChecklistDone(unit,d){var ov=gid('fl-overlay');if(!ov)return;
 function buildForkliftPDFBlob(unit,d){
  var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; var doc=new JS({unit:'pt',format:'letter'});
  var W=doc.internal.pageSize.getWidth(), Hp=doc.internal.pageSize.getHeight(), M=42; var y=46;
- if(window.__logoDark){try{var lh=22,lw=lh*((window.__logoW||400)/(window.__logoH||177));doc.addImage(window.__logoDark,'PNG',M,y-16,lw,lh);}catch(e){}}
+ var _logoImg=window.__logoDark||window.__logoRaw;
+ if(_logoImg){try{var lh=24,lw=lh*((window.__logoW||400)/(window.__logoH||177));doc.addImage(_logoImg,'PNG',M,y-17,lw,lh);}catch(e){doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(26,26,26);doc.text('BRUNSWICK BIERWORKS',M,y-2);}}else{doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(26,26,26);doc.text('BRUNSWICK BIERWORKS',M,y-2);}
  doc.setFont('helvetica','bold');doc.setFontSize(12.5);doc.setTextColor(26,26,26);
  doc.text('Electrical Lift Truck Pre-operation Inspection',W-M,y-4,{align:'right'});
  doc.setFontSize(9);doc.setTextColor(120,124,130);doc.text('Checklist',W-M,y+9,{align:'right'});
@@ -4896,7 +4897,7 @@ function flDashRunRange(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-03f';
+  var BUILD='2026-07-03g';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -5308,19 +5309,30 @@ function ensureLogoPNG(){
   if(window.__logoDark) return Promise.resolve(window.__logoDark);
   if(window.__logoPromise) return window.__logoPromise;
   window.__logoPromise=new Promise(function(resolve){
+    function build(im){
+      try{
+        var maxW=600, sw=im.naturalWidth||maxW, sh=im.naturalHeight||1;
+        if(!sw||!sh){ resolve(null); return; }
+        var scale=Math.min(1, maxW/sw), w=Math.max(1,Math.round(sw*scale)), h=Math.max(1,Math.round(sh*scale));
+        // Dark-recolored version for white PDF pages
+        var c=document.createElement('canvas'); c.width=w; c.height=h;
+        var ctx=c.getContext('2d'); ctx.clearRect(0,0,w,h); ctx.drawImage(im,0,0,w,h);
+        ctx.globalCompositeOperation='source-in'; ctx.fillStyle='#141416'; ctx.fillRect(0,0,w,h);
+        window.__logoDark=c.toDataURL('image/png'); window.__logoW=w; window.__logoH=h;
+        // Raw original as fallback
+        var c2=document.createElement('canvas'); c2.width=w; c2.height=h;
+        c2.getContext('2d').drawImage(im,0,0,w,h);
+        window.__logoRaw=c2.toDataURL('image/png');
+        resolve(window.__logoDark);
+      }catch(e){ resolve(null); }
+    }
     var el=document.querySelector('.hdr-logo')||document.querySelector('img[src^="data:image"]');
+    // If the DOM image is already decoded, use it directly (no reload race).
+    if(el&&el.complete&&(el.naturalWidth||0)>0){ build(el); return; }
     var src=el?el.getAttribute('src'):'';
     if(!src){ resolve(null); return; }
     var im=new Image();
-    im.onload=function(){ try{
-      var maxW=400, sw=im.naturalWidth||maxW, sh=im.naturalHeight||1;
-      var scale=Math.min(1, maxW/sw), w=Math.max(1,Math.round(sw*scale)), h=Math.max(1,Math.round(sh*scale));
-      var c=document.createElement('canvas'); c.width=w; c.height=h;
-      var ctx=c.getContext('2d'); ctx.drawImage(im,0,0,w,h);
-      ctx.globalCompositeOperation='source-in'; ctx.fillStyle='#141416'; ctx.fillRect(0,0,w,h);
-      window.__logoDark=c.toDataURL('image/png'); window.__logoW=w; window.__logoH=h;
-      resolve(window.__logoDark);
-    }catch(e){ resolve(null); } };
+    im.onload=function(){ build(im); };
     im.onerror=function(){ resolve(null); };
     im.src=src;
   });
