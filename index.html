@@ -4947,8 +4947,7 @@ function flDashRunRange(){
       return flags[u+'|'+date]||null;
     }
     rows.forEach(function(d){var f=flagFor(d);if(f&&f.count)flaggedCount++;});
-    var _logoEl=document.querySelector('.hdr-logo')||document.querySelector('img[src^="data:image"]');
-    var _logoSrc=_logoEl?_logoEl.getAttribute('src'):'';
+    var _logoSrc=(typeof BBW_LOGO_DARK!=='undefined'&&BBW_LOGO_DARK)?BBW_LOGO_DARK:'';
     var H='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BBW Forklift Inspections '+fromV+' to '+toV+'</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:32px;color:#111}a{color:#2563eb}@media print{.noprint{display:none!important}}</style></head><body>';
     H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:18px;border-bottom:2px solid #111;margin-bottom:22px">';
     H+='<div style="display:flex;align-items:center;gap:14px">'+(_logoSrc?'<img src="'+_logoSrc+'" alt="BBW" style="height:40px;display:block">':'')+'<div><h1 style="margin:0;font-size:22px;font-weight:800">Forklift Inspection Report</h1><div style="font-size:14px;color:#777;margin-top:6px">'+fromV+' &nbsp;\u2192&nbsp; '+toV+'</div></div></div>';
@@ -4988,7 +4987,7 @@ function flDashRunRange(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-03k';
+  var BUILD='2026-07-03l';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
