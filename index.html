@@ -4310,6 +4310,8 @@ function submitForkliftChecklist(unit,btn){
  if(btn){btn.disabled=true;btn.textContent=files.length?'Uploading photos\u2026':'Saving\u2026';}
  uploadForkliftPhotos(files,unit).then(function(photoPaths){
   d.photoPaths=photoPaths; if(btn)btn.textContent='Saving\u2026';
+  return ensureLogoPNG().then(function(){ return photoPaths; });
+ }).then(function(photoPaths){
   var blob=buildForkliftPDFBlob(unit,d);
   var yr=(new Date(d.date).getFullYear())||new Date().getFullYear();
   var safe=(unit+'_Inspection_'+d.date+'_'+d.shift).replace(/[^a-zA-Z0-9._-]/g,'_')+'.pdf';
@@ -4726,7 +4728,7 @@ function flDashRunRange(){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-03c';
+  var BUILD='2026-07-03d';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -5134,18 +5136,27 @@ function reportLoading(on){
 
 // Build a real PDF (jsPDF + autotable) and return the Blob.
 function ensureLogoPNG(){
-  if(window.__logoDark||window.__logoTried)return; window.__logoTried=true;
-  var el=document.querySelector('.hdr-logo'); if(!el)return; var src=el.getAttribute('src'); if(!src)return;
-  var im=new Image();
-  im.onload=function(){ try{
-    var maxW=400, sw=im.naturalWidth||maxW, sh=im.naturalHeight||1;
-    var scale=Math.min(1, maxW/sw), w=Math.max(1,Math.round(sw*scale)), h=Math.max(1,Math.round(sh*scale));
-    var c=document.createElement('canvas'); c.width=w; c.height=h;
-    var ctx=c.getContext('2d'); ctx.drawImage(im,0,0,w,h);
-    ctx.globalCompositeOperation='source-in'; ctx.fillStyle='#141416'; ctx.fillRect(0,0,w,h);
-    window.__logoDark=c.toDataURL('image/png'); window.__logoW=w; window.__logoH=h;
-  }catch(e){} };
-  im.src=src;
+  // Returns a promise that resolves once window.__logoDark is ready (or gives up).
+  if(window.__logoDark) return Promise.resolve(window.__logoDark);
+  if(window.__logoPromise) return window.__logoPromise;
+  window.__logoPromise=new Promise(function(resolve){
+    var el=document.querySelector('.hdr-logo')||document.querySelector('img[src^="data:image"]');
+    var src=el?el.getAttribute('src'):'';
+    if(!src){ resolve(null); return; }
+    var im=new Image();
+    im.onload=function(){ try{
+      var maxW=400, sw=im.naturalWidth||maxW, sh=im.naturalHeight||1;
+      var scale=Math.min(1, maxW/sw), w=Math.max(1,Math.round(sw*scale)), h=Math.max(1,Math.round(sh*scale));
+      var c=document.createElement('canvas'); c.width=w; c.height=h;
+      var ctx=c.getContext('2d'); ctx.drawImage(im,0,0,w,h);
+      ctx.globalCompositeOperation='source-in'; ctx.fillStyle='#141416'; ctx.fillRect(0,0,w,h);
+      window.__logoDark=c.toDataURL('image/png'); window.__logoW=w; window.__logoH=h;
+      resolve(window.__logoDark);
+    }catch(e){ resolve(null); } };
+    im.onerror=function(){ resolve(null); };
+    im.src=src;
+  });
+  return window.__logoPromise;
 }
 function buildReportPDF(R){
   function pdfSafe(s){return String(s==null?'':s).replace(/\u26A0/g,'!').replace(/\u2713/g,'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/\u2014/g,'-').replace(/\u2026/g,'...').replace(/[\u2192]/g,'->');}
