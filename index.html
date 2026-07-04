@@ -244,6 +244,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     <button onclick="showTab('assets')" id="tab-assets" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Assets</button>
     <button onclick="showTab('reports')" id="tab-reports" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Reports</button>
     <button onclick="showTab('requests')" id="tab-requests" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap">Requests</button>
+    <button onclick="showTab('inventory')" id="tab-inventory" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Inventory</button>
     <button onclick="showTab('cmms')" id="tab-cmms" style="display:none;flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">CMMS</button>
     <button onclick="showTab('more')" id="tab-more" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">More</button>
   </div>
@@ -262,6 +263,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
   <div id="pane-cmms" style="display:none"></div>
   <div id="pane-reports" style="display:none"></div>
   <div id="pane-requests" style="display:none"></div>
+  <div id="pane-inventory" style="display:none"></div>
   </div>
 
   <!-- FAB -->
@@ -1042,13 +1044,13 @@ function showTab(name){
   // Track history so the Back button can return to the previous tab
   try{
     var curr=null;
-    ['log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash'].forEach(function(t){
+    ['log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory'].forEach(function(t){
       var pn=gid('pane-'+t); if(pn&&pn.style.display!=='none')curr=t;
     });
     if(!_tabNavigatingBack && curr && curr!==name){ TAB_HISTORY.push(curr); if(TAB_HISTORY.length>25)TAB_HISTORY.shift(); }
   }catch(e){}
   _tabNavigatingBack=false;
-  ['log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash'].forEach(function(t){
+  ['log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory'].forEach(function(t){
     var pn=gid('pane-'+t); if(pn)pn.style.display='none';
     var tb=gid('tab-'+t);
     if(tb){tb.style.color='var(--text-3)';tb.style.borderBottomColor='transparent';tb.classList.remove('dz-active');}
@@ -1063,6 +1065,7 @@ function showTab(name){
   if(name==='assets')renderAssets();
   if(name==='reports')renderReports();
   if(name==='requests'){renderRequests();try{reqMarkAllSeen();}catch(e){}}
+  if(name==='inventory')renderInventory();
   if(name==='log'){injectPinnedRequests();injectMyPMTasks();}
   if(name==='schedule')renderSchedule();
   if(name==='dash')renderDashboard();
@@ -4445,6 +4448,32 @@ function buildForkliftPDFBlob(unit,d){
  return doc.output('blob');
 }
 
+function openMaintReqMenu(){
+  var ex=gid('mreq-menu');if(ex)ex.remove();
+  var url=(location.origin+location.pathname)+'?request';
+  var H='<div id="mreq-menu" style="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99000;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">';
+  H+='<div style="background:var(--bg);border:1px solid var(--border);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:520px;padding:18px 18px 26px">';
+  H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:17px;font-weight:800;color:#fff">\uD83D\uDD27 Maintenance Request</div><button onclick="document.getElementById(\'mreq-menu\').remove()" style="padding:6px 12px;font-size:13px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);border-radius:8px;cursor:pointer">Close</button></div>';
+  H+='<div style="font-size:12px;color:var(--text-3);margin-bottom:14px">Post the QR around the plant, or open the request form directly.</div>';
+  H+='<button onclick="document.getElementById(\'mreq-menu\').remove();openMaintReqQR()" style="width:100%;padding:14px;margin-bottom:10px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">&#9783;&nbsp; Show / print QR code</button>';
+  H+='<button onclick="document.getElementById(\'mreq-menu\').remove();window.open(\''+url+'\',\'_blank\')" style="width:100%;padding:14px;border-radius:11px;border:none;background:#2563eb;color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDCDD Open request form</button>';
+  H+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function openMaintReqQR(){
+  var ex=gid('mreq-qr');if(ex)ex.remove();
+  var url=(location.origin+location.pathname)+'?request';
+  var data='';try{data=flQRDataURL(url);}catch(e){}
+  var H='<div id="mreq-qr" style="position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:99000;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">';
+  H+='<div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:26px;text-align:center;color:#111">';
+  H+='<div style="font-size:19px;font-weight:800;margin-bottom:4px">Maintenance Request</div>';
+  H+='<div style="font-size:13px;color:#666;margin-bottom:18px">Scan to report a maintenance issue \u2014 it lands in the Requests tab.</div>';
+  if(data)H+='<img src="'+data+'" style="width:230px;height:230px;margin:0 auto 14px;display:block">';
+  H+='<div style="font-size:12px;color:#888;word-break:break-all;margin-bottom:18px">'+url+'</div>';
+  H+='<div style="display:flex;gap:8px"><button onclick="window.print()" style="flex:1;padding:12px;background:#111;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer">Print</button><button onclick="document.getElementById(\'mreq-qr\').remove()" style="flex:1;padding:12px;background:#f0f0f0;color:#111;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer">Close</button></div>';
+  H+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
 function openForkliftMenu(){
  var ex=gid('fl-menu');if(ex)ex.remove();
  var H='<div id="fl-menu" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99000;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">';
@@ -4986,15 +5015,252 @@ function flDashRunRange(){
 }
 
 
+// ═══════════════════════ INVENTORY ═══════════════════════
+var INV=[];               // all inventory rows
+var INV_FOLDER=null;      // currently open folder (null = folder list)
+var INV_SEARCH='';        // active search text
+var INV_LOWONLY=false;    // low-stock filter
+var INV_CUSTOM_FOLDERS=[];// custom folder names (persisted in bbw_system)
+var INV_LOADED=false;
+
+function invAssetNames(){ return ASSETS.map(function(a){return a.n;}); }
+
+function loadInventory(cb){
+  Promise.all([
+    sbFetch('bbw_inventory?select=*&order=item.asc&limit=10000').then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}),
+    sbFetch('bbw_system?select=inv_folders&id=eq.1').then(function(r){return r.ok?r.json():[];}).catch(function(){return [];})
+  ]).then(function(res){
+    INV=Array.isArray(res[0])?res[0]:[];
+    var sys=res[1]&&res[1][0];
+    if(sys&&sys.inv_folders){ try{var f=JSON.parse(sys.inv_folders); if(Array.isArray(f))INV_CUSTOM_FOLDERS=f;}catch(e){} }
+    INV_LOADED=true;
+    if(cb)cb();
+  });
+}
+
+function invSaveCustomFolders(){
+  return sbFetch('bbw_system?on_conflict=id',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:1,inv_folders:JSON.stringify(INV_CUSTOM_FOLDERS)})});
+}
+
+function invFolders(){
+  // Folders that actually have items + all custom folders + a catch-all for empties.
+  var used={}; INV.forEach(function(i){ if(i.folder)used[i.folder]=(used[i.folder]||0)+1; });
+  var names={};
+  Object.keys(used).forEach(function(f){names[f]=1;});
+  INV_CUSTOM_FOLDERS.forEach(function(f){names[f]=1;});
+  var list=Object.keys(names).sort(function(a,b){return a.toLowerCase()<b.toLowerCase()?-1:1;});
+  return list.map(function(f){return {name:f, count:used[f]||0};});
+}
+
+function invIsLow(i){ var q=parseFloat(i.qty), m=parseFloat(i.min_qty); return !isNaN(q)&&!isNaN(m)&&m>0&&q<=m; }
+
+function renderInventory(){
+  var el=gid('pane-inventory'); if(!el)return;
+  if(!INV_LOADED){ el.innerHTML='<div style="text-align:center;color:var(--text-3);padding:50px;font-size:14px">Loading inventory\u2026</div>'; loadInventory(function(){renderInventory();}); return; }
+  var H='';
+  // Search bar (always visible)
+  H+='<div style="position:sticky;top:0;background:var(--bg);padding-bottom:10px;z-index:3">';
+  H+='<div style="display:flex;gap:8px;margin-bottom:8px">';
+  H+='<input id="inv-search" value="'+escHtml(INV_SEARCH)+'" oninput="INV_SEARCH=this.value;invDrawBody()" placeholder="\uD83D\uDD0D Search item, part #, make, supplier\u2026" style="flex:1;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:#fff;font-size:14px;box-sizing:border-box">';
+  H+='<button onclick="invToggleLow()" style="padding:0 14px;border-radius:10px;border:1px solid '+(INV_LOWONLY?'#ef4444':'var(--border)')+';background:'+(INV_LOWONLY?'rgba(239,68,68,.15)':'var(--surface-2)')+';color:'+(INV_LOWONLY?'#f87171':'var(--text-2)')+';font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Low stock</button>';
+  H+='</div>';
+  H+='</div>';
+  H+='<div id="inv-body"></div>';
+  el.innerHTML=H;
+  invDrawBody();
+}
+
+function invToggleLow(){ INV_LOWONLY=!INV_LOWONLY; renderInventory(); }
+
+function invDrawBody(){
+  var el=gid('inv-body'); if(!el)return;
+  var q=(INV_SEARCH||'').trim().toLowerCase();
+  var searching = q.length>0 || INV_LOWONLY;
+  var H='';
+  if(searching){
+    // Flat search across everything
+    var res=INV.filter(function(i){
+      if(INV_LOWONLY&&!invIsLow(i))return false;
+      if(!q)return true;
+      return [(i.item||''),(i.part_no||''),(i.make||''),(i.supplier||''),(i.location||''),(i.folder||''),(i.notes||'')].join(' ').toLowerCase().indexOf(q)>=0;
+    });
+    H+='<div style="font-size:12px;color:var(--text-3);margin:4px 0 12px">'+res.length+' item'+(res.length!==1?'s':'')+(INV_LOWONLY?' low on stock':'')+(q?(' matching "'+escHtml(INV_SEARCH)+'"'):'')+'</div>';
+    if(!res.length)H+='<div style="text-align:center;color:var(--text-3);padding:40px;font-size:14px">No matching items.</div>';
+    else res.forEach(function(i){H+=invItemCard(i,true);});
+    el.innerHTML=H;
+    return;
+  }
+  if(INV_FOLDER===null){
+    // Folder list
+    var folders=invFolders();
+    H+='<div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 12px">';
+    H+='<div style="font-size:12px;color:var(--text-3)">'+folders.length+' folder'+(folders.length!==1?'s':'')+' \u2022 '+INV.length+' items total</div>';
+    H+='<button onclick="invNewFolder()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:12px;font-weight:700;padding:8px 12px;border-radius:9px;cursor:pointer">+ Folder</button>';
+    H+='</div>';
+    H+='<button onclick="invPickAssetFolder()" style="width:100%;text-align:left;background:rgba(96,165,250,.1);border:1px dashed rgba(96,165,250,.4);color:#60a5fa;font-size:13px;font-weight:600;padding:12px 14px;border-radius:11px;cursor:pointer;margin-bottom:12px">+ Add part to an asset folder</button>';
+    if(!folders.length)H+='<div style="text-align:center;color:var(--text-3);padding:40px;font-size:14px">No parts yet. Tap \u201c+ Add part\u201d above to start.</div>';
+    folders.forEach(function(f){
+      var lowN=INV.filter(function(i){return i.folder===f.name&&invIsLow(i);}).length;
+      H+='<button onclick="invOpenFolder('+JSON.stringify(f.name).replace(/"/g,'&quot;')+')" style="width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px 16px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">';
+      H+='<div style="display:flex;align-items:center;gap:11px"><span style="font-size:19px">\uD83D\uDCC1</span><div><div style="font-size:15px;font-weight:700;color:#fff">'+escHtml(f.name)+'</div><div style="font-size:12px;color:var(--text-3)">'+f.count+' item'+(f.count!==1?'s':'')+'</div></div></div>';
+      H+=(lowN?'<span style="background:rgba(239,68,68,.15);color:#f87171;font-size:10px;font-weight:800;border-radius:6px;padding:3px 8px">'+lowN+' low</span>':'<span style="color:var(--text-3);font-size:18px">\u203A</span>');
+      H+='</button>';
+    });
+    el.innerHTML=H;
+    return;
+  }
+  // Inside a folder
+  var items=INV.filter(function(i){return i.folder===INV_FOLDER;}).sort(function(a,b){return (a.item||'').toLowerCase()<(b.item||'').toLowerCase()?-1:1;});
+  H+='<div style="display:flex;align-items:center;gap:10px;margin:4px 0 14px">';
+  H+='<button onclick="INV_FOLDER=null;invDrawBody()" style="background:var(--surface);border:1px solid var(--border);color:var(--text-2);font-size:12.5px;font-weight:600;cursor:pointer;padding:7px 12px;border-radius:9px">\u2039 Folders</button>';
+  H+='<div style="font-size:16px;font-weight:800;color:#fff">'+escHtml(INV_FOLDER)+'</div>';
+  H+='<div style="flex:1"></div>';
+  H+='<button onclick="invAddItem('+JSON.stringify(INV_FOLDER).replace(/"/g,'&quot;')+')" style="background:#fff;color:#000;border:none;font-size:13px;font-weight:800;padding:9px 14px;border-radius:9px;cursor:pointer">+ Add part</button>';
+  H+='</div>';
+  if(!items.length)H+='<div style="text-align:center;color:var(--text-3);padding:40px;font-size:14px">No parts in this folder yet.</div>';
+  items.forEach(function(i){H+=invItemCard(i,false);});
+  el.innerHTML=H;
+}
+
+function invItemCard(i, showFolder){
+  var low=invIsLow(i);
+  var H='<div style="background:var(--surface);border:1px solid '+(low?'rgba(239,68,68,.4)':'var(--border)')+';border-radius:12px;padding:13px 15px;margin-bottom:9px">';
+  H+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">';
+  H+='<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;color:#fff">'+escHtml(i.item||'(unnamed)')+(low?' <span style="background:rgba(239,68,68,.15);color:#f87171;font-size:9px;font-weight:800;border-radius:5px;padding:2px 6px;vertical-align:middle">LOW</span>':'')+'</div>';
+  var meta=[];
+  if(i.part_no)meta.push('Part# '+escHtml(i.part_no));
+  if(i.make)meta.push(escHtml(i.make));
+  if(i.location)meta.push('\uD83D\uDCCD '+escHtml(i.location));
+  if(showFolder&&i.folder)meta.push('\uD83D\uDCC1 '+escHtml(i.folder));
+  if(meta.length)H+='<div style="font-size:12px;color:var(--text-3);margin-top:3px;line-height:1.5">'+meta.join(' \u00b7 ')+'</div>';
+  if(i.supplier)H+='<div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Supplier: '+escHtml(i.supplier)+'</div>';
+  if(i.notes)H+='<div style="font-size:11.5px;color:var(--text-3);margin-top:3px;font-style:italic">'+escHtml(i.notes)+'</div>';
+  H+='</div>';
+  // Qty stepper
+  H+='<div style="text-align:center;flex-shrink:0">';
+  H+='<div style="display:flex;align-items:center;gap:6px">';
+  H+='<button onclick="invBumpQty('+i.id+',-1)" style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:#fff;font-size:18px;font-weight:700;cursor:pointer;line-height:1">\u2212</button>';
+  H+='<div style="min-width:34px;font-size:18px;font-weight:800;color:'+(low?'#f87171':'#fff')+'">'+(i.qty==null?'0':i.qty)+'</div>';
+  H+='<button onclick="invBumpQty('+i.id+',1)" style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:#fff;font-size:18px;font-weight:700;cursor:pointer;line-height:1">+</button>';
+  H+='</div>';
+  if(i.min_qty)H+='<div style="font-size:10px;color:var(--text-3);margin-top:3px">min '+i.min_qty+'</div>';
+  H+='</div></div>';
+  // Edit link
+  H+='<div style="text-align:right;margin-top:8px"><button onclick="invEditItem('+i.id+')" style="background:none;border:none;color:#60a5fa;font-size:12px;font-weight:600;cursor:pointer;padding:2px 4px">Edit</button></div>';
+  H+='</div>';
+  return H;
+}
+
+function invBumpQty(id,delta){
+  var i=INV.filter(function(x){return ''+x.id===''+id;})[0]; if(!i)return;
+  var q=(parseFloat(i.qty)||0)+delta; if(q<0)q=0;
+  i.qty=q; invDrawBody();
+  sbFetch('bbw_inventory?id=eq.'+id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({qty:q,updated_by:user||null,updated_at:new Date().toISOString()})}).catch(function(){});
+}
+
+function invOpenFolder(name){ INV_FOLDER=name; INV_SEARCH=''; INV_LOWONLY=false; renderInventory(); }
+
+function invNewFolder(){
+  var name=prompt('New folder name:'); if(!name)return; name=name.trim(); if(!name)return;
+  if(INV_CUSTOM_FOLDERS.indexOf(name)<0)INV_CUSTOM_FOLDERS.push(name);
+  invSaveCustomFolders().then(function(){INV_FOLDER=name;renderInventory();});
+}
+
+function invPickAssetFolder(){
+  // Show a searchable list of asset names to add a part into.
+  var names=invAssetNames();
+  invFolderPicker(names);
+}
+function invFolderPicker(names){
+  var ex=gid('inv-fpick');if(ex)ex.remove();
+  var H='<div id="inv-fpick" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9600;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">';
+  H+='<div style="background:var(--bg);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column">';
+  H+='<div style="padding:16px 18px;border-bottom:1px solid var(--border)"><div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:8px">Choose asset folder</div><input id="inv-fpick-s" oninput="invFolderPickerFilter()" placeholder="Search assets\u2026" style="width:100%;box-sizing:border-box;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:14px"></div>';
+  H+='<div id="inv-fpick-list" style="overflow-y:auto;padding:8px 12px 20px">';
+  H+=names.map(function(n){return '<button class="inv-fpick-row" data-n="'+escHtml(n).toLowerCase()+'" onclick="invAddItem('+JSON.stringify(n).replace(/"/g,'&quot;')+');document.getElementById(\'inv-fpick\').remove()" style="display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin-bottom:6px;color:#fff;font-size:14px;cursor:pointer">'+escHtml(n)+'</button>';}).join('');
+  H+='</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function invFolderPickerFilter(){
+  var q=(gid('inv-fpick-s').value||'').toLowerCase();
+  Array.prototype.forEach.call(document.querySelectorAll('.inv-fpick-row'),function(b){b.style.display=b.getAttribute('data-n').indexOf(q)>=0?'block':'none';});
+}
+
+function invAddItem(folder){ invItemForm(null, folder); }
+function invEditItem(id){ var i=INV.filter(function(x){return ''+x.id===''+id;})[0]; if(i)invItemForm(i, i.folder); }
+
+function invItemForm(existing, folder){
+  var ex=gid('inv-form');if(ex)ex.remove();
+  var e=existing||{};
+  function f(label,id,val,ph,type){ return '<div style="margin-bottom:11px"><label style="display:block;font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">'+label+'</label><input id="'+id+'" '+(type?('type="'+type+'" inputmode="'+(type==='number'?'decimal':'text')+'"'):'')+' value="'+escHtml(val==null?'':String(val))+'" placeholder="'+(ph||'')+'" style="width:100%;box-sizing:border-box;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:14px"></div>'; }
+  var H='<div id="inv-form" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9600;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto" onclick="if(event.target===this)this.remove()">';
+  H+='<div style="background:var(--bg);border:1px solid var(--border);border-radius:16px;max-width:440px;width:100%;max-height:90vh;overflow-y:auto">';
+  H+='<div style="padding:16px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg)"><div style="font-size:16px;font-weight:800;color:#fff">'+(existing?'Edit part':'Add part')+'</div><div style="font-size:12px;color:var(--text-3)">Folder: '+escHtml(folder||'')+'</div></div>';
+  H+='<div style="padding:16px 18px">';
+  H+=f('Item name *','inv-f-item',e.item,'e.g. Filler valve seal');
+  H+='<div style="display:flex;gap:10px">';
+  H+='<div style="flex:1">'+f('Qty','inv-f-qty',e.qty==null?'':e.qty,'0','number')+'</div>';
+  H+='<div style="flex:1">'+f('Min qty','inv-f-min',e.min_qty==null?'':e.min_qty,'0','number')+'</div>';
+  H+='</div>';
+  H+=f('Part number','inv-f-part',e.part_no,'');
+  H+=f('Make / Manufacturer','inv-f-make',e.make,'');
+  H+=f('Location / Bin','inv-f-loc',e.location,'e.g. Shelf B3');
+  H+=f('Supplier','inv-f-sup',e.supplier,'');
+  H+='<div style="margin-bottom:11px"><label style="display:block;font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Notes</label><textarea id="inv-f-notes" rows="2" style="width:100%;box-sizing:border-box;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:14px;resize:vertical">'+escHtml(e.notes||'')+'</textarea></div>';
+  H+='<div style="display:flex;gap:8px;margin-top:6px">';
+  if(existing)H+='<button onclick="invDeleteItem('+e.id+')" style="padding:12px 14px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:#f87171;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Delete</button>';
+  H+='<div style="flex:1"></div>';
+  H+='<button onclick="document.getElementById(\'inv-form\').remove()" style="padding:12px 16px;background:none;border:1px solid var(--border);color:var(--text-2);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>';
+  H+='<button onclick="invSaveItem('+(existing?e.id:'null')+','+JSON.stringify(folder).replace(/"/g,'&quot;')+',this)" style="padding:12px 18px;background:#fff;color:#000;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer">Save</button>';
+  H+='</div></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+  setTimeout(function(){var el=gid('inv-f-item');if(el)el.focus();},50);
+}
+
+function invSaveItem(id, folder, btn){
+  var item=(gid('inv-f-item').value||'').trim();
+  if(!item){alert('Item name is required.');gid('inv-f-item').focus();return;}
+  function num(v){var n=parseFloat(v);return isNaN(n)?null:n;}
+  var row={
+    folder:folder||'',
+    item:item,
+    qty:num(gid('inv-f-qty').value),
+    min_qty:num(gid('inv-f-min').value),
+    part_no:(gid('inv-f-part').value||'').trim()||null,
+    make:(gid('inv-f-make').value||'').trim()||null,
+    location:(gid('inv-f-loc').value||'').trim()||null,
+    supplier:(gid('inv-f-sup').value||'').trim()||null,
+    notes:(gid('inv-f-notes').value||'').trim()||null,
+    updated_by:user||null,
+    updated_at:new Date().toISOString()
+  };
+  if(btn){btn.disabled=true;btn.textContent='Saving\u2026';}
+  var req = id!=null && id!=='null'
+    ? sbFetch('bbw_inventory?id=eq.'+id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(row)})
+    : sbFetch('bbw_inventory',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(row)});
+  req.then(function(r){ if(!r.ok&&r.status!==201&&r.status!==204)throw new Error('HTTP '+r.status);
+    var m=gid('inv-form');if(m)m.remove();
+    loadInventory(function(){renderInventory();});
+  }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent='Save';} alert('Could not save: '+e.message); });
+}
+
+function invDeleteItem(id){
+  if(!confirm('Delete this part permanently?'))return;
+  sbFetch('bbw_inventory?id=eq.'+id,{method:'DELETE',headers:{'Prefer':'return=minimal'}})
+    .then(function(){ var m=gid('inv-form');if(m)m.remove(); loadInventory(function(){renderInventory();}); })
+    .catch(function(e){ alert('Delete failed: '+e.message); });
+}
+
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-03m';
+  var BUILD='2026-07-04a';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
   H+='<div onclick="dangerTap()" style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace;cursor:default;user-select:none">build '+BUILD+'</div>';
   H+='<button onclick="openForkliftMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDE9C Forklift Inspection</button>';
+  H+='<button onclick="openMaintReqMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDD27 Maintenance Request</button>';
   // Push notification enable button
   var pushSupported=('serviceWorker' in navigator)&&('PushManager' in window);
   var pushOn=false; try{pushOn=localStorage.getItem('bbw_push_on')==='1';}catch(e){}
@@ -5936,6 +6202,7 @@ var SCHED_UK={
   'day updated':'\u0434\u0435\u043d\u044c \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043e','days updated':'\u0434\u043d\u0456\u0432 \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043e',
   'Enter a positive number':'\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u0434\u043e\u0434\u0430\u0442\u043d\u0435 \u0447\u0438\u0441\u043b\u043e',
   'Target line rate (cans per hour):':'\u0426\u0456\u043b\u044c\u043e\u0432\u0430 \u0448\u0432\u0438\u0434\u043a\u0456\u0441\u0442\u044c \u043b\u0456\u043d\u0456\u0457 (\u0431\u0430\u043d\u043e\u043a \u0437\u0430 \u0433\u043e\u0434\u0438\u043d\u0443):',
+  'Mean productivity':'\u0421\u0435\u0440\u0435\u0434\u043d\u044f \u043f\u0440\u043e\u0434\u0443\u043a\u0442\u0438\u0432\u043d\u0456\u0441\u0442\u044c','sets the day colour':'\u0432\u0438\u0437\u043d\u0430\u0447\u0430\u0454 \u043a\u043e\u043b\u0456\u0440 \u0434\u043d\u044f','Productivity':'\u041f\u0440\u043e\u0434\u0443\u043a\u0442\u0438\u0432\u043d\u0456\u0441\u0442\u044c',
   'Volume':'\u041e\u0431\u0441\u044f\u0433','Set monthly target':'\u0417\u0430\u0434\u0430\u0442\u0438 \u043c\u0456\u0441\u044f\u0447\u043d\u0443 \u0446\u0456\u043b\u044c','mo':'\u043c\u0456\u0441',
   'Production settings':'\u041d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f \u0432\u0438\u0440\u043e\u0431\u043d\u0438\u0446\u0442\u0432\u0430','Monthly target (hL)':'\u041c\u0456\u0441\u044f\u0447\u043d\u0430 \u0446\u0456\u043b\u044c (\u0433\u043b)','Line rate (cans/hr)':'\u0428\u0432\u0438\u0434\u043a\u0456\u0441\u0442\u044c \u043b\u0456\u043d\u0456\u0457 (\u0431\u0430\u043d\u043e\u043a/\u0433\u043e\u0434)','Can size (mL)':'\u041e\u0431\u2019\u0454\u043c \u0431\u0430\u043d\u043a\u0438 (\u043c\u043b)','Save':'\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438',
   'Attainment':'\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f','Monthly summary':'\u041c\u0456\u0441\u044f\u0447\u043d\u0438\u0439 \u043f\u0456\u0434\u0441\u0443\u043c\u043e\u043a','Monthly target (hL):':'\u041c\u0456\u0441\u044f\u0447\u043d\u0430 \u0446\u0456\u043b\u044c (\u0433\u043b):','Enter a valid number':'\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0435 \u0447\u0438\u0441\u043b\u043e','No production logged this month. Tap a day and enter the hL each shift ran.':'\u0426\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f \u0432\u0438\u0440\u043e\u0431\u043d\u0438\u0446\u0442\u0432\u043e \u043d\u0435 \u0432\u043d\u0435\u0441\u0435\u043d\u043e. \u0422\u043e\u0440\u043a\u043d\u0456\u0442\u044c\u0441\u044f \u0434\u043d\u044f \u0442\u0430 \u0432\u0432\u0435\u0434\u0456\u0442\u044c \u0433\u043b, \u044f\u043a\u0456 \u0432\u0438\u0440\u043e\u0431\u0438\u043b\u0430 \u043a\u043e\u0436\u043d\u0430 \u0437\u043c\u0456\u043d\u0430.','Summary downloaded':'\u041f\u0456\u0434\u0441\u0443\u043c\u043e\u043a \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043e','Open email to send this summary?':'\u0412\u0456\u0434\u043a\u0440\u0438\u0442\u0438 \u043f\u043e\u0448\u0442\u0443, \u0449\u043e\u0431 \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u043f\u0456\u0434\u0441\u0443\u043c\u043e\u043a?'
@@ -5957,7 +6224,8 @@ function nHLof(sc){ if(sc.nHL!=null)return +sc.nHL||0; if(sc.nCans!=null)return 
 function schedNames(s){ if(Array.isArray(s))return s.slice(); if(s==null)return []; return (''+s).split(/[\/,]/).map(function(x){return x.trim();}).filter(Boolean); }
 function schedJoin(a){ return (a||[]).join(' / '); }
 function schedEffPct(cans){ var t=prodRate()*12; if(!t||!cans)return null; return Math.round(cans/t*1000)/10; }
-function schedEffColor(p){ if(p==null)return 'var(--text-3)'; if(p>=85)return '#34d399'; if(p>=70)return '#fbbf24'; return '#f87171'; }
+function schedEffColor(p){ if(p==null)return 'var(--text-3)'; if(p>=70)return '#34d399'; if(p>=50)return '#fbbf24'; return '#f87171'; }
+function meanProdOf(sc){ if(sc.meanProd!=null&&sc.meanProd!=='')return +sc.meanProd; var d=(sc.dProd!=null&&sc.dProd!=='')?+sc.dProd:null, n=(sc.nProd!=null&&sc.nProd!=='')?+sc.nProd:null; if(d!=null&&n!=null)return (d+n)/2; if(d!=null)return d; if(n!=null)return n; return null; }
 function schedFmt(n){ return (+n||0).toLocaleString('en-CA'); }
 function schedMiniLabel(names){ if(!names.length)return ''; var f=names[0]; if(f.length>6)f=f.slice(0,6); return names.length>1?(f+'+'+(names.length-1)):f; }
 function schedPersist(){ try{localStorage.setItem('bbw_tech_sched',JSON.stringify(techSchedule));}catch(e){} try{saveScheduleToSB('tech',techSchedule);}catch(e){} }
@@ -5977,6 +6245,7 @@ function renderSchedule(){
 function schedShiftMonth(delta){ schedMonth=new Date(schedMonth.getFullYear(),schedMonth.getMonth()+delta,1); renderSchedule(); }
 function schedToday(){ var n=new Date(); schedMonth=new Date(n.getFullYear(),n.getMonth(),1); renderSchedule(); }
 function schedEditTarget(){
+  if(typeof user==='undefined'||user!==ADMIN){ toast('Only the admin can set the monthly target.',true); return; }
   var v=prompt(schT('Monthly target (hL):'), (monthlyTargetHL()||''));
   if(v==null)return;
   v=parseFloat((''+v).replace(/[^0-9.]/g,''));
@@ -6006,8 +6275,9 @@ function schedMonthCardHTML(){
     var sc=techSchedule[ds]||{};
     var dn=schedNames(sc.day), nn=schedNames(sc.night), vac=sc.vac||[], sick=sc.sick||[], hol=sc.holiday||'';
     var dC=dHLof(sc), nC=nHLof(sc), tot=dC+nC;
-    var paceCol='#34d399';
-    if(paceDaily>0&&tot>0){ var pp=tot/paceDaily*100; paceCol=schedEffColor(pp); }
+    var mProd=meanProdOf(sc);
+    var paceCol='#34d399'; var showBar=(mProd!=null);
+    if(mProd!=null){ paceCol=schedEffColor(mProd); }
     H+='<div onclick="openDayEditor(\''+ds+'\')" style="position:relative;min-height:60px;background:'+(inM?'var(--surface-2)':'transparent')+';border:1px solid '+(isTod?'#60a5fa':'var(--border)')+';border-radius:8px;padding:4px 3px 8px;cursor:pointer;opacity:'+(inM?'1':'.38')+';overflow:hidden">';
     H+='<div style="font-size:9.5px;font-weight:800;color:'+(isTod?'#60a5fa':'var(--text-2)')+';line-height:1">'+dt.getDate()+'</div>';
     if(hol)H+='<div title="'+rqEsc(hol)+'" style="margin-top:2px;background:#d97706;color:#fff;font-size:7.5px;font-weight:800;letter-spacing:.02em;border-radius:3px;padding:1px 3px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+rqEsc(hol)+'</div>';
@@ -6019,7 +6289,7 @@ function schedMonthCardHTML(){
     if(nn.length)H+='<div style="font-size:8px;font-weight:700;color:#60a5fa;background:rgba(96,165,250,.14);border-radius:3px;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35">'+rqEsc(schedMiniLabel(nn))+'</div>';
     }
     H+='</div>';
-    if(tot>0)H+='<div style="position:absolute;left:3px;right:3px;bottom:2px;height:3px;border-radius:2px;background:'+paceCol+'"></div>';
+    if(showBar)H+='<div style="position:absolute;left:3px;right:3px;bottom:2px;height:3px;border-radius:2px;background:'+paceCol+'"></div>';
     H+='</div>';
   }
   H+='</div>';
@@ -6029,7 +6299,7 @@ function schedMonthCardHTML(){
   H+='<span><span style="display:inline-block;background:#9333ea;color:#fff;font-size:7px;font-weight:800;border-radius:3px;padding:1px 3px;margin-right:3px;line-height:1.4">VAC</span>'+schT('Vacation')+'</span>';
   H+='<span><span style="display:inline-block;background:#16a34a;color:#fff;font-size:7px;font-weight:800;border-radius:3px;padding:1px 3px;margin-right:3px;line-height:1.4">SICK</span>'+schT('Sick leave')+'</span>';
   H+='<span><span style="display:inline-block;background:#d97706;color:#fff;font-size:7px;font-weight:800;border-radius:3px;padding:1px 3px;margin-right:3px;line-height:1.4">HOL</span>'+schT('Holiday (closed)')+'</span>';
-  H+='<span><span style="display:inline-block;width:8px;height:3px;background:#34d399;border-radius:2px;margin-right:3px;vertical-align:middle"></span>'+schT('Efficiency')+'</span>';
+  H+='<span><span style="display:inline-block;width:8px;height:3px;background:#f87171;border-radius:2px;margin-right:2px;vertical-align:middle"></span><span style="display:inline-block;width:8px;height:3px;background:#fbbf24;border-radius:2px;margin-right:2px;vertical-align:middle"></span><span style="display:inline-block;width:8px;height:3px;background:#34d399;border-radius:2px;margin-right:3px;vertical-align:middle"></span>'+schT('Mean productivity')+'</span>';
   H+='</div>';
   if(isEditor())H+='<div style="font-size:10px;color:var(--text-3);margin-top:8px;text-align:center">'+schT('Tap any day to assign shifts, vacation & production')+'</div>';
   H+='</div>';
@@ -6040,12 +6310,15 @@ function schedMonthStats(){
   var y=schedMonth.getFullYear(), m=schedMonth.getMonth();
   var days=new Date(y,m+1,0).getDate();
   var totDHL=0,totNHL=0,dailyHL=[],labels=[],loggedDays=0;
+  var prodSum=0,prodN=0;
   for(var i=1;i<=days;i++){
     var k=localDateStr(new Date(y,m,i)); var sc=techSchedule[k]||{};
     var d=dHLof(sc), n=nHLof(sc); totDHL+=d; totNHL+=n;
+    var mp=meanProdOf(sc); if(mp!=null){prodSum+=mp;prodN++;}
     var t=d+n; dailyHL.push(t); labels.push(i); if(t>0)loggedDays++;
   }
-  return {totHL:totDHL+totNHL,totDHL:totDHL,totNHL:totNHL,dailyHL:dailyHL,labels:labels,days:days,loggedDays:loggedDays,total:totDHL+totNHL};
+  var avgProd=prodN?Math.round(prodSum/prodN):null;
+  return {totHL:totDHL+totNHL,totDHL:totDHL,totNHL:totNHL,dailyHL:dailyHL,labels:labels,days:days,loggedDays:loggedDays,total:totDHL+totNHL,avgProd:avgProd};
 }
 
 function schedStatBox(label,val,col){ return '<div style="background:var(--surface-2);border-radius:9px;padding:9px 8px;text-align:center"><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">'+label+'</div><div style="font-size:14px;font-weight:800;color:'+col+'">'+val+'</div></div>'; }
@@ -6060,13 +6333,16 @@ function schedSummaryHTML(){
   var hdr= tgt>0
     ? (schT('Target')+': '+fmtHL(tgt)+'/'+schT('mo')+(att!=null?' \u00b7 <span style="color:'+schedEffColor(att)+';font-weight:700">'+att+'%</span>':''))
     : schT('Set monthly target');
-  H+='<div onclick="schedEditTarget()" style="font-size:10px;color:var(--text-2);cursor:pointer">'+hdr+' \u270E</div>';
+  var _isAdmin=(typeof user!=='undefined'&&user===ADMIN);
+  H+='<div '+(_isAdmin?'onclick="schedEditTarget()" ':'')+'style="font-size:10px;color:var(--text-2);'+(_isAdmin?'cursor:pointer':'')+'">'+hdr+(_isAdmin?' \u270E':'')+'</div>';
   H+='</div>';
   if(!st.total){
     H+='<div style="color:var(--text-3);font-size:13px;font-style:italic">'+schT('No production logged this month. Tap a day and enter the hL each shift ran.')+'</div>';
   }else{
-    H+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">';
+    H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">';
     H+=schedStatBox(schT('Volume'),fmtHL(st.totHL),'#fff');
+    H+=schedStatBox(schT('Mean productivity'),(st.avgProd!=null?st.avgProd+'%':'\u2014'),(st.avgProd!=null?schedEffColor(st.avgProd):'var(--text-3)'));
+    H+='</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">';
     H+=schedStatBox(schT('Attainment'),(att!=null?att+'%':'\u2014'),(att!=null?schedEffColor(att):'var(--text-3)'));
     H+=schedStatBox(schT('Day / Night')+' (hL)',hlNum(st.totDHL)+' / '+hlNum(st.totNHL),'#9b9ba3');
     H+='</div><div style="height:150px;margin-bottom:14px"><canvas id="schedChart"></canvas></div>';
@@ -6100,6 +6376,11 @@ function schedTogglePick(kind,name){ var a=schedEdit[kind]; var i=a.indexOf(name
 
 function schedReadRow(label,color,names){ return '<div style="margin-bottom:11px"><div style="font-size:10px;font-weight:700;color:'+color+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">'+label+'</div><div style="font-size:14px;color:#fff">'+(names.length?rqEsc(names.join(', ')):'<span style="color:var(--text-3)">\u2014</span>')+'</div></div>'; }
 
+function schedPctField(kind,label,val){
+  var fld=(kind==='dp'?'dProd':kind==='np'?'nProd':'meanProd');
+  return '<div style="min-width:0"><div style="font-size:11.5px;color:var(--text-2);margin-bottom:5px">'+label+'</div>'+
+    '<input type="number" inputmode="decimal" id="se-pct-'+kind+'" value="'+(val===''||val==null?'':val)+'" oninput="schedEdit.'+fld+'=this.value" placeholder="0" style="width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;margin:0;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 12px;font-size:16px;color:#fff;outline:none;font-family:ui-monospace,monospace"></div>';
+}
 function schedHLField(kind,label,val){
   var fld=(kind==='d'?'dHL':'nHL');
   return '<div style="min-width:0"><div style="font-size:11.5px;color:var(--text-2);margin-bottom:5px">'+label+'</div>'+
@@ -6115,6 +6396,7 @@ function openDayEditor(ds){
   schedEdit={day:schedNames(sc.day),night:schedNames(sc.night),vac:(sc.vac||[]).slice(),sick:(sc.sick||[]).slice(),holiday:(sc.holiday||''),
     dHL:(sc.dHL!=null?sc.dHL:(sc.dCans!=null?Math.round(cansToHL(sc.dCans)*10)/10:'')),
     nHL:(sc.nHL!=null?sc.nHL:(sc.nCans!=null?Math.round(cansToHL(sc.nCans)*10)/10:'')),
+    dProd:(sc.dProd!=null?sc.dProd:''), nProd:(sc.nProd!=null?sc.nProd:''), meanProd:(sc.meanProd!=null?sc.meanProd:''),
     note:(sc.comment||'')};
   var canEdit=isEditor();
   var dt=new Date(+ds.slice(0,4),+ds.slice(5,7)-1,+ds.slice(8,10));
@@ -6148,10 +6430,17 @@ function openDayEditor(ds){
     H+='<div id="se-vac" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px">'+schedChipsHTML('vac')+'</div>';
     H+='<div style="font-size:11px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">'+schT('Sick / Medical leave')+'</div>';
     H+='<div id="se-sick" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px">'+schedChipsHTML('sick')+'</div>';
-    H+='<div style="font-size:11px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+schT('Production')+' (hL)</div>';
-    H+='<div style="display:grid;grid-template-columns:1fr 1fr;column-gap:14px;row-gap:6px;margin-bottom:16px">';
-    H+=schedHLField('d',schT('Day shift'),schedEdit.dHL);
-    H+=schedHLField('n',schT('Night shift'),schedEdit.nHL);
+    H+='<div style="font-size:11px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+schT('Production')+'</div>';
+    H+='<div style="display:grid;grid-template-columns:1fr 1fr;column-gap:14px;row-gap:6px;margin-bottom:6px">';
+    H+=schedHLField('d',schT('Day shift')+' (hL)',schedEdit.dHL);
+    H+=schedHLField('n',schT('Night shift')+' (hL)',schedEdit.nHL);
+    H+='</div>';
+    H+='<div style="display:grid;grid-template-columns:1fr 1fr;column-gap:14px;row-gap:6px;margin-bottom:6px">';
+    H+=schedPctField('dp',schT('Day shift')+' %',schedEdit.dProd);
+    H+=schedPctField('np',schT('Night shift')+' %',schedEdit.nProd);
+    H+='</div>';
+    H+='<div style="margin-bottom:16px">';
+    H+=schedPctField('mp',schT('Mean productivity')+' % \u2014 '+schT('sets the day colour'),schedEdit.meanProd);
     H+='</div>';
     H+='<div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">'+schT('Note (optional)')+'</div>';
     H+='<textarea id="se-note" oninput="schedEdit.note=this.value" placeholder="'+schT('e.g. CIP overrun, training\u2026')+'" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:10px;font-size:14px;color:#fff;outline:none;min-height:54px;font-family:inherit;resize:vertical;margin-bottom:10px">'+rqEsc(schedEdit.note)+'</textarea>';
@@ -6180,6 +6469,9 @@ function schedSaveDay(){
   var _hol=(schedEdit.holiday||'').trim(); if(_hol){o.holiday=_hol;}else{delete o.holiday;}
   if(schedEdit.dHL===''||schedEdit.dHL==null){delete o.dHL;} else {o.dHL=+schedEdit.dHL||0;}
   if(schedEdit.nHL===''||schedEdit.nHL==null){delete o.nHL;} else {o.nHL=+schedEdit.nHL||0;}
+  if(schedEdit.dProd===''||schedEdit.dProd==null){delete o.dProd;} else {o.dProd=+schedEdit.dProd;}
+  if(schedEdit.nProd===''||schedEdit.nProd==null){delete o.nProd;} else {o.nProd=+schedEdit.nProd;}
+  if(schedEdit.meanProd===''||schedEdit.meanProd==null){delete o.meanProd;} else {o.meanProd=+schedEdit.meanProd;}
   delete o.dCans; delete o.nCans;   // migrated to hL
   o.comment=schedEdit.note||'';
   techSchedule[ds]=o;
