@@ -1826,16 +1826,31 @@ function flRequestSubmitted(){
   var uk=(lang==='uk');
   el.innerHTML='<div style="max-width:520px;margin:0 auto;padding:64px 26px;text-align:center"><div style="font-size:56px;margin-bottom:14px">\u2705</div><div style="font-size:23px;font-weight:800;color:#fff;margin-bottom:10px">'+(uk?'\u0417\u0430\u043f\u0438\u0442 \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u043d\u043e':'Request submitted')+'</div><div style="font-size:14.5px;color:var(--text-2);line-height:1.6">'+(uk?'\u0414\u044f\u043a\u0443\u0454\u043c\u043e. \u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u043d\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0443\u0432\u0430\u0447\u0430 \u043e\u0442\u0440\u0438\u043c\u0430\u043b\u0430 \u0432\u0430\u0448 \u0437\u0430\u043f\u0438\u0442.':'Thank you. The forklift team has received your request and will follow up. You can close this page now.')+'</div><button onclick="location.hash=\'\';location.reload()" style="margin-top:26px;background:var(--surface-2);border:1px solid var(--border);color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;cursor:pointer">'+(uk?'\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u0449\u0435':'Submit another')+'</button></div>';
 }
+var FL_NOTIFY_EMAIL='';  // set by forklift supervisor / admin; loaded from bbw_system
+function flLoadNotifyEmail(){
+  return sbFetch('bbw_system?select=fl_notify_email&id=eq.1').then(function(r){return r.ok?r.json():[];}).then(function(rows){
+    if(rows&&rows[0]&&rows[0].fl_notify_email)FL_NOTIFY_EMAIL=rows[0].fl_notify_email;
+    return FL_NOTIFY_EMAIL;
+  }).catch(function(){return FL_NOTIFY_EMAIL;});
+}
+function flSaveNotifyEmail(email){
+  FL_NOTIFY_EMAIL=email||'';
+  return sbFetch('bbw_system?on_conflict=id',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:1,fl_notify_email:FL_NOTIFY_EMAIL})});
+}
 function notifyForkliftTeam(payload){
   try{ payload=payload||{};
-    ejsSend({
-      to_email:FL_MAILTO,
-      subject:payload.subject||'Forklift help request',
-      message:(payload.body||'')+'\n\n\u2014\nPlease check the BBW Forklift dashboard for more details.',
-      reporter:payload.reporter||'',
-      asset_name:payload.asset_name||'Forklift Help',
-      photos:(payload.photos||[]).join('\n')
-    }).catch(function(){});
+    // Load the configured forklift email, then send only if one is set.
+    flLoadNotifyEmail().then(function(to){
+      if(!to){ return; }  // no email configured yet -> request still shows in dashboard, just no email
+      ejsSend({
+        to_email:to,
+        subject:payload.subject||'Forklift help request',
+        message:(payload.body||'')+'\n\n\u2014\nPlease check the BBW Forklift dashboard for more details.',
+        reporter:payload.reporter||'',
+        asset_name:payload.asset_name||'Forklift Help',
+        photos:(payload.photos||[]).join('\n')
+      }).catch(function(){});
+    });
   }catch(e){}
 }
 
@@ -4546,7 +4561,7 @@ function openFlDashGate(){
   document.body.insertAdjacentHTML('beforeend',H);
   setTimeout(function(){var i=gid('fldash-pin');if(i)i.focus();},80);
 }
-function flDashGood(){FLDASH_OK=true;FLDASH_MONTH=new Date();try{flLoadDrivers();}catch(e){}renderFlDash();}
+function flDashGood(){FLDASH_OK=true;FLDASH_MONTH=new Date();try{flLoadDrivers();}catch(e){}try{flLoadNotifyEmail();}catch(e){}renderFlDash();}
 function flDashBad(){var e=gid('fldash-err');if(e)e.textContent='Incorrect PIN';var i=gid('fldash-pin');if(i){i.value='';i.focus();}}
 function flDashSubmitPin(){
   var v=(gid('fldash-pin')&&gid('fldash-pin').value||'').trim();
@@ -4562,6 +4577,15 @@ function flDashSubmitPin(){
 }
 // Change the supervisor PIN. Gated by the CURRENT PIN (single authorisation).
 // fromAdmin=true (the admin More tab) skips that prompt since the admin is already authorised.
+function flDashEditNotifyEmail(){
+  flLoadNotifyEmail().then(function(cur){
+    var v=prompt('Forklift notification email\n\nForklift help requests will be emailed here. Leave blank to send no email (requests still show in this dashboard).', cur||'');
+    if(v===null)return;
+    v=v.trim();
+    if(v&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){ alert('That doesn\'t look like a valid email.'); return; }
+    flSaveNotifyEmail(v).then(function(){ alert(v?('Forklift requests will now email: '+v):'Cleared \u2014 forklift requests will not send email.'); }).catch(function(e){ alert('Could not save: '+(e&&e.message||e)); });
+  });
+}
 function flDashEditDrivers(){
   var ex=gid('fldrv-modal');if(ex)ex.remove();
   var list=FL_DRIVERS.slice();
@@ -4711,6 +4735,7 @@ function renderFlDash(){
   H+='<div style="display:flex;align-items:center">'+flDashLogo(24)+'</div>';
   H+='<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:#fff">Forklift Inspections</div><div style="font-size:11px;color:#8b8b94">Brunswick Bierworks</div></div>';
   if(FLDASH_ROLE!=='driver'){
+  H+='<button onclick="flDashEditNotifyEmail()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Email</button>';
   H+='<button onclick="flDashEditDrivers()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Drivers</button>';
   H+='<button onclick="flDashChangePin()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Change PIN</button>';
   }
@@ -5255,7 +5280,7 @@ function invDeleteItem(id){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-04b';
+  var BUILD='2026-07-04c';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
@@ -5392,7 +5417,8 @@ function renderMore(){
     H+='</div>';
     H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Forklift Supervisor Access</div>';
     H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-bottom:8px">Supervisor page: <b>'+flBaseURL()+'?fldash</b></div>';
-    H+='<button onclick="flDashChangePin(true)" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:16px">\uD83D\uDD11 Change forklift-supervisor PIN</button>';
+    H+='<button onclick="flDashChangePin(true)" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:10px">\uD83D\uDD11 Change forklift-supervisor PIN</button>';
+    H+='<button onclick="flDashEditNotifyEmail()" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:16px">\u2709\uFE0F Set forklift request email</button>';
     H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Auto-Send (EmailJS)</div>';
     H+='<div style="background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.3);border-radius:9px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#4ade80;line-height:1.5">\u2705 Auto-send is built in \u2014 every device sends automatically, no setup needed.</div>';
     H+='<button onclick="testEJS(this)" style="width:100%;padding:12px;background:var(--surface-2);color:#fff;border:1px solid var(--border);border-radius:10px;font-size:13.5px;font-weight:600;cursor:pointer">Test Send Now</button>';
