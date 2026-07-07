@@ -1066,7 +1066,12 @@ function showTab(name){
   if(name==='reports')renderReports();
   if(name==='requests'){renderRequests();try{reqMarkAllSeen();}catch(e){}}
   if(name==='inventory')renderInventory();
-  if(name==='log'){injectPinnedRequests();injectMyPMTasks();}
+  if(name==='log'){
+    injectPinnedRequests();injectMyPMTasks();
+    // If the data these cards need hasn't loaded yet, load it and re-inject when ready.
+    try{ if(!REQUESTS||!REQUESTS.length){ loadRequests().then(function(){injectPinnedRequests();try{updateReqBadge();}catch(e){}}); } }catch(e){}
+    try{ if(typeof WOS_LOADED==='undefined'||!WOS_LOADED){ loadWOs(true).then(function(){injectMyPMTasks();try{updateCmmsBadge();}catch(e){}}); } }catch(e){}
+  }
   if(name==='schedule')renderSchedule();
   if(name==='dash')renderDashboard();
   if(name==='cmms'){try{renderCMMS();}catch(e){gid('pane-cmms').innerHTML='<div style="padding:20px;color:#f87171;font-size:12px">'+e.message+'</div>';}}
@@ -3406,10 +3411,11 @@ function seedCMMS(){
 function renderCMMS(){
   var el=gid('pane-cmms'); if(!el)return;
   if(!isEditor()){el.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-3)">This section is for managers only.</div>';return;}
-  var cached=(typeof CMMS_PMS!=='undefined'&&CMMS_PMS&&CMMS_PMS.length);
+  var cached=(typeof CMMS_PMS!=='undefined'&&CMMS_PMS&&CMMS_PMS.length)&&(typeof WOS_LOADED!=='undefined'&&WOS_LOADED);
   if(cached){ try{renderCMMSView();}catch(e){} }
   else { el.innerHTML='<div style="text-align:center;color:var(--text-3);padding:36px;font-size:14px">Loading CMMS\u2026</div>'; }
-  loadCMMS().then(function(){renderCMMSView();}).catch(function(e){
+  // Load BOTH PMs and Work Orders before rendering — the WO sub-view needs WOS.
+  Promise.all([loadCMMS(), loadWOs(!WOS_LOADED)]).then(function(){renderCMMSView();try{updateCmmsBadge();}catch(e){}}).catch(function(e){
     if(!cached)el.innerHTML='<div style="padding:20px;color:#f87171;font-size:13px;line-height:1.6">Couldn\u2019t load CMMS: '+e.message+'.<br><br>Make sure the <b>bbw_pms</b> and <b>bbw_wos</b> tables exist (run the SQL), then reopen this tab.</div>';
   });
 }
@@ -5299,7 +5305,7 @@ function invDeleteItem(id){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-06a';
+  var BUILD='2026-07-07a';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
