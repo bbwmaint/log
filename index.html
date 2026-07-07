@@ -2182,11 +2182,25 @@ function injectPinnedRequests(){
   var d=document.createElement('div'); d.id='req-pinned'; d.innerHTML=H;
   pane.insertBefore(d, pane.firstChild);
 }
+var TAB_ICONS={dash:'<rect x="3" y="3" width="7" height="8" rx="1.3"/><rect x="14" y="3" width="7" height="5" rx="1.3"/><rect x="14" y="11" width="7" height="10" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/>',
+  log:'<rect x="5" y="3" width="14" height="18" rx="2.2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+  shift:'<path d="M21 12a9 9 0 1 1-2.64-6.36M21 4.5V9h-4.5"/>',
+  prev:'<path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/>',
+  util:'<path d="M13 2 4.5 13.5H11l-1 8.5L19.5 10H13z"/>',
+  schedule:'<rect x="3" y="5" width="18" height="16" rx="2.2"/><path d="M3 9.5h18M8 3v4M16 3v4"/>',
+  assets:'<path d="M3 21V10l6-3.2V10l6-3.2V10l6-3.2V21z"/><path d="M3 21h18"/>',
+  reports:'<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3l2 2.2h8A2.5 2.5 0 0 1 21 9.7v7.8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/>',
+  requests:'<path d="M4.5 5h15l1.5 7.2v5.3a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-5.3z"/><path d="M3 12.2h5l1.6 2.6h4.8l1.6-2.6h5"/>',
+  inventory:'<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
+  cmms:'<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-2.5 2.5-2-2z"/>',
+  more:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'};
+function tabIconSpan(key){ return TAB_ICONS[key]?('<span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+TAB_ICONS[key]+'</svg></span>'):''; }
+// Safely set a tab button's label + optional badge, always preserving its icon.
+function setTabLabel(key, labelHTML){ var b=gid('tab-'+key); if(!b)return; b.innerHTML=tabIconSpan(key)+labelHTML; }
 function updateReqTabCount(){
   var btn=gid('tab-requests'); if(!btn)return;
-  var ic=btn.querySelector('.tab-ic'); var icHTML=ic?ic.outerHTML:'';
   var n=REQUESTS.filter(function(r){return r.kind!=='forklift'&&r.status!=='done';}).length + (allE?allE.filter(function(e){return e.type==='followup';}).length:0);
-  btn.innerHTML=icHTML+T('req_tab')+(n?'<span style="color:#f59e0b;font-weight:800"> '+n+'</span>':'');
+  setTabLabel('requests', T('req_tab')+(n?'<span style="color:#f59e0b;font-weight:800"> '+n+'</span>':''));
   try{updateReqBadge();}catch(e){}
 }
 // =================== END WORK REQUESTS MODULE ===================
@@ -2313,6 +2327,8 @@ function loadFromSB(){
       save();
       renderAll();
       checkUBanner();
+      // Ensure the My Log dashboard cards (pinned requests, PM tasks) render once data is in
+      try{ if(gid('pane-log')&&gid('pane-log').style.display!=='none'){ injectPinnedRequests(); injectMyPMTasks(); } }catch(e){}
     })
     .catch(function(err){console.warn('Load from SB failed',err);});
 }
@@ -3788,19 +3804,7 @@ function enhanceDesktop(){
     brand.innerHTML='<img src="'+(logo?logo.getAttribute('src'):'')+'" alt="BBW"><div class="side-sub">Maintenance System</div>';
     tb.insertBefore(brand, tb.firstChild);
   }
-  var I={dash:'<rect x="3" y="3" width="7" height="8" rx="1.3"/><rect x="14" y="3" width="7" height="5" rx="1.3"/><rect x="14" y="11" width="7" height="10" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/>',
-  log:'<rect x="5" y="3" width="14" height="18" rx="2.2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
-  shift:'<path d="M21 12a9 9 0 1 1-2.64-6.36M21 4.5V9h-4.5"/>',
-  prev:'<path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/>',
-  util:'<path d="M13 2 4.5 13.5H11l-1 8.5L19.5 10H13z"/>',
-  schedule:'<rect x="3" y="5" width="18" height="16" rx="2.2"/><path d="M3 9.5h18M8 3v4M16 3v4"/>',
-  assets:'<path d="M3 21V10l6-3.2V10l6-3.2V10l6-3.2V21z"/><path d="M3 21h18"/>',
-  reports:'<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3l2 2.2h8A2.5 2.5 0 0 1 21 9.7v7.8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/>',
-  requests:'<path d="M4.5 5h15l1.5 7.2v5.3a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-5.3z"/><path d="M3 12.2h5l1.6 2.6h4.8l1.6-2.6h5"/>',
-  inventory:'<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
-  cmms:'<path d="M15.2 6.1a4.2 4.2 0 0 0-5.6 5.6L3 18.3 5.7 21l6.6-6.6a4.2 4.2 0 0 0 5.6-5.6l-2.5 2.5-2.2-.6-.6-2.2z"/>',
-  more:'<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>'};
-  Object.keys(I).forEach(function(k){var b=gid('tab-'+k); if(b&&!b.querySelector('.tab-ic')){var s=document.createElement('span');s.className='tab-ic';s.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+I[k]+'</svg>';b.insertBefore(s,b.firstChild);}});
+  Object.keys(TAB_ICONS).forEach(function(k){var b=gid('tab-'+k); if(b&&!b.querySelector('.tab-ic')){var s=document.createElement('span');s.className='tab-ic';s.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+TAB_ICONS[k]+'</svg>';b.insertBefore(s,b.firstChild);}});
 }
 function renderDashboard(){
   var el=gid('pane-dash'); if(!el)return;
@@ -3894,10 +3898,9 @@ function drawDashboard(el){
 }
 function updateCmmsBadge(){
   var btn=gid('tab-cmms'); if(!btn)return;
-  var ic=btn.querySelector('.tab-ic'); var icHTML=ic?ic.outerHTML:'';
   var today=pmISO(new Date());
   var overdue=WOS.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<today;}).length;
-  btn.innerHTML=icHTML+'CMMS'+(overdue?'<span style="color:#f87171;font-weight:800"> '+overdue+'</span>':'');
+  setTabLabel('cmms','CMMS'+(overdue?'<span style="color:#f87171;font-weight:800"> '+overdue+'</span>':''));
 }
 function injectMyPMTasks(){
   var pane=gid('pane-log'); if(!pane)return;
@@ -3948,8 +3951,24 @@ function cmmsTrendHTML(todayISO){
 }
 function deleteWO(id){
   var w=WOS.filter(function(x){return x.id===id;})[0]; if(!w)return;
-  if(!confirm('Delete '+(w.wo_code||'this work order')+'?'))return;
-  sbFetch('bbw_wos?id=eq.'+id,{method:'DELETE',headers:{'Prefer':'return=minimal'}}).then(function(){WOS=WOS.filter(function(x){return x.id!==id;});renderWOList();});
+  if(w.pm_id){
+    // PM-generated WO: deleting won't stick while the PM is still due — it regenerates. Explain and offer options.
+    var msg='"'+(w.wo_code||'This work order')+'" was auto-generated from PM '+(w.pm_code||'')+'.\n\nDeleting it won\'t make it go away — as long as the PM is still due, it will regenerate. To clear it properly:\n\n\u2022 Complete it (marks the PM done and advances to next cycle), or\n\u2022 Snooze the PM to its next cycle.\n\nSnooze this PM now?';
+    if(confirm(msg)){
+      var p=CMMS_PMS.filter(function(x){return x.id===w.pm_id;})[0];
+      var today=pmISO(new Date());
+      var nd = (p&&p.freq) ? pmAdvanceISO(p.freq, today) : today;
+      // Advance the PM, then remove this WO
+      var jobs=[];
+      if(p){ jobs.push(sbFetch('bbw_pms?id=eq.'+p.id,{method:'PATCH',body:JSON.stringify({next_due:nd,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}}).then(function(){p.next_due=nd;})); }
+      jobs.push(sbFetch('bbw_wos?id=eq.'+id,{method:'DELETE',headers:{'Prefer':'return=minimal'}}));
+      Promise.all(jobs).then(function(){ WOS=WOS.filter(function(x){return x.id!==id;}); renderWOList(); try{updateCmmsBadge();}catch(e){} });
+    }
+    return;
+  }
+  // Manual WO: permanent delete.
+  if(!confirm('Delete '+(w.wo_code||'this work order')+'? This is permanent.'))return;
+  sbFetch('bbw_wos?id=eq.'+id,{method:'DELETE',headers:{'Prefer':'return=minimal'}}).then(function(){WOS=WOS.filter(function(x){return x.id!==id;});renderWOList();try{updateCmmsBadge();}catch(e){}});
 }
 function openWOForm(id){
   var w=id?WOS.filter(function(x){return x.id===id;})[0]:{wo_code:'',asset:'',asset_code:'',description:'',priority:'High',wo_type:'Preventive',assignee:'',status:'open',due_date:pmISO(new Date()),hours_est:''};
@@ -5280,7 +5299,7 @@ function invDeleteItem(id){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-04c';
+  var BUILD='2026-07-06a';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
