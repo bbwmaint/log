@@ -1071,6 +1071,8 @@ function showTab(name){
     // If the data these cards need hasn't loaded yet, load it and re-inject when ready.
     try{ if(!REQUESTS||!REQUESTS.length){ loadRequests().then(function(){injectPinnedRequests();try{updateReqBadge();}catch(e){}}); } }catch(e){}
     try{ if(typeof WOS_LOADED==='undefined'||!WOS_LOADED){ loadWOs(true).then(function(){injectMyPMTasks();try{updateCmmsBadge();}catch(e){}}); } }catch(e){}
+    // If the shift log itself hasn't loaded (allE empty), pull it and re-render so entries appear without a manual refresh.
+    try{ if(!allE||!allE.length){ loadFromSB(); } }catch(e){}
   }
   if(name==='schedule')renderSchedule();
   if(name==='dash')renderDashboard();
@@ -2332,8 +2334,8 @@ function loadFromSB(){
       save();
       renderAll();
       checkUBanner();
-      // Ensure the My Log dashboard cards (pinned requests, PM tasks) render once data is in
-      try{ if(gid('pane-log')&&gid('pane-log').style.display!=='none'){ injectPinnedRequests(); injectMyPMTasks(); } }catch(e){}
+      // Ensure the My Log view fully re-renders once data is in (entries + cards)
+      try{ if(gid('pane-log')&&gid('pane-log').style.display!=='none'){ renderLog(); injectPinnedRequests(); injectMyPMTasks(); } }catch(e){}
     })
     .catch(function(err){console.warn('Load from SB failed',err);});
 }
@@ -5305,7 +5307,7 @@ function invDeleteItem(id){
 function renderMore(){
   var el=gid('pane-more');
   if(!el)return;
-  var BUILD='2026-07-07a';
+  var BUILD='2026-07-07b';
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
