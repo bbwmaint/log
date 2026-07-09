@@ -3301,10 +3301,11 @@ function weekStats(data,start,end){
   function isDone(t){return t==='completed'||t==='done'||t==='pm'||t==='followup_done';}
   function isIssue(t){return t==='issue'||t==='pending';}
   var entries=(data.entries||[]).filter(function(e){return inRange(e.date,start,end);});
-  // Downtime by asset (true machine-down only)
-  var dtMap={},totalDT=0,dtEvents=0;
-  entries.forEach(function(e){var dt=parseFloat(e.downtime_hrs)||0;var md=(e.machine_down==='yes'||e.machine_down==='partial');if(md&&dt>0){var k=dashAssetKey(e);dtMap[k]=(dtMap[k]||0)+dt;totalDT+=dt;dtEvents++;}});
+  // Downtime by asset (true machine-down only) + per-event capture for notes
+  var dtMap={},totalDT=0,dtEvents=0,dtRows=[];
+  entries.forEach(function(e){var dt=parseFloat(e.downtime_hrs)||0;var md=(e.machine_down==='yes'||e.machine_down==='partial');if(md&&dt>0){var k=dashAssetKey(e);dtMap[k]=(dtMap[k]||0)+dt;totalDT+=dt;dtEvents++;dtRows.push({asset:k,hrs:Math.round(dt*100)/100,who:e.who||'\u2014',desc:(e.description||e.issue||'').trim(),date:e.date,shift:e.shift||''});}});
   var downtimeByAsset=Object.keys(dtMap).map(function(k){return {asset:k,hrs:Math.round(dtMap[k]*100)/100};}).sort(function(a,b){return b.hrs-a.hrs;});
+  var topDowntime=dtRows.sort(function(a,b){return b.hrs-a.hrs;}).slice(0,5);
   // Workload by tech
   var techMap={};
   entries.forEach(function(e){var w=e.who||'\u2014';techMap[w]=techMap[w]||{tech:w,done:0,issue:0,parts:0,other:0,total:0};var t=e.type;if(isDone(t))techMap[w].done++;else if(isIssue(t))techMap[w].issue++;else if(t==='part'||t==='parts')techMap[w].parts++;else techMap[w].other++;techMap[w].total++;});
@@ -3360,7 +3361,7 @@ function weekStats(data,start,end){
     coCount:coCount, coMins:coTotal, changeoverByType:changeoverByType,
     issuesLogged:issuesLogged, pendingNow:pendingNow, recurringCount:recurring.length, recurring:recurring,
     techs:workloadByTech.length, workloadByTech:workloadByTech,
-    downtimeByAsset:downtimeByAsset,
+    downtimeByAsset:downtimeByAsset, topDowntime:topDowntime,
     dayNight:dn,
     reqReceived:received.length, reqClosed:closed.length, byDept:byDept, avgResHrs:avgRes,
     pmDue:woDue.length, pmDone:woDone, pmPct:pmPct,
@@ -3520,25 +3521,166 @@ function weekPDF(){
   var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
   if(!JS){alert('PDF library not ready \u2014 try again in a moment.');return;}
   var doc=new JS({unit:'pt',format:'letter'});
-  var RF='helvetica';try{if(typeof DEJAVU_REG!=='undefined'){doc.addFileToVFS('DejaVu.ttf',DEJAVU_REG);doc.addFont('DejaVu.ttf','DejaVu','normal');doc.addFileToVFS('DejaVu-Bold.ttf',DEJAVU_BOLD);doc.addFont('DejaVu-Bold.ttf','DejaVu','bold');RF='DejaVu';}}catch(e){}
-  var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=40,y=46;
-  doc.setFillColor(20,20,22);doc.rect(0,0,W,6,'F');doc.setTextColor(20,20,22);
-  if(window.__logoDark){try{var _lh=24,_lw=_lh*((window.__logoW||1996)/(window.__logoH||881));doc.addImage(window.__logoDark,'PNG',M,y-18,_lw,_lh);}catch(e){doc.setFont(RF,'bold');doc.setFontSize(17);doc.text('BRUNSWICK BIERWORKS',M,y);}}else{doc.setFont(RF,'bold');doc.setFontSize(17);doc.text('BRUNSWICK BIERWORKS',M,y);}
-  doc.setFont(RF,'normal');doc.setFontSize(10);doc.setTextColor(120,120,130);doc.text('Weekly Stats \u2014 '+weekLabel(b)+' (Sun\u2013Sat)',M,y+15);y+=40;
-  doc.setFont(RF,'bold');doc.setFontSize(10);doc.setTextColor(40,40,40);
-  var dot='   \u00b7   ';
-  doc.text(C.tasks+' tasks'+dot+C.downtimeHrs+'h downtime ('+C.dtEvents+')'+dot+'PM '+(C.pmPct==null?'n/a':C.pmPct+'%')+dot+C.reqReceived+' reqs / '+C.reqClosed+' closed'+dot+'avg resolve '+(C.avgResHrs==null?'n/a':(Math.round(C.avgResHrs*10)/10)+'h'),M,y);y+=15;
-  doc.text('Volume '+hlNum(C.volHL)+' hL'+dot+'Mean prod '+(C.meanProd==null?'n/a':C.meanProd+'%')+dot+'Productivity '+(C.attain==null?'n/a':C.attain+'%')+dot+'Day/Night '+hlNum(C.dHL)+' / '+hlNum(C.nHL)+' hL',M,y);y+=20;
-  function addChart(name,title){var c=WEEK_CHARTS[name];if(!c)return;var img;try{img=c.toBase64Image('image/png',1);}catch(e){return;}var iw=W-2*M, ih=iw*0.5;if(y+ih+24>H-40){doc.addPage();y=46;}doc.setFont(RF,'bold');doc.setFontSize(11);doc.setTextColor(20,20,22);doc.text(title,M,y);y+=8;doc.setFillColor(248,248,250);doc.roundedRect(M,y,iw,ih,6,6,'F');try{doc.addImage(img,'PNG',M+6,y+6,iw-12,ih-12);}catch(e){}y+=ih+18;}
-  addChart('vol','Daily Production (hL)');
-  addChart('dt','Downtime by Asset');
-  addChart('tech','Top Loggers & Work by Type');
-  addChart('dept','Requests by Department');
+  var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=44,CW=W-2*M,y=0;
+  var F='helvetica';
+  // palette
+  var INK=[30,31,34],SUB=[122,124,132],HAIR=[226,227,231],BAND=[22,23,27],GOLD=[196,160,74];
+  var GREEN=[34,163,94],AMBER=[213,158,45],RED=[216,74,66],BLUE=[64,132,206],SLATE=[96,102,116];
+  function sc(c){doc.setTextColor(c[0],c[1],c[2]);}
+  function fc(c){doc.setFillColor(c[0],c[1],c[2]);}
+  function dc(c){doc.setDrawColor(c[0],c[1],c[2]);}
+  function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(String(t),x,yy,al?{align:al}:undefined);}
+  function prodCol(p){return p==null?SLATE:(p>=72?GREEN:(p>=60?AMBER:RED));}
+  function ensure(h){if(y+h>H-56){doc.addPage();y=52;}}
+  function trunc(s,max){s=String(s);return s.length>max?s.slice(0,max-1)+'\u2026':s;}
+  function section(title){ensure(40);y+=6;fc(GOLD);doc.rect(M,y-8,3,11,'F');T(title,M+10,y,11.5,'bold',INK);dc(HAIR);doc.setLineWidth(.7);doc.line(M,y+7,W-M,y+7);y+=22;}
+
+  // ---- Letterhead ----
+  y=44;
+  if(window.__logoDark){try{var lh=26,lw=lh*((window.__logoW||498)/(window.__logoH||220));doc.addImage(window.__logoDark,'PNG',M,y-4,lw,lh);}catch(e){T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}}
+  else{T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}
+  T('WEEKLY MAINTENANCE REPORT',W-M,y+6,12.5,'bold',INK,'right');
+  T(weekLabel(b)+'   \u00b7   Sun\u2013Sat',W-M,y+20,9.5,'normal',SUB,'right');
+  y+=38;dc(GOLD);doc.setLineWidth(1.4);doc.line(M,y,W-M,y);y+=20;
+
+  // ---- KPI cards (4 x 2) ----
+  var gap=10,cols=4,cardW=(CW-gap*(cols-1))/cols,cardH=54;
+  function card(i,label,val,sub,vcol){
+    var col=i%cols,row=Math.floor(i/cols);
+    var x=M+col*(cardW+gap),cy=y+row*(cardH+gap);
+    dc(HAIR);doc.setLineWidth(.8);fc([255,255,255]);doc.roundedRect(x,cy,cardW,cardH,4,4,'FD');
+    T(label.toUpperCase(),x+9,cy+14,6.6,'bold',SUB);
+    T(val,x+9,cy+33,16,'bold',vcol||INK);
+    if(sub)T(sub,x+9,cy+45,7.2,'normal',SUB);
+  }
+  var pm=C.pmPct==null?'\u2014':C.pmPct+'%';
+  var res=C.avgResHrs==null?'\u2014':(C.avgResHrs<48?(Math.round(C.avgResHrs*10)/10)+' h':(Math.round(C.avgResHrs/24*10)/10)+' d');
+  card(0,'Downtime',C.downtimeHrs+' h',C.dtEvents+' machine-down',RED);
+  card(1,'PM Completion',pm,(C.pmDue?C.pmDone+'/'+C.pmDue+' due':'none due'),C.pmPct!=null?prodCol(C.pmPct>=90?80:C.pmPct):INK);
+  card(2,'Requests',String(C.reqReceived),C.reqClosed+' closed',BLUE);
+  card(3,'Avg Resolve',res,'new to done',INK);
+  card(4,'Volume',hlNum(C.volHL)+' hL','D/N '+hlNum(C.dHL)+' / '+hlNum(C.nHL),INK);
+  card(5,'Mean Productivity',(C.meanProd==null?'\u2014':C.meanProd+'%'),'daily average',prodCol(C.meanProd));
+  card(6,'Productivity',(C.attain==null?'\u2014':C.attain+'%'),(C.weeklyTarget>0?'vs '+hlNum(C.weeklyTarget)+' hL':'set target'),prodCol(C.attain));
+  card(7,'Tasks Logged',String(C.tasks),C.techs+' technicians',INK);
+  y+=2*cardH+gap+18;
+
+  // ---- Daily Production (native bars) ----
+  section('Daily Production');
+  var dv=C.dayVols||[];
+  var maxV=Math.max.apply(null,dv.map(function(d){return d.vol;}).concat([1]));
+  var plotH=118,base=y+plotH-16,slot=CW/7;
+  dc(HAIR);doc.setLineWidth(.7);doc.line(M,base,W-M,base);
+  dv.forEach(function(d,i){
+    var bw=slot*0.5,bx=M+i*slot+(slot-bw)/2;
+    var bh=maxV>0?(d.vol/maxV)*(plotH-30):0;
+    fc(prodCol(d.mp));doc.rect(bx,base-bh,bw,bh,'F');
+    if(d.vol>0)T(hlNum(d.vol),bx+bw/2,base-bh-4,7,'bold',INK,'center');
+    T(d.label,bx+bw/2,base+12,8,'normal',SUB,'center');
+  });
+  T('hL per day \u2014 bar colour = mean productivity (green 72%+, amber 60-71%, red under 60%)',M,base+26,7.5,'normal',SUB);
+  y=base+40;
+
+  // ---- Downtime by Asset (native hbars) ----
+  section('Downtime by Asset');
+  var dt=(C.downtimeByAsset||[]).slice(0,8);
+  if(!dt.length){T('No machine-down events this week.',M,y+2,9.5,'normal',SUB);y+=18;}
+  else{
+    var labW=168,barX=M+labW,barMax=CW-labW-46,mx=Math.max.apply(null,dt.map(function(x){return x.hrs;}).concat([0.1]));
+    dt.forEach(function(x){
+      ensure(20);
+      T(trunc(x.asset,30),M,y+9,8.8,'normal',INK);
+      var w=Math.max(2,(x.hrs/mx)*barMax);
+      fc(RED);doc.rect(barX,y+2,w,9,'F');
+      T(x.hrs+' h',barX+w+5,y+9.5,8,'bold',INK);
+      y+=17;
+    });
+    y+=6;
+  }
+
+  // ---- Notable Downtime — tech notes (top 3 events) ----
+  var td=(C.topDowntime||[]).slice(0,3);
+  if(td.length){
+    section('Notable Downtime \u2014 Tech Notes');
+    td.forEach(function(ev){
+      ensure(34);
+      // header line: asset + hours (right), then who / date / shift
+      T(trunc(ev.asset,42),M,y+9,9.5,'bold',INK);
+      T(ev.hrs+' h',W-M,y+9,9.5,'bold',RED,'right');
+      y+=14;
+      var meta=(ev.who||'\u2014')+(ev.date?'   \u00b7   '+ev.date:'')+(ev.shift?'   \u00b7   '+ev.shift+' shift':'');
+      T(meta,M,y+8,8,'normal',SLATE);
+      y+=13;
+      var desc=ev.desc&&ev.desc.length?ev.desc:'No description logged.';
+      doc.setFont(F,'italic');doc.setFontSize(8.6);sc(INK);
+      var lines=doc.splitTextToSize(desc,CW-6);
+      // cap to 4 lines so one event can't dominate the page
+      if(lines.length>4){lines=lines.slice(0,4);lines[3]=lines[3].replace(/\s*\S*$/,'')+'\u2026';}
+      lines.forEach(function(ln){ensure(12);doc.text(ln,M+4,y+8);y+=11;});
+      doc.setFont(F,'normal');
+      y+=8;dc(HAIR);doc.setLineWidth(.5);doc.line(M,y,W-M,y);y+=10;
+    });
+  }
+
+  // ---- Work by Technician (table) ----
+  section('Work by Technician');
+  var techs=(C.workloadByTech||[]).slice(0,12);
+  if(!techs.length){T('No entries this week.',M,y+2,9.5,'normal',SUB);y+=18;}
+  else{
+    var heads=['Technician','Completed','Issues','Parts','Other','Total'];
+    var nameW=CW-5*70, colW=70, rowH=16;
+    // header
+    fc([241,241,244]);doc.rect(M,y,CW,rowH,'F');
+    T(heads[0],M+7,y+11,8.2,'bold',INK);
+    for(var h=1;h<6;h++){T(heads[h],M+nameW+(h-1)*colW+colW-7,y+11,8.2,'bold',INK,'right');}
+    y+=rowH;
+    techs.forEach(function(t,i){
+      ensure(rowH+2);
+      if(i%2===1){fc([249,249,251]);doc.rect(M,y,CW,rowH,'F');}
+      T(trunc(t.tech,26),M+7,y+11,8.5,'normal',INK);
+      var vals=[t.done,t.issue,t.parts,t.other,t.total];
+      for(var k=0;k<5;k++){T(String(vals[k]),M+nameW+k*colW+colW-7,y+11,8.5,k===4?'bold':'normal',k===4?INK:SUB,'right');}
+      y+=rowH;
+    });
+    dc(HAIR);doc.setLineWidth(.7);doc.line(M,y,W-M,y);y+=14;
+  }
+
+  // ---- Requests by Department (native hbars) ----
+  section('Requests by Department');
+  var dp=(C.byDept||[]).slice(0,8);
+  if(!dp.length){T('No requests raised this week.',M,y+2,9.5,'normal',SUB);y+=18;}
+  else{
+    var lW=168,bX=M+lW,bMax=CW-lW-40,mxd=Math.max.apply(null,dp.map(function(x){return x.count;}).concat([1]));
+    dp.forEach(function(x){
+      ensure(20);
+      T(trunc(x.dept,30),M,y+9,8.8,'normal',INK);
+      var w=Math.max(2,(x.count/mxd)*bMax);
+      fc(BLUE);doc.rect(bX,y+2,w,9,'F');
+      T(String(x.count),bX+w+5,y+9.5,8,'bold',INK);
+      y+=17;
+    });
+    y+=6;
+  }
+
+  // ---- Recurring issues ----
   if(C.recurring&&C.recurring.length){
-    if(y+40>H-40){doc.addPage();y=46;}
-    doc.setFont(RF,'bold');doc.setFontSize(11);doc.setTextColor(20,20,22);doc.text('Recurring Issues (2+ this week)',M,y);y+=15;
-    doc.setFont(RF,'normal');doc.setFontSize(10);doc.setTextColor(60,60,60);
-    C.recurring.slice(0,10).forEach(function(r){doc.text('\u2022 '+r.asset+'  \u2014  '+r.count+'\u00d7',M+4,y);y+=13;});
+    section('Recurring Issues (2+ this week)');
+    C.recurring.slice(0,10).forEach(function(r){
+      ensure(15);
+      T(trunc(r.asset,44),M+4,y+9,9,'normal',INK);
+      T(r.count+'\u00d7',W-M,y+9,9,'bold',RED,'right');
+      y+=15;
+    });
+  }
+
+  // ---- Footers on every page ----
+  var gen=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'short',day:'numeric'})+' '+new Date().toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit'});
+  var pages=doc.getNumberOfPages();
+  for(var p=1;p<=pages;p++){
+    doc.setPage(p);
+    dc(HAIR);doc.setLineWidth(.6);doc.line(M,H-42,W-M,H-42);
+    T('Brunswick Bierworks \u2014 Maintenance',M,H-30,8,'normal',SUB);
+    T('Generated '+gen+'   \u00b7   Page '+p+' of '+pages,W-M,H-30,8,'normal',SUB,'right');
   }
   doc.save('BBW_Weekly_'+b.start+'.pdf');
 }
