@@ -1,17 +1,24 @@
 // BBW Work Log — Service Worker
-// Bump CACHE to force all devices onto fresh code.
-const CACHE = 'bbw-v37';
+// Bump CACHE to force all devices onto fresh code + purge stale assets (e.g. old icon).
+const CACHE = 'bbw-v38';
 
+// Precache the shell AND the icon set / manifest so they refresh in one shot.
 const PRECACHE = [
   './',
   './index.html',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
+  './apple-touch-icon.png',
+  './icon-maskable-512.png',
 ];
 
-// Install — cache the app shell, activate immediately
+// Install — cache the app shell, activate immediately.
+// Uses allSettled so a single missing/renamed file never blocks the whole install.
 self.addEventListener('install', function(e){
   e.waitUntil(
     caches.open(CACHE).then(function(cache){
-      return cache.addAll(PRECACHE);
+      return Promise.allSettled(PRECACHE.map(function(u){ return cache.add(u); }));
     }).then(function(){
       return self.skipWaiting();
     })
@@ -43,7 +50,7 @@ function isHTML(req){
 //  - Supabase / EmailJS: always network, never touched
 //  - App HTML: NETWORK-FIRST so new code lands the moment a device is online
 //             (falls back to cache only when offline)
-//  - Everything else (icons, libs): cache-first
+//  - Everything else (icons, libs): cache-first, refresh in background
 self.addEventListener('fetch', function(e){
   var url = e.request.url;
 
