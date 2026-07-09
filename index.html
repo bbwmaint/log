@@ -3333,6 +3333,26 @@ function weekStats(data,start,end){
   var woDue=(data.wos||[]).filter(function(w){return w.due_date&&inRange((''+w.due_date).slice(0,10),start,end);});
   var woDone=woDue.filter(function(w){return w.status==='completed';}).length;
   var pmPct=woDue.length?Math.round(woDone/woDue.length*100):null;
+  // Production from the Schedule tab (techSchedule): volume, day/night hL, mean productivity, attainment
+  var TS=(typeof techSchedule!=='undefined'&&techSchedule)?techSchedule:{};
+  var pDHL=0,pNHL=0,prodSum=0,prodN=0,dayVols=[];
+  var cur=new Date(start+'T00:00:00'), endD=new Date(end+'T00:00:00');
+  var dowLab=['Su','Mo','Tu','We','Th','Fr','Sa'];
+  while(cur<=endD){
+    var ds=localDateStr(cur), sc=TS[ds]||{};
+    var dh=(typeof dHLof==='function')?dHLof(sc):(+sc.dHL||0);
+    var nh=(typeof nHLof==='function')?nHLof(sc):(+sc.nHL||0);
+    var mp=(typeof meanProdOf==='function')?meanProdOf(sc):null;
+    pDHL+=dh; pNHL+=nh; if(mp!=null){prodSum+=mp;prodN++;}
+    dayVols.push({label:dowLab[cur.getDay()],vol:Math.round((dh+nh)*10)/10,mp:mp});
+    cur.setDate(cur.getDate()+1);
+  }
+  var volHL=Math.round((pDHL+pNHL)*10)/10;
+  var meanProd=prodN?Math.round(prodSum/prodN):null;
+  var tgtMo=(typeof monthlyTargetHL==='function')?monthlyTargetHL():0;
+  var dim=new Date(new Date(start+'T00:00:00').getFullYear(),new Date(start+'T00:00:00').getMonth()+1,0).getDate();
+  var weeklyTarget=tgtMo>0?tgtMo*7/dim:0;
+  var attain=(weeklyTarget>0&&volHL>0)?Math.round(volHL/weeklyTarget*100):null;
   return {
     tasks:entries.length,
     downtimeHrs:Math.round(totalDT*10)/10, dtEvents:dtEvents,
@@ -3342,7 +3362,8 @@ function weekStats(data,start,end){
     downtimeByAsset:downtimeByAsset,
     dayNight:dn,
     reqReceived:received.length, reqClosed:closed.length, byDept:byDept, avgResHrs:avgRes,
-    pmDue:woDue.length, pmDone:woDone, pmPct:pmPct
+    pmDue:woDue.length, pmDone:woDone, pmPct:pmPct,
+    volHL:volHL, dHL:Math.round(pDHL*10)/10, nHL:Math.round(pNHL*10)/10, meanProd:meanProd, attain:attain, weeklyTarget:Math.round(weeklyTarget), dayVols:dayVols
   };
 }
 
@@ -3416,7 +3437,19 @@ function renderWeekOverlay(){
     H+=wkStrip('Avg resolve',(C.avgResHrs==null?'\u2014':(C.avgResHrs<48?(Math.round(C.avgResHrs*10)/10)+'h':(Math.round(C.avgResHrs/24*10)/10)+'d')),wkDelta(C.avgResHrs,P.avgResHrs,true));
     H+='</div>';
     // export
-    H+='<div style="display:flex;gap:9px;margin-bottom:16px"><button onclick="weekXLSX()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px">\u2b07 Excel</button></div>';
+    // Production (from Schedule tab data)
+    var effC=(typeof schedEffColor==='function')?schedEffColor:function(){return 'var(--text)';};
+    var prodInner='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'+
+      '<div style="background:var(--surface-2);border-radius:9px;padding:10px 8px;text-align:center"><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em">Volume</div><div style="font-size:17px;font-weight:800;color:#fff" class="tnum">'+fmtHL(C.volHL)+'</div>'+wkDelta(C.volHL,P.volHL,false)+'</div>'+
+      '<div style="background:var(--surface-2);border-radius:9px;padding:10px 8px;text-align:center"><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em">Productivity</div><div style="font-size:17px;font-weight:800;color:'+(C.attain!=null?effC(C.attain):'var(--text-3)')+'" class="tnum">'+(C.attain!=null?C.attain+'%':'\u2014')+'</div><div style="font-size:9px;color:var(--text-3)">'+(C.weeklyTarget>0?'vs '+hlNum(C.weeklyTarget)+' hL target':'set target')+'</div>'+wkDelta(C.attain,P.attain,false)+'</div>'+
+      '</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'+
+      '<div style="background:var(--surface-2);border-radius:9px;padding:10px 8px;text-align:center"><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em">Mean productivity</div><div style="font-size:17px;font-weight:800;color:'+(C.meanProd!=null?effC(C.meanProd):'var(--text-3)')+'" class="tnum">'+(C.meanProd!=null?C.meanProd+'%':'\u2014')+'</div>'+wkDelta(C.meanProd,P.meanProd,false)+'</div>'+
+      '<div style="background:var(--surface-2);border-radius:9px;padding:10px 8px;text-align:center"><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em">Day / Night hL</div><div style="font-size:15px;font-weight:800;color:#9b9ba3;margin-top:3px" class="tnum">'+hlNum(C.dHL)+' / '+hlNum(C.nHL)+'</div></div>'+
+      '</div>';
+    if(C.volHL>0)prodInner+='<div style="height:130px"><canvas id="wk-vol"></canvas></div>';
+    else prodInner+='<div style="color:var(--text-3);font-size:12px">No production logged for this week. Add hL on the Schedule tab.</div>';
+    H+=dashPanel('Production',prodInner);
+    H+='<div style="display:flex;gap:9px;margin-bottom:16px"><button onclick="weekPDF()" class="btn-primary" style="flex:1;padding:11px;font-size:13px">\uD83D\uDCC4 PDF</button><button onclick="weekXLSX()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px">\u2b07 Excel</button></div>';
     // Day vs Night panel
     var dnH='<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">'+
       '<div style="background:var(--surface-2);border-left:3px solid #f59e0b;border-radius:9px;padding:11px"><div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:5px">Day shift</div><div style="font-size:19px;font-weight:800;color:#fff" class="tnum">'+C.dayNight.Day.tasks+'</div><div style="font-size:10px;color:var(--text-3)">tasks \u00b7 '+C.dayNight.Day.dt+'h down</div></div>'+
@@ -3455,6 +3488,9 @@ function drawWeekCharts(C){
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:TX,boxWidth:11,font:{size:10}}}},scales:{x:{stacked:true,grid:grid(),ticks:{color:TX}},y:{stacked:true,grid:{display:false},ticks:{color:TX,font:{size:11}}}}}});
   var dp=C.byDept.slice(0,8);
   if(dp.length)WEEK_CHARTS.dept=new Chart(document.getElementById('wk-dept'),{type:'bar',data:{labels:dp.map(function(x){return x.dept;}),datasets:[{data:dp.map(function(x){return x.count;}),backgroundColor:'#60a5fa',borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:noLeg,scales:{x:{grid:grid(),ticks:{color:TX,stepSize:1},title:{display:true,text:'Requests received',color:TX}},y:{grid:{display:false},ticks:{color:TX,font:{size:10}}}}}});
+  var dv=C.dayVols||[];
+  var effC=(typeof schedEffColor==='function')?schedEffColor:function(){return '#60a5fa';};
+  if(dv.length&&C.volHL>0)WEEK_CHARTS.vol=new Chart(document.getElementById('wk-vol'),{type:'bar',data:{labels:dv.map(function(x){return x.label;}),datasets:[{data:dv.map(function(x){return x.vol;}),backgroundColor:dv.map(function(x){return x.mp!=null?effC(x.mp):'#3f3f46';}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:noLeg,scales:{y:{grid:grid(),ticks:{color:TX},title:{display:true,text:'hL',color:TX}},x:{grid:{display:false},ticks:{color:TX,font:{size:10}}}}}});
 }
 
 function weekXLSX(){
@@ -3475,6 +3511,35 @@ function weekXLSX(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Technician','Completed','Issues','Parts','Other','Total']].concat(C.workloadByTech.map(function(x){return [x.tech,x.done,x.issue,x.parts,x.other,x.total];}))),'By Technician');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Department','Requests']].concat(C.byDept.map(function(x){return [x.dept,x.count];}))),'Requests by Dept');
   XLSX.writeFile(wb,'BBW_Weekly_'+b.start+'.xlsx');
+}
+
+function weekPDF(){
+  if(!WEEK_DATA){alert('Open a week first');return;}
+  var C=WEEK_DATA.C,b=WEEK_DATA.bounds;
+  var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
+  if(!JS){alert('PDF library not ready \u2014 try again in a moment.');return;}
+  var doc=new JS({unit:'pt',format:'letter'});
+  var RF='helvetica';try{if(typeof DEJAVU_REG!=='undefined'){doc.addFileToVFS('DejaVu.ttf',DEJAVU_REG);doc.addFont('DejaVu.ttf','DejaVu','normal');doc.addFileToVFS('DejaVu-Bold.ttf',DEJAVU_BOLD);doc.addFont('DejaVu-Bold.ttf','DejaVu','bold');RF='DejaVu';}}catch(e){}
+  var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=40,y=46;
+  doc.setFillColor(20,20,22);doc.rect(0,0,W,6,'F');doc.setTextColor(20,20,22);
+  if(window.__logoDark){try{var _lh=24,_lw=_lh*((window.__logoW||1996)/(window.__logoH||881));doc.addImage(window.__logoDark,'PNG',M,y-18,_lw,_lh);}catch(e){doc.setFont(RF,'bold');doc.setFontSize(17);doc.text('BRUNSWICK BIERWORKS',M,y);}}else{doc.setFont(RF,'bold');doc.setFontSize(17);doc.text('BRUNSWICK BIERWORKS',M,y);}
+  doc.setFont(RF,'normal');doc.setFontSize(10);doc.setTextColor(120,120,130);doc.text('Weekly Stats \u2014 '+weekLabel(b)+' (Sun\u2013Sat)',M,y+15);y+=40;
+  doc.setFont(RF,'bold');doc.setFontSize(10);doc.setTextColor(40,40,40);
+  var dot='   \u00b7   ';
+  doc.text(C.tasks+' tasks'+dot+C.downtimeHrs+'h downtime ('+C.dtEvents+')'+dot+'PM '+(C.pmPct==null?'n/a':C.pmPct+'%')+dot+C.reqReceived+' reqs / '+C.reqClosed+' closed'+dot+'avg resolve '+(C.avgResHrs==null?'n/a':(Math.round(C.avgResHrs*10)/10)+'h'),M,y);y+=15;
+  doc.text('Volume '+hlNum(C.volHL)+' hL'+dot+'Mean prod '+(C.meanProd==null?'n/a':C.meanProd+'%')+dot+'Productivity '+(C.attain==null?'n/a':C.attain+'%')+dot+'Day/Night '+hlNum(C.dHL)+' / '+hlNum(C.nHL)+' hL',M,y);y+=20;
+  function addChart(name,title){var c=WEEK_CHARTS[name];if(!c)return;var img;try{img=c.toBase64Image('image/png',1);}catch(e){return;}var iw=W-2*M, ih=iw*0.5;if(y+ih+24>H-40){doc.addPage();y=46;}doc.setFont(RF,'bold');doc.setFontSize(11);doc.setTextColor(20,20,22);doc.text(title,M,y);y+=8;doc.setFillColor(248,248,250);doc.roundedRect(M,y,iw,ih,6,6,'F');try{doc.addImage(img,'PNG',M+6,y+6,iw-12,ih-12);}catch(e){}y+=ih+18;}
+  addChart('vol','Daily Production (hL)');
+  addChart('dt','Downtime by Asset');
+  addChart('tech','Top Loggers & Work by Type');
+  addChart('dept','Requests by Department');
+  if(C.recurring&&C.recurring.length){
+    if(y+40>H-40){doc.addPage();y=46;}
+    doc.setFont(RF,'bold');doc.setFontSize(11);doc.setTextColor(20,20,22);doc.text('Recurring Issues (2+ this week)',M,y);y+=15;
+    doc.setFont(RF,'normal');doc.setFontSize(10);doc.setTextColor(60,60,60);
+    C.recurring.slice(0,10).forEach(function(r){doc.text('\u2022 '+r.asset+'  \u2014  '+r.count+'\u00d7',M+4,y);y+=13;});
+  }
+  doc.save('BBW_Weekly_'+b.start+'.pdf');
 }
 
 // ── Excel export ──
