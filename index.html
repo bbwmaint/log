@@ -632,6 +632,7 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   buildTypes();
   buildPrios();
   buildAList('');
+  try{loadAssetsFromDB();}catch(e){}
   updateClock();
   setInterval(updateClock,30000);
   setInterval(checkShiftEnd,60000);
@@ -2694,6 +2695,152 @@ var ASSET_MONTH=null;
 function assetMonthShift(d){var b=ASSET_MONTH||new Date();var x=new Date(b.getFullYear(),b.getMonth()+d,1);var n=new Date();if(x.getFullYear()>n.getFullYear()||(x.getFullYear()===n.getFullYear()&&x.getMonth()>n.getMonth()))return;ASSET_MONTH=x;renderAssets();}
 function assetMonthGoto(v){if(!v)return;var pp=v.split('-');ASSET_MONTH=new Date(parseInt(pp[0],10),parseInt(pp[1],10)-1,1);renderAssets();}
 function assetMonthPick(){var el=gid('asset-month-input');if(el&&el.showPicker){try{el.showPicker();}catch(e){}}}
+// ===== Asset registry — DB-backed, editable (EDITORS only) =====
+// bbw_assets is the single source of truth. On load we rebuild ASSETS + GROUPS
+// from it; if the table is missing/empty we keep the hardcoded defaults.
+function loadAssetsFromDB(){
+  return sbFetch('bbw_assets?select=code,name,grp,sort,active&active=eq.true&order=sort.asc&limit=2000')
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(rows){
+      if(!rows||!rows.length)return false;
+      ASSETS=rows.map(function(a){return {n:a.name,c:a.code};});
+      var g={};
+      rows.forEach(function(a){ if(a.grp){ (g[a.grp]=g[a.grp]||[]).push(a.name); } });
+      GROUPS=g;
+      try{buildAList('');}catch(e){}
+      try{ if(gid('pane-assets')&&gid('pane-assets').offsetParent!==null) renderAssets(); }catch(e){}
+      return true;
+    }).catch(function(){return false;});
+}
+
+function aeEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+var AE_ROWS=null;
+
+function refreshAeRows(){
+  return sbFetch('bbw_assets?select=*&order=sort.asc&limit=2000')
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(rows){
+      if(rows&&rows.length){AE_ROWS=rows;return true;}
+      // table not migrated yet — fall back to in-memory defaults so the editor still shows assets
+      AE_ROWS=ASSETS.map(function(a,i){var grp='';Object.keys(GROUPS).forEach(function(gk){if(GROUPS[gk].indexOf(a.n)>=0)grp=gk;});return {code:a.c,name:a.n,grp:grp,sort:i,active:true};});
+      return false;
+    }).catch(function(){AE_ROWS=[];return false;});
+}
+
+function openAssetEditor(){
+  if(EDITORS.indexOf(user)<0){alert('Editing assets is restricted to maintenance management.');return;}
+  var ov=document.getElementById('ae-overlay'); if(ov)ov.remove();
+  ov=document.createElement('div'); ov.id='ae-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:600;display:flex;flex-direction:column';
+  ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:calc(11px + env(safe-area-inset-top)) 14px 11px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
+    '<button onclick="closeAssetEditor()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'+
+    '<div style="font-size:15px;font-weight:700;color:var(--text)">Manage Assets</div>'+
+    '<button onclick="assetEditNew()" style="margin-left:auto;background:#c8a24b;border:none;color:#1a1a1c;font-size:13px;font-weight:700;cursor:pointer;padding:8px 14px;border-radius:9px">+ Add</button>'+
+    '</div>'+
+    '<div style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0"><input id="ae-search" oninput="renderAssetEditor()" placeholder="Search assets\u2026" style="width:100%;box-sizing:border-box;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px"></div>'+
+    '<div id="ae-body" style="flex:1;overflow-y:auto;padding:10px 14px 90px"></div>';
+  document.body.appendChild(ov);
+  var body=document.getElementById('ae-body'); if(body)body.innerHTML='<div style="text-align:center;color:var(--text-3);padding:40px;font-size:14px">Loading\u2026</div>';
+  refreshAeRows().then(function(ok){
+    if(!ok){var b2=document.getElementById('ae-body');/* still render from fallback */}
+    renderAssetEditor();
+  });
+}
+function closeAssetEditor(){var ov=document.getElementById('ae-overlay');if(ov)ov.remove();}
+
+function renderAssetEditor(){
+  var body=document.getElementById('ae-body'); if(!body||!AE_ROWS)return;
+  var qEl=document.getElementById('ae-search'); var q=(qEl&&qEl.value||'').toLowerCase();
+  var rows=AE_ROWS.filter(function(a){return a.active!==false && (!q||a.name.toLowerCase().indexOf(q)>=0||(a.code||'').toLowerCase().indexOf(q)>=0);});
+  var groups={}; rows.forEach(function(a){var g=a.grp||'Ungrouped'; (groups[g]=groups[g]||[]).push(a);});
+  var order=Object.keys(GROUPS).slice(); order.push('Ungrouped');
+  Object.keys(groups).forEach(function(g){if(order.indexOf(g)<0)order.push(g);});
+  var H='<div style="font-size:11px;color:var(--text-3);margin-bottom:6px">'+rows.length+' assets \u00b7 tap one to edit</div>';
+  order.forEach(function(g){
+    if(!groups[g])return;
+    H+='<div style="font-size:11px;font-weight:700;color:#c8a24b;text-transform:uppercase;letter-spacing:.04em;margin:14px 0 6px">'+aeEsc(g)+' <span style="color:var(--text-3);font-weight:500">'+groups[g].length+'</span></div>';
+    groups[g].forEach(function(a){
+      H+='<button onclick="assetEditRow(\''+aeEsc(a.code).replace(/'/g,"\\'")+'\')" style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 12px;margin-bottom:6px;cursor:pointer">'+
+        '<div style="flex:1;min-width:0"><div style="font-size:14px;color:#fff;font-weight:600">'+aeEsc(a.name)+'</div><div style="font-size:11px;color:var(--text-3)">'+aeEsc(a.code)+'</div></div>'+
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c8a24b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'+
+        '</button>';
+    });
+  });
+  body.innerHTML=H;
+}
+
+function assetEditRow(code){var a=AE_ROWS.filter(function(x){return x.code===code;})[0]; if(a)aeShowModal(a,false);}
+function assetEditNew(){aeShowModal({code:'',name:'',grp:''},true);}
+
+function aeShowModal(a,isNew){
+  var ex=document.getElementById('ae-modal'); if(ex)ex.remove();
+  var grpKeys=Object.keys(GROUPS);
+  var opts='<option value="__none"'+(!a.grp?' selected':'')+'>\u2014 No group \u2014</option>';
+  grpKeys.forEach(function(g){opts+='<option value="'+aeEsc(g)+'"'+(a.grp===g?' selected':'')+'>'+aeEsc(g)+'</option>';});
+  opts+='<option value="__new">+ New group\u2026</option>';
+  var m=document.createElement('div'); m.id='ae-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:700;display:flex;align-items:flex-end;justify-content:center';
+  m.innerHTML='<div style="width:100%;max-width:460px;background:var(--surface);border:1px solid var(--border);border-radius:16px 16px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))">'+
+    '<div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:14px">'+(isNew?'Add asset':'Edit asset')+'</div>'+
+    '<label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em">Name</label>'+
+    '<input id="ae-f-name" value="'+aeEsc(a.name)+'" style="width:100%;box-sizing:border-box;margin:5px 0 12px;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px">'+
+    '<label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em">Asset code'+(isNew?'':' (fixed)')+'</label>'+
+    '<input id="ae-f-code" value="'+aeEsc(a.code)+'" '+(isNew?'':'readonly')+' style="width:100%;box-sizing:border-box;margin:5px 0 12px;padding:11px;background:'+(isNew?'var(--surface-2)':'rgba(255,255,255,.04)')+';border:1px solid var(--border);border-radius:9px;color:'+(isNew?'#fff':'var(--text-3)')+';font-size:15px'+(isNew?'':';cursor:not-allowed')+'">'+
+    '<label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em">Group / folder</label>'+
+    '<select id="ae-f-grp" onchange="aeGrpChange()" style="width:100%;box-sizing:border-box;margin:5px 0 0;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px">'+opts+'</select>'+
+    '<input id="ae-f-newgrp" placeholder="New group name" style="display:none;width:100%;box-sizing:border-box;margin:8px 0 0;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px">'+
+    '<div style="display:flex;gap:9px;margin-top:18px">'+
+      (isNew?'':'<button onclick="aeDelete(\''+aeEsc(a.code).replace(/'/g,"\\'")+'\')" style="background:rgba(216,74,66,.14);border:1px solid rgba(216,74,66,.4);color:#f87171;font-size:14px;font-weight:600;padding:12px 16px;border-radius:10px;cursor:pointer">Delete</button>')+
+      '<button onclick="closeAeModal()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:14px;font-weight:600;padding:12px;border-radius:10px;cursor:pointer">Cancel</button>'+
+      '<button id="ae-save" onclick="aeSave(\''+aeEsc(a.code).replace(/'/g,"\\'")+'\','+(isNew?'true':'false')+')" style="flex:1;background:#c8a24b;border:none;color:#1a1a1c;font-size:14px;font-weight:800;padding:12px;border-radius:10px;cursor:pointer">Save</button>'+
+    '</div></div>';
+  document.body.appendChild(m);
+  m.addEventListener('click',function(e){if(e.target===m)closeAeModal();});
+}
+function closeAeModal(){var m=document.getElementById('ae-modal');if(m)m.remove();}
+function aeGrpChange(){var s=gid('ae-f-grp'),n=gid('ae-f-newgrp');if(!s||!n)return;n.style.display=(s.value==='__new')?'block':'none';}
+
+function aeSave(origCode,isNew){
+  var name=(gid('ae-f-name').value||'').trim();
+  var code=isNew?((gid('ae-f-code').value||'').trim()):origCode;
+  var gs=gid('ae-f-grp').value;
+  var grp=gs==='__new'?((gid('ae-f-newgrp').value||'').trim()):(gs==='__none'?'':gs);
+  if(!name){alert('Name is required.');return;}
+  if(isNew&&!code){alert('Asset code is required.');return;}
+  if(isNew&&AE_ROWS.some(function(x){return x.code===code;})){alert('That asset code already exists.');return;}
+  var oldName=null; if(!isNew){var cur=AE_ROWS.filter(function(x){return x.code===origCode;})[0];oldName=cur?cur.name:null;}
+  var sv=gid('ae-save'); if(sv){sv.disabled=true;sv.textContent='Saving\u2026';}
+  var done=function(){ return loadAssetsFromDB().then(refreshAeRows).then(function(){closeAeModal();renderAssetEditor();}); };
+  var fail=function(e){ if(sv){sv.disabled=false;sv.textContent='Save';} alert('Save failed: '+((e&&e.message)||e)+'\n\nIf this is the first time, run the bbw_assets migration in Supabase.'); };
+  var req;
+  if(isNew){
+    var sort=AE_ROWS.length?Math.max.apply(null,AE_ROWS.map(function(x){return x.sort||0;}))+1:0;
+    req=sbFetch('bbw_assets',{method:'POST',body:JSON.stringify({code:code,name:name,grp:grp||null,sort:sort,active:true})});
+  }else{
+    req=sbFetch('bbw_assets?code=eq.'+encodeURIComponent(origCode),{method:'PATCH',body:JSON.stringify({name:name,grp:grp||null})});
+  }
+  req.then(function(r){
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    // Rename -> rewrite history (keyed on the stable asset code; also legacy code-less rows by old name)
+    if(!isNew && oldName!=null && oldName!==name){
+      sbFetch('bbw_worklog?asset_code=eq.'+encodeURIComponent(origCode),{method:'PATCH',body:JSON.stringify({asset_name:name})}).catch(function(){});
+      sbFetch('bbw_worklog?and=(asset_name.eq.'+encodeURIComponent(oldName)+',or(asset_code.is.null,asset_code.eq.))',{method:'PATCH',body:JSON.stringify({asset_name:name})}).catch(function(){});
+      sbFetch('bbw_requests?asset_name=eq.'+encodeURIComponent(oldName),{method:'PATCH',body:JSON.stringify({asset_name:name})}).catch(function(){});
+    }
+    return done();
+  }).catch(fail);
+}
+
+function aeDelete(code){
+  if(!confirm('Delete this asset?\n\nIt will be removed from the request form, the asset folder, and future report lists. Past log entries keep their history.')) return;
+  var sv=gid('ae-save'); if(sv){sv.disabled=true;}
+  sbFetch('bbw_assets?code=eq.'+encodeURIComponent(code),{method:'PATCH',body:JSON.stringify({active:false})})
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return loadAssetsFromDB();})
+    .then(refreshAeRows)
+    .then(function(){closeAeModal();renderAssetEditor();})
+    .catch(function(e){if(sv)sv.disabled=false;alert('Delete failed: '+((e&&e.message)||e));});
+}
+
 function renderAssets(){
   var el=gid('pane-assets');
   if(!el)return;
@@ -2724,6 +2871,9 @@ function renderAssets(){
   var totalDT=Object.values(assetDT).reduce(function(a,b){return a+b;},0);
   var mnames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var H='';
+  if(EDITORS.indexOf(user)>=0){
+    H+='<button onclick="openAssetEditor()" style="width:100%;text-align:left;display:flex;align-items:center;gap:9px;background:rgba(200,162,75,.1);border:1px dashed rgba(200,162,75,.45);color:#c8a24b;font-size:13px;font-weight:700;padding:11px 14px;border-radius:11px;cursor:pointer;margin-bottom:12px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Manage assets \u2014 add, rename, move, remove</button>';
+  }
 
   // Summary tiles
   H+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">';
