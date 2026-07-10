@@ -1876,7 +1876,27 @@ function loadRequests(){
 function renderRequests(){
   var el=gid('pane-requests'); if(!el)return;
   el.innerHTML='<div style="padding:28px;text-align:center;color:var(--text-3)">'+T('req_loading')+'</div>';
-  loadRequests().then(drawRequests);
+  loadRequests().then(function(){return loadFollowups();}).then(drawRequests);
+}
+// Follow-ups live in the work log but the main log only loads 3 days, so completed/older
+// follow-ups drop off the requests tab. Load them over a longer window and merge into allE
+// (dedup by sbId) so display + open/complete keep working.
+function loadFollowups(){
+  var since=new Date(); since.setDate(since.getDate()-120);
+  return sbFetch('bbw_worklog?select=*&type=in.(followup,followup_done)&date=gte.'+localDateStr(since)+'&order=logged_at.desc&limit=600')
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){
+      if(!Array.isArray(rows))return;
+      rows.forEach(function(r){
+        var hit=false;
+        allE.forEach(function(e){ if(e.sbId&&e.sbId===r.id){ e.type=r.type; hit=true; } });
+        if(hit)return;
+        allE.push({ id:r.id,sbId:r.id,date:r.date,shift:r.shift||'',type:r.type,priority:r.priority||'',
+          assetName:r.asset_name||'',assetCode:r.asset_code||'',issue:r.issue||'',desc:r.description||'',
+          who:r.who||'',loggedAt:r.logged_at,synced:true,
+          photos:(function(){try{if(r.photos){var a=JSON.parse(r.photos);if(a&&a.length)return a;}}catch(e){}return r.photo?[r.photo]:[];})(),photo:r.photo||'' });
+      });
+    }).catch(function(){});
 }
 function reqStatusPill(s){
   var m={'new':[T('st_new'),'#f59e0b','rgba(245,158,11,.15)'],'in_progress':[T('st_inprogress'),'#3b82f6','rgba(59,130,246,.15)'],'parts_ordered':[T('st_parts')||'Parts Ordered','#a855f7','rgba(168,85,247,.15)'],'done':[T('st_done'),'#16a34a','rgba(22,163,74,.15)']};
@@ -1895,6 +1915,7 @@ function reqCard(r){
   if(photos.length) chips+='<span style="color:#60a5fa">\ud83d\udcce '+photos.length+'</span>';
   if(notes.length) chips+='<span style="color:var(--text-3)">\ud83d\udcac '+notes.length+'</span>';
   if(done&&r.closed_by) chips+='<span style="color:#16a34a">'+T('req_closedby')+rqEsc(r.closed_by)+'</span>';
+  if(r.assignee) chips+='<span style="color:#c8a24b">\uD83D\uDC64 '+rqEsc(r.assignee)+'</span>';
   if(chips) H+='<div style="display:flex;gap:12px;margin-top:7px;font-size:11px">'+chips+'<span style="margin-left:auto;color:#f59e0b">'+T('pin_viewall')+'</span></div>';
   else H+='<div style="text-align:right;margin-top:4px;font-size:11px;color:#f59e0b">'+T('pin_viewall')+'</div>';
   H+='<button onclick="event.stopPropagation();openRequest('+r.id+')" style="width:100%;margin-top:10px;background:#2563eb;border:none;color:#fff;font-size:13.5px;font-weight:700;padding:12px;border-radius:9px;cursor:pointer">'+T('req_viewdetails')+' \u203a</button>';
@@ -2025,6 +2046,7 @@ function requestDetailBody(r){
   H+='<div style="font-size:15px;color:var(--text-1);line-height:1.6;white-space:pre-wrap;margin-bottom:14px">'+rqEsc(r.work)+'</div>';
   H+='<div style="background:var(--surface);border-radius:10px;padding:12px;font-size:13px;color:var(--text-2);margin-bottom:14px">';
   H+='<div style="margin-bottom:5px">'+T('req_by')+'<b style="color:#fff">'+rqEsc(r.reporter)+'</b> \u2022 '+rqEsc(r.department)+'</div>';
+  if(r.assignee)H+='<div style="margin-bottom:5px;color:#c8a24b">\uD83D\uDC64 Assigned to <b>'+rqEsc(r.assignee)+'</b></div>';
   if(r.contact)H+='<div style="margin-bottom:5px">\u2709\ufe0f '+rqEsc(r.contact)+'</div>';
   H+='<div style="color:var(--text-3)">'+docFmtDate(r.created_at)+'</div>';
   if(done_by_line(r))H+=done_by_line(r);
@@ -2032,6 +2054,11 @@ function requestDetailBody(r){
   if(photos.length){ H+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'; photos.forEach(function(pth){ var u=SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(pth); H+='<img src="'+u+'" onclick="openLB(\''+u+'\',\''+rqEsc(r.asset_name||'')+'\')" style="width:92px;height:92px;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)">'; }); H+='</div>'; }
   if(notes.length){ H+='<div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">Notes</div>'; notes.forEach(function(n){ H+='<div style="font-size:12.5px;color:var(--text-2);margin-bottom:6px;background:var(--surface);border-radius:8px;padding:9px 11px"><b style="color:#fff">'+rqEsc(n.by)+'</b> '+rqEsc(n.text)+'<div style="font-size:10px;color:var(--text-3);margin-top:3px">'+docFmtDate(n.at)+'</div></div>'; }); }
   if(typeof user!=='undefined'&&user){
+    if(user===ADMIN){
+      var aOpts='<option value="">\u2014 Unassigned \u2014</option>';
+      TECHS.forEach(function(t){aOpts+='<option value="'+rqEsc(t)+'"'+(r.assignee===t?' selected':'')+'>'+rqEsc(t)+'</option>';});
+      H+='<div style="margin-top:16px"><label style="font-size:11px;font-weight:700;color:#c8a24b;text-transform:uppercase;letter-spacing:.04em">Assign to</label><select onchange="reqAssign('+r.id+',this.value)" style="width:100%;box-sizing:border-box;margin-top:5px;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px">'+aOpts+'</select></div>';
+    }
     H+='<button onclick="emailRequestIssue('+r.id+',this)" style="width:100%;margin-top:16px;background:transparent;border:1px solid #2563eb;color:#60a5fa;font-size:13.5px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">\u2709\ufe0f Email this issue (PDF)</button>';
     H+='<div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">';
     if(r.status==='new')H+='<button onclick="reqSetStatus('+r.id+',\'in_progress\');closeRequestDetail()" style="'+rqBtn('#3b82f6')+'">'+T('req_start')+'</button>';
@@ -2160,8 +2187,25 @@ function reqAddNote(id){
   var notes=[]; try{notes=JSON.parse(r.notes||'[]');}catch(e){}
   notes.push({by:user,at:new Date().toISOString(),text:txt});
   sbFetch('bbw_requests?id=eq.'+id,{method:'PATCH',body:JSON.stringify({notes:JSON.stringify(notes)})})
-    .then(function(){ try{notifyRequester(r,'note',txt,user);}catch(e){} REQUESTS=[]; return loadRequests(); }).then(drawRequests)
+    .then(function(){
+      try{notifyRequester(r,'note',txt,user);}catch(e){}
+      // Always notify the maintenance inbox too (requester may not have left an email)
+      try{ ejsSend({to_email:MAILTO, subject:'Note added \u2014 '+(r.asset_name||r.department||'request'), message:(user||'Someone')+' added a note to the maintenance request for "'+(r.asset_name||r.department||'')+'":\n\n"'+txt+'"\n\nOriginal request:\n'+(r.work||'')+'\n\n\u2014 BBW Maintenance', reporter:r.reporter||'', asset_name:r.asset_name||'', photos:''}).catch(function(){}); }catch(e){}
+      REQUESTS=[]; return loadRequests();
+    }).then(drawRequests)
     .catch(function(e){ alert('Failed: '+e.message); });
+}
+function reqAssign(id,name){
+  var r=REQUESTS.filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
+  sbFetch('bbw_requests?id=eq.'+id,{method:'PATCH',body:JSON.stringify({assignee:name||null})})
+    .then(function(){
+      r.assignee=name||'';
+      // let the team inbox know who's on it
+      try{ if(name) ejsSend({to_email:MAILTO, subject:'Request assigned to '+name+' \u2014 '+(r.asset_name||r.department||''), message:name+' has been assigned to the maintenance request for "'+(r.asset_name||r.department||'')+'":\n\n'+(r.work||'')+'\n\n\u2014 BBW Maintenance', reporter:r.reporter||'', asset_name:r.asset_name||'', photos:''}).catch(function(){}); }catch(e){}
+      REQUESTS=[]; return loadRequests();
+    })
+    .then(function(){ drawRequests(); try{if(gid('req-detail-pane')&&isDesktop())openRequest(id);}catch(e){} })
+    .catch(function(e){ alert('Assign failed: '+e.message); });
 }
 function logFromRequest(r){
   var now=new Date();
@@ -3486,7 +3530,7 @@ function weekStats(data,start,end){
   var pmPct=woDue.length?Math.round(woDone/woDue.length*100):null;
   // Production from the Schedule tab (techSchedule): volume, day/night hL, mean productivity, attainment
   var TS=(typeof techSchedule!=='undefined'&&techSchedule)?techSchedule:{};
-  var pDHL=0,pNHL=0,prodSum=0,prodN=0,dayVols=[];
+  var pDHL=0,pNHL=0,prodSum=0,prodN=0,dayVols=[],weekMap={};
   var cur=new Date(start+'T00:00:00'), endD=new Date(end+'T00:00:00');
   var dowLab=['Su','Mo','Tu','We','Th','Fr','Sa'];
   while(cur<=endD){
@@ -3496,8 +3540,14 @@ function weekStats(data,start,end){
     var mp=(typeof meanProdOf==='function')?meanProdOf(sc):null;
     pDHL+=dh; pNHL+=nh; if(mp!=null){prodSum+=mp;prodN++;}
     dayVols.push({label:dowLab[cur.getDay()],vol:Math.round((dh+nh)*10)/10,mp:mp});
+    // Sun\u2013Sat week bucket for the monthly production view
+    var ws=new Date(cur); ws.setDate(cur.getDate()-cur.getDay());
+    var wkey=localDateStr(ws);
+    var wb=weekMap[wkey]||(weekMap[wkey]={ws:new Date(ws),vol:0,mpSum:0,mpN:0});
+    wb.vol+=(dh+nh); if(mp!=null){wb.mpSum+=mp;wb.mpN++;}
     cur.setDate(cur.getDate()+1);
   }
+  var weekVols=Object.keys(weekMap).sort().map(function(k){var w=weekMap[k];return {label:w.ws.toLocaleDateString('en-CA',{month:'short',day:'numeric'}),vol:Math.round(w.vol*10)/10,mp:w.mpN?Math.round(w.mpSum/w.mpN):null};});
   var volHL=Math.round((pDHL+pNHL)*10)/10;
   var meanProd=prodN?Math.round(prodSum/prodN):null;
   var tgtMo=(typeof monthlyTargetHL==='function')?monthlyTargetHL():0;
@@ -3516,7 +3566,7 @@ function weekStats(data,start,end){
     dayNight:dn,
     reqReceived:received.length, reqClosed:closed.length, byDept:byDept, avgResHrs:avgRes,
     pmDue:woDue.length, pmDone:woDone, pmPct:pmPct,
-    volHL:volHL, dHL:Math.round(pDHL*10)/10, nHL:Math.round(pNHL*10)/10, meanProd:meanProd, attain:attain, weeklyTarget:Math.round(weeklyTarget), dayVols:dayVols
+    volHL:volHL, dHL:Math.round(pDHL*10)/10, nHL:Math.round(pNHL*10)/10, meanProd:meanProd, attain:attain, weeklyTarget:Math.round(weeklyTarget), dayVols:dayVols, weekVols:weekVols
   };
 }
 
@@ -3715,20 +3765,21 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
   card(7,'Tasks Logged',String(C.tasks),C.techs+' technicians',INK);
   y+=2*cardH+gap+18;
 
-  // ---- Daily Production (native bars) ----
-  section('Daily Production');
-  var dv=C.dayVols||[];
+  // ---- Production (native bars) — daily for a week, weekly for a month ----
+  var useWeekly=(C.dayVols&&C.dayVols.length>8&&C.weekVols&&C.weekVols.length);
+  var dv=useWeekly?C.weekVols:(C.dayVols||[]);
+  section(useWeekly?'Weekly Production':'Daily Production');
   var maxV=Math.max.apply(null,dv.map(function(d){return d.vol;}).concat([1]));
-  var plotH=118,base=y+plotH-16,slot=CW/7;
+  var plotH=118,base=y+plotH-16,slot=dv.length?CW/dv.length:CW;
   dc(HAIR);doc.setLineWidth(.7);doc.line(M,base,W-M,base);
   dv.forEach(function(d,i){
-    var bw=slot*0.5,bx=M+i*slot+(slot-bw)/2;
+    var bw=Math.min(slot*0.6,44),bx=M+i*slot+(slot-bw)/2;
     var bh=maxV>0?(d.vol/maxV)*(plotH-30):0;
     fc(prodCol(d.mp));doc.rect(bx,base-bh,bw,bh,'F');
-    if(d.vol>0)T(hlNum(d.vol),bx+bw/2,base-bh-4,7,'bold',INK,'center');
-    T(d.label,bx+bw/2,base+12,8,'normal',SUB,'center');
+    if(d.vol>0)T(hlNum(d.vol),bx+bw/2,base-bh-4,useWeekly?6.5:7,'bold',INK,'center');
+    T(d.label,bx+bw/2,base+12,useWeekly?7:8,'normal',SUB,'center');
   });
-  T('hL per day \u2014 bar colour = mean productivity (green 72%+, amber 60-71%, red under 60%)',M,base+26,7.5,'normal',SUB);
+  T('hL per '+(useWeekly?'week (Sun\u2013Sat)':'day')+' \u2014 bar colour = mean productivity (green 72%+, amber 60-71%, red under 60%)',M,base+26,7.5,'normal',SUB);
   y=base+40;
 
   // ---- Downtime by Asset (native hbars) ----
