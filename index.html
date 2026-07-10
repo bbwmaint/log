@@ -105,7 +105,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
   @media(min-width:1000px){
     .md-split{display:flex;align-items:flex-start}
     .md-list{width:392px;flex:0 0 392px;padding-right:18px;border-right:1px solid var(--border);box-sizing:border-box}
-    .md-detail{display:block;flex:1;min-width:0;padding-left:8px}
+    .md-detail{display:block;flex:1;min-width:0;padding-left:8px;position:sticky;top:16px;align-self:flex-start;max-height:calc(100vh - 32px);overflow-y:auto}
     #pane-requests [data-reqid]{transition:box-shadow .1s}
     #pane-requests [data-reqid].md-sel{border-color:#2563eb!important;box-shadow:0 0 0 1px #2563eb}
   }
@@ -2200,8 +2200,6 @@ function reqAssign(id,name){
   sbFetch('bbw_requests?id=eq.'+id,{method:'PATCH',body:JSON.stringify({assignee:name||null})})
     .then(function(){
       r.assignee=name||'';
-      // let the team inbox know who's on it
-      try{ if(name) ejsSend({to_email:MAILTO, subject:'Request assigned to '+name+' \u2014 '+(r.asset_name||r.department||''), message:name+' has been assigned to the maintenance request for "'+(r.asset_name||r.department||'')+'":\n\n'+(r.work||'')+'\n\n\u2014 BBW Maintenance', reporter:r.reporter||'', asset_name:r.asset_name||'', photos:''}).catch(function(){}); }catch(e){}
       REQUESTS=[]; return loadRequests();
     })
     .then(function(){ drawRequests(); try{if(gid('req-detail-pane')&&isDesktop())openRequest(id);}catch(e){} })
