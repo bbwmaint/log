@@ -2567,8 +2567,10 @@ function renderLog(){
   });
 
   var H='';
-  H+='<button onclick="openDashboard()" class="btn-primary" style="width:100%;padding:15px;font-size:15px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDCCA '+T('Maintenance Dashboard')+'</button>';
-  H+='<button onclick="openWeekDashboard()" class="btn-ghost" style="width:100%;padding:14px;font-size:14px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDCC5 Weekly stats</button>';
+  if(EDITORS.indexOf(user)>=0){
+    H+='<button onclick="openDashboard()" class="btn-primary" style="width:100%;padding:15px;font-size:15px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDCCA '+T('Maintenance Dashboard')+'</button>';
+    H+='<button onclick="openWeekDashboard()" class="btn-ghost" style="width:100%;padding:14px;font-size:14px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDCC5 Weekly stats</button>';
+  }
 
   // Show due PMs at top
   if(myPMs.length){
@@ -3180,6 +3182,7 @@ function computeDashboard(month,entries,utils){
 }
 
 function openDashboard(){
+  if(EDITORS.indexOf(user)<0){alert('Reports are restricted to maintenance management.');return;}
   var now=new Date();var m=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   var ov=document.getElementById('dash-overlay');if(ov)ov.remove();
   ov=document.createElement('div');ov.id='dash-overlay';
@@ -3217,7 +3220,7 @@ function renderDashOverlay(month){
     H+='</div>';
     // Download buttons
     H+='<div style="display:flex;gap:9px;margin-bottom:16px">';
-    H+='<button onclick="dashboardPDF()" class="btn-primary" style="flex:1;padding:12px;font-size:13px">\u2b07 PDF</button>';
+    H+='<button onclick="monthlyReportPDF()" class="btn-primary" style="flex:1;padding:12px;font-size:13px">\u2b07 PDF</button>';
     H+='<button onclick="dashboardXLSX()" class="btn-ghost" style="flex:1;padding:12px;font-size:13px">\u2b07 Excel</button>';
     H+='</div>';
     // Panels with canvases
@@ -3352,8 +3355,10 @@ function weekStats(data,start,end){
   var volHL=Math.round((pDHL+pNHL)*10)/10;
   var meanProd=prodN?Math.round(prodSum/prodN):null;
   var tgtMo=(typeof monthlyTargetHL==='function')?monthlyTargetHL():0;
-  var dim=new Date(new Date(start+'T00:00:00').getFullYear(),new Date(start+'T00:00:00').getMonth()+1,0).getDate();
-  var weeklyTarget=tgtMo>0?tgtMo*7/dim:0;
+  var _sd=new Date(start+'T00:00:00'), _ed=new Date(end+'T00:00:00');
+  var dim=new Date(_sd.getFullYear(),_sd.getMonth()+1,0).getDate();
+  var dayCount=Math.round((_ed-_sd)/86400000)+1;
+  var weeklyTarget=tgtMo>0?tgtMo*dayCount/dim:0;
   var attain=(weeklyTarget>0&&volHL>0)?Math.round(volHL/weeklyTarget*100):null;
   return {
     tasks:entries.length,
@@ -3370,6 +3375,7 @@ function weekStats(data,start,end){
 }
 
 function openWeekDashboard(){
+  if(EDITORS.indexOf(user)<0){alert('Reports are restricted to maintenance management.');return;}
   if(!WEEK_ANCHOR)WEEK_ANCHOR=new Date();
   var ov=document.getElementById('week-overlay'); if(ov)ov.remove();
   ov=document.createElement('div'); ov.id='week-overlay';
@@ -3515,9 +3521,7 @@ function weekXLSX(){
   XLSX.writeFile(wb,'BBW_Weekly_'+b.start+'.xlsx');
 }
 
-function weekPDF(){
-  if(!WEEK_DATA){alert('Open a week first');return;}
-  var C=WEEK_DATA.C,b=WEEK_DATA.bounds;
+function reportPDF(C,b,titleText,subtitle,fileTag){
   var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
   if(!JS){alert('PDF library not ready \u2014 try again in a moment.');return;}
   var doc=new JS({unit:'pt',format:'letter'});
@@ -3539,8 +3543,8 @@ function weekPDF(){
   y=44;
   if(window.__logoDark){try{var lh=26,lw=lh*((window.__logoW||498)/(window.__logoH||220));doc.addImage(window.__logoDark,'PNG',M,y-4,lw,lh);}catch(e){T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}}
   else{T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}
-  T('WEEKLY MAINTENANCE REPORT',W-M,y+6,12.5,'bold',INK,'right');
-  T(weekLabel(b)+'   \u00b7   Sun\u2013Sat',W-M,y+20,9.5,'normal',SUB,'right');
+  T(titleText,W-M,y+6,12.5,'bold',INK,'right');
+  T(subtitle,W-M,y+20,9.5,'normal',SUB,'right');
   y+=38;dc(GOLD);doc.setLineWidth(1.4);doc.line(M,y,W-M,y);y+=20;
 
   // ---- KPI cards (4 x 2) ----
@@ -3682,7 +3686,37 @@ function weekPDF(){
     T('Brunswick Bierworks \u2014 Maintenance',M,H-30,8,'normal',SUB);
     T('Generated '+gen+'   \u00b7   Page '+p+' of '+pages,W-M,H-30,8,'normal',SUB,'right');
   }
-  doc.save('BBW_Weekly_'+b.start+'.pdf');
+  doc.save((fileTag||'BBW_Report')+'.pdf');
+}
+
+// Weekly wrapper
+function weekPDF(){
+  if(!WEEK_DATA){alert('Open a week first');return;}
+  reportPDF(WEEK_DATA.C, WEEK_DATA.bounds, 'WEEKLY MAINTENANCE REPORT', weekLabel(WEEK_DATA.bounds)+'   \u00b7   Sun\u2013Sat', 'BBW_Weekly_'+WEEK_DATA.bounds.start);
+}
+
+// Generic range loader (worklog/utils for the range; requests/WOs filtered client-side by weekStats)
+function loadReportData(startStr,endStr){
+  function j(r){return r.ok?r.json():[];}
+  var wl=sbFetch('bbw_worklog?select=*&date=gte.'+startStr+'&date=lte.'+endStr+'&limit=20000').then(j);
+  var ut=sbFetch('bbw_util_log?select=*&date=gte.'+startStr+'&date=lte.'+endStr+'&limit=20000').then(j);
+  var rq=sbFetch('bbw_requests?select=*&limit=8000').then(j);
+  var wo=sbFetch('bbw_wos?select=*&limit=20000').then(j);
+  return Promise.all([wl,ut,rq,wo]).then(function(a){return {entries:a[0]||[],utils:a[1]||[],requests:a[2]||[],wos:a[3]||[]};});
+}
+
+// Monthly report — same design/renderer as weekly, computed over the calendar month
+function monthlyReportPDF(){
+  if(EDITORS.indexOf(user)<0){alert('Reports are restricted to maintenance management.');return;}
+  var month=(document.getElementById('dash-month')&&document.getElementById('dash-month').value)||(DASH_DATA&&DASH_DATA.month)||(new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0'));
+  var y=+month.slice(0,4), mo=+month.slice(5,7);
+  var sd=new Date(y,mo-1,1), ed=new Date(y,mo,0);
+  var start=localDateStr(sd), end=localDateStr(ed);
+  var bb={start:start,end:end,sd:sd,ed:ed};
+  loadReportData(start,end).then(function(data){
+    var C=weekStats(data,start,end);
+    reportPDF(C,bb,'MONTHLY MAINTENANCE REPORT',monthLabel(month),'BBW_Monthly_'+month);
+  }).catch(function(err){alert('Could not build report: '+(err&&err.message||err));});
 }
 
 // ── Excel export ──
