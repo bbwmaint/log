@@ -318,13 +318,14 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px">
       <div>
         <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Start</div>
-        <input type="time" id="f-start" oninput="calcDT()" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:10px;font-size:15px;color:#fff;outline:none">
+        <input type="time" id="f-start" oninput="calcDT();updateShiftPreview()" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:10px;font-size:15px;color:#fff;outline:none">
       </div>
       <div>
         <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">End</div>
         <input type="time" id="f-end" oninput="calcDT()" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:10px;font-size:15px;color:#fff;outline:none">
       </div>
     </div>
+    <div id="shift-preview" style="display:none;border:1px solid;border-radius:7px;padding:7px 10px;font-size:12px;margin-bottom:10px;font-weight:600"></div>
     <div id="dt-auto" style="display:none;background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.3);border-radius:7px;padding:7px 10px;font-size:12px;color:#60a5fa;margin-bottom:10px"></div>
 
     <!-- 2. Changeover Time -->
@@ -597,6 +598,20 @@ function gid(id){return document.getElementById(id);}
 function td(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function utilDay(){var n=new Date();if(n.getHours()<7){n=new Date(n.getTime()-86400000);}return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
 function isDay(){var h=new Date().getHours();return h>=7&&h<19;}
+function shiftForMins(mins){return (mins>=420&&mins<1140)?'Day':'Night';} // 07:00-18:59 = Day, else Night
+function updateShiftPreview(){
+  var el=gid('shift-preview'); if(!el)return;
+  var st=gid('f-start')?gid('f-start').value:'';
+  var mins=null; if(st){var p=st.split(':');mins=(parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
+  var shift=(mins==null)?(isDay()?'Day':'Night'):shiftForMins(mins);
+  var dstr=(mins==null)?entryAnchor(null):entryAnchor(mins);
+  var d=new Date(dstr+'T00:00:00');
+  var lbl=isNaN(d)?dstr:d.toLocaleDateString('en-CA',{weekday:'short',month:'short',day:'numeric'});
+  var col=(shift==='Night')?'#60a5fa':'#f59e0b';
+  el.style.color=col; el.style.borderColor=col+'66'; el.style.background=col+'14';
+  el.innerHTML=(shift==='Night'?'\uD83C\uDF19 ':'\u2600\uFE0F ')+'Files under <b>'+shift+' shift</b> \u00b7 '+lbl;
+  el.style.display='block';
+}
 function localDateStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 // Anchor date of the shift happening RIGHT NOW. A night shift spans midnight,
 // so its anchor is the evening date it started; the 00:00-06:59 morning portion
@@ -1194,6 +1209,7 @@ function openSheet(id){
   editId=id||null; ctype=''; cprio=''; photos=[]; selA=null;
   if(gid('f-issue'))gid('f-issue').value=''; gid('f-desc').value=''; gid('f-dt').value=''; gid('f-pname').value=''; gid('f-pqty').value='';
   gid('f-start').value=ntime(); gid('f-end').value='';
+  try{updateShiftPreview();}catch(e){}
   gid('asearch').value=''; buildAList('');
   if(gid('photo-in'))gid('photo-in').value='';
   if(gid('photo-lib'))gid('photo-lib').value='';
@@ -1213,7 +1229,7 @@ function openSheet(id){
       setType(e.type); if(e.priority)setPrio(e.priority);
       if(e.assetCode)selA2(e.assetCode,e.assetName);
       else if(e.assetName){selA={c:'',n:e.assetName};gid('asearch').value=e.assetName;}
-      if(gid('f-issue'))gid('f-issue').value=e.issue||''; gid('f-desc').value=e.desc||''; gid('f-start').value=e.start||''; gid('f-end').value=e.end||''; gid('f-dt').value=e.dt||'';
+      if(gid('f-issue'))gid('f-issue').value=e.issue||''; gid('f-desc').value=e.desc||''; gid('f-start').value=e.start||''; gid('f-end').value=e.end||''; gid('f-dt').value=e.dt||''; try{updateShiftPreview();}catch(_){}
       if(e.partName){gid('f-pname').value=e.partName;gid('f-pqty').value=e.partQty||1;}
       if(e.machineDown&&gid('f-machinedown')){gid('f-machinedown').value=e.machineDown;toggleDT(e.machineDown);}
       if(e.coMins&&gid('f-co'))gid('f-co').value=e.coMins;
@@ -1381,7 +1397,7 @@ function submitEntry(){
         var h=parseInt(st.split(':')[0]);
         var m=parseInt(st.split(':')[1]||0);
         var mins=h*60+m;
-        return (mins>=420&&mins<1140)?'Day':'Night';
+        return shiftForMins(mins);
       }
       return isDay()?'Day':'Night';
     })(),type:ctype,priority:cprio,assetName:(selA?selA.n:(gid('asearch')?gid('asearch').value.trim():'')),assetCode:(selA?selA.c:''),issue:gid('f-issue')?gid('f-issue').value.trim():'',desc:gid('f-desc').value.trim(),start:gid('f-start').value,end:gid('f-end').value,dt:parseFloat(gid('f-dt').value)||0,machineDown:gid('f-machinedown')?gid('f-machinedown').value:'',coMins:parseInt(gid('f-co')?gid('f-co').value:0)||0,coType:gid('f-cotype')?gid('f-cotype').value:'',partName:gid('f-pname').value.trim(),partQty:gid('f-pqty').value||'1',photos:photos.slice(),photo:(photos[0]||null),who:(user===ADMIN&&gid('f-assignedto')&&gid('f-assignedto').value)?gid('f-assignedto').value:user,loggedAt:new Date().toISOString(),shiftNote:gid('snote').value};
@@ -1392,8 +1408,9 @@ function submitEntry(){
       entry.sbId=orig.sbId;            // keep the Supabase row reference
       entry.synced=orig.synced;
       entry.loggedAt=orig.loggedAt||entry.loggedAt;
-      entry.date=orig.date;            // keep the entry in its original shift/day
-      entry.shift=orig.shift;
+      // NOTE: entry.date and entry.shift were computed above from the start time,
+      // so editing the start time now re-files the entry into the correct shift/day
+      // (e.g. changing start to 06:15 moves it to the previous Night shift).
     }
     var ei=entries.findIndex(function(x){return x.id===editId;});if(ei>=0)entries[ei]=entry;
     var ai=allE.findIndex(function(x){return x.id===editId;});if(ai>=0)allE[ai]=entry;
@@ -3001,7 +3018,7 @@ function showAssetDetail(assetName){
     return;
   }
   var H='<div id="asset-detail-modal" style="position:fixed;inset:0;background:var(--bg);z-index:500;overflow-y:auto;padding:0">';
-  H+='<div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;gap:12px;z-index:10">';
+  H+='<div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;align-items:center;gap:12px;z-index:10">';
   H+='<button onclick="closeAssetDetail()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>';
   H+='<div style="flex:1"><div style="font-size:16px;font-weight:700;color:#fff">'+assetName+'</div><div style="font-size:11px;color:var(--text-3)">'+logs.length+' total logs</div></div></div>';
   H+='<div style="padding:14px 16px">'+body+'</div></div>';
@@ -3375,7 +3392,7 @@ function openDashboard(){
   var ov=document.getElementById('dash-overlay');if(ov)ov.remove();
   ov=document.createElement('div');ov.id='dash-overlay';
   ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column';
-  ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
+  ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
     '<button onclick="closeDashboard()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'+
     '<div style="font-size:15px;font-weight:700;color:var(--text)">Dashboard</div>'+
     '<input type="month" id="dash-month" value="'+m+'" max="'+m+'" onchange="renderDashOverlay(this.value)" style="margin-left:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-size:13px">'+
@@ -3574,7 +3591,7 @@ function openWeekDashboard(){
   var ov=document.getElementById('week-overlay'); if(ov)ov.remove();
   ov=document.createElement('div'); ov.id='week-overlay';
   ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column';
-  ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:13px 14px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
+  ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
     '<button onclick="closeWeekDashboard()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'+
     '<div style="font-size:15px;font-weight:700;color:var(--text)">Weekly Stats</div>'+
     '<div style="margin-left:auto;display:flex;align-items:center;gap:4px">'+
