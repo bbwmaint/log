@@ -1371,11 +1371,11 @@ function renderPhotoThumbs(){
 function removePhoto(i){photos.splice(i,1);renderPhotoThumbs();
 }
 
-function toast(msg,bad){
+function toast(msg,bad,ms){
   try{var t=document.createElement('div');t.textContent=msg;
     t.style.cssText='position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:'+(bad?'#b91c1c':'#16a34a')+';color:#fff;padding:12px 22px;border-radius:12px;font-size:15px;font-weight:700;z-index:9999;box-shadow:0 10px 34px rgba(0,0,0,.45);max-width:90%;text-align:center';
     document.body.appendChild(t);
-    setTimeout(function(){t.style.transition='opacity .4s';t.style.opacity='0';setTimeout(function(){t.remove();},420);},2000);
+    setTimeout(function(){t.style.transition='opacity .4s';t.style.opacity='0';setTimeout(function(){t.remove();},420);},(ms||2000));
   }catch(e){}
 }
 function submitEntry(){
@@ -1441,7 +1441,21 @@ function submitEntry(){
   }else{entries.push(entry);allE.push(entry);try{syncEntry(entry);}catch(_e){console.warn('sync threw',_e);}}
   save();
   closeSheet();renderAll();checkUBanner();
-  try{toast(_wasEdit?'Entry updated \u2713':'Logged \u2713');}catch(_e){}
+  try{
+    if(_wasEdit){ toast('Entry updated \u2713'); }
+    else {
+      // If the entry filed under a shift/day other than the one running right now,
+      // say so explicitly — otherwise it looks like it "vanished" from This Shift.
+      var _curA=shiftAnchor(), _curS=isDay()?'Day':'Night';
+      if(entry.date!==_curA || entry.shift!==_curS){
+        var _dd=new Date(entry.date+'T00:00:00');
+        var _dl=isNaN(_dd)?entry.date:_dd.toLocaleDateString('en-CA',{month:'short',day:'numeric'});
+        toast('Logged \u2713 \u2192 '+entry.shift+' shift \u00b7 '+_dl+' (in My Log & report)',false,3600);
+      } else {
+        toast('Logged \u2713');
+      }
+    }
+  }catch(_e){}
  }catch(err){
   console.error('submitEntry failed',err);
   try{save();}catch(_s){}
@@ -2591,8 +2605,13 @@ function renderLog(){
   var today=td();
   var shiftNow=isDay()?'Day':'Night';
 
-  // My logged entries
-  var mine=entries.filter(function(e){return e.who===user;});
+  // My logged entries — pull from allE (not the current-shift-scoped `entries`) so
+  // an entry filed under a different shift (e.g. a 05:30 fix that anchors to the
+  // previous Night shift) still shows in the tech's own log instead of vanishing on
+  // refresh. Oldest-first, capped to the 60 most recent (the render below reverses).
+  var mine=allE.filter(function(e){return e.who===user;})
+               .sort(function(a,b){return (a.loggedAt||'').localeCompare(b.loggedAt||'');});
+  if(mine.length>60)mine=mine.slice(mine.length-60);
 
   // PMs assigned to me due today (not yet logged)
   var today2=new Date();
