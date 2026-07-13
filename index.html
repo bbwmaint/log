@@ -7235,6 +7235,16 @@ function openDayEditor(ds){
       H+='<div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">'+schT('Production')+'</div>';
       H+='<div style="font-size:13px;color:#fff;line-height:1.7">'+schT('Day')+' '+fmtHL(dh)+'<br>'+schT('Night')+' '+fmtHL(nh)+'</div>';
     }
+    // Productivity (read-only) — the same figures that set each day's colour on the calendar
+    var _dp=(sc.dProd!=null&&sc.dProd!=='')?+sc.dProd:null;
+    var _np=(sc.nProd!=null&&sc.nProd!=='')?+sc.nProd:null;
+    var _mp=(sc.meanProd!=null&&sc.meanProd!=='')?+sc.meanProd:null;
+    if(_dp!=null||_np!=null||_mp!=null){
+      var _pbox=function(lbl,v){return '<div style="flex:1;min-width:90px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:9px 10px;text-align:center"><div style="font-size:9px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">'+lbl+'</div><div style="font-size:18px;font-weight:800;color:'+(v!=null?schedEffColor(v):'var(--text-3)')+'" class="tnum">'+(v!=null?v+'%':'\u2014')+'</div></div>';};
+      H+='<div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">'+schT('Productivity')+'</div>';
+      if(_dp!=null||_np!=null)H+='<div style="display:flex;gap:8px;margin-bottom:8px">'+_pbox(schT('Day'),_dp)+_pbox(schT('Night'),_np)+'</div>';
+      H+=_pbox(schT('Mean productivity'),_mp);
+    }
     if(sc.comment)H+='<div style="margin-top:11px;font-size:13px;color:var(--text-2)">'+rqEsc(sc.comment)+'</div>';
     H+='<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:18px">'+schT('Read-only \u2014 only schedulers can edit')+'</div>';
   }else{
