@@ -1416,6 +1416,7 @@ function submitEntry(){
     var ai=allE.findIndex(function(x){return x.id===editId;});if(ai>=0)allE[ai]=entry;
     if(entry.sbId){
       var pfull={
+        date:entry.date,shift:entry.shift,
         type:entry.type,priority:entry.priority||null,
         asset_name:entry.assetName||null,asset_code:entry.assetCode||null,
         issue:entry.issue||null,description:entry.desc||null,start_time:entry.start||null,end_time:entry.end||null,
