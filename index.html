@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111111">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script>try{var _bt=localStorage.getItem('bbw_theme');document.documentElement.setAttribute('data-theme',_bt==='light'?'light':'dark');if(_bt==='light'){var _m=document.querySelector('meta[name="theme-color"]');if(_m)_m.setAttribute('content','#ffffff');}}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -79,6 +82,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   html[data-theme="light"] #theme-tgl{ background:var(--surface-2) !important; }
   /* ============================================================================ */
   *{ -webkit-tap-highlight-color: transparent; }
+  input,button,select,textarea{ font-family:inherit; }
+  body{ text-rendering:optimizeLegibility; }
   input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
   input[type=number]{-moz-appearance:textfield}
   body{ background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
@@ -179,7 +184,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
   @media(min-width:1000px){ #nav-burger{display:none!important} #nav-backdrop{display:none!important} }
 </style>
 </head>
-<body style="margin:0;padding:0;font-family:-apple-system,sans-serif;background:var(--bg);color:#fff">
+<body style="margin:0;padding:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:#fff">
 
 <div id="pg-pin" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:var(--bg);padding:24px 20px">
 
@@ -7521,10 +7526,16 @@ function parseTechSchedule(input){
         });
       }catch(_e){}
       var _oldSched=techSchedule||{};
+      // Merge (don't wipe): keep every existing day and its extras (vacation, sick,
+      // production hL, productivity, holiday). History is frozen — only TODAY ONWARD
+      // gets its crew/comment refreshed from the uploaded file, so re-uploading a new
+      // schedule never wipes the details from yesterday and before.
+      var _todayDS=localDateStr(new Date());
       techSchedule={};
-      if(_oldSched.__rate__)techSchedule.__rate__=_oldSched.__rate__;
+      Object.keys(_oldSched).forEach(function(k){ techSchedule[k]=(k==='__rate__')?_oldSched[k]:Object.assign({},_oldSched[k]); });
       var dates=data[0],day=data[1],night=data[2],comments=data[3];
       if(!dates)return;
+      var _updated=0,_pastKept=0;
       for(var c=1;c<dates.length;c++){
         if(!dates[c])continue;
         var dt3=null;
@@ -7542,13 +7553,19 @@ function parseTechSchedule(input){
         // Handle UTC dates from SheetJS (add offset)
         if(dt3.getUTCHours()===0&&dt3.getHours()!==0){yr=dt3.getUTCFullYear();mo=dt3.getUTCMonth();dy=dt3.getUTCDate();}
         var ds=yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(dy).padStart(2,'0');
-        techSchedule[ds]={day:day&&day[c]?String(day[c]).trim():'',night:night&&night[c]?String(night[c]).trim():'',comment:comments&&comments[c]?String(comments[c]).trim():''};
-        var _od=_oldSched[ds];
-        if(_od){ if(_od.vac&&_od.vac.length)techSchedule[ds].vac=_od.vac.slice(); if(_od.dHL!=null)techSchedule[ds].dHL=_od.dHL; if(_od.nHL!=null)techSchedule[ds].nHL=_od.nHL; if(_od.dCans!=null)techSchedule[ds].dCans=_od.dCans; if(_od.nCans!=null)techSchedule[ds].nCans=_od.nCans; if(!techSchedule[ds].comment&&_od.comment)techSchedule[ds].comment=_od.comment; }
+        if(ds<_todayDS){_pastKept++;continue;}   // freeze the past — leave existing history untouched
+        var _o=techSchedule[ds]||{};              // preserve this day's extras if it already existed
+        _o.day=day&&day[c]?String(day[c]).trim():'';
+        _o.night=night&&night[c]?String(night[c]).trim():'';
+        var _cm=comments&&comments[c]?String(comments[c]).trim():'';
+        if(_cm){_o.comment=_cm;} else if(_o.comment==null){_o.comment='';}
+        techSchedule[ds]=_o;
+        _updated++;
       }
       try{localStorage.setItem('bbw_tech_sched',JSON.stringify(techSchedule));}catch(ex){}
-      if(el){el.textContent='\u2713 '+Object.keys(techSchedule).length+' days loaded \u2014 syncing...';el.style.color='#4ade80';}
-      saveScheduleToSB('tech',techSchedule).then(function(ok){if(el){el.textContent='\u2713 '+Object.keys(techSchedule).length+' days loaded'+(ok?' \u2014 synced to all devices':' \u2014 sync failed (saved locally)');el.style.color=ok?'#4ade80':'#fbbf24';}});
+      try{renderSchedule();}catch(_e){}
+      if(el){el.textContent='\u2713 Updated '+_updated+' day(s) from today \u2014 syncing...';el.style.color='#4ade80';}
+      saveScheduleToSB('tech',techSchedule).then(function(ok){if(el){el.textContent='\u2713 '+_updated+' day(s) updated from today onward \u00b7 earlier history kept'+(ok?' \u2014 synced to all devices':' \u2014 saved locally (sync failed)');el.style.color=ok?'#4ade80':'#fbbf24';}});
     }catch(err){if(el){el.textContent='Error: '+err.message;el.style.color='#ef4444';}}
   };
   reader.readAsBinaryString(file);
