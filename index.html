@@ -84,6 +84,8 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   *{ -webkit-tap-highlight-color: transparent; }
   input,button,select,textarea{ font-family:inherit; }
   body{ text-rendering:optimizeLegibility; }
+  @keyframes micpulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.55)}50%{box-shadow:0 0 0 7px rgba(220,38,38,0)}}
+  .mic-live{animation:micpulse 1.1s infinite}
   input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
   input[type=number]{-moz-appearance:textfield}
   body{ background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
@@ -288,6 +290,13 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     <div id="urows"></div>
   </div>
 
+  <!-- OFFLINE / PENDING-SYNC BAR -->
+  <div id="syncbar" onclick="retryUnsynced()" style="display:none;background:#3a2a00;border-bottom:1px solid #f59e0b;padding:9px 14px;cursor:pointer;align-items:center;gap:9px">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    <div style="font-size:12.5px;font-weight:600;color:#fbbf24;flex:1"><span id="sync-cnt">0</span> <span id="sync-lbl">entries waiting to sync</span></div>
+    <span id="sync-action" style="font-size:11.5px;font-weight:700;color:#fbbf24;opacity:.85">Tap to retry</span>
+  </div>
+
   <div id="nav-backdrop" onclick="closeNav()"></div>
 
   <!-- TABS -->
@@ -358,7 +367,10 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     <div style="font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px" id="lbl-issue">Issue</div>
     <input type="text" id="f-issue" placeholder="Short summary — e.g. Loader jam" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 13px;font-size:16px;color:#fff;outline:none;margin-bottom:12px">
     <div style="font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px" id="lbl-whatdone">Description / Work done</div>
-    <textarea id="f-desc" rows="3" placeholder="Details, root cause, what was done to fix it..." style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 13px;font-size:16px;color:#fff;outline:none;resize:none;font-family:inherit"></textarea>
+    <div style="position:relative">
+      <textarea id="f-desc" rows="3" placeholder="Details, root cause, what was done to fix it..." style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 46px 11px 13px;font-size:16px;color:#fff;outline:none;resize:none;font-family:inherit"></textarea>
+      <button type="button" id="f-desc-mic" onclick="toggleVoice('f-desc')" aria-label="Dictate" title="Dictate" style="position:absolute;right:8px;bottom:8px;width:36px;height:36px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface-3);color:var(--text-2);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+    </div>
   </div>
   <div id="fg-assignedto" style="display:none;margin-bottom:14px">
     <div style="font-size:12px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Reassign To (Admin Only)</div>
@@ -2414,11 +2426,42 @@ function syncEntry(e){
       }
       return r.json();
     })
-    .then(onSaved)
+    .then(function(d){ onSaved(d); try{updateSyncBar();}catch(_e){} })
     .catch(function(err){
       console.warn('Sync failed, will retry',err);
       e.synced=false; e.syncError=true;
+      try{updateSyncBar();}catch(_e){}
     });
+  try{updateSyncBar();}catch(_e){}
+}
+
+// ── Offline / pending-sync indicator ──
+function countUnsynced(){
+  try{ return (allE||[]).filter(function(e){ return e && !e.deleted && !e.sbId && !e.synced; }).length; }catch(e){ return 0; }
+}
+function updateSyncBar(){
+  try{
+    var bar=document.getElementById('syncbar'); if(!bar)return;
+    var n=countUnsynced();
+    if(n>0){
+      bar.style.display='flex';
+      var c=document.getElementById('sync-cnt'); if(c)c.textContent=n;
+      var lbl=document.getElementById('sync-lbl');
+      if(lbl)lbl.textContent=(lang==='uk')?(n===1?'\u0437\u0430\u043f\u0438\u0441 \u0447\u0435\u043a\u0430\u0454 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0430\u0446\u0456\u0457':'\u0437\u0430\u043f\u0438\u0441\u0456\u0432 \u0447\u0435\u043a\u0430\u044e\u0442\u044c \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0430\u0446\u0456\u0457'):('entr'+(n===1?'y':'ies')+' waiting to sync');
+      var act=document.getElementById('sync-action');
+      if(act)act.textContent=(navigator.onLine!==false)?((lang==='uk')?'\u041d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0432\u0442\u043e\u0440\u0443':'Tap to retry'):((lang==='uk')?'\u041e\u0444\u043b\u0430\u0439\u043d':'Offline');
+    } else { bar.style.display='none'; }
+  }catch(e){}
+}
+function retryUnsynced(){
+  try{
+    var pend=(allE||[]).filter(function(e){ return e && !e.deleted && !e.sbId && !e.synced; });
+    if(!pend.length){ updateSyncBar(); return; }
+    if(navigator.onLine===false){ toast((lang==='uk')?'\u041d\u0435\u043c\u0430\u0454 \u043c\u0435\u0440\u0435\u0436\u0456 \u2014 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0443\u0454\u0442\u044c\u0441\u044f, \u043a\u043e\u043b\u0438 \u0437\u2019\u044f\u0432\u0438\u0442\u044c\u0441\u044f \u043c\u0435\u0440\u0435\u0436\u0430':'No connection \u2014 will sync automatically when back online',true); return; }
+    toast((lang==='uk')?('\u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0430\u0446\u0456\u044f '+pend.length+'\u2026'):('Syncing '+pend.length+'\u2026'));
+    pend.forEach(function(e){ try{ syncEntry(e); }catch(_e){} });
+    setTimeout(updateSyncBar, 1600);
+  }catch(e){}
 }
 
 function deleteFromSB(sbId){
@@ -2466,6 +2509,7 @@ function loadFromSB(){
       save();
       renderAll();
       checkUBanner();
+      try{updateSyncBar();}catch(e){}
       // Ensure the My Log view fully re-renders once data is in (entries + cards)
       try{ if(gid('pane-log')&&gid('pane-log').style.display!=='none'){ renderLog(); injectPinnedRequests(); injectMyPMTasks(); } }catch(e){}
     })
@@ -2703,6 +2747,27 @@ function renderLog(){
 
   var H='';
 
+  // Personal weekly stat — your last 7 days at a glance
+  (function(){
+    var _wkAgo=Date.now()-7*86400*1000;
+    var _wk=allE.filter(function(e){ return e.who===user && !e.deleted && e.loggedAt && new Date(e.loggedAt).getTime()>=_wkAgo; });
+    var _jobs=_wk.length;
+    if(_jobs>0){
+      var _dt=Math.round(_wk.reduce(function(s,e){return s+(parseFloat(e.dt)||0);},0)*10)/10;
+      var _iss=_wk.filter(function(e){return e.type==='issue'||e.type==='pending';}).length;
+      var _pm=_wk.filter(function(e){return e.type==='pm';}).length;
+      var mini=function(v,l,c){return '<div style="flex:1;min-width:0;padding:0 4px"><div style="font-size:21px;font-weight:800;color:'+c+';line-height:1" class="tnum">'+v+'</div><div style="font-size:9.5px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.03em;margin-top:4px">'+l+'</div></div>';};
+      H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 8px 10px;margin-bottom:12px">';
+      H+='<div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin:0 6px 9px">'+(lang==='uk'?'\u0412\u0430\u0448 \u0442\u0438\u0436\u0434\u0435\u043d\u044c':'Your week')+' \u00b7 '+rqEsc(user)+'</div>';
+      H+='<div style="display:flex;align-items:stretch;text-align:center">';
+      H+=mini(_jobs,(lang==='uk'?'\u0417\u0430\u0432\u0434\u0430\u043d\u043d\u044f':'Jobs'),'#60a5fa');
+      H+=mini(_dt,(lang==='uk'?'\u041f\u0440\u043e\u0441\u0442\u0456\u0439, \u0433':'Downtime h'),'#f87171');
+      H+=mini(_iss,(lang==='uk'?'\u041f\u0440\u043e\u0431\u043b\u0435\u043c\u0438':'Issues'),'#fbbf24');
+      H+=mini(_pm,(lang==='uk'?'\u0422\u041e':'PMs'),'#a78bfa');
+      H+='</div></div>';
+    }
+  })();
+
   // Show due PMs at top
   if(myPMs.length){
     H+='<div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:12px;border-left:3px solid #7c3aed">';
@@ -2710,9 +2775,12 @@ function renderLog(){
     myPMs.forEach(function(pm){
       var pmIdx=PMS.indexOf(pm);
       H+='<div style="background:var(--surface-2);border-radius:8px;padding:10px 12px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:8px">';
-      H+='<div style="flex:1"><div style="font-size:13px;font-weight:600;color:#fff">'+pm.asset+'</div>';
+      H+='<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:#fff">'+pm.asset+'</div>';
       H+='<div style="font-size:11px;color:var(--text-2);margin-top:2px">'+pm.desc.slice(0,50)+'</div></div>';
-      H+='<button onclick="logPMByIdx('+pmIdx+')" style="padding:7px 12px;background:rgba(124,58,237,.2);color:#a78bfa;border:1px solid rgba(124,58,237,.3);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">'+T('Log Done')+'</button>';
+      H+='<div style="display:flex;gap:6px;flex-shrink:0">';
+      H+='<button onclick="logPMByIdx('+pmIdx+')" title="Add time / notes" style="padding:7px 10px;background:transparent;color:var(--text-3);border:1px solid var(--border-2);border-radius:7px;font-size:13px;cursor:pointer">\u270E</button>';
+      H+='<button onclick="quickPM('+pmIdx+')" style="padding:7px 14px;background:#7c3aed;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">\u2713 '+T('pm_done')+'</button>';
+      H+='</div>';
       H+='</div>';
     });
     H+='</div>';
@@ -3411,6 +3479,60 @@ function logPMByIdx(idx){
     if(found)selA2(found.c,found.n);
   },100);
 }
+
+// One-tap PM completion — logs a Done entry immediately, no form. The pencil on the
+// card still opens the full sheet (logPMByIdx) when a tech wants to add time/notes.
+function quickPM(idx){
+  var pm=PMS[idx];if(!pm)return;
+  var found=ASSETS.find(function(a){return a.n===pm.asset||(pm.asset&&a.n.indexOf(pm.asset)>=0);});
+  var entry={
+    id:Date.now(),
+    date:entryAnchor(null), shift:(isDay()?'Day':'Night'),
+    type:'pm', priority:'',
+    assetName:(found?found.n:(pm.asset||'')), assetCode:(found?found.c:''),
+    issue:'', desc:pm.desc+' ('+pm.code+')',
+    start:'', end:'', dt:0, machineDown:'', coMins:0, coType:'',
+    partName:'', partQty:'', photos:[], photo:null,
+    who:user, loggedAt:new Date().toISOString(),
+    shiftNote:(gid('snote')?gid('snote').value:'')
+  };
+  entries.push(entry); allE.push(entry);
+  try{syncEntry(entry);}catch(_e){}
+  save(); renderAll(); checkUBanner();
+  try{if(navigator.vibrate)navigator.vibrate(18);}catch(_e){}
+  try{updateSyncBar();}catch(_e){}
+  toast('\u2713 '+T('pm_done')+': '+(pm.asset||''));
+}
+
+// ── Voice dictation (Web Speech API) ── fills a text field by voice. EN + UK.
+var _voiceRec=null, _voiceBase='';
+function voiceSupported(){ return ('webkitSpeechRecognition' in window)||('SpeechRecognition' in window); }
+function toggleVoice(targetId){
+  if(!voiceSupported()){ toast(lang==='uk'?'\u0413\u043e\u043b\u043e\u0441\u043e\u0432\u0438\u0439 \u0432\u0432\u0456\u0434 \u043d\u0435 \u043f\u0456\u0434\u0442\u0440\u0438\u043c\u0443\u0454\u0442\u044c\u0441\u044f \u0443 \u0446\u044c\u043e\u043c\u0443 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0456':'Voice input isn\u2019t supported in this browser',true); return; }
+  if(_voiceRec){ try{_voiceRec.stop();}catch(e){} return; }   // tap again to stop
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  var rec=new SR();
+  rec.lang=(lang==='uk')?'uk-UA':'en-US';
+  rec.continuous=true; rec.interimResults=true;
+  var target=gid(targetId); if(!target)return;
+  var mic=gid(targetId+'-mic');
+  _voiceBase=target.value?(target.value.replace(/\s*$/,'')+' '):'';
+  rec.onstart=function(){ _voiceRec=rec; if(mic){mic.style.background='#dc2626';mic.style.color='#fff';mic.style.borderColor='#dc2626';mic.classList.add('mic-live');} try{if(navigator.vibrate)navigator.vibrate(12);}catch(e){} };
+  rec.onresult=function(ev){
+    var finalTxt='', interim='';
+    for(var i=ev.resultIndex;i<ev.results.length;i++){
+      var t=ev.results[i][0].transcript;
+      if(ev.results[i].isFinal){ finalTxt+=t; } else { interim+=t; }
+    }
+    if(finalTxt){ _voiceBase=(_voiceBase.replace(/\s*$/,'')+' '+finalTxt.trim()+' ').replace(/^\s+/,''); }
+    target.value=(_voiceBase+interim).replace(/[ \t]+/g,' ').replace(/^\s+/,'');
+    try{target.dispatchEvent(new Event('input'));}catch(e){}
+  };
+  rec.onerror=function(ev){ if(ev&&(ev.error==='not-allowed'||ev.error==='service-not-allowed')){ toast(lang==='uk'?'\u0414\u043e\u0437\u0432\u043e\u043b\u044c\u0442\u0435 \u0434\u043e\u0441\u0442\u0443\u043f \u0434\u043e \u043c\u0456\u043a\u0440\u043e\u0444\u043e\u043d\u0430':'Allow microphone access to dictate',true); } };
+  rec.onend=function(){ _voiceRec=null; if(mic){mic.style.background='var(--surface-3)';mic.style.color='var(--text-2)';mic.style.borderColor='var(--border-2)';mic.classList.remove('mic-live');} };
+  try{ rec.start(); }catch(e){ _voiceRec=null; }
+}
+try{ if(!voiceSupported()){ var _mb=document.getElementById('f-desc-mic'); if(_mb)_mb.style.display='none'; } }catch(e){}
 
 function logPMDone(code,asset,desc){
   var idx=PMS.findIndex(function(p){return p.code===code;});
@@ -6990,6 +7112,13 @@ if('serviceWorker' in navigator){
       .catch(function(e){console.log('SW failed:', e);});
   });
 }
+
+// Auto-retry unsynced entries when the connection returns; keep the sync bar current.
+try{
+  window.addEventListener('online', function(){ try{updateSyncBar();}catch(e){} setTimeout(function(){try{retryUnsynced();}catch(e){}},600); });
+  window.addEventListener('offline', function(){ try{updateSyncBar();}catch(e){} });
+  window.addEventListener('load', function(){ setTimeout(function(){try{updateSyncBar();}catch(e){}},1200); });
+}catch(e){}
 
 function schedChip(val,color){ if(val==null||val==='\u2014'||!(''+val).trim())return '<span style="font-size:12.5px;color:var(--text-3)">\u2014</span>'; return '<span style="display:inline-flex;align-items:center;font-size:12.5px;font-weight:600;color:#fff;background:var(--surface-2);border-left:2.5px solid '+color+';border-radius:7px;padding:6px 11px">'+rqEsc(''+val)+'</span>'; }
 /* ===== Shift Schedule: month calendar + in-app editing + production/efficiency ===== */
