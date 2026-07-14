@@ -1146,13 +1146,14 @@ function showTab(name){
   try{closeNav();}catch(e){}
   var atb=gid('tab-'+name);
   if(atb){atb.style.color='#fff';atb.style.borderBottomColor='#fff';atb.classList.add('dz-active');}
-  if(name==='shift')renderShift();
-  if(name==='prev')renderPrev();
-  if(name==='util')renderUtil();
-  if(name==='assets')renderAssets();
-  if(name==='reports')renderReports();
-  if(name==='requests'){renderRequests();try{reqMarkAllSeen();}catch(e){}}
-  if(name==='inventory')renderInventory();
+  function _safe(fn,pane){ try{ fn(); }catch(e){ try{ var p=gid('pane-'+pane); if(p&&!p.innerHTML.trim()){ p.innerHTML='<div style="padding:20px;color:#f87171;font-size:12.5px;line-height:1.5">Something went wrong rendering this tab.<br><span style="color:var(--text-3);font-size:11px">'+String(e&&e.message||e).replace(/</g,'&lt;')+'</span><br><button onclick="location.reload()" style="margin-top:10px;padding:8px 14px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;color:var(--text);font-weight:700;cursor:pointer">Reload</button></div>'; } }catch(_x){} console.warn('render '+pane+' failed',e); } }
+  if(name==='shift')_safe(renderShift,'shift');
+  if(name==='prev')_safe(renderPrev,'prev');
+  if(name==='util')_safe(renderUtil,'util');
+  if(name==='assets')_safe(renderAssets,'assets');
+  if(name==='reports')_safe(renderReports,'reports');
+  if(name==='requests'){_safe(renderRequests,'requests');try{reqMarkAllSeen();}catch(e){}}
+  if(name==='inventory')_safe(renderInventory,'inventory');
   if(name==='log'){
     injectPinnedRequests();injectMyPMTasks();
     // If the data these cards need hasn't loaded yet, load it and re-inject when ready.
@@ -1161,8 +1162,8 @@ function showTab(name){
     // If the shift log itself hasn't loaded (allE empty), pull it and re-render so entries appear without a manual refresh.
     try{ if(!allE||!allE.length){ loadFromSB(); } }catch(e){}
   }
-  if(name==='schedule')renderSchedule();
-  if(name==='dash')renderDashboard();
+  if(name==='schedule')_safe(renderSchedule,'schedule');
+  if(name==='dash')_safe(renderDashboard,'dash');
   if(name==='cmms'){try{renderCMMS();}catch(e){gid('pane-cmms').innerHTML='<div style="padding:20px;color:#f87171;font-size:12px">'+e.message+'</div>';}}
   if(name==='more'){try{renderMore();}catch(e){gid('pane-more').innerHTML='<div style="padding:20px;color:red;font-family:monospace;font-size:12px">ERROR: '+e.message+'<br>'+e.stack.replace(/</g,"&lt;").replace(/\n/g,"<br>")+'</div>';}}
   try{updateTabBackBtn();}catch(e){}
@@ -2483,6 +2484,17 @@ function loadFromSB(){
     .then(function(data){
       console.log('BBW: Got', Array.isArray(data)?data.length:'ERROR', 'entries from Supabase', data);
       if(!Array.isArray(data)){return;}
+      // RESILIENCE: a transient empty response (auth/RLS/network hiccup) must never
+      // wipe a good local cache. If Supabase returns 0 rows but we already have synced
+      // entries cached, keep what we have and re-render rather than blanking everything.
+      if(data.length===0){
+        var _cachedSynced=(allE||[]).filter(function(e){return e.sbId||e.synced;}).length;
+        if(_cachedSynced>0){
+          console.warn('BBW: SB returned 0 rows but '+_cachedSynced+' synced entries are cached \u2014 keeping cache.');
+          try{renderAll();checkUBanner();updateSyncBar();}catch(e){}
+          return;
+        }
+      }
       // Build entries from Supabase (skip a row that's mid-undo so it doesn't flash back)
       var sbEntries=data.filter(function(r){ return !(_pendingDel&&_pendingDel.sbId&&r.id===_pendingDel.sbId); }).map(function(r){
         return {
@@ -2509,8 +2521,8 @@ function loadFromSB(){
       var isday=isDay();
       entries=allE.filter(function(e){return e.date===shiftAnchor()&&e.shift===(isday?'Day':'Night');});
       save();
-      renderAll();
-      checkUBanner();
+      try{renderAll();}catch(e){console.warn('renderAll after load failed',e);}
+      try{checkUBanner();}catch(e){}
       try{updateSyncBar();}catch(e){}
       // Ensure the My Log view fully re-renders once data is in (entries + cards)
       try{ if(gid('pane-log')&&gid('pane-log').style.display!=='none'){ renderLog(); injectPinnedRequests(); injectMyPMTasks(); } }catch(e){}
