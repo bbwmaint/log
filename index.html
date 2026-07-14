@@ -2144,6 +2144,39 @@ function emailFollowupIssue(id, btn){
   var photos=e.photos||[]; if(typeof photos==='string'){try{photos=JSON.parse(photos);}catch(x){photos=[];}} if(!photos.length&&e.photo)photos=[e.photo];
   emailIssue({title:e.assetName||'Follow-up', code:e.assetCode||'', issueText:e.desc||e.issue||'', reporter:e.who||'', dept:'', date:e.date||'', shift:e.shift||'', priority:e.priority||''}, photos, btn);
 }
+// ── Robust storage-photo rendering ──
+// Tries the public URL first; on failure re-fetches with auth (works even if the
+// bucket isn't public); if that also fails, shows a clean tap-to-open placeholder
+// instead of the browser's broken-image icon.
+function _photoUrl(path){ return SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(path); }
+function photoThumb(path, caption){
+  var u=_photoUrl(path);
+  var esc=(''+u).replace(/'/g,'%27');
+  var cap=(''+(caption||'')).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+  return '<img src="'+esc+'" data-ppath="'+encodeURI(path)+'" onclick="openLB(\''+esc+'\',\''+cap+'\')" onerror="photoFallback(this)" style="width:92px;height:92px;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)">';
+}
+function photoFallback(img){
+  try{
+    if(img.dataset.retry){ return _photoPlaceholder(img); }
+    img.dataset.retry='1';
+    var path=img.dataset.ppath?decodeURI(img.dataset.ppath):'';
+    if(!path){ var m=(img.getAttribute('src')||'').match(/\/object\/public\/[^/]+\/(.+)$/); if(m){ try{path=decodeURIComponent(m[1]);}catch(e){path=m[1];} } }
+    if(!path){ return _photoPlaceholder(img); }
+    fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY}})
+      .then(function(r){ if(!r.ok)throw 0; return r.blob(); })
+      .then(function(b){ img.onerror=null; img.src=URL.createObjectURL(b); })
+      .catch(function(){ _photoPlaceholder(img); });
+  }catch(e){ _photoPlaceholder(img); }
+}
+function _photoPlaceholder(img){
+  try{
+    var u=img.getAttribute('src')||'';
+    var a=document.createElement('a'); a.href=u; a.target='_blank'; a.rel='noopener';
+    a.style.cssText='width:92px;height:92px;border-radius:10px;border:1px dashed var(--border-2);background:var(--surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:9.5px;font-weight:600;color:var(--text-3);text-decoration:none;line-height:1.25;padding:4px;box-sizing:border-box';
+    a.innerHTML='<span style="font-size:17px;margin-bottom:2px">\uD83D\uDDBC\uFE0E</span>'+(lang==='uk'?'\u0424\u043e\u0442\u043e<br>\u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0435':'Photo<br>unavailable');
+    if(img.parentNode)img.parentNode.replaceChild(a,img);
+  }catch(e){}
+}
 function requestDetailBody(r){
   var notes=[];try{notes=JSON.parse(r.notes||'[]');}catch(e){}
   var photos=[];try{photos=JSON.parse(r.photos||'[]');}catch(e){}
@@ -2157,7 +2190,7 @@ function requestDetailBody(r){
   H+='<div style="color:var(--text-3)">'+docFmtDate(r.created_at)+'</div>';
   if(done_by_line(r))H+=done_by_line(r);
   H+='</div>';
-  if(photos.length){ H+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'; photos.forEach(function(pth){ var u=SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(pth); H+='<img src="'+u+'" onclick="openLB(\''+u+'\',\''+rqEsc(r.asset_name||'')+'\')" style="width:92px;height:92px;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)">'; }); H+='</div>'; }
+  if(photos.length){ H+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'; photos.forEach(function(pth){ H+=photoThumb(pth, r.asset_name||''); }); H+='</div>'; }
   if(notes.length){ H+='<div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">Notes</div>'; notes.forEach(function(n){ H+='<div style="font-size:12.5px;color:var(--text-2);margin-bottom:6px;background:var(--surface);border-radius:8px;padding:9px 11px"><b style="color:#fff">'+rqEsc(n.by)+'</b> '+rqEsc(n.text)+'<div style="font-size:10px;color:var(--text-3);margin-top:3px">'+docFmtDate(n.at)+'</div></div>'; }); }
   if(typeof user!=='undefined'&&user){
     if(user===ADMIN){
@@ -2184,7 +2217,7 @@ function followupDetailBody(e){
   H+='<div style="background:var(--surface);border-radius:10px;padding:12px;font-size:13px;color:var(--text-2);margin-bottom:14px">';
   H+='<div style="margin-bottom:5px">'+T('req_by')+'<b style="color:#fff">'+rqEsc(e.who||'')+'</b></div>';
   H+='<div style="color:var(--text-3)">'+rqEsc(e.date||'')+(e.shift?' \u00b7 '+rqEsc(e.shift):'')+'</div></div>';
-  if(photos.length){ H+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'; photos.forEach(function(u){ var us=(''+u).replace(/'/g,'%27'); H+='<img src="'+us+'" onclick="openLB(\''+us+'\',\''+rqEsc(e.assetName||'')+'\')" style="width:92px;height:92px;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)">'; }); H+='</div>'; }
+  if(photos.length){ H+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'; photos.forEach(function(u){ var us=(''+u).replace(/'/g,'%27'); H+='<img src="'+us+'" onclick="openLB(\''+us+'\',\''+rqEsc(e.assetName||'')+'\')" onerror="photoFallback(this)" style="width:92px;height:92px;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)">'; }); H+='</div>'; }
   if(e.type==='followup_done'){ H+='<div style="width:100%;margin-top:8px;background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.4);color:#34d399;font-size:13.5px;font-weight:700;padding:12px;border-radius:10px;text-align:center">\u2713 Completed</div>'; }
   else { H+='<button onclick="resolveFollowup('+e.id+',this)" style="width:100%;margin-top:8px;background:#16a34a;border:none;color:#fff;font-size:14px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">\u2713 Mark complete</button>'; }
   H+='<button onclick="emailFollowupIssue('+e.id+',this)" style="width:100%;margin-top:8px;background:transparent;border:1px solid #2563eb;color:#60a5fa;font-size:13.5px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">\u2709\ufe0f Email this issue (PDF)</button>';
