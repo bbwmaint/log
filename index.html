@@ -1394,16 +1394,20 @@ function hexToRgb(hex){
 function toggleDT(val){
   var wrap=gid('f-dt-wrap');
   if(wrap)wrap.style.display=(val==='yes'||val==='partial')?'block':'none';
-  if(!val||val==='')if(gid('f-dt'))gid('f-dt').value='';
+  if(val==='yes'||val==='partial'){ try{calcDT();}catch(e){} }   // fill downtime from the entered times
+  else { if(gid('f-dt'))gid('f-dt').value=''; var _a=gid('dt-auto'); if(_a)_a.style.display='none'; }  // running = no downtime
 }
 
 function calcDT(){
   var s=gid('f-start').value,e=gid('f-end').value;
   if(!s||!e)return;
+  var md=gid('f-machinedown')?gid('f-machinedown').value:'';
   var sm=parseInt(s.split(':')[0])*60+parseInt(s.split(':')[1]);
   var em=parseInt(e.split(':')[0])*60+parseInt(e.split(':')[1]);
   var diff=em-sm;if(diff<0)diff+=1440;
   var hrs=(diff/60).toFixed(2);
+  // Working time is only downtime when the machine is actually down/partial.
+  if(md!=='yes'&&md!=='partial'){ var _a=gid('dt-auto'); if(_a)_a.style.display='none'; return; }
   gid('f-dt').value=hrs;
   var el=gid('dt-auto');
   el.textContent='Auto: '+hrs+'h ('+Math.floor(diff/60)+'h '+diff%60+'m)';
@@ -1470,7 +1474,7 @@ function submitEntry(){
         return shiftForMins(mins);
       }
       return isDay()?'Day':'Night';
-    })(),type:ctype,priority:cprio,assetName:(selA?selA.n:(gid('asearch')?gid('asearch').value.trim():'')),assetCode:(selA?selA.c:''),issue:gid('f-issue')?gid('f-issue').value.trim():'',desc:gid('f-desc').value.trim(),start:gid('f-start').value,end:gid('f-end').value,dt:parseFloat(gid('f-dt').value)||0,machineDown:gid('f-machinedown')?gid('f-machinedown').value:'',coMins:parseInt(gid('f-co')?gid('f-co').value:0)||0,coType:gid('f-cotype')?gid('f-cotype').value:'',partName:gid('f-pname').value.trim(),partQty:gid('f-pqty').value||'1',photos:photos.slice(),photo:(photos[0]||null),who:(user===ADMIN&&gid('f-assignedto')&&gid('f-assignedto').value)?gid('f-assignedto').value:user,loggedAt:new Date().toISOString(),shiftNote:gid('snote').value};
+    })(),type:ctype,priority:cprio,assetName:(selA?selA.n:(gid('asearch')?gid('asearch').value.trim():'')),assetCode:(selA?selA.c:''),issue:gid('f-issue')?gid('f-issue').value.trim():'',desc:gid('f-desc').value.trim(),start:gid('f-start').value,end:gid('f-end').value,dt:((gid('f-machinedown')&&(gid('f-machinedown').value==='yes'||gid('f-machinedown').value==='partial'))?(parseFloat(gid('f-dt').value)||0):0),machineDown:gid('f-machinedown')?gid('f-machinedown').value:'',coMins:parseInt(gid('f-co')?gid('f-co').value:0)||0,coType:gid('f-cotype')?gid('f-cotype').value:'',partName:gid('f-pname').value.trim(),partQty:gid('f-pqty').value||'1',photos:photos.slice(),photo:(photos[0]||null),who:(user===ADMIN&&gid('f-assignedto')&&gid('f-assignedto').value)?gid('f-assignedto').value:user,loggedAt:new Date().toISOString(),shiftNote:gid('snote').value};
   if(editId){
     // Find the original BEFORE overwriting, so we keep its Supabase link.
     var orig=allE.find(function(x){return x.id===editId;})||entries.find(function(x){return x.id===editId;});
@@ -2647,7 +2651,7 @@ function openAssetHistory(code,name){
     var dl=dd?dd.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+' '+dd.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):(e.date||'');
     var col=isIssueType(e)?'#f87171':(e.machineDown==='yes'?'#f87171':'#34d399');
     H+='<div style="border-left:3px solid '+col+';background:var(--surface-2);border-radius:9px;padding:10px 12px;margin-bottom:8px">';
-    H+='<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:.03em">'+dl+' \u00b7 '+rqEsc(e.who||'')+'</span>'+(e.dt>0?'<span style="font-size:10px;font-weight:700;color:#f87171">'+e.dt+'h DT</span>':'')+'</div>';
+    H+='<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:.03em">'+dl+' \u00b7 '+rqEsc(e.who||'')+'</span>'+((e.dt>0&&(e.machineDown==='yes'||e.machineDown==='partial'))?'<span style="font-size:10px;font-weight:700;color:#f87171">'+e.dt+'h DT</span>':'')+'</div>';
     if(e.issue)H+='<div style="font-size:13.5px;font-weight:700;color:var(--text);line-height:1.3">'+rqEsc(e.issue)+'</div>';
     if(e.desc)H+='<div style="font-size:12.5px;color:var(--text-2);line-height:1.5;white-space:pre-wrap">'+rqEsc(e.desc)+'</div>';
     if(e.machineDown==='yes')H+='<div style="font-size:10px;font-weight:700;color:#f87171;letter-spacing:.04em;margin-top:3px">MACHINE DOWN</div>';
@@ -2864,7 +2868,7 @@ function card(e,mine){
   html+='<div class="tnum" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:11px;font-size:11.5px;color:var(--text-3)">';
   if(time)html+='<span>'+time+'</span>';
   if((e.priority==='urgent'||e.priority==='high'))html+='<span style="color:var(--bad);font-weight:700;letter-spacing:.04em">'+e.priority.toUpperCase()+'</span>';
-  if(e.dt>0)html+='<span style="color:var(--bad)">'+e.dt+'h DT</span>';
+  if(e.dt>0&&(e.machineDown==='yes'||e.machineDown==='partial'))html+='<span style="color:var(--bad)">'+e.dt+'h DT</span>';
   if(e.machineDown==='yes')html+='<span style="color:var(--bad);font-weight:700;letter-spacing:.04em">MACHINE DOWN</span>';
   if(e.machineDown==='partial')html+='<span style="color:var(--warn);font-weight:700;letter-spacing:.04em">PARTIAL</span>';
   if(e.coMins>0)html+='<span style="color:var(--warn)">CO '+e.coMins+'min</span>';
@@ -2936,7 +2940,7 @@ function renderLog(){
     var _wk=allE.filter(function(e){ return e.who===user && !e.deleted && e.loggedAt && new Date(e.loggedAt).getTime()>=_wkAgo; });
     var _jobs=_wk.length;
     if(_jobs>0){
-      var _dt=Math.round(_wk.reduce(function(s,e){return s+(parseFloat(e.dt)||0);},0)*10)/10;
+      var _dt=Math.round(_wk.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).reduce(function(s,e){return s+(parseFloat(e.dt)||0);},0)*10)/10;
       var _iss=_wk.filter(function(e){return e.type==='issue'||e.type==='pending';}).length;
       var _pm=_wk.filter(function(e){return e.type==='pm';}).length;
       var mini=function(v,l,c){return '<div style="flex:1;min-width:0;padding:0 4px"><div style="font-size:21px;font-weight:800;color:'+c+';line-height:1" class="tnum">'+v+'</div><div style="font-size:9.5px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.03em;margin-top:4px">'+l+'</div></div>';};
