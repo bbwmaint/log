@@ -3004,8 +3004,8 @@ function renderLog(){
     myPMs.forEach(function(pm){
       var pmIdx=PMS.indexOf(pm);
       H+='<div style="background:var(--surface-2);border-radius:8px;padding:10px 12px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:8px">';
-      H+='<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:#fff">'+pm.asset+'</div>';
-      H+='<div style="font-size:11px;color:var(--text-2);margin-top:2px">'+pm.desc.slice(0,50)+'</div></div>';
+      H+='<div onclick="logPMByIdx('+pmIdx+')" style="flex:1;min-width:0;cursor:pointer"><div style="font-size:13px;font-weight:600;color:#fff">'+rqEsc(pm.asset||'')+'</div>';
+      H+='<div style="font-size:11px;color:var(--text-2);margin-top:2px">'+rqEsc(pm.desc||'')+'</div></div>';
       H+='<div style="display:flex;gap:6px;flex-shrink:0">';
       H+='<button onclick="logPMByIdx('+pmIdx+')" title="Add time / notes" style="padding:7px 10px;background:transparent;color:var(--text-3);border:1px solid var(--border-2);border-radius:7px;font-size:13px;cursor:pointer">\u270E</button>';
       H+='<button onclick="quickPM('+pmIdx+')" style="padding:7px 14px;background:#7c3aed;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">\u2713 '+T('pm_done')+'</button>';
@@ -4480,7 +4480,31 @@ function cmmsLocalPMs(){
   return PMS.map(function(p,i){var a=cmmsParseAsset(p.asset);return {id:'L'+i,_local:true,code:p.code,asset:a.name,asset_code:a.code,description:p.desc,freq:p.freq,priority:p.priority||'',assignee:p.assignee||'',hours:p.hours?parseFloat(p.hours):null,pm_type:p.type||'',active:true,next_due:pmNextDueISO(p.freq,today)};});
 }
 // Keep only real objects so one malformed row can never break the whole module.
-function cmmsClean(rows){ return (rows||[]).filter(function(p){return p&&typeof p==='object';}); }
+function cmmsClean(rows){
+  return (rows||[]).filter(function(p){return p&&typeof p==='object';}).map(function(p){
+    // Backfill missing task text (and other fields) from the local PM master by code,
+    // so a bbw_pms row with an empty description still shows the real task everywhere.
+    if(!p.description||!(''+p.description).trim()){
+      var src=PMS.filter(function(x){return x.code===p.code;})[0];
+      if(src){
+        p.description=src.desc;
+        if(!p.priority)p.priority=src.priority||'';
+        if(p.hours==null&&src.hours)p.hours=parseFloat(src.hours)||null;
+        if(!p.pm_type)p.pm_type=src.type||'';
+        if(!p.assignee)p.assignee=src.assignee||'';
+        if(!p.freq)p.freq=src.freq||'';
+      }
+    }
+    return p;
+  });
+}
+// Best task text for a work order / PM row — falls back to the PM master by code.
+function pmDescFor(w){
+  if(w&&w.description&&(''+w.description).trim())return w.description;
+  var code=w&&(w.pm_code||w.code);
+  var src=code?PMS.filter(function(x){return x.code===code;})[0]:null;
+  return src?src.desc:((w&&w.description)||'');
+}
 function loadCMMS(force){
   if(CMMS_LOADED&&CMMS_PMS.length&&!force)return Promise.resolve(CMMS_PMS);
   return sbFetch('bbw_pms?select=*&order=code.asc&limit=5000').then(function(r){
@@ -4685,7 +4709,16 @@ function loadWOs(force){
   if(WOS_LOADED&&!force)return Promise.resolve(WOS);
   return sbFetch('bbw_wos?select=*&order=due_date.asc&limit=5000').then(function(r){
     if(!r.ok)throw new Error('bbw_wos table not found');return r.json();
-  }).then(function(rows){WOS=rows||[];WOS_LOADED=true;return WOS;});
+  }).then(function(rows){
+    WOS=(rows||[]).map(function(w){
+      if(w&&(!w.description||!(''+w.description).trim())){
+        var src=(w.pm_code||w.code)?PMS.filter(function(x){return x.code===(w.pm_code||w.code);})[0]:null;
+        if(src)w.description=src.desc;
+      }
+      return w;
+    });
+    WOS_LOADED=true;return WOS;
+  });
 }
 function woNextCode(){var maxN=WOS.reduce(function(m,w){var n=parseInt(String(w.wo_code||'').replace(/\D/g,''),10);return (n&&n>m)?n:m;},5000);return maxN;}
 function generateWOs(){
@@ -4714,7 +4747,7 @@ function woDetailBody(w){
   var pc={Highest:'#f87171',High:'#fb923c',Medium:'#fbbf24',Low:'#9b9ba3'}[w.priority]||'var(--text-3)';
   var H='';
   H+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px"><span style="font-size:11px;color:var(--text-3);font-family:monospace">'+(w.wo_code||'')+(w.pm_code?' \u00b7 '+w.pm_code:' \u00b7 manual')+'</span><span style="background:'+st.col+'22;color:'+st.col+';font-size:10px;font-weight:800;padding:4px 10px;border-radius:999px;border:1px solid '+st.col+'55">'+st.label+'</span></div>';
-  H+='<div style="font-size:18px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:7px">'+(w.description||'(no description)')+'</div>';
+  H+='<div style="font-size:18px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:7px">'+rqEsc(pmDescFor(w)||'(no description)')+'</div>';
   H+='<div style="margin-bottom:14px">'+(w.wo_type?pmTypeBadge(w.wo_type)+'  ':'')+'<span style="font-size:13px;color:var(--text-2)">'+(w.asset||'')+(w.asset_code?' \u00b7 '+w.asset_code:'')+'</span></div>';
   H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:13px 15px;font-size:13px;color:var(--text-2);line-height:1.95;margin-bottom:16px">';
   if(w.priority)H+='<div>Priority: <b style="color:'+pc+'">'+w.priority+'</b></div>';
@@ -5019,10 +5052,11 @@ function injectMyPMTasks(){
   H+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px"><span style="font-size:15px">\ud83d\udd27</span><span style="font-size:12px;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:.04em">'+T('pm_due_title')+' \u00b7 '+mine.length+'</span></div>';
   mine.forEach(function(w){
     var overdue=w.due_date<today;
-    H+='<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(96,165,250,.15)">';
-    H+='<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--text);font-weight:600">'+rqEsc(w.description||'')+'</div>';
+    H+='<div onclick="openPMTask('+w.id+')" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(96,165,250,.15);cursor:pointer">';
+    H+='<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--text);font-weight:600">'+rqEsc(pmDescFor(w)||'\u2014')+'</div>';
     H+='<div style="font-size:11px;color:'+(overdue?'#f87171':'var(--text-3)')+'">'+rqEsc(w.asset||'')+' \u00b7 '+(overdue?T('pm_overdue'):T('pm_due'))+' '+w.due_date+'</div></div>';
-    H+='<button onclick="openWOComplete('+w.id+')" style="background:#2563eb;border:none;color:#fff;font-size:12px;font-weight:700;padding:9px 15px;border-radius:8px;cursor:pointer;white-space:nowrap">'+T('pm_done')+'</button>';
+    H+='<span style="font-size:16px;color:var(--text-3);flex-shrink:0">\u203a</span>';
+    H+='<button onclick="event.stopPropagation();openWOComplete('+w.id+')" style="background:#2563eb;border:none;color:#fff;font-size:12px;font-weight:700;padding:9px 15px;border-radius:8px;cursor:pointer;white-space:nowrap">'+T('pm_done')+'</button>';
     H+='</div>';
   });
   H+='</div>';
@@ -5030,6 +5064,26 @@ function injectMyPMTasks(){
   var pinned=gid('req-pinned');
   if(pinned) pane.insertBefore(d.firstChild, pinned.nextSibling);
   else pane.insertBefore(d.firstChild, pane.firstChild);
+}
+// Open a PM task (work order) to read its full task text and details, with a Done action.
+function openPMTask(id){
+  var w=WOS.filter(function(x){return ''+x.id===''+id;})[0]; if(!w)return;
+  var src=(w.pm_code||w.code)?PMS.filter(function(x){return x.code===(w.pm_code||w.code);})[0]:null;
+  var desc=pmDescFor(w);
+  var freq=w.freq||(src&&src.freq)||'', pr=w.priority||(src&&src.priority)||'', hrs=w.hours_est||w.hours||(src&&src.hours)||'', typ=w.wo_type||w.pm_type||(src&&src.type)||'';
+  var today=pmISO(new Date()), overdue=w.due_date&&w.due_date<today;
+  function chip(txt,col){ return txt?'<span style="font-size:11px;font-weight:700;color:'+(col||'var(--text-2)')+';background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:5px 10px">'+rqEsc(txt)+'</span>':''; }
+  var H='<div id="pmtask-modal" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:250;display:flex;align-items:flex-end;justify-content:center">';
+  H+='<div style="background:var(--surface);width:100%;max-width:560px;max-height:88vh;overflow-y:auto;border-radius:18px 18px 0 0">';
+  H+='<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:10px">';
+  H+='<div style="min-width:0"><div style="font-size:11px;font-weight:800;color:#60a5fa;letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px">\uD83D\uDD27 PM \u00b7 '+rqEsc(w.pm_code||w.code||'')+'</div><div style="font-size:17px;font-weight:800;color:var(--text)">'+rqEsc(w.asset||'')+'</div></div>';
+  H+='<button onclick="var m=document.getElementById(\'pmtask-modal\');if(m)m.remove()" style="width:32px;height:32px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);font-size:15px;cursor:pointer;flex-shrink:0">\u2715</button></div>';
+  H+='<div style="padding:16px 18px">';
+  H+='<div style="font-size:15px;color:var(--text);line-height:1.6;white-space:pre-wrap;margin-bottom:14px">'+rqEsc(desc||'\u2014')+'</div>';
+  H+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px">'+chip((overdue?T('pm_overdue'):T('pm_due'))+': '+(w.due_date||''),overdue?'#f87171':'#60a5fa')+chip(freq)+chip(pr?('\u26A1 '+pr):'')+chip(hrs?(hrs+'h est'):'')+chip(typ)+'</div>';
+  H+='<button onclick="var m=document.getElementById(\'pmtask-modal\');if(m)m.remove();openWOComplete('+w.id+')" style="width:100%;background:#16a34a;border:none;color:#fff;font-size:14px;font-weight:700;padding:13px;border-radius:10px;cursor:pointer">\u2713 '+T('pm_done')+'</button>';
+  H+='</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
 }
 function cmmsTrendHTML(todayISO){
   var base=new Date(todayISO+'T00:00:00'); var months=[];
