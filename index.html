@@ -4481,28 +4481,36 @@ function cmmsLocalPMs(){
 // Keep only real objects so one malformed row can never break the whole module.
 function cmmsClean(rows){
   return (rows||[]).filter(function(p){return p&&typeof p==='object';}).map(function(p){
-    // Backfill missing task text (and other fields) from the local PM master by code,
-    // so a bbw_pms row with an empty description still shows the real task everywhere.
-    if(!p.description||!(''+p.description).trim()){
-      var src=PMS.filter(function(x){return x.code===p.code;})[0];
-      if(src){
-        p.description=src.desc;
-        if(!p.priority)p.priority=src.priority||'';
-        if(p.hours==null&&src.hours)p.hours=parseFloat(src.hours)||null;
-        if(!p.pm_type)p.pm_type=src.type||'';
-        if(!p.assignee)p.assignee=src.assignee||'';
-        if(!p.freq)p.freq=src.freq||'';
-      }
+    // Resolve the real task text from the local PM master by code. Handles both an
+    // empty description AND a description that's just the asset name / code (a common
+    // bad state) — while keeping any genuine custom description from the database.
+    var src=PMS.filter(function(x){return x.code===p.code;})[0];
+    if(src){
+      p.description=_bestPMDesc(p.description, p.code, p.asset, src);
+      if(!p.priority)p.priority=src.priority||'';
+      if(p.hours==null&&src.hours)p.hours=parseFloat(src.hours)||null;
+      if(!p.pm_type)p.pm_type=src.type||'';
+      if(!p.assignee)p.assignee=src.assignee||'';
+      if(!p.freq)p.freq=src.freq||'';
     }
     return p;
   });
 }
-// Best task text for a work order / PM row — falls back to the PM master by code.
+// Pick the best task text: prefer a genuine custom DB description, but if the DB value
+// is empty or merely the asset name / PM code, use the master task for that PM code.
+function _bestPMDesc(dbDesc, code, asset, src){
+  src=src||(code?PMS.filter(function(x){return x.code===code;})[0]:null);
+  var master=src?src.desc:'';
+  var d=(''+(dbDesc||'')).trim();
+  if(!master) return d;                 // no master match — keep whatever we have
+  if(!d) return master;                 // DB blank — use master task
+  var dl=d.toLowerCase(), al=(''+(asset||'')).trim().toLowerCase(), cl=(''+(code||'')).trim().toLowerCase();
+  if(dl===al || dl===cl) return master; // DB value is just the asset/code — use master task
+  return d;                             // DB has a real custom description — keep it
+}
+// Best task text for a work order / PM row.
 function pmDescFor(w){
-  if(w&&w.description&&(''+w.description).trim())return w.description;
-  var code=w&&(w.pm_code||w.code);
-  var src=code?PMS.filter(function(x){return x.code===code;})[0]:null;
-  return src?src.desc:((w&&w.description)||'');
+  return _bestPMDesc(w&&w.description, w&&(w.pm_code||w.code), w&&w.asset);
 }
 function loadCMMS(force){
   if(CMMS_LOADED&&CMMS_PMS.length&&!force)return Promise.resolve(CMMS_PMS);
@@ -4710,10 +4718,7 @@ function loadWOs(force){
     if(!r.ok)throw new Error('bbw_wos table not found');return r.json();
   }).then(function(rows){
     WOS=(rows||[]).map(function(w){
-      if(w&&(!w.description||!(''+w.description).trim())){
-        var src=(w.pm_code||w.code)?PMS.filter(function(x){return x.code===(w.pm_code||w.code);})[0]:null;
-        if(src)w.description=src.desc;
-      }
+      if(w)w.description=_bestPMDesc(w.description, w.pm_code||w.code, w.asset);
       return w;
     });
     WOS_LOADED=true;return WOS;
