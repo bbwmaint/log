@@ -7606,7 +7606,39 @@ function hlNum(hl){ hl=+hl||0; return (hl>=1000?Math.round(hl):Math.round(hl*10)
 function fmtHL(hl){ return hlNum(hl)+' hL'; }
 function dHLof(sc){ if(sc.dHL!=null)return +sc.dHL||0; if(sc.dCans!=null)return cansToHL(sc.dCans); return 0; }
 function nHLof(sc){ if(sc.nHL!=null)return +sc.nHL||0; if(sc.nCans!=null)return cansToHL(sc.nCans); return 0; }
-function schedNames(s){ if(Array.isArray(s))return s.slice(); if(s==null)return []; return (''+s).split(/[\/,]/).map(function(x){return x.trim();}).filter(Boolean); }
+// Placeholder names accidentally written during development testing — filtered from
+// display and stripped from the stored schedule so they can never show as crew.
+var SCHED_JUNK=['oldcrew','oldnight','newday','newnight','ycrew','ynight','tmrday','tmrnight','existingday','existingnight','file_past_day','file_past_night','filepastday','filepastnight'];
+function _schedJunk(x){ return SCHED_JUNK.indexOf((''+x).trim().toLowerCase())>=0; }
+function schedNames(s){ var arr=Array.isArray(s)?s.slice():(s==null?[]:(''+s).split(/[\\/,]/)); return arr.map(function(x){return (''+x).trim();}).filter(function(x){return x&&!_schedJunk(x);}); }
+function cleanScheduleJunk(){
+  try{
+    if(!techSchedule||typeof techSchedule!=='object')return [];
+    var cleaned=[];
+    Object.keys(techSchedule).forEach(function(ds){
+      if(ds==='__rate__')return;
+      var sc=techSchedule[ds]; if(!sc||typeof sc!=='object')return;
+      var changed=false;
+      ['day','night'].forEach(function(k){
+        if(typeof sc[k]==='string'&&sc[k]){
+          var parts=sc[k].split(/[\\/,]/).map(function(x){return x.trim();}).filter(Boolean);
+          var kept=parts.filter(function(x){return !_schedJunk(x);});
+          if(kept.length!==parts.length){ sc[k]=kept.join(', '); changed=true; }
+        } else if(Array.isArray(sc[k])){
+          var k2=sc[k].filter(function(x){return x&&!_schedJunk(x);});
+          if(k2.length!==sc[k].length){ sc[k]=k2; changed=true; }
+        }
+      });
+      if(changed)cleaned.push(ds);
+    });
+    if(cleaned.length){
+      try{localStorage.setItem('bbw_tech_sched',JSON.stringify(techSchedule));}catch(e){}
+      try{saveScheduleToSB('tech',techSchedule);}catch(e){}
+      console.log('BBW: removed test placeholders from schedule days:',cleaned.join(', '));
+    }
+    return cleaned;
+  }catch(e){ return []; }
+}
 function schedJoin(a){ return (a||[]).join(' / '); }
 function schedEffPct(cans){ var t=prodRate()*12; if(!t||!cans)return null; return Math.round(cans/t*1000)/10; }
 function schedEffColor(p){ if(p==null)return 'var(--text-3)'; if(p>=70)return '#34d399'; if(p>=50)return '#fbbf24'; return '#f87171'; }
@@ -8163,6 +8195,7 @@ function loadSchedulesFromSB(){
         try{localStorage.setItem('bbw_tech_sched',JSON.stringify(row.data));}catch(e){}
       }
     });
+    try{ cleanScheduleJunk(); }catch(e){}
     try{if(typeof renderSchedule==='function'&&gid('pane-schedule')&&gid('pane-schedule').offsetParent!==null)renderSchedule();}catch(e){}
     try{checkUBanner();}catch(e){}
   }).catch(function(e){console.log('loadSchedulesFromSB:',e.message);});
