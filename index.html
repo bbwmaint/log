@@ -2657,9 +2657,8 @@ function isRecurringAsset(code,name){ return assetIssueCount(code,name,14)>=3; }
 function assetStatus(code,name){ var list=entriesForAsset(code,name); if(!list.length)return {s:'none'}; var e=list[0]; if(e.machineDown==='yes')return {s:'down',e:e}; if(e.machineDown==='partial')return {s:'partial',e:e}; if(isIssueType(e))return {s:'issue',e:e}; return {s:'ok',e:e}; }
 
 // token registry so asset names with quotes never break onclick attributes
-var _ahN=0, _ahRef={};
-function ahLink(code,name){ if(_ahN>4000){_ahN=0;_ahRef={};} var t=++_ahN; _ahRef[t]={code:code,name:name}; return t; }
-function ahOpen(t){ var r=_ahRef[t]; if(r)openAssetHistory(r.code,r.name); }
+function ahLink(code,name){ if(!window._ahRef){window._ahRef={};window._ahN=0;} if(window._ahN>4000){window._ahN=0;window._ahRef={};} window._ahN++; window._ahRef[window._ahN]={code:code,name:name}; return window._ahN; }
+function ahOpen(t){ var r=window._ahRef&&window._ahRef[t]; if(r)openAssetHistory(r.code,r.name); }
 
 function openAssetHistory(code,name){
   var list=entriesForAsset(code,name).slice(0,50);
