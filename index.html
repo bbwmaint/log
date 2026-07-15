@@ -395,6 +395,15 @@ select option,select optgroup{background:#1b1c20;color:#fff}
       </div>
     </div>
     <div id="shift-preview" style="display:none;border:1px solid;border-radius:7px;padding:7px 10px;font-size:12px;margin-bottom:10px;font-weight:600"></div>
+    <div id="f-backfill" style="display:none;border:1px solid #f59e0b55;background:rgba(245,158,11,.08);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:800;color:#fbbf24;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">&#128274; Admin \u00b7 file to a past date</div>
+      <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:8px">
+        <div><div style="font-size:11px;color:var(--text-2);margin-bottom:4px">Date</div>
+          <input type="date" id="f-date" onchange="updateShiftPreview()" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:9px;font-size:14px;color:#fff;outline:none"></div>
+        <div><div style="font-size:11px;color:var(--text-2);margin-bottom:4px">Shift</div>
+          <select id="f-shift" onchange="updateShiftPreview()" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:9px;font-size:14px;color:#fff;outline:none"><option value="">Auto</option><option value="Day">Day</option><option value="Night">Night</option></select></div>
+      </div>
+    </div>
     <div id="dt-auto" style="display:none;background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.3);border-radius:7px;padding:7px 10px;font-size:12px;color:#60a5fa;margin-bottom:10px"></div>
 
     <!-- 2. Changeover Time -->
@@ -672,13 +681,15 @@ function updateShiftPreview(){
   var el=gid('shift-preview'); if(!el)return;
   var st=gid('f-start')?gid('f-start').value:'';
   var mins=null; if(st){var p=st.split(':');mins=(parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
-  var shift=(mins==null)?(isDay()?'Day':'Night'):shiftForMins(mins);
-  var dstr=(mins==null)?entryAnchor(null):entryAnchor(mins);
+  var ovDate=(isEditor()&&gid('f-date'))?gid('f-date').value:'';
+  var ovShift=(isEditor()&&gid('f-shift'))?gid('f-shift').value:'';
+  var shift=ovShift||((mins==null)?(isDay()?'Day':'Night'):shiftForMins(mins));
+  var dstr=ovDate||((mins==null)?entryAnchor(null):entryAnchor(mins));
   var d=new Date(dstr+'T00:00:00');
   var lbl=isNaN(d)?dstr:d.toLocaleDateString('en-CA',{weekday:'short',month:'short',day:'numeric'});
   var col=(shift==='Night')?'#60a5fa':'#f59e0b';
   el.style.color=col; el.style.borderColor=col+'66'; el.style.background=col+'14';
-  el.innerHTML=(shift==='Night'?'\uD83C\uDF19 ':'\u2600\uFE0F ')+'Files under <b>'+shift+' shift</b> \u00b7 '+lbl;
+  el.innerHTML=(shift==='Night'?'\uD83C\uDF19 ':'\u2600\uFE0F ')+'Files under <b>'+shift+' shift</b> \u00b7 '+lbl+((ovDate||ovShift)?' <span style="opacity:.7;font-weight:700">(manual)</span>':'');
   el.style.display='block';
 }
 function localDateStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -1279,6 +1290,9 @@ function openSheet(id){
   editId=id||null; ctype=''; cprio=''; photos=[]; selA=null;
   if(gid('f-issue'))gid('f-issue').value=''; gid('f-desc').value=''; gid('f-dt').value=''; gid('f-pname').value=''; gid('f-pqty').value='';
   gid('f-start').value=ntime(); gid('f-end').value='';
+  if(gid('f-date'))gid('f-date').value='';
+  if(gid('f-shift'))gid('f-shift').value='';
+  if(gid('f-backfill'))gid('f-backfill').style.display=isEditor()?'block':'none';
   try{updateShiftPreview();}catch(e){}
   gid('asearch').value=''; buildAList('');
   if(gid('photo-in'))gid('photo-in').value='';
@@ -1299,7 +1313,9 @@ function openSheet(id){
       setType(e.type); if(e.priority)setPrio(e.priority);
       if(e.assetCode)selA2(e.assetCode,e.assetName);
       else if(e.assetName){selA={c:'',n:e.assetName};gid('asearch').value=e.assetName;}
-      if(gid('f-issue'))gid('f-issue').value=e.issue||''; gid('f-desc').value=e.desc||''; gid('f-start').value=e.start||''; gid('f-end').value=e.end||''; gid('f-dt').value=e.dt||''; try{updateShiftPreview();}catch(_){}
+      if(gid('f-issue'))gid('f-issue').value=e.issue||''; gid('f-desc').value=e.desc||''; gid('f-start').value=e.start||''; gid('f-end').value=e.end||''; gid('f-dt').value=e.dt||'';
+      if(isEditor()){ if(gid('f-date'))gid('f-date').value=e.date||''; if(gid('f-shift'))gid('f-shift').value=(e.shift==='Day'||e.shift==='Night')?e.shift:''; }
+      try{updateShiftPreview();}catch(_){}
       if(e.partName){gid('f-pname').value=e.partName;gid('f-pqty').value=e.partQty||1;}
       if(e.machineDown&&gid('f-machinedown')){gid('f-machinedown').value=e.machineDown;toggleDT(e.machineDown);}
       if(e.coMins&&gid('f-co'))gid('f-co').value=e.coMins;
@@ -1457,6 +1473,8 @@ function submitEntry(){
   var _wasEdit=!!editId;
   if(!ctype){alert('Please pick a type at the top (Completed, Pending, Ongoing, etc.) before saving.');try{var _t=document.querySelector('[id^="tp-"]');if(_t&&_t.scrollIntoView)_t.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}return;}
   var entry={id:editId||Date.now(),date:(function(){
+      var ov=(isEditor()&&gid('f-date'))?gid('f-date').value:'';
+      if(ov)return ov;
       var st=gid('f-start').value;
       if(st){
         var h=parseInt(st.split(':')[0]);
@@ -1466,6 +1484,8 @@ function submitEntry(){
       return entryAnchor(null);
     })(),
     shift:(function(){
+      var ov=(isEditor()&&gid('f-shift'))?gid('f-shift').value:'';
+      if(ov)return ov;
       var st=gid('f-start').value;
       if(st){
         var h=parseInt(st.split(':')[0]);
