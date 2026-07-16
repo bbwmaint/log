@@ -246,7 +246,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
 
     <!-- FOOTER -->
     <div style="padding:14px 24px;border-top:1px solid #2a2a2a;text-align:center">
-      <button id="pin-back" onclick="showNames()" style="display:none;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
+      <button id="pin-back" onclick="showNames()" style="display:none;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg><span class="backlbl">Back</span></button>
     </div>
   </div>
 
@@ -319,7 +319,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
 
   <!-- CONTENT -->
   <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg);padding:12px" id="content">
-    <button id="tab-back-btn" onclick="tabGoBack()" style="display:none;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);color:var(--text-2);font-size:12.5px;font-weight:600;cursor:pointer;padding:7px 12px;border-radius:9px;margin-bottom:10px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>
+    <button id="tab-back-btn" onclick="tabGoBack()" style="display:none;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);color:var(--text-2);font-size:12.5px;font-weight:600;cursor:pointer;padding:7px 12px;border-radius:9px;margin-bottom:10px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg><span class="backlbl">Back</span></button>
     <div id="pane-log"></div>
     <div id="pane-dash" style="display:none"></div>
     <div id="pane-shift" style="display:none"></div>
@@ -641,7 +641,7 @@ var TRANS = {
     rep_tab:'Reports', rep_tap:'Tap an asset to view its Calibration, Service and PM documents', rep_tapedit:' and upload files', rep_search:'Search asset name or code…', rep_noassets:'No assets found',
     doc_calibration:'Calibration', doc_service:'Service Reports', doc_pms:'PMs', doc_filters:'Filters', doc_allassets:'All assets', doc_all:'All', doc_upload:'Upload PDF to ', doc_nodocs:'No documents yet.', doc_view:'View', doc_loading:'Loading…',
     flt_intro:'Filters in use for this asset — model, quantity, and next change due.', flt_add:'Add filter record', flt_none_e:'No filter records yet.', flt_none_v:'No filter records yet — ask Praful or Lahcen to add them.', flt_nextdue:'Next due', flt_last:'Last changed ', flt_qty:'Qty ', flt_every:'every ',
-    req_tab:'Requests', req_viewdetails:'View details', req_selectone:'Select a request to view its details', req_wr:'Work Requests', req_open:'open', req_noopen:'No open requests right now.', req_follow:'Cross-dept Follow-ups', req_nofollow:'None right now. Technicians can raise one with the "Follow-up" log type.', req_completed:'Completed', st_new:'New', st_inprogress:'In Progress', st_parts:'Parts Ordered', st_done:'Done', req_parts:'Parts ordered', req_start:'Start', req_markdone:'Mark done', req_addnote:'Add note', req_by:'By ', req_closedby:'Closed by ', req_loggedlog:' • logged to work log', req_noteprompt:'Add a note (visible to everyone):', req_photo:'Photo ', req_loading:'Loading requests…', pin_open:'Open Work Requests', pin_viewall:'View all ›', req_followtag:'FOLLOW-UP', req_raisedby:'Raised by ', followup:'Follow-up', pm_due_title:'PM tasks due', pm_overdue:'Overdue', pm_due:'Due', pm_done:'Done', wo_complete_title:'Complete work order', wo_hours:'Hours spent', wo_parts:'Parts used (optional)', wo_parts_ph:'e.g. 2x belt, 1x seal', wo_note:'Notes (optional)', wo_note_ph:'What was done, findings…', wo_mark_complete:'Mark complete', cmms_trend:'On-time compliance trend',
+    req_tab:'Requests', req_viewdetails:'View details', req_selectone:'Select a request to view its details', req_wr:'Work Requests', req_open:'open', req_noopen:'No open requests right now.', req_follow:'Cross-dept Follow-ups', req_nofollow:'None right now. Technicians can raise one with the "Follow-up" log type.', req_completed:'Completed', st_new:'New', st_inprogress:'In Progress', st_parts:'Parts Ordered', st_done:'Done', req_parts:'Parts ordered', req_start:'Start', req_markdone:'Mark done', req_addnote:'Add note', req_by:'By ', req_closedby:'Closed by ', req_loggedlog:' • logged to work log', req_noteprompt:'Add a note (visible to everyone):', req_photo:'Photo ', req_loading:'Loading requests…', pin_open:'Open Work Requests', pin_viewall:'View all ›', req_followtag:'FOLLOW-UP', req_raisedby:'Raised by ', followup:'Follow-up', pm_due_title:'PM tasks due', pm_overdue:'Overdue', pm_due:'Due', pm_done:'Done', wo_complete_title:'Complete work order', wo_hours:'Hours spent', wo_parts:'Parts used (optional)', wo_parts_ph:'e.g. 2x belt, 1x seal', wo_note:'Notes (optional)', wo_note_ph:'What was done, findings…', wo_mark_complete:'Mark complete', cmms_trend:'On-time compliance trend', dashboard:'Dashboard', inventory:'Inventory', cmms:'CMMS', maintsys:'Maintenance System', navback:'Back',
   },
   uk: {
     mylog: '\u0416\u0443\u0440\u043d\u0430\u043b', shift: '\u0417\u043c\u0456\u043d\u0430', prev: '\u041f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u044f', util: '\u041a\u043e\u043c\u0443\u043d\u0430\u043b\u044c\u043d\u0456', more: '\u0411\u0456\u043b\u044c\u0448\u0435', schedule: '\u0413\u0440\u0430\u0444\u0456\u043a', assets: '\u0410\u043a\u0442\u0438\u0432\u0438',
@@ -668,7 +668,7 @@ var TRANS = {
     rep_tab:'Звіти', rep_tap:'Торкніться активу, щоб переглянути документи калібрування, обслуговування та ТО', rep_tapedit:' та завантажити файли', rep_search:'Пошук назви або коду активу…', rep_noassets:'Активів не знайдено',
     doc_calibration:'Калібрування', doc_service:'Звіти про обслуговування', doc_pms:'ТО', doc_filters:'Фільтри', doc_allassets:'Усі активи', doc_all:'Усі', doc_upload:'Завантажити PDF: ', doc_nodocs:'Поки немає документів.', doc_view:'Переглянути', doc_loading:'Завантаження…',
     flt_intro:'Фільтри для цього активу — модель, кількість і дата наступної заміни.', flt_add:'Додати запис про фільтр', flt_none_e:'Поки немає записів про фільтри.', flt_none_v:'Поки немає записів — попросіть Praful або Lahcen додати їх.', flt_nextdue:'Наступна заміна', flt_last:'Остання заміна ', flt_qty:'К-сть ', flt_every:'кожні ',
-    req_tab:'Заявки', req_viewdetails:'Переглянути деталі', req_selectone:'Виберіть заявку, щоб переглянути деталі', req_wr:'Заявки на роботу', req_open:'відкритих', req_noopen:'Зараз немає відкритих заявок.', req_follow:'Міжвідділкові звернення', req_nofollow:'Зараз немає. Техніки можуть створити запис типу «Подальші дії».', req_completed:'Виконано', st_new:'Нова', st_inprogress:'В роботі', st_done:'Виконано', req_start:'Почати', req_markdone:'Позначити виконаним', req_addnote:'Додати нотатку', req_by:'Від ', req_closedby:'Закрив(ла) ', req_loggedlog:' • записано в журнал', req_noteprompt:'Додайте нотатку (видно всім):', req_photo:'Фото ', req_loading:'Завантаження заявок…', pin_open:'Відкриті заявки', pin_viewall:'Переглянути всі ›', req_followtag:'ЗВЕРНЕННЯ', req_raisedby:'Подав(ла) ', followup:'Подальші дії', pm_due_title:'Завдання ТО', pm_overdue:'Прострочено', pm_due:'Термін', pm_done:'Готово', wo_complete_title:'Завершити наряд', wo_hours:'Витрачені години', wo_parts:'Використані деталі (необов’язково)', wo_parts_ph:'напр. 2x ремінь, 1x ущільнення', wo_note:'Нотатки (необов’язково)', wo_note_ph:'Що зроблено, виявлено…', wo_mark_complete:'Позначити виконаним', cmms_trend:'Тренд своєчасності',
+    req_tab:'Заявки', req_viewdetails:'Переглянути деталі', req_selectone:'Виберіть заявку, щоб переглянути деталі', req_wr:'Заявки на роботу', req_open:'відкритих', req_noopen:'Зараз немає відкритих заявок.', req_follow:'Міжвідділкові звернення', req_nofollow:'Зараз немає. Техніки можуть створити запис типу «Подальші дії».', req_completed:'Виконано', st_new:'Нова', st_inprogress:'В роботі', st_done:'Виконано', req_start:'Почати', req_markdone:'Позначити виконаним', req_addnote:'Додати нотатку', req_by:'Від ', req_closedby:'Закрив(ла) ', req_loggedlog:' • записано в журнал', req_noteprompt:'Додайте нотатку (видно всім):', req_photo:'Фото ', req_loading:'Завантаження заявок…', pin_open:'Відкриті заявки', pin_viewall:'Переглянути всі ›', req_followtag:'ЗВЕРНЕННЯ', req_raisedby:'Подав(ла) ', followup:'Подальші дії', pm_due_title:'Завдання ТО', pm_overdue:'Прострочено', pm_due:'Термін', pm_done:'Готово', wo_complete_title:'Завершити наряд', wo_hours:'Витрачені години', wo_parts:'Використані деталі (необов’язково)', wo_parts_ph:'напр. 2x ремінь, 1x ущільнення', wo_note:'Нотатки (необов’язково)', wo_note_ph:'Що зроблено, виявлено…', wo_mark_complete:'Позначити виконаним', cmms_trend:'Тренд своєчасності', choosename:'Будь ласка, виберіть своє ім’я', st_parts:'Деталі замовлено', req_parts:'Деталі замовлено', dashboard:'Панель', inventory:'Склад', cmms:'CMMS', maintsys:'Система обслуговування', navback:'Назад',
   }
 };
 
@@ -3185,7 +3185,7 @@ function openAssetEditor(){
   ov=document.createElement('div'); ov.id='ae-overlay';
   ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:600;display:flex;flex-direction:column';
   ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:calc(11px + env(safe-area-inset-top)) 14px 11px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
-    '<button onclick="closeAssetEditor()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'+
+    '<button onclick="closeAssetEditor()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+T('navback')+'</button>'+
     '<div style="font-size:15px;font-weight:700;color:var(--text)">Manage Assets</div>'+
     '<button onclick="assetEditNew()" style="margin-left:auto;background:#c8a24b;border:none;color:#1a1a1c;font-size:13px;font-weight:700;cursor:pointer;padding:8px 14px;border-radius:9px">+ Add</button>'+
     '</div>'+
@@ -3416,7 +3416,7 @@ function showAssetDetail(assetName){
   }
   var H='<div id="asset-detail-modal" style="position:fixed;inset:0;background:var(--bg);z-index:500;overflow-y:auto;padding:0">';
   H+='<div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;align-items:center;gap:12px;z-index:10">';
-  H+='<button onclick="closeAssetDetail()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>';
+  H+='<button onclick="closeAssetDetail()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+T('navback')+'</button>';
   H+='<div style="flex:1"><div style="font-size:16px;font-weight:700;color:#fff">'+assetName+'</div><div style="font-size:11px;color:var(--text-3)">'+logs.length+' total logs</div></div></div>';
   H+='<div style="padding:14px 16px">'+body+'</div></div>';
   document.body.insertAdjacentHTML('beforeend', H);
@@ -3844,7 +3844,7 @@ function openDashboard(){
   ov=document.createElement('div');ov.id='dash-overlay';
   ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column';
   ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
-    '<button onclick="closeDashboard()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'+
+    '<button onclick="closeDashboard()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+T('navback')+'</button>'+
     '<div style="font-size:15px;font-weight:700;color:var(--text)">Dashboard</div>'+
     '<input type="month" id="dash-month" value="'+m+'" max="'+m+'" onchange="renderDashOverlay(this.value)" style="margin-left:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-size:13px">'+
     '</div><div id="dash-body" style="flex:1;overflow-y:auto;padding:14px 14px 90px"></div>';
@@ -4043,7 +4043,7 @@ function openWeekDashboard(){
   ov=document.createElement('div'); ov.id='week-overlay';
   ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column';
   ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
-    '<button onclick="closeWeekDashboard()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'+
+    '<button onclick="closeWeekDashboard()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+T('navback')+'</button>'+
     '<div style="font-size:15px;font-weight:700;color:var(--text)">Weekly Stats</div>'+
     '<div style="margin-left:auto;display:flex;align-items:center;gap:4px">'+
     '<button onclick="weekShift(-1)" style="background:var(--surface-2);border:1px solid var(--border);color:#fff;width:32px;height:32px;border-radius:8px;font-size:17px;cursor:pointer">\u2039</button>'+
@@ -4963,7 +4963,7 @@ function enhanceDesktop(){
   if(!tb.querySelector('.side-brand')){
     var logo=document.querySelector('.hdr-logo');
     var brand=document.createElement('div'); brand.className='side-brand';
-    brand.innerHTML='<img src="'+(logo?logo.getAttribute('src'):'')+'" alt="BBW"><div class="side-sub">Maintenance System</div>';
+    brand.innerHTML='<img src="'+(logo?logo.getAttribute('src'):'')+'" alt="BBW"><div class="side-sub">'+T('maintsys')+'</div>';
     tb.insertBefore(brand, tb.firstChild);
   }
   Object.keys(TAB_ICONS).forEach(function(k){var b=gid('tab-'+k); if(b&&!b.querySelector('.tab-ic')){var s=document.createElement('span');s.className='tab-ic';s.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+TAB_ICONS[k]+'</svg>';b.insertBefore(s,b.firstChild);}});
@@ -5681,7 +5681,7 @@ function openForkliftChecklist(unit){
  var wst='width:100%;background:#ffffff;border:1px solid #cbd5e1;border-radius:9px;padding:11px;color:#111827;font-size:15px;outline:none;box-sizing:border-box;color-scheme:light';
  var H='<div id="fl-overlay" style="position:fixed;inset:0;background:var(--bg);z-index:99500;overflow-y:auto;-webkit-overflow-scrolling:touch">';
  H+='<div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:13px 15px;display:flex;align-items:center;gap:11px;z-index:5">';
- H+='<button onclick="closeForkliftChecklist()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>';
+ H+='<button onclick="closeForkliftChecklist()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+T('navback')+'</button>';
  H+='<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:#fff">Forklift Pre-Op Inspection</div><div style="font-size:11px;color:var(--text-3)">Electrical Lift Truck checklist</div></div>';
  H+='<div style="background:#60a5fa22;color:#60a5fa;border:1px solid #60a5fa55;font-size:15px;font-weight:800;padding:6px 14px;border-radius:10px">'+unit+'</div>';
  H+='</div>';
@@ -6814,11 +6814,13 @@ function setLang(l){
   buildTypes();
   buildPrios();
   // Update tab labels
-  var tabMap={log:'mylog',shift:'shift',prev:'prev',util:'util',assets:'assets',schedule:'schedule',more:'more',reports:'rep_tab'};
+  var tabMap={log:'mylog',shift:'shift',prev:'prev',util:'util',assets:'assets',schedule:'schedule',more:'more',reports:'rep_tab',dash:'dashboard',inventory:'inventory',cmms:'cmms',requests:'req_tab'};
   Object.keys(tabMap).forEach(function(t){
     var el=gid('tab-'+t);
     if(el)el.textContent=TRANS[l][tabMap[t]]||el.textContent;
   });
+  try{ var _ss=document.querySelector('.side-sub'); if(_ss)_ss.textContent=T('maintsys'); }catch(e){}
+  try{ Array.prototype.forEach.call(document.querySelectorAll('.backlbl'),function(el){el.textContent=T('navback');}); }catch(e){}
   try{updateReqBadge();}catch(e){}
   try{if(gid('pane-reports')&&gid('pane-reports').style.display!=='none')renderReports();}catch(e){}
   try{if(gid('pane-requests')&&gid('pane-requests').style.display!=='none')renderRequests();}catch(e){}
