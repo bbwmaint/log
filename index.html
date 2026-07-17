@@ -5090,10 +5090,12 @@ function injectMyPMTasks(){
   else pane.insertBefore(d.firstChild, pane.firstChild);
 }
 // ── PM detail: task list + last-5 completion history, each printable to PDF ──
+var PM_TASKS={"SM39": {"tasks": "Inspect Manway gaskets on all vessels.\nONLY CLOSE THE WORK ORDER AFTER CONFIRMING THE CIP IS DONE IF NEEDED*", "type": "Inspection", "hours": "0.10"}, "SM43": {"tasks": "Inspect Manway gasket (replace as required)\nInspect bolts holding glass in door", "type": "Inspection", "hours": "0.10"}, "SM49": {"tasks": "Inspect Manway gasket\nInspect and clean RTD, re-grease with thermowell paste\nONLY CLOSE THE WORK ORDER AFTER CONFIRMING THE CIP IS DONE IF NEEDED*", "type": "Inspection", "hours": "1.00"}, "SM311": {"tasks": "Change B3 DAW tanks UV lights after 10,000 hours", "type": "Preventive", "hours": ""}, "SM219": {"tasks": "Lubricate the pump and bearing in boiler. Check the file for more info.", "type": "Preventive", "hours": ""}, "SM114": {"tasks": "Change air filter", "type": "Preventive", "hours": "0.25"}, "SM229": {"tasks": "Near Carbon Filter for RO. Check if the Indication lamps are working.\nNear Sugar Syrup Tank. Check if the Indication lamps are working.\nNear DAW Tanks. Check if the Indication lamps are working.", "type": "Inspection", "hours": ""}, "SM289": {"tasks": "Use Vacuum to clean the Roof Top Unit (RTU) Fan grills", "type": "Preventive", "hours": "0.50"}, "SM300": {"tasks": "Check all the chains and sprockets on conveyors gear boxes.\nReport and replace if found any damages.", "type": "Inspection", "hours": "2.00"}, "SM158": {"tasks": "FILLER:\nCheck the filling valve support ( check if nuts are loose)\nCheck the level of lubricant\nCheck under the machine for residual lubrication\nCheck that the product distributor is being lubricated by manually purging and verifying the lubricant is coming.\nCheck that valves are working correctly, Ensuring the product is passing through the screens\nWhen opening:\nEnsure it was placed correctly\nReview the integrity of the screens: no holes, no ruptures, no damage\nIf there is residue or foreign material trapped, remove, set aside and clean with isopropyl\nIf you discover that the foreign material is sharp , glass, wood, hard plastic, please notify immediately maintenance manager, quality manager and QA coordinator to investigate and set aside the evidence\nAfter cleaning, ensure to place it correctly\nPlease clear the counter after completing the work.\nCheck the forming parts.\nMake sure to check the filler changeover part covers are installed back if it was removed for the work before closing the Work order.\nSEAMER:\nCheck for Lid residue, clean if any.\nCheck the oil gauges, if the pressure difference is too high, then change the filter.\nCheck oil level.\nCheck changeover parts for any damage, report if any.\nTest the clutch and seamer green lever to see if it is working correctly.\nCheck the forming parts.\nCLEAR THE PM COUNTER AFTER EACH WORK.\nONLY CLOSE THE WORK ORDER AFTER CONFIRMING THE CIP IS DONE IF NEEDED*", "type": "Food Safety PM", "hours": ""}};
 function pmTasksFor(code){
   var src=code?PMS.filter(function(x){return x.code===code;})[0]:null;
   var cm=(typeof CMMS_PMS!=='undefined')?CMMS_PMS.filter(function(x){return x.code===code;})[0]:null;
-  var raw=(cm&&cm.tasks)||(src&&src.tasks)||'';
+  var imp=(typeof PM_TASKS!=='undefined'&&PM_TASKS[code])?PM_TASKS[code].tasks:'';
+  var raw=imp||(cm&&cm.tasks)||(src&&src.tasks)||'';
   if(Array.isArray(raw))return raw.map(function(t){return (''+t).trim();}).filter(Boolean);
   if(typeof raw==='string'&&raw.trim())return raw.split(/\r?\n|\u2022/).map(function(t){return t.replace(/^\s*\d+[.)]\s*/,'').trim();}).filter(Boolean);
   return [];
@@ -5157,9 +5159,17 @@ function _showPMDetail(ctx){
   H+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">'+(due?chip((overdue?T('pm_overdue'):T('pm_due'))+': '+due,overdue?'#f87171':'#60a5fa'):'')+chip(freq)+chip(pr?('\u26A1 '+pr):'')+chip(hrs?(hrs+'h est'):'')+chip(typ)+'</div>';
   H+='<div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+(lang==='uk'?'\u0417\u0430\u0432\u0434\u0430\u043d\u043d\u044f':'Tasks')+'</div>';
   if(tasks.length){
-    H+='<ol style="margin:0 0 18px;padding-left:20px">';
-    tasks.forEach(function(t){ H+='<li style="font-size:14px;color:var(--text);line-height:1.5;margin-bottom:6px">'+rqEsc(t)+'</li>'; });
-    H+='</ol>';
+    H+='<div style="margin:0 0 18px">';
+    var _n=0;
+    tasks.forEach(function(t){
+      if(/^[A-Z0-9][A-Z0-9 &/()\-'"]{1,24}:$/.test(t)&&!/[a-z]/.test(t)){
+        H+='<div style="font-size:11.5px;font-weight:800;color:var(--text-2);letter-spacing:.04em;margin:13px 0 7px">'+rqEsc(t.replace(/:$/,''))+'</div>'; _n=0;
+      } else {
+        _n++;
+        H+='<div style="display:flex;gap:9px;margin-bottom:7px"><span style="color:#60a5fa;font-weight:700;font-size:13px;min-width:17px;flex-shrink:0;padding-top:1px">'+_n+'.</span><span style="font-size:14px;color:var(--text);line-height:1.5;flex:1;min-width:0">'+rqEsc(t)+'</span></div>';
+      }
+    });
+    H+='</div>';
   } else {
     H+='<div style="font-size:12.5px;color:var(--text-3);font-style:italic;background:var(--surface-2);border:1px dashed var(--border-2);border-radius:9px;padding:11px 13px;margin-bottom:18px">'+(lang==='uk'?'\u0414\u0435\u0442\u0430\u043b\u044c\u043d\u0456 \u043a\u0440\u043e\u043a\u0438 \u0449\u0435 \u043d\u0435 \u0434\u043e\u0434\u0430\u043d\u0456 \u2014 \u0434\u043e\u0434\u0430\u0439\u0442\u0435 \u0437 Fiix.':'No detailed steps on file yet \u2014 add them from Fiix.')+'</div>';
   }
@@ -7904,7 +7914,9 @@ function schedSaveDay(){
   delete o.dCans; delete o.nCans;   // migrated to hL
   o.comment=schedEdit.note||'';
   techSchedule[ds]=o;
-  schedPersist(); toast(schT('Saved')); closeDayEditor(); renderSchedule();
+  schedPersist();
+  try{ schedMonth=new Date(+ds.slice(0,4),+ds.slice(5,7)-1,1); }catch(_e){}
+  toast(schT('Saved')); closeDayEditor(); renderSchedule();
 }
 
 function schedApplyRange(mode){
@@ -7925,6 +7937,7 @@ function schedApplyRange(mode){
     techSchedule[k]=o; count++; guard++; cur.setDate(cur.getDate()+1);
   }
   schedPersist();
+  try{ schedMonth=new Date(+s.slice(0,4),+s.slice(5,7)-1,1); }catch(_e){}
   toast(count+' '+schT(count===1?'day updated':'days updated'));
   closeDayEditor(); renderSchedule();
 }
