@@ -6077,8 +6077,23 @@ function renderFlDash(){
   H+='<div style="background:#0e1013;border-bottom:1px solid #23262e;padding:0 12px;display:flex;gap:4px;position:sticky;top:57px;z-index:4">';
   H+='<button onclick="flDashSetView(\'inspections\')" style="background:none;border:none;border-bottom:2px solid '+(FLDASH_VIEW==='requests'?'transparent':'#f59e0b')+';color:'+(FLDASH_VIEW==='requests'?'#8b8b94':'#fff')+';font-size:13.5px;font-weight:700;padding:12px 14px;cursor:pointer">Inspections</button>';
   H+='<button onclick="flDashSetView(\'requests\')" style="background:none;border:none;border-bottom:2px solid '+(FLDASH_VIEW==='requests'?'#f59e0b':'transparent')+';color:'+(FLDASH_VIEW==='requests'?'#fff':'#8b8b94')+';font-size:13.5px;font-weight:700;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:6px">Forklift Requests<span id="fldash-req-badge" style="display:none;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:9px;padding:1px 6px;min-width:16px;text-align:center"></span></button>';
+  if(FLDASH_ROLE!=='driver')H+='<button onclick="flDashSetView(\'schedule\')" style="background:none;border:none;border-bottom:2px solid '+(FLDASH_VIEW==='schedule'?'#f59e0b':'transparent')+';color:'+(FLDASH_VIEW==='schedule'?'#fff':'#8b8b94')+';font-size:13.5px;font-weight:700;padding:12px 14px;cursor:pointer">\uD83D\uDCC5 Schedule</button>';
   H+='</div>';
   H+='<div style="max-width:920px;margin:0 auto;padding:16px 16px 60px">';
+  if(FLDASH_VIEW==='schedule'){
+    SCHED_SCOPE='forklift';
+    if(!schedMonth){var _sn=new Date();schedMonth=new Date(_sn.getFullYear(),_sn.getMonth(),1);}
+    H+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;justify-content:center">';
+    H+='<button onclick="schedMonth=new Date(schedMonth.getFullYear(),schedMonth.getMonth()-1,1);renderFlDash()" style="background:#16181d;border:1px solid #2a2d35;color:#fff;width:38px;height:38px;border-radius:9px;font-size:18px;cursor:pointer">\u2039</button>';
+    H+='<div style="font-size:16px;font-weight:800;color:#fff;min-width:170px;text-align:center;text-transform:capitalize">'+schedMonth.toLocaleDateString(schedLoc(),{month:'long',year:'numeric'})+'</div>';
+    H+='<button onclick="schedMonth=new Date(schedMonth.getFullYear(),schedMonth.getMonth()+1,1);renderFlDash()" style="background:#16181d;border:1px solid #2a2d35;color:#fff;width:38px;height:38px;border-radius:9px;font-size:18px;cursor:pointer">\u203A</button>';
+    H+='</div>';
+    H+='<div style="font-size:12px;color:#8b8b94;text-align:center;margin-bottom:12px">Driver schedule \u2014 tap any day to assign day / night drivers, vacation, sick & holidays.</div>';
+    H+=schedMonthCardHTML();
+    H+='</div></div>';
+    document.body.insertAdjacentHTML('beforeend',H);
+    return;
+  }
   if(FLDASH_VIEW==='requests'){
     H+='<div id="fldash-reqbody"><div style="text-align:center;color:#8b8b94;padding:50px;font-size:14px">Loading requests\u2026</div></div>';
     H+='</div></div>';
@@ -7657,18 +7672,42 @@ function schedEffColor(p){ if(p==null)return 'var(--text-3)'; if(p>=70)return '#
 function meanProdOf(sc){ if(sc.meanProd!=null&&sc.meanProd!=='')return +sc.meanProd; var d=(sc.dProd!=null&&sc.dProd!=='')?+sc.dProd:null, n=(sc.nProd!=null&&sc.nProd!=='')?+sc.nProd:null; if(d!=null&&n!=null)return (d+n)/2; if(d!=null)return d; if(n!=null)return n; return null; }
 function schedFmt(n){ return (+n||0).toLocaleString('en-CA'); }
 function schedMiniLabel(names){ if(!names.length)return ''; var f=names[0]; if(f.length>6)f=f.slice(0,6); return names.length>1?(f+'+'+(names.length-1)):f; }
-function schedPersist(){ try{localStorage.setItem('bbw_tech_sched',JSON.stringify(techSchedule));}catch(e){} try{saveScheduleToSB('tech',techSchedule);}catch(e){} }
+// ── Schedule scope: 'tech' (maintenance) or 'forklift' (drivers) ──
+var SCHED_SCOPE='tech';
+var forkliftSchedule={};
+function curSched(){ return SCHED_SCOPE==='forklift'?forkliftSchedule:techSchedule; }
+function curRoster(){ return SCHED_SCOPE==='forklift'?(typeof FL_DRIVERS!=='undefined'?FL_DRIVERS:[]):TECHS; }
+function schedIsFL(){ return SCHED_SCOPE==='forklift'; }
+function schedCanEditScope(){
+  if(SCHED_SCOPE==='forklift'){ return (typeof FLDASH_OK!=='undefined'&&FLDASH_OK)||(typeof user!=='undefined'&&user==='Praful'); }
+  return isEditor();
+}
+function schedSetScope(s){ SCHED_SCOPE=(s==='forklift')?'forklift':'tech'; try{renderSchedule();}catch(e){} }
+// Re-render the schedule in whichever surface is showing it (forklift dashboard vs main app).
+function schedRerender(){
+  if(typeof FLDASH_OK!=='undefined'&&FLDASH_OK&&typeof FLDASH_VIEW!=='undefined'&&FLDASH_VIEW==='schedule'){ try{renderFlDash();return;}catch(e){} }
+  try{renderSchedule();}catch(e){}
+}
+function schedPersist(){
+  var scope=SCHED_SCOPE, obj=curSched(), key=(scope==='forklift')?'bbw_fl_sched':'bbw_tech_sched';
+  try{localStorage.setItem(key,JSON.stringify(obj));}catch(e){}
+  try{saveScheduleToSB(scope,obj);}catch(e){}
+}
 
 function renderSchedule(){
   var el=gid('pane-schedule'); if(!el)return;
   loadSchedulesFromStorage();
   if(!schedMonth){ var n=new Date(); schedMonth=new Date(n.getFullYear(),n.getMonth(),1); }
   var H='';
+  H+=schedScopeToggleHTML();
   H+=schedMonthCardHTML();
-  H+=schedSummaryHTML();
-  H+=schedProdRunsHTML();
+  if(!schedIsFL()){ H+=schedSummaryHTML(); H+=schedProdRunsHTML(); }
   el.innerHTML=H;
-  setTimeout(schedDrawChart,0);
+  if(!schedIsFL())setTimeout(schedDrawChart,0);
+}
+function schedScopeToggleHTML(){
+  function tab(scope,label){ var on=(SCHED_SCOPE===scope); return '<button onclick="schedSetScope(\''+scope+'\')" style="flex:1;padding:9px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;background:'+(on?'var(--surface-3)':'transparent')+';color:'+(on?'var(--text)':'var(--text-3)')+'">'+label+'</button>'; }
+  return '<div style="display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:4px;margin-bottom:14px">'+tab('tech','\uD83D\uDD27 '+schT('Maintenance'))+tab('forklift','\uD83D\uDE9C '+schT('Forklift'))+'</div>';
 }
 
 function schedShiftMonth(delta){ schedMonth=new Date(schedMonth.getFullYear(),schedMonth.getMonth()+delta,1); renderSchedule(); }
@@ -7701,11 +7740,11 @@ function schedMonthCardHTML(){
   for(var i=0;i<42;i++){
     var dt=new Date(startGrid.getFullYear(),startGrid.getMonth(),startGrid.getDate()+i);
     var ds=localDateStr(dt); var inM=dt.getMonth()===m; var isTod=ds===todayStr;
-    var sc=techSchedule[ds]||{};
+    var sc=curSched()[ds]||{};
     var dn=schedNames(sc.day), nn=schedNames(sc.night), vac=sc.vac||[], sick=sc.sick||[], hol=sc.holiday||'';
     var dC=dHLof(sc), nC=nHLof(sc), tot=dC+nC;
     var mProd=meanProdOf(sc);
-    var paceCol='#34d399'; var showBar=(mProd!=null);
+    var paceCol='#34d399'; var showBar=(!schedIsFL()&&mProd!=null);
     if(mProd!=null){ paceCol=schedEffColor(mProd); }
     H+='<div onclick="openDayEditor(\''+ds+'\')" style="position:relative;min-height:60px;background:'+(inM?'var(--surface-2)':'transparent')+';border:1px solid '+(isTod?'#60a5fa':'var(--border)')+';border-radius:8px;padding:4px 3px 8px;cursor:pointer;opacity:'+(inM?'1':'.38')+';overflow:hidden">';
     H+='<div style="font-size:9.5px;font-weight:800;color:'+(isTod?'#60a5fa':'var(--text-2)')+';line-height:1">'+dt.getDate()+'</div>';
@@ -7728,9 +7767,9 @@ function schedMonthCardHTML(){
   H+='<span><span style="display:inline-block;background:#9333ea;color:#fff;font-size:7px;font-weight:800;border-radius:3px;padding:1px 3px;margin-right:3px;line-height:1.4">VAC</span>'+schT('Vacation')+'</span>';
   H+='<span><span style="display:inline-block;background:#16a34a;color:#fff;font-size:7px;font-weight:800;border-radius:3px;padding:1px 3px;margin-right:3px;line-height:1.4">SICK</span>'+schT('Sick leave')+'</span>';
   H+='<span><span style="display:inline-block;background:#d97706;color:#fff;font-size:7px;font-weight:800;border-radius:3px;padding:1px 3px;margin-right:3px;line-height:1.4">HOL</span>'+schT('Holiday (closed)')+'</span>';
-  H+='<span><span style="display:inline-block;width:8px;height:3px;background:#f87171;border-radius:2px;margin-right:2px;vertical-align:middle"></span><span style="display:inline-block;width:8px;height:3px;background:#fbbf24;border-radius:2px;margin-right:2px;vertical-align:middle"></span><span style="display:inline-block;width:8px;height:3px;background:#34d399;border-radius:2px;margin-right:3px;vertical-align:middle"></span>'+schT('Mean productivity')+'</span>';
+  if(!schedIsFL())H+='<span><span style="display:inline-block;width:8px;height:3px;background:#f87171;border-radius:2px;margin-right:2px;vertical-align:middle"></span><span style="display:inline-block;width:8px;height:3px;background:#fbbf24;border-radius:2px;margin-right:2px;vertical-align:middle"></span><span style="display:inline-block;width:8px;height:3px;background:#34d399;border-radius:2px;margin-right:3px;vertical-align:middle"></span>'+schT('Mean productivity')+'</span>';
   H+='</div>';
-  if(isEditor())H+='<div style="font-size:10px;color:var(--text-3);margin-top:8px;text-align:center">'+schT('Tap any day to assign shifts, vacation & production')+'</div>';
+  if(schedCanEditScope())H+='<div style="font-size:10px;color:var(--text-3);margin-top:8px;text-align:center">'+(schedIsFL()?schT('Tap any day to assign drivers, vacation & sick'):schT('Tap any day to assign shifts, vacation & production'))+'</div>';
   H+='</div>';
   return H;
 }
@@ -7796,7 +7835,7 @@ function schedDrawChart(){
 function schedChipsHTML(kind){
   var sel=schedEdit[kind]||[];
   var col=kind==='day'?'#f59e0b':(kind==='night'?'#60a5fa':(kind==='sick'?'#4ade80':'#e879f9'));
-  return TECHS.map(function(n){
+  return curRoster().map(function(n){
     var on=sel.indexOf(n)>=0;
     return '<button onclick="schedTogglePick(\''+kind+'\',\''+n+'\')" style="font-size:12px;font-weight:600;padding:7px 11px;border-radius:8px;cursor:pointer;border:1px solid '+(on?col:'var(--border-2)')+';background:'+(on?col:'transparent')+';color:'+(on?'#0a0a0b':'var(--text-2)')+'">'+n+'</button>';
   }).join('');
@@ -7821,16 +7860,16 @@ function closeDayEditor(){ var m=gid('sched-editor'); if(m)m.remove(); }
 function openDayEditor(ds){
   closeDayEditor();
   schedSelDate=ds;
-  var sc=techSchedule[ds]||{};
+  var sc=curSched()[ds]||{};
   schedEdit={day:schedNames(sc.day),night:schedNames(sc.night),vac:(sc.vac||[]).slice(),sick:(sc.sick||[]).slice(),holiday:(sc.holiday||''),
     dHL:(sc.dHL!=null?sc.dHL:(sc.dCans!=null?Math.round(cansToHL(sc.dCans)*10)/10:'')),
     nHL:(sc.nHL!=null?sc.nHL:(sc.nCans!=null?Math.round(cansToHL(sc.nCans)*10)/10:'')),
     dProd:(sc.dProd!=null?sc.dProd:''), nProd:(sc.nProd!=null?sc.nProd:''), meanProd:(sc.meanProd!=null?sc.meanProd:''),
     note:(sc.comment||'')};
-  var canEdit=isEditor();
+  var canEdit=schedCanEditScope();
   var dt=new Date(+ds.slice(0,4),+ds.slice(5,7)-1,+ds.slice(8,10));
   var title=dt.toLocaleDateString(schedLoc(),{weekday:'long',month:'long',day:'numeric'});
-  var H='<div id="sched-editor" onclick="if(event.target===this)closeDayEditor()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:flex;align-items:flex-end;justify-content:center">';
+  var H='<div id="sched-editor" onclick="if(event.target===this)closeDayEditor()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9600;display:flex;align-items:flex-end;justify-content:center">';
   H+='<div style="background:var(--surface);width:100%;max-width:560px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:16px 16px 28px;border:1px solid var(--border);box-sizing:border-box">';
   H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:16px;font-weight:800;color:#fff;text-transform:capitalize">'+title+'</div><button onclick="closeDayEditor()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:32px;height:32px;border-radius:9px;font-size:17px;cursor:pointer">\u00D7</button></div>';
   if(!canEdit){
@@ -7869,6 +7908,7 @@ function openDayEditor(ds){
     H+='<div id="se-vac" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px">'+schedChipsHTML('vac')+'</div>';
     H+='<div style="font-size:11px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">'+schT('Sick / Medical leave')+'</div>';
     H+='<div id="se-sick" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px">'+schedChipsHTML('sick')+'</div>';
+    if(!schedIsFL()){
     H+='<div style="font-size:11px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+schT('Production')+'</div>';
     H+='<div style="display:grid;grid-template-columns:1fr 1fr;column-gap:14px;row-gap:6px;margin-bottom:6px">';
     H+=schedHLField('d',schT('Day shift')+' (hL)',schedEdit.dHL);
@@ -7881,6 +7921,7 @@ function openDayEditor(ds){
     H+='<div style="margin-bottom:16px">';
     H+=schedPctField('mp',schT('Mean productivity')+' % \u2014 '+schT('sets the day colour'),schedEdit.meanProd);
     H+='</div>';
+    }
     H+='<div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">'+schT('Note (optional)')+'</div>';
     H+='<textarea id="se-note" oninput="schedEdit.note=this.value" placeholder="'+schT('e.g. CIP overrun, training\u2026')+'" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:10px;font-size:14px;color:#fff;outline:none;min-height:54px;font-family:inherit;resize:vertical;margin-bottom:10px">'+rqEsc(schedEdit.note)+'</textarea>';
     H+='<button onclick="schedSaveDay()" style="width:100%;padding:13px;background:#2563eb;border:none;color:#fff;font-size:15px;font-weight:700;border-radius:11px;cursor:pointer;margin-bottom:16px">'+schT('Save day')+'</button>';
@@ -7903,43 +7944,47 @@ function openDayEditor(ds){
 }
 
 function schedSaveDay(){
-  var ds=schedSelDate; var o=techSchedule[ds]||{};
+  if(!schedCanEditScope())return;
+  var ds=schedSelDate; var o=curSched()[ds]||{};
   o.day=schedJoin(schedEdit.day); o.night=schedJoin(schedEdit.night); o.vac=schedEdit.vac.slice(); o.sick=schedEdit.sick.slice();
   var _hol=(schedEdit.holiday||'').trim(); if(_hol){o.holiday=_hol;}else{delete o.holiday;}
-  if(schedEdit.dHL===''||schedEdit.dHL==null){delete o.dHL;} else {o.dHL=+schedEdit.dHL||0;}
-  if(schedEdit.nHL===''||schedEdit.nHL==null){delete o.nHL;} else {o.nHL=+schedEdit.nHL||0;}
-  if(schedEdit.dProd===''||schedEdit.dProd==null){delete o.dProd;} else {o.dProd=+schedEdit.dProd;}
-  if(schedEdit.nProd===''||schedEdit.nProd==null){delete o.nProd;} else {o.nProd=+schedEdit.nProd;}
-  if(schedEdit.meanProd===''||schedEdit.meanProd==null){delete o.meanProd;} else {o.meanProd=+schedEdit.meanProd;}
-  delete o.dCans; delete o.nCans;   // migrated to hL
+  if(!schedIsFL()){
+    if(schedEdit.dHL===''||schedEdit.dHL==null){delete o.dHL;} else {o.dHL=+schedEdit.dHL||0;}
+    if(schedEdit.nHL===''||schedEdit.nHL==null){delete o.nHL;} else {o.nHL=+schedEdit.nHL||0;}
+    if(schedEdit.dProd===''||schedEdit.dProd==null){delete o.dProd;} else {o.dProd=+schedEdit.dProd;}
+    if(schedEdit.nProd===''||schedEdit.nProd==null){delete o.nProd;} else {o.nProd=+schedEdit.nProd;}
+    if(schedEdit.meanProd===''||schedEdit.meanProd==null){delete o.meanProd;} else {o.meanProd=+schedEdit.meanProd;}
+    delete o.dCans; delete o.nCans;   // migrated to hL
+  }
   o.comment=schedEdit.note||'';
-  techSchedule[ds]=o;
+  curSched()[ds]=o;
   schedPersist();
   try{ schedMonth=new Date(+ds.slice(0,4),+ds.slice(5,7)-1,1); }catch(_e){}
-  toast(schT('Saved')); closeDayEditor(); renderSchedule();
+  toast(schT('Saved')); closeDayEditor(); schedRerender();
 }
 
 function schedApplyRange(mode){
+  if(!schedCanEditScope())return;
   var s=gid('se-rng-start')&&gid('se-rng-start').value, e=gid('se-rng-end')&&gid('se-rng-end').value;
   if(!s||!e){toast(schT('Pick start and end dates'),true);return;}
   if(e<s){var t=s;s=e;e=t;}
   var cur=new Date(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10));
   var end=new Date(+e.slice(0,4),+e.slice(5,7)-1,+e.slice(8,10));
-  var count=0,guard=0;
+  var count=0,guard=0; var SC=curSched();
   while(cur<=end&&guard<400){
-    var k=localDateStr(cur); var o=techSchedule[k]||{};
+    var k=localDateStr(cur); var o=SC[k]||{};
     if(mode==='shifts'){ o.day=schedJoin(schedEdit.day); o.night=schedJoin(schedEdit.night); }
     else if(mode==='vac'){ var v=(o.vac||[]).slice(); schedEdit.vac.forEach(function(n){ if(v.indexOf(n)<0)v.push(n); }); o.vac=v; }
     else if(mode==='clearvac'){ if(schedEdit.vac.length){ o.vac=(o.vac||[]).filter(function(n){return schedEdit.vac.indexOf(n)<0;}); } else { o.vac=[]; } }
     else if(mode==='sick'){ var sk=(o.sick||[]).slice(); schedEdit.sick.forEach(function(n){ if(sk.indexOf(n)<0)sk.push(n); }); o.sick=sk; }
     else if(mode==='clearsick'){ if(schedEdit.sick.length){ o.sick=(o.sick||[]).filter(function(n){return schedEdit.sick.indexOf(n)<0;}); } else { o.sick=[]; } }
     else if(mode==='holiday'){ var _h=(schedEdit.holiday||'').trim(); if(_h){o.holiday=_h;}else{delete o.holiday;} }
-    techSchedule[k]=o; count++; guard++; cur.setDate(cur.getDate()+1);
+    SC[k]=o; count++; guard++; cur.setDate(cur.getDate()+1);
   }
   schedPersist();
   try{ schedMonth=new Date(+s.slice(0,4),+s.slice(5,7)-1,1); }catch(_e){}
   toast(count+' '+schT(count===1?'day updated':'days updated'));
-  closeDayEditor(); renderSchedule();
+  closeDayEditor(); schedRerender();
 }
 
 function schedCap(s){ s=''+s; return s.charAt(0).toUpperCase()+s.slice(1); }
@@ -8208,6 +8253,9 @@ function loadSchedulesFromSB(){
       }else if(row.id==='tech'&&row.data&&typeof row.data==='object'){
         techSchedule=row.data;
         try{localStorage.setItem('bbw_tech_sched',JSON.stringify(row.data));}catch(e){}
+      }else if(row.id==='forklift'&&row.data&&typeof row.data==='object'){
+        forkliftSchedule=row.data;
+        try{localStorage.setItem('bbw_fl_sched',JSON.stringify(row.data));}catch(e){}
       }
     });
     try{ cleanScheduleJunk(); }catch(e){}
@@ -8222,6 +8270,8 @@ function loadSchedulesFromStorage(){
     if(ps){var arr=JSON.parse(ps);scheduleRuns=arr.map(function(r){return {product:r.product,canSize:r.canSize,pkgFormat:r.pkgFormat,startDt:new Date(r.start),finishDt:r.finish?new Date(r.finish):null,cleaning:r.cleaning};});}
     var ts=localStorage.getItem('bbw_tech_sched');
     if(ts)techSchedule=JSON.parse(ts);
+    var fs=localStorage.getItem('bbw_fl_sched');
+    if(fs)forkliftSchedule=JSON.parse(fs);
   }catch(e){}
 }
 
