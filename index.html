@@ -6063,21 +6063,25 @@ function renderFlDash(){
   var ex=gid('fldash');if(ex)ex.remove();
   if(!FLDASH_MONTH)FLDASH_MONTH=new Date();
   var H='<div id="fldash" style="position:fixed;inset:0;background:#0b0d10;z-index:9500;overflow-y:auto;color:#e7e7ea;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif">';
-  H+='<div style="position:sticky;top:0;background:#111317;border-bottom:1px solid #23262e;padding:12px 16px;display:flex;align-items:center;gap:10px;z-index:5">';
-  H+='<div style="display:flex;align-items:center">'+flDashLogo(24)+'</div>';
-  H+='<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:#fff">Forklift Inspections</div><div style="font-size:11px;color:#8b8b94">Brunswick Bierworks</div></div>';
+  H+='<div style="position:sticky;top:0;background:#111317;border-bottom:1px solid #23262e;padding:10px 14px;z-index:5">';
+  H+='<div style="display:flex;align-items:center;gap:10px">';
+  H+='<div style="display:flex;align-items:center;flex-shrink:0">'+flDashLogo(24)+'</div>';
+  H+='<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Forklift Dashboard</div><div style="font-size:11px;color:#8b8b94">Brunswick Bierworks</div></div>';
+  H+='<button onclick="flDashLock()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer;flex-shrink:0">Lock</button>';
+  H+='</div>';
   if(FLDASH_ROLE!=='driver'){
+  H+='<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">';
   H+='<button onclick="flDashEditNotifyEmail()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Email</button>';
   H+='<button onclick="flDashEditDrivers()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Drivers</button>';
   H+='<button onclick="flDashChangePin()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Change PIN</button>';
-  }
-  H+='<button onclick="flDashLock()" style="background:#1c1f26;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer">Lock</button>';
   H+='</div>';
-  // ── View tabs (Inspections | Forklift Requests) ──
-  H+='<div style="background:#0e1013;border-bottom:1px solid #23262e;padding:0 12px;display:flex;gap:4px;position:sticky;top:57px;z-index:4">';
-  H+='<button onclick="flDashSetView(\'inspections\')" style="background:none;border:none;border-bottom:2px solid '+(FLDASH_VIEW==='requests'?'transparent':'#f59e0b')+';color:'+(FLDASH_VIEW==='requests'?'#8b8b94':'#fff')+';font-size:13.5px;font-weight:700;padding:12px 14px;cursor:pointer">Inspections</button>';
-  H+='<button onclick="flDashSetView(\'requests\')" style="background:none;border:none;border-bottom:2px solid '+(FLDASH_VIEW==='requests'?'#f59e0b':'transparent')+';color:'+(FLDASH_VIEW==='requests'?'#fff':'#8b8b94')+';font-size:13.5px;font-weight:700;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:6px">Forklift Requests<span id="fldash-req-badge" style="display:none;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:9px;padding:1px 6px;min-width:16px;text-align:center"></span></button>';
-  if(FLDASH_ROLE!=='driver')H+='<button onclick="flDashSetView(\'schedule\')" style="background:none;border:none;border-bottom:2px solid '+(FLDASH_VIEW==='schedule'?'#f59e0b':'transparent')+';color:'+(FLDASH_VIEW==='schedule'?'#fff':'#8b8b94')+';font-size:13.5px;font-weight:700;padding:12px 14px;cursor:pointer">\uD83D\uDCC5 Schedule</button>';
+  }
+  H+='</div>';
+  // ── View tabs (Inspections | Forklift Requests | Schedule) ──
+  H+='<div style="background:#0e1013;border-bottom:1px solid #23262e;padding:0 12px;display:flex;gap:4px;position:sticky;top:57px;z-index:4;overflow-x:auto;-webkit-overflow-scrolling:touch">';
+  H+='<button onclick="flDashSetView(\'inspections\')" style="flex-shrink:0;background:none;border:none;border-bottom:2px solid '+(FLDASH_VIEW==='inspections'?'#f59e0b':'transparent')+';color:'+(FLDASH_VIEW==='inspections'?'#fff':'#8b8b94')+';font-size:13.5px;font-weight:700;padding:12px 14px;cursor:pointer;white-space:nowrap">Inspections</button>';
+  H+='<button onclick="flDashSetView(\'requests\')" style="flex-shrink:0;background:none;border:none;border-bottom:2px solid '+(FLDASH_VIEW==='requests'?'#f59e0b':'transparent')+';color:'+(FLDASH_VIEW==='requests'?'#fff':'#8b8b94')+';font-size:13.5px;font-weight:700;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap">Forklift Requests<span id="fldash-req-badge" style="display:none;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:9px;padding:1px 6px;min-width:16px;text-align:center"></span></button>';
+  if(FLDASH_ROLE!=='driver')H+='<button onclick="flDashSetView(\'schedule\')" style="flex-shrink:0;background:none;border:none;border-bottom:2px solid '+(FLDASH_VIEW==='schedule'?'#f59e0b':'transparent')+';color:'+(FLDASH_VIEW==='schedule'?'#fff':'#8b8b94')+';font-size:13.5px;font-weight:700;padding:12px 14px;cursor:pointer;white-space:nowrap">Schedule</button>';
   H+='</div>';
   H+='<div style="max-width:920px;margin:0 auto;padding:16px 16px 60px">';
   if(FLDASH_VIEW==='schedule'){
@@ -6089,6 +6093,8 @@ function renderFlDash(){
     H+='<button onclick="schedMonth=new Date(schedMonth.getFullYear(),schedMonth.getMonth()+1,1);renderFlDash()" style="background:#16181d;border:1px solid #2a2d35;color:#fff;width:38px;height:38px;border-radius:9px;font-size:18px;cursor:pointer">\u203A</button>';
     H+='</div>';
     H+='<div style="font-size:12px;color:#8b8b94;text-align:center;margin-bottom:12px">Driver schedule \u2014 tap any day to assign day / night drivers, vacation, sick & holidays.</div>';
+    H+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;background:#16181d;border:1.5px dashed #2a2d35;border-radius:10px;cursor:pointer;color:#c7c7cf;font-size:13px;font-weight:600;margin-bottom:6px">&#128193; Upload driver schedule (Excel)<input type="file" id="fl-schedule-file" accept=".xlsx,.xls" style="display:none" onchange="parseTechSchedule(this,\'forklift\')"></label>';
+    H+='<div id="fl-upload-status" style="font-size:12px;color:#4ade80;margin-bottom:12px;display:none;text-align:center"></div>';
     H+=schedMonthCardHTML();
     H+='</div></div>';
     document.body.insertAdjacentHTML('beforeend',H);
@@ -7922,8 +7928,10 @@ function openDayEditor(ds){
     H+=schedPctField('mp',schT('Mean productivity')+' % \u2014 '+schT('sets the day colour'),schedEdit.meanProd);
     H+='</div>';
     }
+    if(!schedIsFL()){
     H+='<div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">'+schT('Note (optional)')+'</div>';
     H+='<textarea id="se-note" oninput="schedEdit.note=this.value" placeholder="'+schT('e.g. CIP overrun, training\u2026')+'" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:10px;font-size:14px;color:#fff;outline:none;min-height:54px;font-family:inherit;resize:vertical;margin-bottom:10px">'+rqEsc(schedEdit.note)+'</textarea>';
+    }
     H+='<button onclick="schedSaveDay()" style="width:100%;padding:13px;background:#2563eb;border:none;color:#fff;font-size:15px;font-weight:700;border-radius:11px;cursor:pointer;margin-bottom:16px">'+schT('Save day')+'</button>';
     H+='<div style="border-top:1px solid var(--border);padding-top:14px"><div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">'+schT('Apply to a date range')+'</div>';
     H+='<div style="font-size:11px;color:var(--text-3);margin-bottom:9px">'+schT('Uses the picks above \u2014 e.g. set a weekly rotation, or mark a week-long vacation in one go.')+'</div>';
@@ -8156,9 +8164,10 @@ function parseProdSchedule(input){
   reader.readAsBinaryString(file);
 }
 
-function parseTechSchedule(input){
+function parseTechSchedule(input, scope){
+  scope=(scope==='forklift')?'forklift':'tech';
   var file=input.files[0];if(!file)return;
-  var el=gid('tech-upload-status');
+  var el=gid(scope==='forklift'?'fl-upload-status':'tech-upload-status');
   if(el){el.style.display='block';el.textContent='Reading...';}
   var reader=new FileReader();
   reader.onload=function(e){
@@ -8179,14 +8188,12 @@ function parseTechSchedule(input){
           }
         });
       }catch(_e){}
-      var _oldSched=techSchedule||{};
-      // Merge (don't wipe): keep every existing day and its extras (vacation, sick,
-      // production hL, productivity, holiday). History is frozen — only TODAY ONWARD
-      // gets its crew/comment refreshed from the uploaded file, so re-uploading a new
-      // schedule never wipes the details from yesterday and before.
+      var _oldSched=(scope==='forklift'?forkliftSchedule:techSchedule)||{};
+      // Merge (don't wipe): keep every existing day and its extras. History is frozen —
+      // only TODAY ONWARD gets its crew/comment refreshed from the uploaded file.
       var _todayDS=localDateStr(new Date());
-      techSchedule={};
-      Object.keys(_oldSched).forEach(function(k){ techSchedule[k]=(k==='__rate__')?_oldSched[k]:Object.assign({},_oldSched[k]); });
+      var T={};
+      Object.keys(_oldSched).forEach(function(k){ T[k]=(k==='__rate__')?_oldSched[k]:Object.assign({},_oldSched[k]); });
       var dates=data[0],day=data[1],night=data[2],comments=data[3];
       if(!dates)return;
       var _updated=0,_pastKept=0;
@@ -8208,18 +8215,20 @@ function parseTechSchedule(input){
         if(dt3.getUTCHours()===0&&dt3.getHours()!==0){yr=dt3.getUTCFullYear();mo=dt3.getUTCMonth();dy=dt3.getUTCDate();}
         var ds=yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(dy).padStart(2,'0');
         if(ds<_todayDS){_pastKept++;continue;}   // freeze the past — leave existing history untouched
-        var _o=techSchedule[ds]||{};              // preserve this day's extras if it already existed
+        var _o=T[ds]||{};              // preserve this day's extras if it already existed
         _o.day=day&&day[c]?String(day[c]).trim():'';
         _o.night=night&&night[c]?String(night[c]).trim():'';
         var _cm=comments&&comments[c]?String(comments[c]).trim():'';
         if(_cm){_o.comment=_cm;} else if(_o.comment==null){_o.comment='';}
-        techSchedule[ds]=_o;
+        T[ds]=_o;
         _updated++;
       }
-      try{localStorage.setItem('bbw_tech_sched',JSON.stringify(techSchedule));}catch(ex){}
-      try{renderSchedule();}catch(_e){}
+      if(scope==='forklift')forkliftSchedule=T; else techSchedule=T;
+      try{localStorage.setItem(scope==='forklift'?'bbw_fl_sched':'bbw_tech_sched',JSON.stringify(T));}catch(ex){}
+      if(scope==='forklift'){ if(typeof FLDASH_OK!=='undefined'&&FLDASH_OK){try{renderFlDash();}catch(_e){}} }
+      else { var _ps=SCHED_SCOPE; SCHED_SCOPE='tech'; try{renderSchedule();}catch(_e){} SCHED_SCOPE=_ps; }
       if(el){el.textContent='\u2713 Updated '+_updated+' day(s) from today \u2014 syncing...';el.style.color='#4ade80';}
-      saveScheduleToSB('tech',techSchedule).then(function(ok){if(el){el.textContent='\u2713 '+_updated+' day(s) updated from today onward \u00b7 earlier history kept'+(ok?' \u2014 synced to all devices':' \u2014 saved locally (sync failed)');el.style.color=ok?'#4ade80':'#fbbf24';}});
+      saveScheduleToSB(scope,T).then(function(ok){if(el){el.textContent='\u2713 '+_updated+' day(s) updated from today onward \u00b7 earlier history kept'+(ok?' \u2014 synced to all devices':' \u2014 saved locally (sync failed)');el.style.color=ok?'#4ade80':'#fbbf24';}});
     }catch(err){if(el){el.textContent='Error: '+err.message;el.style.color='#ef4444';}}
   };
   reader.readAsBinaryString(file);
