@@ -5212,42 +5212,78 @@ function pmCompletionPDF(pl){
   try{
     var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF engine not loaded yet \u2014 try again in a moment.');return;}
     var doc=new JS({unit:'pt',format:'letter'});
-    var W=doc.internal.pageSize.getWidth(), Hp=doc.internal.pageSize.getHeight(), M=48;
-    var GREEN=[22,120,74], INK=[26,26,26], GREY=[120,125,133], LINE=[224,226,230];
-    function sT(a){doc.setTextColor(a[0],a[1],a[2]);} function sD(a){doc.setDrawColor(a[0],a[1],a[2]);} function sF(a){doc.setFillColor(a[0],a[1],a[2]);}
-    var topY=52;
-    if(window.__logoDark){try{var _lh=22,_lw=_lh*((window.__logoW||400)/(window.__logoH||177));doc.addImage(window.__logoDark,'PNG',M,topY-17,_lw,_lh);}catch(e){}}
-    var bw=190,bx=W-M-bw,by=44,bh=64;
-    sD(INK);doc.setLineWidth(1.3);doc.roundedRect(bx,by,bw,bh,7,7,'S');
-    sF(GREEN);doc.roundedRect(bx,by,bw,21,7,7,'F');doc.rect(bx,by+11,bw,10,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(8.5);sT([255,255,255]);doc.text('PM COMPLETION',bx+bw/2,by+14,{align:'center'});
-    var rws=[['PM',pl.code||'\u2014',INK],['Type',(pl.type||'Preventive'),GREY],['Done',(''+(pl.date||'')).slice(0,10),INK]];
-    var ry=by+36; rws.forEach(function(r){doc.setFont('helvetica','normal');doc.setFontSize(9.5);sT(GREY);doc.text(r[0],bx+13,ry);doc.setFont('helvetica','bold');sT(r[2]);doc.text(''+r[1],bx+bw-13,ry,{align:'right'});ry+=15.5;});
-    var ty=topY+24;
-    doc.setFont('helvetica','bold');doc.setFontSize(10);sT(GREEN);doc.text('PREVENTIVE MAINTENANCE',M,ty);ty+=22;
-    doc.setFontSize(21);sT(INK);
-    doc.splitTextToSize((pl.name||'PM'),bx-M-16).slice(0,2).forEach(function(l){doc.text(l,M,ty);ty+=23;});
-    var y=Math.max(ty+2,by+bh+20);
-    sD(GREEN);doc.setLineWidth(2.5);doc.line(M,y,W-M,y);y+=24;
-    var cells=[['Asset',(pl.asset||'')+(pl.assetCode?' ('+pl.assetCode+')':'')],['Technician',pl.who||'\u2014'],['Completed',(''+(pl.date||'')).replace('T',' ').slice(0,16)||'\u2014'],['Hours',pl.hours?(pl.hours+'h'):'\u2014']];
-    var colW=(W-2*M)/2;
-    cells.forEach(function(c,i){ var col=i%2, row=Math.floor(i/2); var x=M+col*colW, yy=y+row*40;
-      doc.setFont('helvetica','bold');doc.setFontSize(8);sT(GREY);doc.text(c[0].toUpperCase(),x,yy);
-      doc.setFont('helvetica','normal');doc.setFontSize(11);sT(INK);doc.text((doc.splitTextToSize(''+(c[1]||'\u2014'),colW-12)[0]||'\u2014'),x,yy+15); });
-    y+=Math.ceil(cells.length/2)*40+8;
-    if(pl.desc){ doc.setFont('helvetica','bold');doc.setFontSize(8);sT(GREY);doc.text('DESCRIPTION',M,y);y+=15;
-      doc.setFont('helvetica','normal');doc.setFontSize(11);sT(INK);doc.splitTextToSize(''+pl.desc,W-2*M).forEach(function(l){doc.text(l,M,y);y+=15;});y+=10; }
-    doc.setFont('helvetica','bold');doc.setFontSize(8);sT(GREY);doc.text('TASKS',M,y);y+=16;
-    var tasks=pl.tasks||[];
-    if(tasks.length){ doc.setFontSize(11);sT(INK);
-      tasks.forEach(function(t,i){ doc.setFont('helvetica','normal'); doc.splitTextToSize((i+1)+'.  '+t,W-2*M-8).forEach(function(l){ if(y>Hp-90){doc.addPage();y=60;} doc.text(l,M+4,y);y+=15.5; }); y+=2; }); }
-    else { doc.setFont('helvetica','italic');doc.setFontSize(10);sT(GREY);doc.text('No detailed task list on file for this PM.',M+4,y);y+=16; }
-    y+=8;
-    if(pl.notes){ if(y>Hp-110){doc.addPage();y=60;} doc.setFont('helvetica','bold');doc.setFontSize(8);sT(GREY);doc.text('NOTES',M,y);y+=15; doc.setFont('helvetica','normal');doc.setFontSize(11);sT(INK);doc.splitTextToSize(''+pl.notes,W-2*M).forEach(function(l){doc.text(l,M,y);y+=15;}); }
-    var ph=Hp;
-    sD(LINE);doc.setLineWidth(1);doc.line(M,ph-72,W/2-12,ph-72);doc.line(W/2+12,ph-72,W-M,ph-72);
-    doc.setFont('helvetica','normal');doc.setFontSize(8);sT(GREY);doc.text('Technician signature',M,ph-60);doc.text('Supervisor signature',W/2+12,ph-60);
-    doc.text('Brunswick Bierworks \u00b7 Maintenance \u00b7 generated '+new Date().toISOString().slice(0,10),M,ph-40);
+    var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=44,CW=W-2*M,y=0;
+    var F='helvetica';
+    var INK=[30,31,34],SUB=[122,124,132],HAIR=[226,227,231],GOLD=[196,160,74],GREEN=[34,163,94];
+    function sc(c){doc.setTextColor(c[0],c[1],c[2]);} function fc(c){doc.setFillColor(c[0],c[1],c[2]);} function dc(c){doc.setDrawColor(c[0],c[1],c[2]);}
+    function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(String(t),x,yy,al?{align:al}:undefined);}
+    function ensure(h){if(y+h>H-58){doc.addPage();y=52;}}
+    function section(title){ensure(42);y+=6;fc(GOLD);doc.rect(M,y-8,3,11,'F');T(title,M+10,y,11.5,'bold',INK);dc(HAIR);doc.setLineWidth(.7);doc.line(M,y+7,W-M,y+7);y+=22;}
+
+    // ---- Letterhead ----
+    y=44;
+    if(window.__logoDark){try{var lh=26,lw=lh*((window.__logoW||498)/(window.__logoH||220));doc.addImage(window.__logoDark,'PNG',M,y-4,lw,lh);}catch(e){T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}}
+    else{T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}
+    T('PM Completion Report',W-M,y+6,12.5,'bold',INK,'right');
+    T('Preventive Maintenance \u00b7 '+(''+(pl.date||'')).slice(0,10),W-M,y+20,9.5,'normal',SUB,'right');
+    y+=38;dc(GOLD);doc.setLineWidth(1.4);doc.line(M,y,W-M,y);y+=22;
+
+    // ---- Title + green COMPLETED pill ----
+    var pillW=96,pillH=21,pillX=W-M-pillW,pillY=y-14;
+    fc(GREEN);doc.roundedRect(pillX,pillY,pillW,pillH,10.5,10.5,'F');
+    T('COMPLETED',pillX+pillW/2,pillY+14,8,'bold',[255,255,255],'center');
+    T('PM '+(pl.code||''),M,y-3,8,'bold',SUB);
+    y+=13;
+    doc.splitTextToSize((pl.name||'PM'),CW-pillW-16).slice(0,2).forEach(function(l){T(l,M,y,19,'bold',INK);y+=22;});
+    var _assetStr=(pl.asset||'\u2014'); if(pl.assetCode&&(''+_assetStr).indexOf(pl.assetCode)<0)_assetStr+='  ('+pl.assetCode+')';
+    T(_assetStr,M,y,10.5,'normal',SUB);
+    y+=20;
+
+    // ---- KPI cards: Completed by | Completed | Hours | Type ----
+    var gap=10,cols=4,cardW=(CW-gap*(cols-1))/cols,cardH=52;
+    function card(i,label,val){
+      var x=M+i*(cardW+gap),cy=y;
+      dc(HAIR);doc.setLineWidth(.8);fc([255,255,255]);doc.roundedRect(x,cy,cardW,cardH,4,4,'FD');
+      T(label.toUpperCase(),x+9,cy+15,6.6,'bold',SUB);
+      var v=doc.splitTextToSize(String(val==null||val===''?'\u2014':val),cardW-16)[0];
+      T(v,x+9,cy+34,13,'bold',INK);
+    }
+    card(0,'Completed by',pl.who||'\u2014');
+    card(1,'Completed',(''+(pl.date||'')).replace('T',' ').slice(0,16)||'\u2014');
+    card(2,'Hours',pl.hours?(pl.hours+' h'):'\u2014');
+    card(3,'Type',pl.type||'Preventive');
+    y+=cardH+8;
+
+    // ---- Description ----
+    if(pl.desc){ section('Description'); T('',M,y,0); doc.setFont(F,'normal');doc.setFontSize(10.5);sc(INK);
+      doc.splitTextToSize(''+pl.desc,CW).forEach(function(l){ensure(15);doc.text(l,M,y);y+=15;}); y+=4; }
+
+    // ---- Tasks (numbered, with ALL-CAPS section sub-headers) ----
+    section('Tasks');
+    var tasks=pl.tasks||[]; var n=0;
+    if(tasks.length){
+      tasks.forEach(function(t){
+        if(/^[A-Z0-9][A-Z0-9 &/()\-'"]{1,24}:$/.test(t)&&!/[a-z]/.test(t)){
+          ensure(20);y+=4;T(t.replace(/:$/,''),M,y,8.5,'bold',GOLD);y+=15;n=0;
+        } else {
+          n++; var lines=doc.splitTextToSize(t,CW-20);
+          lines.forEach(function(l,li){ ensure(15); T(li===0?(n+'.'):'',M,y,10.5,'bold',SUB); doc.setFont(F,'normal');doc.setFontSize(10.5);sc(INK);doc.text(l,M+20,y); y+=15; });
+          y+=2;
+        }
+      });
+    } else { T('No detailed task list on file for this PM.',M,y,10,'italic',SUB); y+=16; }
+
+    // ---- Notes ----
+    if(pl.notes){ y+=4; section('Notes'); doc.setFont(F,'normal');doc.setFontSize(10.5);sc(INK);
+      doc.splitTextToSize(''+pl.notes,CW).forEach(function(l){ensure(15);doc.text(l,M,y);y+=15;}); }
+
+    // ---- Footer (every page) ----
+    var pages=doc.internal.getNumberOfPages();
+    for(var pi=1;pi<=pages;pi++){ doc.setPage(pi);
+      dc(HAIR);doc.setLineWidth(.7);doc.line(M,H-40,W-M,H-40);
+      T('Brunswick Bierworks \u00b7 Maintenance',M,H-26,8,'normal',SUB);
+      T('Completed by '+(pl.who||'\u2014')+' \u00b7 '+(''+(pl.date||'')).slice(0,10),W-M,H-26,8,'normal',SUB,'right');
+    }
     doc.save('PM_'+(pl.code||'')+'_'+(''+(pl.date||'')).slice(0,10)+'.pdf');
   }catch(e){ try{alert('Could not generate PDF: '+e.message);}catch(_){} }
 }
