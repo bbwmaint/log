@@ -6099,11 +6099,6 @@ function renderFlDash(){
   if(FLDASH_VIEW==='schedule'){
     SCHED_SCOPE='forklift';
     if(!schedMonth){var _sn=new Date();schedMonth=new Date(_sn.getFullYear(),_sn.getMonth(),1);}
-    H+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;justify-content:center">';
-    H+='<button onclick="schedMonth=new Date(schedMonth.getFullYear(),schedMonth.getMonth()-1,1);renderFlDash()" style="background:#16181d;border:1px solid #2a2d35;color:#fff;width:38px;height:38px;border-radius:9px;font-size:18px;cursor:pointer">\u2039</button>';
-    H+='<div style="font-size:16px;font-weight:800;color:#fff;min-width:170px;text-align:center;text-transform:capitalize">'+schedMonth.toLocaleDateString(schedLoc(),{month:'long',year:'numeric'})+'</div>';
-    H+='<button onclick="schedMonth=new Date(schedMonth.getFullYear(),schedMonth.getMonth()+1,1);renderFlDash()" style="background:#16181d;border:1px solid #2a2d35;color:#fff;width:38px;height:38px;border-radius:9px;font-size:18px;cursor:pointer">\u203A</button>';
-    H+='</div>';
     H+='<div style="font-size:12px;color:#8b8b94;text-align:center;margin-bottom:12px">'+(schedCanEditScope()?'Driver schedule \u2014 tap any day to assign day / night drivers, vacation, sick & holidays.':'Driver schedule \u2014 tap any day to see who\u2019s on. View only.')+'</div>';
     if(schedCanEditScope()){
     H+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;background:#16181d;border:1.5px dashed #2a2d35;border-radius:10px;cursor:pointer;color:#c7c7cf;font-size:13px;font-weight:600;margin-bottom:6px">&#128193; Upload driver schedule (Excel)<input type="file" id="fl-schedule-file" accept=".xlsx,.xls" style="display:none" onchange="parseTechSchedule(this,\'forklift\')"></label>';
@@ -7734,8 +7729,8 @@ function schedScopeToggleHTML(){
   return '<div style="display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:4px;margin-bottom:14px">'+tab('tech','\uD83D\uDD27 '+schT('Maintenance'))+tab('forklift','\uD83D\uDE9C '+schT('Forklift'))+'</div>';
 }
 
-function schedShiftMonth(delta){ schedMonth=new Date(schedMonth.getFullYear(),schedMonth.getMonth()+delta,1); renderSchedule(); }
-function schedToday(){ var n=new Date(); schedMonth=new Date(n.getFullYear(),n.getMonth(),1); renderSchedule(); }
+function schedShiftMonth(delta){ schedMonth=new Date(schedMonth.getFullYear(),schedMonth.getMonth()+delta,1); schedRerender(); }
+function schedToday(){ var n=new Date(); schedMonth=new Date(n.getFullYear(),n.getMonth(),1); schedRerender(); }
 function schedEditTarget(){
   if(typeof user==='undefined'||user!==ADMIN){ toast('Only the admin can set the monthly target.',true); return; }
   var v=prompt(schT('Monthly target (hL):'), (monthlyTargetHL()||''));
