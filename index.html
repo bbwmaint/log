@@ -5585,7 +5585,7 @@ function notifyMaintenance(payload){
    ejsSend({
      to_email:MAILTO,
      subject:payload.subject||('BBW Maintenance \u2014 '+(payload.type||'notification')),
-     message:(payload.body||payload.message||'')+'\n\n\u2014\nPlease check the BBW Log for more details: https://bbwmaint.github.io/log/',
+     message:(payload.body||payload.message||'')+'\n\nThis is an automated message \u2014 please do not reply to this email.\n\n\u2014\nPlease check the BBW Log for more details: https://bbwmaint.github.io/log/',
      reporter:payload.reporter||payload.operator||'',
      asset_name:payload.asset_name||payload.asset||'',
      photos:(payload.photos||[]).join('\n')
