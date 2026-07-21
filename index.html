@@ -4748,12 +4748,24 @@ function woNextCode(){var maxN=WOS.reduce(function(m,w){var n=parseInt(String(w.
 function generateWOs(){
   return Promise.all([loadCMMS(),loadWOs(true)]).then(function(){
     var today=pmISO(new Date());
-    var openByPm={}; WOS.forEach(function(w){if(w.pm_id&&w.status!=='completed')openByPm[w.pm_id]=true;});
+    // Key everything by pm_code (stable) with pm_id as fallback — pm_id is not stable
+    // across local/DB loads, which used to let completed WOs regenerate.
+    var openByPm={}, doneByPm={};
+    WOS.forEach(function(w){
+      var key=w.pm_code||w.pm_id; if(!key)return;
+      if(w.status!=='completed'){ openByPm[key]=true; }
+      else if(w.completed_at){ var d=(''+w.completed_at).slice(0,10); if(!doneByPm[key]||d>doneByPm[key])doneByPm[key]=d; }
+    });
     var made=[];
     CMMS_PMS.forEach(function(p){
-      if(!p.active||!p.next_due||p.next_due>today)return;
-      if(openByPm[p.id])return;
-      made.push({pm_id:p.id,pm_code:p.code,asset:p.asset,asset_code:p.asset_code,description:p.description,priority:p.priority,wo_type:p.pm_type,assignee:p.assignee,status:'open',due_date:p.next_due,hours_est:p.hours});
+      if(!p.active)return;
+      var key=p.code||p.id;
+      if(openByPm[key])return;                     // already has an open WO
+      // Effective due date: if this PM was completed, the next one isn't due until a full
+      // interval AFTER that completion — so closing it doesn't respawn a WO the next day.
+      var effDue = (doneByPm[key]&&p.freq) ? pmAdvanceISO(p.freq, doneByPm[key]) : p.next_due;
+      if(!effDue || effDue>today) return;
+      made.push({pm_id:p.id,pm_code:p.code,asset:p.asset,asset_code:p.asset_code,description:p.description,priority:p.priority,wo_type:p.pm_type,assignee:p.assignee,status:'open',due_date:effDue,hours_est:p.hours});
     });
     if(!made.length)return 0;
     var base=woNextCode();
@@ -4904,9 +4916,9 @@ function completeWO(id, extras){
   if(noteParts.length)patch.notes=(w.notes?w.notes+' \u2022 ':'')+noteParts.join(' \u2022 ');
   sbFetch('bbw_wos?id=eq.'+id,{method:'PATCH',body:JSON.stringify(patch),headers:{'Prefer':'return=minimal'}}).then(function(){
     Object.assign(w,patch);
-    if(w.pm_id){
-      var p=CMMS_PMS.filter(function(x){return x.id===w.pm_id;})[0];
-      if(p&&p.freq){var nd=pmAdvanceISO(p.freq,today);sbFetch('bbw_pms?id=eq.'+p.id,{method:'PATCH',body:JSON.stringify({next_due:nd,last_done:today,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}}).then(function(){p.next_due=nd;p.last_done=today;});}
+    if(w.pm_id||w.pm_code){
+      var p=CMMS_PMS.filter(function(x){return (w.pm_code&&x.code===w.pm_code)||(w.pm_id&&x.id===w.pm_id);})[0];
+      if(p&&p.freq){var nd=pmAdvanceISO(p.freq,today);p.next_due=nd;p.last_done=today;if(p.code)sbFetch('bbw_pms?code=eq.'+encodeURIComponent(p.code),{method:'PATCH',body:JSON.stringify({next_due:nd,last_done:today,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}});}
     }
     try{logFromWO(w, extras);}catch(e){}
     try{if(gid('wo-list'))renderWOList();}catch(e){}
@@ -5893,7 +5905,7 @@ function openFlDashGate(){
   document.body.insertAdjacentHTML('beforeend',H);
   setTimeout(function(){var i=gid('fldash-pin');if(i)i.focus();},80);
 }
-function flDashGood(){FLDASH_OK=true;FLDASH_MONTH=new Date();try{flLoadDrivers();}catch(e){}try{flLoadNotifyEmail();}catch(e){}renderFlDash();}
+function flDashGood(){FLDASH_OK=true;FLDASH_MONTH=new Date();try{flLoadDrivers();}catch(e){}try{flLoadNotifyEmail();}catch(e){}try{loadSchedulesFromStorage();}catch(e){}try{loadSchedulesFromSB();}catch(e){}renderFlDash();}
 function flDashBad(){var e=gid('fldash-err');if(e)e.textContent='Incorrect PIN';var i=gid('fldash-pin');if(i){i.value='';i.focus();}}
 function flDashSubmitPin(){
   var v=(gid('fldash-pin')&&gid('fldash-pin').value||'').trim();
@@ -6407,11 +6419,15 @@ var INV_LOADED=false;
 function invAssetNames(){ return ASSETS.map(function(a){return a.n;}); }
 
 function loadInventory(cb){
+  // Instant local cache so a slow/failed fetch never shows an empty inventory.
+  try{ if(!INV.length){ var _c=localStorage.getItem('bbw_inv'); if(_c){ var _a=JSON.parse(_c); if(Array.isArray(_a)&&_a.length)INV=_a; } } }catch(e){}
   Promise.all([
     sbFetch('bbw_inventory?select=*&order=item.asc&limit=10000').then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}),
     sbFetch('bbw_system?select=inv_folders&id=eq.1').then(function(r){return r.ok?r.json():[];}).catch(function(){return [];})
   ]).then(function(res){
-    INV=Array.isArray(res[0])?res[0]:[];
+    var fresh=Array.isArray(res[0])?res[0]:[];
+    // Don't let a transient empty response wipe a good cached list.
+    if(fresh.length||!INV.length){ INV=fresh; try{localStorage.setItem('bbw_inv',JSON.stringify(INV));}catch(e){} }
     var sys=res[1]&&res[1][0];
     if(sys&&sys.inv_folders){ try{var f=JSON.parse(sys.inv_folders); if(Array.isArray(f))INV_CUSTOM_FOLDERS=f;}catch(e){} }
     INV_LOADED=true;
@@ -8270,7 +8286,10 @@ function loadSchedulesFromSB(){
       }
     });
     try{ cleanScheduleJunk(); }catch(e){}
-    try{if(typeof renderSchedule==='function'&&gid('pane-schedule')&&gid('pane-schedule').offsetParent!==null)renderSchedule();}catch(e){}
+    try{
+      if(typeof FLDASH_OK!=='undefined'&&FLDASH_OK&&typeof FLDASH_VIEW!=='undefined'&&FLDASH_VIEW==='schedule'){ renderFlDash(); }
+      else if(typeof renderSchedule==='function'&&gid('pane-schedule')&&gid('pane-schedule').offsetParent!==null){ renderSchedule(); }
+    }catch(e){}
     try{checkUBanner();}catch(e){}
   }).catch(function(e){console.log('loadSchedulesFromSB:',e.message);});
 }
