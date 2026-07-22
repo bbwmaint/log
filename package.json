@@ -1,0 +1,10 @@
+{
+  "name": "bbw-shift-report",
+  "private": true,
+  "type": "module",
+  "description": "Automatic BBW maintenance shift report \u2014 reads Supabase, builds the PDF, emails it.",
+  "dependencies": {
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8"
+  }
+}
