@@ -159,6 +159,9 @@ async function sendBrevo({ subject, html, text }, pdf, filename) {
   });
   const txt = await r.text();
   if (!r.ok) throw new Error(`Brevo ${r.status}: ${txt}`);
+  // Print what Brevo actually returned — the messageId is what you search their logs for.
+  console.log(`Brevo accepted (HTTP ${r.status}): ${txt}`);
+  console.log(`  from: ${BREVO_FROM}   to: ${TO_EMAIL}`);
   return txt;
 }
 
