@@ -179,8 +179,61 @@ async function sendEmailJS({ subject, text }) {
   return txt;
 }
 
+
+/* ── diagnostics: ask Brevo about the key the workflow is actually using ──── */
+async function brevoGet(path) {
+  const r = await fetch(`https://api.brevo.com/v3/${path}`, { headers: { 'api-key': BREVO_KEY, accept: 'application/json' } });
+  const t = await r.text();
+  return { status: r.status, body: t };
+}
+async function diagnose() {
+  if (!BREVO_KEY) { console.log('No BREVO_API_KEY set.'); return; }
+  console.log('=== Which Brevo account does this API key belong to? ===');
+  const acct = await brevoGet('account');
+  if (acct.status !== 200) console.log(`  account lookup failed (${acct.status}): ${acct.body}`);
+  else {
+    try {
+      const a = JSON.parse(acct.body);
+      console.log(`  login email : ${a.email}`);
+      console.log(`  company     : ${a.companyName}`);
+      const plan = (a.plan || []).map(p => `${p.type}${p.credits != null ? ` credits=${p.credits}` : ''}`).join(', ');
+      console.log(`  plan        : ${plan || '(none listed)'}`);
+      console.log('  ^ log in as THIS account to see the logs.');
+    } catch { console.log('  ' + acct.body.slice(0, 300)); }
+  }
+
+  console.log('\n=== Verified senders on this account ===');
+  const snd = await brevoGet('senders');
+  if (snd.status !== 200) console.log(`  senders lookup failed (${snd.status}): ${snd.body}`);
+  else {
+    try {
+      const list = (JSON.parse(snd.body).senders) || [];
+      if (!list.length) console.log('  NONE — nothing is verified, so nothing can be sent.');
+      list.forEach(x => console.log(`  ${x.active ? 'VERIFIED  ' : 'NOT ACTIVE'}  ${x.email}   (name: ${x.name})`));
+      const want = BREVO_FROM.toLowerCase();
+      const hit = list.find(x => (x.email || '').toLowerCase() === want);
+      console.log(`\n  BREVO_FROM is ${BREVO_FROM}`);
+      console.log(hit ? (hit.active ? '  -> matches a VERIFIED sender. Good.'
+                                    : '  -> matches a sender that is NOT verified yet. Click the link Brevo emailed to it.')
+                      : '  -> NOT in the list above. That is why nothing sends.');
+    } catch { console.log('  ' + snd.body.slice(0, 300)); }
+  }
+
+  console.log('\n=== Recent transactional events on this account ===');
+  const ev = await brevoGet('smtp/statistics/events?limit=10&sort=desc');
+  if (ev.status !== 200) console.log(`  events lookup failed (${ev.status}): ${ev.body}`);
+  else {
+    try {
+      const evs = (JSON.parse(ev.body).events) || [];
+      if (!evs.length) console.log('  none — Brevo has no delivery activity for this account at all.');
+      evs.forEach(e => console.log(`  ${e.date}  ${e.event.toUpperCase().padEnd(10)} ${e.email}  ${e.reason || ''}`));
+    } catch { console.log('  ' + ev.body.slice(0, 300)); }
+  }
+}
+
 /* ── main ───────────────────────────────────────────────────────────────── */
 async function main() {
+  if (flag('diagnose')) { await diagnose(); return; }
   const at    = val('at') ? new Date(val('at')) : new Date();
   const parts = localParts(at);
   const target = (val('date') && val('shift'))
