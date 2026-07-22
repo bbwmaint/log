@@ -28,7 +28,7 @@ const EJS_TPL   = process.env.EMAILJS_TEMPLATE || 'template_i01whhv';
 const TO_EMAIL  = process.env.REPORT_TO || 'maintenance@brunswickbierworks.com';
 const APP_URL   = process.env.APP_URL || 'https://bbwmaint.github.io/';
 const BREVO_KEY  = process.env.BREVO_API_KEY || '';
-const BREVO_FROM = process.env.BREVO_FROM || 'maintenance@brunswickbierworks.com';
+const BREVO_FROM = process.env.BREVO_FROM || '';
 const BREVO_API  = process.env.BREVO_ENDPOINT || 'https://api.brevo.com/v3/smtp/email';
 const EJS_API   = process.env.EMAILJS_ENDPOINT || 'https://api.emailjs.com/api/v1.0/email/send';
 
@@ -189,6 +189,13 @@ async function main() {
 
   console.log(`Toronto time: ${parts.date} ${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}`);
   console.log(`Target shift: ${target.date} ${target.shift}  (${shiftWindow(target)})`);
+  console.log(`Sender: ${BREVO_FROM || '(BREVO_FROM not set!)'}  ->  ${TO_EMAIL}`);
+  if (BREVO_KEY && !BREVO_FROM && !DRY) {
+    throw new Error('BREVO_FROM is not set. Add a repository VARIABLE named BREVO_FROM ' +
+                    'containing the exact address you verified in Brevo (Settings -> ' +
+                    'Secrets and variables -> Actions -> Variables tab). Refusing to send ' +
+                    'from a guessed address.');
+  }
 
   const claimId = `${target.date}_${target.shift}`;
   if (!DRY) {
