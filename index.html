@@ -2545,7 +2545,7 @@ function loadFromSB(){
   var today=td();
   var yesterday=new Date();yesterday.setDate(yesterday.getDate()-3);
   var yd=localDateStr(yesterday);
-  sbFetch('bbw_worklog?date=gte.'+yd+'&order=logged_at.asc')
+  return sbFetch('bbw_worklog?date=gte.'+yd+'&order=logged_at.asc')
     .then(function(r){return r.json();})
     .then(function(data){
       console.log('BBW: Got', Array.isArray(data)?data.length:'ERROR', 'entries from Supabase', data);
@@ -7100,50 +7100,60 @@ function buildReport(){
   return b;
 }
 
+// ── Shift report picker ────────────────────────────────────────────────────────
+// Shifts are anchored the same way logs are: a night shift that runs 19:00 -> 07:00
+// belongs to the date it STARTED on. Each option therefore shows the real clock
+// window so "the shift I just finished" is never ambiguous at 07:00.
+function shiftPrev(s){
+  if(s.shift==='Night')return {date:s.date,shift:'Day'};          // day precedes that night, same anchor
+  var d=new Date(s.date+'T12:00:00'); d.setDate(d.getDate()-1);
+  return {date:localDateStr(d),shift:'Night'};
+}
+function shiftWindowLabel(s){
+  function md(ds){ var d=new Date(ds+'T12:00:00'); return isNaN(d)?ds:d.toLocaleDateString(lang==='uk'?'uk-UA':'en-CA',{month:'short',day:'numeric'}); }
+  if(s.shift==='Day')return md(s.date)+' 07:00 \u2192 19:00';
+  var nd=new Date(s.date+'T12:00:00'); nd.setDate(nd.getDate()+1);
+  return md(s.date)+' 19:00 \u2192 '+md(localDateStr(nd))+' 07:00';
+}
+function recentShifts(n){
+  var cur={date:shiftAnchor(),shift:(isDay()?'Day':'Night')};
+  var out=[cur];
+  for(var i=1;i<n;i++)out.push(shiftPrev(out[out.length-1]));
+  return out;
+}
 function generateAndSendReport(){
-  // Ask which shift period to report on
-  var now=new Date();
-  var h=now.getHours();
-  var todayStr=td();
-  var yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
-  var yesterdayStr=localDateStr(yesterday);
-
-  // Build options based on current time
-  var options=[];
-  // Always offer today's day shift
-  // Always show all relevant options
-  if(h>=19||h<7){
-    options.push({label:'Tonight Night Shift ('+todayStr+' 19:00-07:00)',date:todayStr,shift:'Night'});
+  var list=recentShifts(5);
+  var uk=(lang==='uk');
+  function tag(i){
+    if(i===0)return uk?'\u0412 \u0440\u043e\u0431\u043e\u0442\u0456':'In progress';
+    if(i===1)return uk?'\u0429\u043e\u0439\u043d\u043e \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0430':'Just ended';
+    return '';
   }
-  options.push({label:'Today Day Shift ('+todayStr+' 07:00-19:00)',date:todayStr,shift:'Day'});
-  options.push({label:'Yesterday Night Shift ('+yesterdayStr+' 19:00-07:00)',date:yesterdayStr,shift:'Night'});
-  options.push({label:'Yesterday Day Shift ('+yesterdayStr+' 07:00-19:00)',date:yesterdayStr,shift:'Day'});
-
-  // Build modal
-  var modalHtml='<div id="shift-pick-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px">';
-  modalHtml+='<div style="background:var(--surface);border-radius:16px;width:100%;max-width:380px;overflow:hidden">';
-  modalHtml+='<div style="padding:18px 20px;border-bottom:1px solid var(--border)"><div style="font-size:17px;font-weight:700;color:#fff">Generate Shift Report</div>';
-  modalHtml+='<div style="font-size:13px;color:var(--text-2);margin-top:3px">Select the shift period</div></div>';
-  modalHtml+='<div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">';
-  options.forEach(function(opt){
-    modalHtml+='<button class="spb" data-d="'+opt.date+'" data-s="'+opt.shift+'" style="width:100%;padding:13px 16px;background:var(--surface-2);color:#fff;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;margin-bottom:0">'+opt.label+'</button>';
+  var H='<div id="shift-pick-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px">';
+  H+='<div style="background:var(--surface);border-radius:16px;width:100%;max-width:400px;overflow:hidden">';
+  H+='<div style="padding:18px 20px;border-bottom:1px solid var(--border)"><div style="font-size:17px;font-weight:700;color:#fff">'+(uk?'\u0417\u0432\u0456\u0442 \u0437\u043c\u0456\u043d\u0438':'Shift Report')+'</div>';
+  H+='<div style="font-size:13px;color:var(--text-2);margin-top:3px">'+(uk?'\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0437\u043c\u0456\u043d\u0443':'Select the shift')+'</div></div>';
+  H+='<div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto">';
+  list.forEach(function(s,i){
+    var t=tag(i);
+    var nm=(s.shift==='Day')?(uk?'\u0414\u0435\u043d\u043d\u0430 \u0437\u043c\u0456\u043d\u0430':'Day shift'):(uk?'\u041d\u0456\u0447\u043d\u0430 \u0437\u043c\u0456\u043d\u0430':'Night shift');
+    var col=(s.shift==='Day')?'#f59e0b':'#60a5fa';
+    H+='<button class="spb" data-d="'+s.date+'" data-s="'+s.shift+'" style="width:100%;padding:12px 14px;background:var(--surface-2);color:#fff;border:1.5px solid '+(i===1?col:'var(--border)')+';border-radius:10px;cursor:pointer;text-align:left">';
+    H+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:14.5px;font-weight:700">'+nm+'</span>';
+    if(t)H+='<span style="font-size:10px;font-weight:800;color:'+col+';border:1px solid '+col+'66;border-radius:6px;padding:2px 6px;text-transform:uppercase;letter-spacing:.04em">'+t+'</span>';
+    H+='</div><div style="font-size:12px;color:var(--text-3);margin-top:3px">'+shiftWindowLabel(s)+'</div></button>';
   });
-  modalHtml+='<button class="spm-cancel" style="width:100%;padding:11px;background:none;color:var(--text-3);border:1px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer">Cancel</button>';
-  modalHtml+='</div></div></div>';
-  document.body.insertAdjacentHTML('beforeend',modalHtml);
-  // Wire up buttons after insertion
+  H+='<button class="spm-cancel" style="width:100%;padding:11px;background:none;color:var(--text-3);border:1px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer">'+T('Cancel')+'</button>';
+  H+='</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
   var modal2=document.getElementById('shift-pick-modal');
   if(modal2){
-    var cancel=modal2.querySelector('.spm-cancel');if(cancel)cancel.addEventListener('click',function(){modal2.remove();});
+    var cancel=modal2.querySelector('.spm-cancel'); if(cancel)cancel.addEventListener('click',function(){modal2.remove();});
     modal2.querySelectorAll('.spb').forEach(function(b){
-      b.addEventListener('click',function(){
-        pickShiftReport(this.getAttribute('data-d'),this.getAttribute('data-s'));
-      });
+      b.addEventListener('click',function(){ pickShiftReport(this.getAttribute('data-d'),this.getAttribute('data-s')); });
     });
   }
 }
-
-// ─────────── REPORT ENGINE (PDF + smart summary + send) ───────────
 function computeShiftReport(date,shift){
   var se=allE.filter(function(e){return e.date===date&&e.shift===shift;});
   se.sort(function(a,b){return (a.loggedAt||'').localeCompare(b.loggedAt||'');});
@@ -7438,6 +7448,17 @@ function viewReportPDF(date,shift){
 // Action sheet shown after a shift period is picked.
 function pickShiftReport(date,shift){
   var modal=document.getElementById('shift-pick-modal'); if(modal)modal.remove();
+  // Always refresh the log first — an app left open (or a failed sync) would otherwise
+  // build the report from stale entries.
+  reportLoading(true);
+  var p;
+  try{ p=loadFromSB(); }catch(e){ p=null; }
+  Promise.resolve(p).catch(function(){}).then(function(){
+    reportLoading(false);
+    _showShiftReport(date,shift);
+  });
+}
+function _showShiftReport(date,shift){
   var R=computeShiftReport(date,shift);
   var lines=reportSummaryLines(R);
   var shiftLabel=(shift==='Day'?'Day Shift':'Night Shift');
