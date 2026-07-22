@@ -18,6 +18,10 @@ on:
         description: 'Print the email instead of sending it'
         type: boolean
         default: false
+      diagnose:
+        description: 'Ask Brevo which account this key belongs to and what it can send'
+        type: boolean
+        default: false
 
 jobs:
   send:
@@ -41,4 +45,5 @@ jobs:
           if [ -n "${{ github.event.inputs.date }}" ];  then ARGS="$ARGS --date ${{ github.event.inputs.date }}"; fi
           if [ -n "${{ github.event.inputs.shift }}" ]; then ARGS="$ARGS --shift ${{ github.event.inputs.shift }}"; fi
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ "${{ github.event.inputs.diagnose }}" = "true" ]; then ARGS="--diagnose"; fi
           node scripts/send-shift-report.mjs $ARGS
