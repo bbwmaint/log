@@ -34,8 +34,8 @@ jobs:
           SUPABASE_URL:   ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY:   ${{ secrets.SUPABASE_KEY }}
           BREVO_API_KEY:  ${{ secrets.BREVO_API_KEY }}
-          BREVO_FROM:     ${{ vars.BREVO_FROM  || 'maintenance@brunswickbierworks.com' }}
-          REPORT_TO:      ${{ vars.REPORT_TO   || 'maintenance@brunswickbierworks.com' }}
+          BREVO_FROM:     ${{ vars.BREVO_FROM || secrets.BREVO_FROM }}
+          REPORT_TO:      ${{ vars.REPORT_TO || secrets.REPORT_TO || 'maintenance@brunswickbierworks.com' }}
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.date }}" ];  then ARGS="$ARGS --date ${{ github.event.inputs.date }}"; fi
