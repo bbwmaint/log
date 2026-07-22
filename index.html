@@ -2768,7 +2768,9 @@ function handoffSummary(){
   var prev=allE.filter(function(e){return !e.deleted&&e.date===pk.date&&e.shift===pk.shift;});
   if(!prev.length)return '';
   var urg=prev.filter(function(e){return isIssueType(e)&&(e.priority==='urgent'||e.priority==='high');});
-  var down=prev.filter(function(e){return e.machineDown==='yes';});
+  // "Still down" means work is STILL OPEN on a machine that is down. A completed
+  // log means the tech fixed it and the machine is back up, so it must not appear.
+  var down=prev.filter(function(e){return e.type==='ongoing'&&e.machineDown==='yes';});
   var parts=prev.filter(function(e){return e.type==='part'||e.type==='parts';});
   var note=''; prev.forEach(function(e){ if(e.shiftNote)note=e.shiftNote; });
   if(!urg.length&&!down.length&&!parts.length&&!note)return '';
