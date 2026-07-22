@@ -274,7 +274,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
       <button id="lb-en" onclick="setLang('en')" style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:5px;background:#fff;color:#111;cursor:pointer">EN</button>
       <button id="lb-uk" onclick="setLang('uk')" style="padding:5px 11px;font-size:12px;font-weight:600;border:none;border-radius:5px;background:none;color:var(--text-3);cursor:pointer">УК</button>
     </div>
-    <button id="theme-tgl" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle light / dark" style="display:flex;align-items:center;justify-content:center;width:34px;height:30px;background:#2a2a2a;border:1px solid var(--border-2);border-radius:7px;color:var(--text-2);cursor:pointer;padding:0;flex-shrink:0;margin-left:2px"><span id="theme-ic" style="font-size:15px;line-height:1">&#127769;</span></button>
+    <button id="theme-tgl" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle light / dark" style="display:flex;align-items:center;justify-content:center;width:34px;height:30px;background:#2a2a2a;border:1px solid var(--border-2);border-radius:7px;color:var(--text-2);cursor:pointer;padding:0;flex-shrink:0;margin-left:2px"><span id="theme-ic" style="display:flex;line-height:0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg></span></button>
   </div>
 
   <!-- SHIFT BAR -->
@@ -463,7 +463,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     <div style="font-size:12px;color:var(--text-2);margin-bottom:6px" id="lbl-photo">Photo (optional)</div>
     <div style="display:flex;gap:8px">
       <button type="button" onclick="document.getElementById('photo-in').click()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px">&#128247; <span id="lbl-takephoto">Take Photo</span></button>
-      <button type="button" onclick="document.getElementById('photo-lib').click()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px">&#128194; <span id="lbl-library">From Library</span></button>
+      <button type="button" onclick="document.getElementById('photo-lib').click()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px"> <span id="lbl-library">From Library</span></button>
     </div>
     <div id="photo-thumbs" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:9px"></div>
     <div id="photo-lbl" style="font-size:12px;color:var(--text-3);margin-top:6px">&#128247; No photos yet</div>
@@ -479,7 +479,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
 <div id="send-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:16px">
 <div style="background:var(--surface);border-radius:18px;width:100%;max-width:380px;overflow:hidden">
   <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border)">
-    <div style="font-size:18px;font-weight:700;color:#fff">&#9200; Send Shift Report?</div>
+    <div style="font-size:18px;font-weight:700;color:#fff">Send Shift Report?</div>
     <div style="font-size:13px;color:var(--text-2);margin-top:4px" id="send-sub"></div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);padding:14px 16px;gap:8px;border-bottom:1px solid var(--border)" id="send-stats"></div>
@@ -627,7 +627,7 @@ var TRANS = {
     templates: 'Templates', quickadd: 'Quick Add', type: 'Type', asset: 'Asset',
     whatdone: 'What was done / Issue', start: 'Start', end: 'End', dthrs: 'DT hrs',
     partnumber: 'Part name / number', priority: 'Priority', photo: 'Photo (optional)',
-    tapphoто: '\uD83D\uDCF7 Tap to add photo', photoadded: '\uD83D\uDCF7 Photo added',
+    tapphoто: 'Tap to add photo', photoadded: 'Photo added',
     nothing: 'Nothing logged yet', tapplus: 'Tap + to log your first task',
     noshift: 'No entries this shift yet', noprev: 'No previous shift data',
     tasks: 'Tasks', issues: 'Issues', parts: 'Parts', dthrs2: 'DT hrs',
@@ -641,7 +641,7 @@ var TRANS = {
     rep_tab:'Reports', rep_tap:'Tap an asset to view its Calibration, Service and PM documents', rep_tapedit:' and upload files', rep_search:'Search asset name or code…', rep_noassets:'No assets found',
     doc_calibration:'Calibration', doc_service:'Service Reports', doc_pms:'PMs', doc_filters:'Filters', doc_allassets:'All assets', doc_all:'All', doc_upload:'Upload PDF to ', doc_nodocs:'No documents yet.', doc_view:'View', doc_loading:'Loading…',
     flt_intro:'Filters in use for this asset — model, quantity, and next change due.', flt_add:'Add filter record', flt_none_e:'No filter records yet.', flt_none_v:'No filter records yet — ask Praful or Lahcen to add them.', flt_nextdue:'Next due', flt_last:'Last changed ', flt_qty:'Qty ', flt_every:'every ',
-    req_tab:'Requests', req_viewdetails:'View details', req_selectone:'Select a request to view its details', req_wr:'Work Requests', req_open:'open', req_noopen:'No open requests right now.', req_follow:'Cross-dept Follow-ups', req_nofollow:'None right now. Technicians can raise one with the "Follow-up" log type.', req_completed:'Completed', st_new:'New', st_inprogress:'In Progress', st_parts:'Parts Ordered', st_done:'Done', req_parts:'Parts ordered', req_start:'Start', req_markdone:'Mark done', req_addnote:'Add note', req_by:'By ', req_closedby:'Closed by ', req_loggedlog:' • logged to work log', req_noteprompt:'Add a note (visible to everyone):', req_photo:'Photo ', req_loading:'Loading requests…', pin_open:'Open Work Requests', pin_viewall:'View all ›', req_followtag:'FOLLOW-UP', req_raisedby:'Raised by ', followup:'Follow-up', pm_due_title:'PM tasks due', pm_overdue:'Overdue', pm_due:'Due', pm_done:'Done', wo_complete_title:'Complete work order', wo_hours:'Hours spent', wo_parts:'Parts used (optional)', wo_parts_ph:'e.g. 2x belt, 1x seal', wo_note:'Notes (optional)', wo_note_ph:'What was done, findings…', wo_mark_complete:'Mark complete', cmms_trend:'On-time compliance trend', dashboard:'Dashboard', inventory:'Inventory', cmms:'CMMS', maintsys:'Maintenance System', navback:'Back',
+    req_tab:'Requests', req_viewdetails:'View details', req_selectone:'Select a request to view its details', req_wr:'Work Requests', req_open:'open', req_noopen:'No open requests right now.', req_follow:'Cross-dept Follow-ups', req_nofollow:'None right now. Technicians can raise one with the "Follow-up" log type.', req_completed:'Completed', st_new:'New', st_inprogress:'In Progress', st_parts:'Parts Ordered', st_done:'Done', req_parts:'Parts ordered', req_start:'Start', req_markdone:'Mark done', req_addnote:'Add note', req_by:'By ', req_closedby:'Closed by ', req_loggedlog:' • logged to work log', req_noteprompt:'Add a note (visible to everyone):', req_photo:'Photo ', req_loading:'Loading requests…', pin_open:'Open Work Requests', pin_viewall:'View all ›', req_followtag:'FOLLOW-UP', req_raisedby:'Raised by ', followup:'Follow-up', pm_due_title:'PM tasks due', pm_overdue:'Overdue', pm_due:'Due', pm_done:'Done', wo_complete_title:'Complete work order', wo_hours:'Hours spent', wo_parts:'Parts used (optional)', wo_parts_ph:'e.g. 2x belt, 1x seal', wo_note:'Notes (optional)', wo_note_ph:'What was done, findings…', wo_mark_complete:'Mark complete', mywork:'My Work', mw_none:'Nothing due — you’re all caught up', mw_none_sub:'New PM tasks will appear here automatically.', mw_mine:'Assigned to you', mw_other:'Also due — anyone can take', mw_duetoday:'Due today', mw_completed:'Completed', mw_undo:'UNDO', mw_adddetails:'Add details', mw_details_title:'Add details (optional)', mw_save:'Save', mw_saved:'Details saved', mw_tap:'Tap for steps', pm_tasks:'Tasks', pm_recent:'Recent completions', pm_nosteps:'No detailed steps on file yet.', pm_nocompletions:'No completions logged yet.', mw_open:'open', cmms_trend:'On-time compliance trend', dashboard:'Dashboard', inventory:'Inventory', cmms:'CMMS', maintsys:'Maintenance System', navback:'Back',
   },
   uk: {
     mylog: '\u0416\u0443\u0440\u043d\u0430\u043b', shift: '\u0417\u043c\u0456\u043d\u0430', prev: '\u041f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u044f', util: '\u041a\u043e\u043c\u0443\u043d\u0430\u043b\u044c\u043d\u0456', more: '\u0411\u0456\u043b\u044c\u0448\u0435', schedule: '\u0413\u0440\u0430\u0444\u0456\u043a', assets: '\u0410\u043a\u0442\u0438\u0432\u0438',
@@ -653,7 +653,7 @@ var TRANS = {
     templates: '\u0428\u0430\u0431\u043b\u043e\u043d\u0438', quickadd: '\u0428\u0432\u0438\u0434\u043a\u0435 \u0434\u043e\u0434\u0430\u0432\u0430\u043d\u043d\u044f', type: '\u0422\u0438\u043f', asset: '\u0410\u043a\u0442\u0438\u0432',
     whatdone: '\u0429\u043e \u0437\u0440\u043e\u0431\u043b\u0435\u043d\u043e / \u041f\u0440\u043e\u0431\u043b\u0435\u043c\u0430', start: '\u041f\u043e\u0447\u0430\u0442\u043e\u043a', end: '\u041a\u0456\u043d\u0435\u0446\u044c', dthrs: '\u041f\u0440\u043e\u0441\u0442\u0456\u0439',
     partnumber: '\u041d\u0430\u0437\u0432\u0430 / \u043d\u043e\u043c\u0435\u0440 \u0434\u0435\u0442\u0430\u043b\u0456', priority: '\u041f\u0440\u0456\u043e\u0440\u0438\u0442\u0435\u0442', photo: '\u0424\u043e\u0442\u043e (\u043d\u0435\u043e\u0431\u043e\u0432\u2019\u044f\u0437\u043a\u043e\u0432\u043e)',
-    tapphoто: '\uD83D\uDCF7 \u041d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c \u0434\u043b\u044f \u0444\u043e\u0442\u043e', photoadded: '\uD83D\uDCF7 \u0424\u043e\u0442\u043e \u0434\u043e\u0434\u0430\u043d\u043e',
+    tapphoто: '\u041d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c \u0434\u043b\u044f \u0444\u043e\u0442\u043e', photoadded: '\u0424\u043e\u0442\u043e \u0434\u043e\u0434\u0430\u043d\u043e',
     nothing: '\u041d\u0456\u0447\u043e\u0433\u043e \u043d\u0435 \u0437\u0430\u043f\u0438\u0441\u0430\u043d\u043e', tapplus: '\u041d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c + \u0449\u043e\u0431 \u0434\u043e\u0434\u0430\u0442\u0438 \u0437\u0430\u043f\u0438\u0441',
     noshift: '\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043f\u0438\u0441\u0456\u0432 \u0446\u0456\u0454\u0457 \u0437\u043c\u0456\u043d\u0438', noprev: '\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445 \u043f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u044c\u043e\u0457 \u0437\u043c\u0456\u043d\u0438',
     tasks: '\u0417\u0430\u0432\u0434\u0430\u043d\u043d\u044f', issues: '\u041f\u0440\u043e\u0431\u043b\u0435\u043c\u0438', parts: '\u0414\u0435\u0442\u0430\u043b\u0456', dthrs2: '\u041f\u0440\u043e\u0441\u0442\u0456\u0439',
@@ -668,7 +668,7 @@ var TRANS = {
     rep_tab:'Звіти', rep_tap:'Торкніться активу, щоб переглянути документи калібрування, обслуговування та ТО', rep_tapedit:' та завантажити файли', rep_search:'Пошук назви або коду активу…', rep_noassets:'Активів не знайдено',
     doc_calibration:'Калібрування', doc_service:'Звіти про обслуговування', doc_pms:'ТО', doc_filters:'Фільтри', doc_allassets:'Усі активи', doc_all:'Усі', doc_upload:'Завантажити PDF: ', doc_nodocs:'Поки немає документів.', doc_view:'Переглянути', doc_loading:'Завантаження…',
     flt_intro:'Фільтри для цього активу — модель, кількість і дата наступної заміни.', flt_add:'Додати запис про фільтр', flt_none_e:'Поки немає записів про фільтри.', flt_none_v:'Поки немає записів — попросіть Praful або Lahcen додати їх.', flt_nextdue:'Наступна заміна', flt_last:'Остання заміна ', flt_qty:'К-сть ', flt_every:'кожні ',
-    req_tab:'Заявки', req_viewdetails:'Переглянути деталі', req_selectone:'Виберіть заявку, щоб переглянути деталі', req_wr:'Заявки на роботу', req_open:'відкритих', req_noopen:'Зараз немає відкритих заявок.', req_follow:'Міжвідділкові звернення', req_nofollow:'Зараз немає. Техніки можуть створити запис типу «Подальші дії».', req_completed:'Виконано', st_new:'Нова', st_inprogress:'В роботі', st_done:'Виконано', req_start:'Почати', req_markdone:'Позначити виконаним', req_addnote:'Додати нотатку', req_by:'Від ', req_closedby:'Закрив(ла) ', req_loggedlog:' • записано в журнал', req_noteprompt:'Додайте нотатку (видно всім):', req_photo:'Фото ', req_loading:'Завантаження заявок…', pin_open:'Відкриті заявки', pin_viewall:'Переглянути всі ›', req_followtag:'ЗВЕРНЕННЯ', req_raisedby:'Подав(ла) ', followup:'Подальші дії', pm_due_title:'Завдання ТО', pm_overdue:'Прострочено', pm_due:'Термін', pm_done:'Готово', wo_complete_title:'Завершити наряд', wo_hours:'Витрачені години', wo_parts:'Використані деталі (необов’язково)', wo_parts_ph:'напр. 2x ремінь, 1x ущільнення', wo_note:'Нотатки (необов’язково)', wo_note_ph:'Що зроблено, виявлено…', wo_mark_complete:'Позначити виконаним', cmms_trend:'Тренд своєчасності', choosename:'Будь ласка, виберіть своє ім’я', st_parts:'Деталі замовлено', req_parts:'Деталі замовлено', dashboard:'Панель', inventory:'Склад', cmms:'CMMS', maintsys:'Система обслуговування', navback:'Назад',
+    req_tab:'Заявки', req_viewdetails:'Переглянути деталі', req_selectone:'Виберіть заявку, щоб переглянути деталі', req_wr:'Заявки на роботу', req_open:'відкритих', req_noopen:'Зараз немає відкритих заявок.', req_follow:'Міжвідділкові звернення', req_nofollow:'Зараз немає. Техніки можуть створити запис типу «Подальші дії».', req_completed:'Виконано', st_new:'Нова', st_inprogress:'В роботі', st_done:'Виконано', req_start:'Почати', req_markdone:'Позначити виконаним', req_addnote:'Додати нотатку', req_by:'Від ', req_closedby:'Закрив(ла) ', req_loggedlog:' • записано в журнал', req_noteprompt:'Додайте нотатку (видно всім):', req_photo:'Фото ', req_loading:'Завантаження заявок…', pin_open:'Відкриті заявки', pin_viewall:'Переглянути всі ›', req_followtag:'ЗВЕРНЕННЯ', req_raisedby:'Подав(ла) ', followup:'Подальші дії', pm_due_title:'Завдання ТО', pm_overdue:'Прострочено', pm_due:'Термін', pm_done:'Готово', wo_complete_title:'Завершити наряд', wo_hours:'Витрачені години', wo_parts:'Використані деталі (необов’язково)', wo_parts_ph:'напр. 2x ремінь, 1x ущільнення', wo_note:'Нотатки (необов’язково)', wo_note_ph:'Що зроблено, виявлено…', wo_mark_complete:'Позначити виконаним', mywork:'Моя робота', mw_none:'Немає завдань — все виконано', mw_none_sub:'Нові завдання ТО з’являться тут автоматично.', mw_mine:'Призначено вам', mw_other:'Також потрібно — може взяти будь-хто', mw_duetoday:'Сьогодні', mw_completed:'Виконано', mw_undo:'СКАСУВАТИ', mw_adddetails:'Додати деталі', mw_details_title:'Додати деталі (необов’язково)', mw_save:'Зберегти', mw_saved:'Деталі збережено', mw_tap:'Натисніть для кроків', pm_tasks:'Завдання', pm_recent:'Останні виконання', pm_nosteps:'Детальні кроки ще не додані.', pm_nocompletions:'Ще не виконувалось.', mw_open:'відкрито', cmms_trend:'Тренд своєчасності', choosename:'Будь ласка, виберіть своє ім’я', st_parts:'Деталі замовлено', req_parts:'Деталі замовлено', dashboard:'Панель', inventory:'Склад', cmms:'CMMS', maintsys:'Система обслуговування', navback:'Назад',
   }
 };
 
@@ -689,7 +689,7 @@ function updateShiftPreview(){
   var lbl=isNaN(d)?dstr:d.toLocaleDateString('en-CA',{weekday:'short',month:'short',day:'numeric'});
   var col=(shift==='Night')?'#60a5fa':'#f59e0b';
   el.style.color=col; el.style.borderColor=col+'66'; el.style.background=col+'14';
-  el.innerHTML=(shift==='Night'?'\uD83C\uDF19 ':'\u2600\uFE0F ')+'Files under <b>'+shift+' shift</b> \u00b7 '+lbl+((ovDate||ovShift)?' <span style="opacity:.7;font-weight:700">(manual)</span>':'');
+  el.innerHTML=''+'Files under <b>'+shift+' shift</b> \u00b7 '+lbl+((ovDate||ovShift)?' <span style="opacity:.7;font-weight:700">(manual)</span>':'');
   el.style.display='block';
 }
 function localDateStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -901,7 +901,15 @@ function loginUser(name){
   try{renderAll();}catch(e){console.error('renderAll',e);}
   try{autoGenerateWOs();}catch(e){}
   try{showPage('pg-app');}catch(e){console.error('showPage',e);}
-  try{if(window.matchMedia&&window.matchMedia('(min-width:1000px)').matches&&isEditor())showTab('dash');}catch(e){}
+  // Landing tab: managers get the dashboard on desktop; technicians open straight into My Work.
+  try{
+    var _last=null; try{_last=sessionStorage.getItem('bbw_tab');}catch(_e){}
+    if(_last&&gid('pane-'+_last)) showTab(_last);                       // page refresh -> stay put
+    else if(window.matchMedia&&window.matchMedia('(min-width:1000px)').matches&&isEditor()) showTab('dash');
+    else showTab('log');                                                // fresh start -> first page
+  }catch(e){}
+  // Keep the My Work count fresh once work orders arrive.
+  try{ loadWOs(true).then(function(){ try{injectMyPMTasks();}catch(e){} }); }catch(e){}
   try{checkUBanner();}catch(e){console.error('checkUBanner',e);}
   // Refresh every 5 minutes (was 30s — that polling was the main egress driver)
   setInterval(function(){if(user)loadFromSB();},300000);
@@ -950,7 +958,7 @@ function showReqToast(req){
   closeBtn.textContent='\u00d7';
   closeBtn.style.cssText='background:none;border:none;color:#666;font-size:18px;cursor:pointer;padding:0;margin-left:4px;flex-shrink:0;align-self:flex-start';
   closeBtn.onclick=function(ev){ev.stopPropagation();d.remove();};
-  d.innerHTML='<div style="display:flex;align-items:flex-start;gap:10px"><div style="font-size:22px;flex-shrink:0">\uD83D\uDD14</div><div style="min-width:0"><div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:3px">New Request \u2014 '+escHtml(asset)+'</div><div style="font-size:12px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">From: '+escHtml(reporter)+'</div><div style="font-size:11px;color:#60a5fa;margin-top:6px;font-weight:600">Tap to view \u2192</div></div></div>';
+  d.innerHTML='<div style="display:flex;align-items:flex-start;gap:10px"><div style="min-width:0"><div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:3px">New Request \u2014 '+escHtml(asset)+'</div><div style="font-size:12px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">From: '+escHtml(reporter)+'</div><div style="font-size:11px;color:#60a5fa;margin-top:6px;font-weight:600">Tap to view \u2192</div></div></div>';
   d.firstChild.appendChild(closeBtn);
   d.addEventListener('click',function(){
     showTab('requests');
@@ -1122,7 +1130,7 @@ function updateClock(){
   gid('tlbl').textContent=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
   var day=isDay();
   var pill=gid('spill');
-  pill.textContent=day?'\u2600 Day':'\uD83C\uDF19 Night';
+  pill.textContent=day?'Day':'Night';
   pill.style.background='transparent';
   pill.style.color='var(--text-2)';
   var elapsed=day?(h-7+m/60):(h>=19?h-19+m/60:h+5+m/60);
@@ -1154,6 +1162,7 @@ function showTab(name){
     if(tb){tb.style.color='var(--text-3)';tb.style.borderBottomColor='transparent';tb.classList.remove('dz-active');}
   });
   gid('pane-'+name).style.display='block';
+  try{sessionStorage.setItem('bbw_tab',name);}catch(e){}
   try{closeNav();}catch(e){}
   var atb=gid('tab-'+name);
   if(atb){atb.style.color='#fff';atb.style.borderBottomColor='#fff';atb.classList.add('dz-active');}
@@ -1432,7 +1441,7 @@ function calcDT(){
 
 function handlePhoto(input){
   var files=input.files;if(!files||!files.length)return;
-  gid('photo-lbl').textContent='\u23F3 Processing\u2026';
+  gid('photo-lbl').textContent='Processing\u2026';
   var pending=files.length;
   Array.prototype.forEach.call(files,function(file){
     var r=new FileReader();
@@ -1456,7 +1465,7 @@ function handlePhoto(input){
 function renderPhotoThumbs(){
   var c=gid('photo-thumbs'),lbl=gid('photo-lbl'); if(!c)return;
   c.innerHTML=photos.map(function(p,i){return '<div style="position:relative;width:70px;height:70px"><img src="'+p+'" onclick="openLB(\''+p+'\',\'\')" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer"><button type="button" onclick="removePhoto('+i+')" style="position:absolute;top:-7px;right:-7px;width:21px;height:21px;border-radius:50%;background:var(--bad);color:#fff;border:2px solid var(--bg);font-size:12px;line-height:1;cursor:pointer;padding:0">\u00d7</button></div>';}).join('');
-  if(lbl)lbl.textContent=photos.length?('\uD83D\uDCF7 '+photos.length+' photo'+(photos.length>1?'s':'')+' added'):'\uD83D\uDCF7 No photos yet';
+  if(lbl)lbl.textContent=photos.length?(''+photos.length+' photo'+(photos.length>1?'s':'')+' added'):'No photos yet';
 }
 function removePhoto(i){photos.splice(i,1);renderPhotoThumbs();
 }
@@ -1665,7 +1674,7 @@ function renderDocList(){
     var dragAttrs=' ondragover="event.preventDefault();this.style.background=\'rgba(96,165,250,.10)\'" ondragleave="this.style.background=\'\'" ondrop="this.style.background=\'\';docDrop(event,decodeURIComponent(\''+enc+'\'))"';
     H+='<div style="margin-bottom:9px;border:1px solid var(--border);border-radius:11px;overflow:hidden"'+dragAttrs+'>';
     H+='<div style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--surface-2)">';
-    H+='<div onclick="docToggleFolder(decodeURIComponent(\''+enc+'\'))" style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;min-width:0"><span style="font-size:16px">\uD83D\uDCC1</span><span style="font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+rqEsc(fname)+'</span><span style="font-size:11px;color:var(--text-3)">'+files.length+'</span></div>';
+    H+='<div onclick="docToggleFolder(decodeURIComponent(\''+enc+'\'))" style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;min-width:0"><span style="font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+rqEsc(fname)+'</span><span style="font-size:11px;color:var(--text-3)">'+files.length+'</span></div>';
     if(isEditor())H+='<button onclick="docUploadPick(decodeURIComponent(\''+enc+'\'))" style="display:inline-flex;align-items:center;gap:5px;background:none;border:1px solid var(--border);color:var(--text-2);font-size:11.5px;font-weight:600;cursor:pointer;padding:5px 10px;border-radius:8px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Add files</button>';
     if(isEditor())H+='<button onclick="docRenameFolder(decodeURIComponent(\''+enc+'\'))" style="background:none;border:none;color:var(--text-3);font-size:11.5px;cursor:pointer;padding:4px 6px">Rename</button>';
     if(isEditor())H+='<button onclick="docDeleteFolder(decodeURIComponent(\''+enc+'\'))" style="background:none;border:none;color:#ef4444;font-size:11.5px;cursor:pointer;padding:4px 6px">Delete</button>';
@@ -1692,7 +1701,7 @@ function docUpload(input){ docUploadFiles(input.files, DOC_UPLOAD_TARGET); try{i
 function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 function docRow(d){
   var H='<div style="background:var(--surface);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:11px">';
-  H+='<div style="font-size:20px">\uD83D\uDCC4</div>';
+  H+='';
   H+='<div style="flex:1;min-width:0;cursor:pointer" onclick="docOpen(\''+d.id+'\')">';
   H+='<div style="font-size:13.5px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(d.filename||'document')+'</div>';
   H+='<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+(d.year||'')+' \u2022 '+(d.uploaded_by||'')+' \u2022 '+docFmtDate(d.created_at)+'</div></div>';
@@ -1735,9 +1744,9 @@ function docMove(id){
   H+='<div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:3px">Move file</div>';
   H+='<div style="font-size:12px;color:var(--text-3);margin-bottom:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+rqEsc(d.filename||'')+'</div>';
   function opt(label,val,cur){ return '<div onclick="docMoveApply(\''+id+'\',this.getAttribute(\'data-f\'))" data-f="'+escAttr(val)+'" style="padding:11px 13px;border-radius:9px;margin-bottom:6px;background:'+(cur?'var(--surface-2)':'transparent')+';border:1px solid '+(cur?'#2563eb':'var(--border)')+';color:#fff;font-size:13.5px;cursor:pointer">'+rqEsc(label)+(cur?'   \u2713':'')+'</div>'; }
-  H+=opt('\uD83D\uDCC4 No folder (unfiled)','__none__',!d.folder);
-  folders.forEach(function(f){ H+=opt('\uD83D\uDCC1 '+f, f, d.folder===f); });
-  H+=opt('\u2795 New folder\u2026','__new__',false);
+  H+=opt('No folder (unfiled)','__none__',!d.folder);
+  folders.forEach(function(f){ H+=opt(''+f, f, d.folder===f); });
+  H+=opt('New folder\u2026','__new__',false);
   H+='</div></div>';
   document.body.insertAdjacentHTML('beforeend',H);
 }
@@ -1926,7 +1935,7 @@ function renderFlRequestForm(){
   var uk=(lang==='uk');
   var H='<div style="max-width:560px;margin:0 auto;padding:26px 20px;width:100%;box-sizing:border-box">';
   H+='<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:10px">'+langBtn('en','EN')+langBtn('uk','\u0423\u041a')+'</div>';
-  H+='<div style="font-size:34px;text-align:center;margin-bottom:6px">\uD83D\uDE9C</div>';
+  H+='';
   H+='<div style="font-size:23px;font-weight:800;color:#fff;text-align:center">'+(uk?'\u0417\u0430\u043f\u0438\u0442 \u043d\u0430 \u043d\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0443\u0432\u0430\u0447':'Forklift Help Request')+'</div>';
   H+='<div style="font-size:13px;color:var(--text-3);text-align:center;margin:6px 0 22px">'+(uk?'\u041f\u043e\u0442\u0440\u0456\u0431\u0435\u043d \u043d\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0443\u0432\u0430\u0447? \u0417\u0430\u043f\u043e\u0432\u043d\u0456\u0442\u044c \u0444\u043e\u0440\u043c\u0443, \u0456 \u043a\u043e\u043c\u0430\u043d\u0434\u0430 \u0434\u043e\u043f\u043e\u043c\u043e\u0436\u0435.':'Need a forklift or driver? Fill this out and the forklift team will help.')+'</div>';
   H+=fld((uk?'\u0412\u0430\u0448\u0435 \u0456\u043c\'\u044f':'Your name'),'<input id="fq-name" style="'+inp+'">');
@@ -1960,7 +1969,7 @@ function submitFlRequest(btn){
 function flRequestSubmitted(){
   var el=gid('pg-request'); if(!el)return;
   var uk=(lang==='uk');
-  el.innerHTML='<div style="max-width:520px;margin:0 auto;padding:64px 26px;text-align:center"><div style="font-size:56px;margin-bottom:14px">\u2705</div><div style="font-size:23px;font-weight:800;color:#fff;margin-bottom:10px">'+(uk?'\u0417\u0430\u043f\u0438\u0442 \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u043d\u043e':'Request submitted')+'</div><div style="font-size:14.5px;color:var(--text-2);line-height:1.6">'+(uk?'\u0414\u044f\u043a\u0443\u0454\u043c\u043e. \u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u043d\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0443\u0432\u0430\u0447\u0430 \u043e\u0442\u0440\u0438\u043c\u0430\u043b\u0430 \u0432\u0430\u0448 \u0437\u0430\u043f\u0438\u0442.':'Thank you. The forklift team has received your request and will follow up. You can close this page now.')+'</div><button onclick="location.hash=\'\';location.reload()" style="margin-top:26px;background:var(--surface-2);border:1px solid var(--border);color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;cursor:pointer">'+(uk?'\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u0449\u0435':'Submit another')+'</button></div>';
+  el.innerHTML='<div style="max-width:520px;margin:0 auto;padding:64px 26px;text-align:center"><div style="width:60px;height:60px;margin:0 auto 16px;border-radius:50%;background:rgba(22,163,74,.15);border:2px solid #16a34a;display:flex;align-items:center;justify-content:center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></svg></div><div style="font-size:23px;font-weight:800;color:#fff;margin-bottom:10px">'+(uk?'\u0417\u0430\u043f\u0438\u0442 \u043d\u0430\u0434\u0456\u0441\u043b\u0430\u043d\u043e':'Request submitted')+'</div><div style="font-size:14.5px;color:var(--text-2);line-height:1.6">'+(uk?'\u0414\u044f\u043a\u0443\u0454\u043c\u043e. \u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u043d\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0443\u0432\u0430\u0447\u0430 \u043e\u0442\u0440\u0438\u043c\u0430\u043b\u0430 \u0432\u0430\u0448 \u0437\u0430\u043f\u0438\u0442.':'Thank you. The forklift team has received your request and will follow up. You can close this page now.')+'</div><button onclick="location.hash=\'\';location.reload()" style="margin-top:26px;background:var(--surface-2);border:1px solid var(--border);color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;cursor:pointer">'+(uk?'\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438 \u0449\u0435':'Submit another')+'</button></div>';
 }
 var FL_NOTIFY_EMAIL='';  // set by forklift supervisor / admin; loaded from bbw_system
 function flLoadNotifyEmail(){
@@ -1992,7 +2001,7 @@ function notifyForkliftTeam(payload){
 
 function requestSubmitted(){
   var el=gid('pg-request'); if(!el)return;
-  el.innerHTML='<div style="max-width:520px;margin:0 auto;padding:64px 26px;text-align:center"><div style="font-size:56px;margin-bottom:14px">\u2705</div><div style="font-size:23px;font-weight:800;color:#fff;margin-bottom:10px">'+T('rq_thanks_t')+'</div><div style="font-size:14.5px;color:var(--text-2);line-height:1.6">'+T('rq_thanks_b')+'</div><button onclick="location.hash=\'\';location.reload()" style="margin-top:26px;background:var(--surface-2);border:1px solid var(--border);color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;cursor:pointer">'+T('rq_another')+'</button></div>';
+  el.innerHTML='<div style="max-width:520px;margin:0 auto;padding:64px 26px;text-align:center"><div style="width:60px;height:60px;margin:0 auto 16px;border-radius:50%;background:rgba(22,163,74,.15);border:2px solid #16a34a;display:flex;align-items:center;justify-content:center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></svg></div><div style="font-size:23px;font-weight:800;color:#fff;margin-bottom:10px">'+T('rq_thanks_t')+'</div><div style="font-size:14.5px;color:var(--text-2);line-height:1.6">'+T('rq_thanks_b')+'</div><button onclick="location.hash=\'\';location.reload()" style="margin-top:26px;background:var(--surface-2);border:1px solid var(--border);color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;cursor:pointer">'+T('rq_another')+'</button></div>';
 }
 
 // ---------- In-app inbox ----------
@@ -2038,10 +2047,10 @@ function reqCard(r){
   H+='<div style="font-size:13px;color:var(--text-1);line-height:1.5;margin-bottom:7px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+rqEsc(r.work)+'</div>';
   H+='<div style="font-size:11px;color:var(--text-3)">'+T('req_by')+rqEsc(r.reporter)+' \u2022 '+rqEsc(r.department)+' \u2022 '+docFmtDate(r.created_at)+'</div>';
   var chips='';
-  if(photos.length) chips+='<span style="color:#60a5fa">\ud83d\udcce '+photos.length+'</span>';
-  if(notes.length) chips+='<span style="color:var(--text-3)">\ud83d\udcac '+notes.length+'</span>';
+  if(photos.length) chips+='<span style="color:#60a5fa">'+(lang==='uk'?'\u0424\u043e\u0442\u043e ':'Photos ')+photos.length+'</span>';
+  if(notes.length) chips+='<span style="color:var(--text-3)">'+(lang==='uk'?'\u041d\u043e\u0442\u0430\u0442\u043a\u0438 ':'Notes ')+notes.length+'</span>';
   if(done&&r.closed_by) chips+='<span style="color:#16a34a">'+T('req_closedby')+rqEsc(r.closed_by)+'</span>';
-  if(r.assignee) chips+='<span style="color:#c8a24b">\uD83D\uDC64 '+rqEsc(r.assignee)+'</span>';
+  if(r.assignee) chips+='<span style="color:#c8a24b">'+rqEsc(r.assignee)+'</span>';
   if(chips) H+='<div style="display:flex;gap:12px;margin-top:7px;font-size:11px">'+chips+'<span style="margin-left:auto;color:#f59e0b">'+T('pin_viewall')+'</span></div>';
   else H+='<div style="text-align:right;margin-top:4px;font-size:11px;color:#f59e0b">'+T('pin_viewall')+'</div>';
   H+='<button onclick="event.stopPropagation();openRequest('+r.id+')" style="width:100%;margin-top:10px;background:#2563eb;border:none;color:#fff;font-size:13.5px;font-weight:700;padding:12px;border-radius:9px;cursor:pointer">'+T('req_viewdetails')+' \u203a</button>';
@@ -2193,7 +2202,7 @@ function _photoPlaceholder(img){
     var u=img.getAttribute('src')||'';
     var a=document.createElement('a'); a.href=u; a.target='_blank'; a.rel='noopener';
     a.style.cssText='width:92px;height:92px;border-radius:10px;border:1px dashed var(--border-2);background:var(--surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:9.5px;font-weight:600;color:var(--text-3);text-decoration:none;line-height:1.25;padding:4px;box-sizing:border-box';
-    a.innerHTML='<span style="font-size:17px;margin-bottom:2px">\uD83D\uDDBC\uFE0E</span>'+(lang==='uk'?'\u0424\u043e\u0442\u043e<br>\u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0435':'Photo<br>unavailable');
+    a.innerHTML='<span style="font-size:17px;margin-bottom:2px">\uFE0E</span>'+(lang==='uk'?'\u0424\u043e\u0442\u043e<br>\u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0435':'Photo<br>unavailable');
     if(img.parentNode)img.parentNode.replaceChild(a,img);
   }catch(e){}
 }
@@ -2205,8 +2214,8 @@ function requestDetailBody(r){
   H+='<div style="font-size:15px;color:var(--text-1);line-height:1.6;white-space:pre-wrap;margin-bottom:14px">'+rqEsc(r.work)+'</div>';
   H+='<div style="background:var(--surface);border-radius:10px;padding:12px;font-size:13px;color:var(--text-2);margin-bottom:14px">';
   H+='<div style="margin-bottom:5px">'+T('req_by')+'<b style="color:#fff">'+rqEsc(r.reporter)+'</b> \u2022 '+rqEsc(r.department)+'</div>';
-  if(r.assignee)H+='<div style="margin-bottom:5px;color:#c8a24b">\uD83D\uDC64 Assigned to <b>'+rqEsc(r.assignee)+'</b></div>';
-  if(r.contact)H+='<div style="margin-bottom:5px">\u2709\ufe0f '+rqEsc(r.contact)+'</div>';
+  if(r.assignee)H+='<div style="margin-bottom:5px;color:#c8a24b">Assigned to <b>'+rqEsc(r.assignee)+'</b></div>';
+  if(r.contact)H+='<div style="margin-bottom:5px">'+rqEsc(r.contact)+'</div>';
   H+='<div style="color:var(--text-3)">'+docFmtDate(r.created_at)+'</div>';
   if(done_by_line(r))H+=done_by_line(r);
   H+='</div>';
@@ -2218,7 +2227,7 @@ function requestDetailBody(r){
       TECHS.forEach(function(t){aOpts+='<option value="'+rqEsc(t)+'"'+(r.assignee===t?' selected':'')+'>'+rqEsc(t)+'</option>';});
       H+='<div style="margin-top:16px"><label style="font-size:11px;font-weight:700;color:#c8a24b;text-transform:uppercase;letter-spacing:.04em">Assign to</label><select onchange="reqAssign('+r.id+',this.value)" style="width:100%;box-sizing:border-box;margin-top:5px;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px">'+aOpts+'</select></div>';
     }
-    H+='<button onclick="emailRequestIssue('+r.id+',this)" style="width:100%;margin-top:16px;background:transparent;border:1px solid #2563eb;color:#60a5fa;font-size:13.5px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">\u2709\ufe0f Email this issue (PDF)</button>';
+    H+='<button onclick="emailRequestIssue('+r.id+',this)" style="width:100%;margin-top:16px;background:transparent;border:1px solid #2563eb;color:#60a5fa;font-size:13.5px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">Email this issue (PDF)</button>';
     H+='<div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">';
     if(r.status==='new')H+='<button onclick="reqSetStatus('+r.id+',\'in_progress\');closeRequestDetail()" style="'+rqBtn('#3b82f6')+'">'+T('req_start')+'</button>';
     if(r.status!=='done'&&r.status!=='parts_ordered')H+='<button onclick="reqSetStatus('+r.id+',\'parts_ordered\');closeRequestDetail()" style="'+rqBtn('#a855f7')+'">'+(T('req_parts')||'Parts ordered')+'</button>';
@@ -2240,7 +2249,7 @@ function followupDetailBody(e){
   if(photos.length){ H+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'; photos.forEach(function(u){ var us=(''+u).replace(/'/g,'%27'); H+='<img src="'+us+'" onclick="openLB(\''+us+'\',\''+rqEsc(e.assetName||'')+'\')" onerror="photoFallback(this)" style="width:92px;height:92px;border-radius:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)">'; }); H+='</div>'; }
   if(e.type==='followup_done'){ H+='<div style="width:100%;margin-top:8px;background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.4);color:#34d399;font-size:13.5px;font-weight:700;padding:12px;border-radius:10px;text-align:center">\u2713 Completed</div>'; }
   else { H+='<button onclick="resolveFollowup('+e.id+',this)" style="width:100%;margin-top:8px;background:#16a34a;border:none;color:#fff;font-size:14px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">\u2713 Mark complete</button>'; }
-  H+='<button onclick="emailFollowupIssue('+e.id+',this)" style="width:100%;margin-top:8px;background:transparent;border:1px solid #2563eb;color:#60a5fa;font-size:13.5px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">\u2709\ufe0f Email this issue (PDF)</button>';
+  H+='<button onclick="emailFollowupIssue('+e.id+',this)" style="width:100%;margin-top:8px;background:transparent;border:1px solid #2563eb;color:#60a5fa;font-size:13.5px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">Email this issue (PDF)</button>';
   return H;
 }
 function resolveFollowup(id, btn){
@@ -2308,7 +2317,7 @@ function resetCMMSSchedule(){
       try{if(gid('cmms-wos'))renderWOModule();}catch(e){}
       try{injectMyPMTasks();}catch(e){}
       var n=CMMS_PMS.filter(function(p){return p.active!==false;}).length;
-      alert('Done \u2705  '+n+' PMs re-baselined from today \u2014 first jobs appear tomorrow. All work orders cleared.');
+      alert('Done  '+n+' PMs re-baselined from today \u2014 first jobs appear tomorrow. All work orders cleared.');
     }).catch(function(e){alert('PMs reset partly failed: '+e.message);});
   }).catch(function(e){alert('Reset failed: '+e.message);});
 }
@@ -2386,7 +2395,7 @@ function injectPinnedRequests(){
   var open=REQUESTS.filter(function(r){return r.status!=='done';});
   if(!open.length)return;
   var H='<div onclick="showTab(\'requests\')" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);border-radius:12px;padding:11px 13px;margin-bottom:14px;cursor:pointer">';
-  H+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><span style="font-size:15px">\ud83d\udccc</span><span style="font-size:12px;font-weight:800;color:#f59e0b;text-transform:uppercase;letter-spacing:.04em">'+open.length+' '+T('pin_open')+'</span><span style="margin-left:auto;font-size:11px;color:#f59e0b">'+T('pin_viewall')+'</span></div>';
+  H+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><span style="font-size:12px;font-weight:800;color:#f59e0b;text-transform:uppercase;letter-spacing:.04em">'+open.length+' '+T('pin_open')+'</span><span style="margin-left:auto;font-size:11px;color:#f59e0b">'+T('pin_viewall')+'</span></div>';
   open.slice(0,3).forEach(function(r){ H+='<div style="font-size:12px;color:var(--text-1);padding:5px 0;border-top:1px solid rgba(245,158,11,.15)"><b style="color:#fff">'+rqEsc(r.asset_name||r.department)+':</b> '+rqEsc((r.work||'').slice(0,72))+((r.work||'').length>72?'\u2026':'')+'</div>'; });
   if(open.length>3) H+='<div style="font-size:11px;color:#f59e0b;padding-top:5px">+ '+(open.length-3)+'</div>';
   H+='</div>';
@@ -2695,7 +2704,7 @@ function openAssetHistory(code,name){
   H+='<div style="padding:12px 18px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border)">';
   H+='<span style="font-size:11px;font-weight:800;letter-spacing:.04em;color:'+sc[0]+';background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 10px">'+sc[1]+'</span>';
   H+='<span style="font-size:11px;font-weight:700;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 10px">'+list.length+' log'+(list.length===1?'':'s')+'</span>';
-  if(rec>=3)H+='<span style="font-size:11px;font-weight:800;letter-spacing:.03em;color:#fb923c;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.4);border-radius:8px;padding:6px 10px">\u26a0 '+(lang==='uk'?'\u041f\u041e\u0412\u0422\u041e\u0420':'RECURRING')+' \u00b7 '+rec+'/14d</span>';
+  if(rec>=3)H+='<span style="font-size:11px;font-weight:800;letter-spacing:.03em;color:#fb923c;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.4);border-radius:8px;padding:6px 10px">'+(lang==='uk'?'\u041f\u041e\u0412\u0422\u041e\u0420':'RECURRING')+' \u00b7 '+rec+'/14d</span>';
   H+='</div><div style="overflow-y:auto;padding:12px 14px">';
   if(!list.length)H+='<div style="text-align:center;padding:30px;color:var(--text-3)">'+(lang==='uk'?'\u041d\u0435\u043c\u0430\u0454 \u0456\u0441\u0442\u043e\u0440\u0456\u0457':'No history for this asset')+'</div>';
   list.forEach(function(e){
@@ -2738,7 +2747,7 @@ function openStatusBoard(){
     var sub=r.e.issue?rqEsc(r.e.issue):(r.e.desc?rqEsc(r.e.desc.slice(0,42)):'');
     H+='<div onclick="ahOpen('+t+')" style="display:flex;align-items:center;gap:11px;background:var(--surface-2);border-radius:10px;padding:11px 12px;margin-bottom:7px;cursor:pointer">';
     H+='<span style="width:10px;height:10px;border-radius:50%;background:'+col+';flex-shrink:0;box-shadow:0 0 0 3px '+col+'22"></span>';
-    H+='<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+rqEsc(r.name||'')+(rec?' <span style="color:#fb923c;font-size:11px">\u26a0</span>':'')+'</div>';
+    H+='<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+rqEsc(r.name||'')+(rec?' ':'')+'</div>';
     H+='<div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+dl+(sub?' \u00b7 '+sub:'')+'</div></div>';
     H+='<span style="font-size:10px;font-weight:800;letter-spacing:.04em;color:'+col+';flex-shrink:0">'+lmap[r.st.s]+'</span></div>';
   });
@@ -2909,11 +2918,11 @@ function card(e,mine){
   html+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:7px">';
   var _aTok=ahLink(e.assetCode,e.assetName);
   var _recur=isRecurringAsset(e.assetCode,e.assetName);
-  html+='<div class="lbl" onclick="ahOpen('+_aTok+')" style="padding-top:2px;cursor:pointer">'+(e.assetName||e.partName||'General')+(e.assetCode?' \u00b7 '+e.assetCode:'')+' <span style="opacity:.45;font-weight:600;font-size:9.5px;letter-spacing:.02em">\u2637</span></div>';
+  html+='<div class="lbl" onclick="ahOpen('+_aTok+')" style="padding-top:2px;cursor:pointer">'+(e.assetName||e.partName||'General')+(e.assetCode?' \u00b7 '+e.assetCode:'')+' </div>';
   html+='<span class="chip '+chClass+'"><span class="d"></span>'+(labels[e.type]||e.type)+'</span>';
   if(e.priority==='urgent'||e.priority==='high')html+='';
   html+='</div>';
-  if(_recur&&isIssueType(e))html+='<div onclick="ahOpen('+_aTok+')" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;letter-spacing:.03em;color:#fb923c;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.35);border-radius:6px;padding:3px 7px;margin-bottom:6px;cursor:pointer">\u26a0 '+(lang==='uk'?'\u041f\u041e\u0412\u0422\u041e\u0420\u041d\u0410 \u041f\u0420\u041e\u0411\u041b\u0415\u041c\u0410':'RECURRING FAULT')+'</div>';
+  if(_recur&&isIssueType(e))html+='<div onclick="ahOpen('+_aTok+')" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;letter-spacing:.03em;color:#fb923c;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.35);border-radius:6px;padding:3px 7px;margin-bottom:6px;cursor:pointer">'+(lang==='uk'?'\u041f\u041e\u0412\u0422\u041e\u0420\u041d\u0410 \u041f\u0420\u041e\u0411\u041b\u0415\u041c\u0410':'RECURRING FAULT')+'</div>';
   if(e.issue)html+='<div style="font-size:15.5px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:3px">'+e.issue+'</div>';
   if(e.desc)html+='<div style="font-size:13.5px;color:var(--text-2);line-height:1.55;white-space:pre-wrap">'+e.desc+'</div>';
   if(e.partName&&e.type==='part')html+='<div style="font-size:13px;color:var(--text-2);margin-top:4px">Part: '+e.partName+' \u00d7'+e.partQty+'</div>';
@@ -3039,7 +3048,7 @@ function renderLog(){
     return;
   }
   if(!mine.length&&!myPMs.length){
-    el.innerHTML=H+'<div style="text-align:center;padding:40px 20px;color:var(--text-3)"><div style="font-size:40px;margin-bottom:10px">&#128203;</div><div style="font-size:16px;font-weight:600;color:#777">'+T('Nothing logged yet')+'</div><div style="font-size:14px;margin-top:6px">'+T('Tap + to log your first task')+'</div></div>';
+    el.innerHTML=H+'<div style="text-align:center;padding:40px 20px;color:var(--text-3)"><div style="font-size:40px;margin-bottom:10px"></div><div style="font-size:16px;font-weight:600;color:#777">'+T('Nothing logged yet')+'</div><div style="font-size:14px;margin-top:6px">'+T('Tap + to log your first task')+'</div></div>';
     try{injectPinnedRequests();}catch(e){}
     try{injectMyPMTasks();}catch(e){}
     return;
@@ -3876,8 +3885,8 @@ function renderDashOverlay(month){
     H+='</div>';
     // Download buttons
     H+='<div style="display:flex;gap:9px;margin-bottom:16px">';
-    H+='<button onclick="monthlyReportPDF()" class="btn-primary" style="flex:1;padding:12px;font-size:13px">\u2b07 PDF</button>';
-    H+='<button onclick="dashboardXLSX()" class="btn-ghost" style="flex:1;padding:12px;font-size:13px">\u2b07 Excel</button>';
+    H+='<button onclick="monthlyReportPDF()" class="btn-primary" style="flex:1;padding:12px;font-size:13px">PDF</button>';
+    H+='<button onclick="dashboardXLSX()" class="btn-ghost" style="flex:1;padding:12px;font-size:13px">Excel</button>';
     H+='</div>';
     // Panels with canvases
     H+=dashPanel('Downtime by Asset \u2014 machine-down only','<div style="height:'+Math.max(160,D.downtimeByAsset.slice(0,10).length*30+40)+'px"><canvas id="ch-dt"></canvas></div>'+(D.downtimeByAsset.length?'':'<div style="color:var(--text-3);font-size:12px">No machine-down events logged this month.</div>'));
@@ -4119,7 +4128,7 @@ function renderWeekOverlay(){
     if(C.volHL>0)prodInner+='<div style="height:130px"><canvas id="wk-vol"></canvas></div>';
     else prodInner+='<div style="color:var(--text-3);font-size:12px">No production logged for this week. Add hL on the Schedule tab.</div>';
     H+=dashPanel('Production',prodInner);
-    H+='<div style="display:flex;gap:9px;margin-bottom:16px"><button onclick="weekPDF()" class="btn-primary" style="flex:1;padding:11px;font-size:13px">\uD83D\uDCC4 PDF</button><button onclick="weekXLSX()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px">\u2b07 Excel</button></div>';
+    H+='<div style="display:flex;gap:9px;margin-bottom:16px"><button onclick="weekPDF()" class="btn-primary" style="flex:1;padding:11px;font-size:13px">PDF</button><button onclick="weekXLSX()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px">Excel</button></div>';
     // Day vs Night panel
     var dnH='<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">'+
       '<div style="background:var(--surface-2);border-left:3px solid #f59e0b;border-radius:9px;padding:11px"><div style="font-size:11px;color:#f59e0b;font-weight:700;margin-bottom:5px">Day shift</div><div style="font-size:19px;font-weight:800;color:#fff" class="tnum">'+C.dayNight.Day.tasks+'</div><div style="font-size:10px;color:var(--text-3)">tasks \u00b7 '+C.dayNight.Day.dt+'h down</div></div>'+
@@ -4811,7 +4820,7 @@ function woSelect(id){
 }
 function assetDetailBody(assetName, logs, totalDT, totalCO){
   var H='';
-  H+='<button onclick="openAssetDocs(\''+assetCodeFor(assetName)+'\',\''+(''+assetName).replace(/'/g,"&#39;")+'\')" style="width:100%;padding:13px;margin-bottom:14px;background:linear-gradient(95deg,#2563eb,#3b82f6);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer">\uD83D\uDCC1 Reports &amp; Documents</button>';
+  H+='<button onclick="openAssetDocs(\''+assetCodeFor(assetName)+'\',\''+(''+assetName).replace(/'/g,"&#39;")+'\')" style="width:100%;padding:13px;margin-bottom:14px;background:linear-gradient(95deg,#2563eb,#3b82f6);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Reports &amp; Documents</button>';
   H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
   H+='<div style="background:var(--surface);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#fff">'+logs.length+'</div><div style="font-size:10px;color:var(--text-2);text-transform:uppercase">Logs</div></div>';
   H+='<div style="background:var(--surface);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#ef4444">'+totalDT.toFixed(1)+'h</div><div style="font-size:10px;color:var(--text-2);text-transform:uppercase">DT</div></div>';
@@ -4828,7 +4837,7 @@ function renderWOModule(){
     var assignees=Array.from(new Set(WOS.map(function(w){return w.assignee;}).filter(Boolean))).sort();
     var H='';
     H+='<div style="display:flex;gap:8px;margin-bottom:11px">';
-    H+='<button onclick="doGenerateWOs(this)" class="btn-primary" style="flex:1;padding:11px;font-size:13px">\u2699\ufe0f Generate due WOs</button>';
+    H+='<button onclick="doGenerateWOs(this)" class="btn-primary" style="flex:1;padding:11px;font-size:13px">Generate due WOs</button>';
     H+='<button onclick="openWOForm()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px">+ Work order</button>';
     H+='</div>';
     H+='<button onclick="resetCMMSSchedule()" class="btn-ghost" style="width:100%;padding:10px;font-size:12.5px;margin-bottom:11px;color:#f87171;border-color:rgba(248,113,113,.4)">\u21bb Reset schedule — start fresh from today</button>';
@@ -4844,11 +4853,11 @@ function renderWOModule(){
 function doGenerateWOs(btn){
   if(btn){btn.disabled=true;btn.textContent='Generating\u2026';}
   generateWOs().then(function(n){
-    if(btn){btn.disabled=false;btn.innerHTML='\u2699\ufe0f Generate due WOs';}
+    if(btn){btn.disabled=false;btn.innerHTML='Generate due WOs';}
     if(n<0){alert('Generate failed \u2014 check the bbw_wos table.');return;}
     renderWOModule();
     setTimeout(function(){alert(n===0?'No new work orders \u2014 nothing is due that doesn\u2019t already have an open WO.':n+' work order'+(n>1?'s':'')+' generated.');},150);
-  }).catch(function(e){if(btn){btn.disabled=false;btn.innerHTML='\u2699\ufe0f Generate due WOs';}alert('Generate failed: '+e.message);});
+  }).catch(function(e){if(btn){btn.disabled=false;btn.innerHTML='Generate due WOs';}alert('Generate failed: '+e.message);});
 }
 function woFilter(){
   return WOS.filter(function(w){
@@ -4964,7 +4973,10 @@ function doWOComplete(id){
   var parts=gid('wo-c-parts')?gid('wo-c-parts').value:'';
   var note=gid('wo-c-note')?gid('wo-c-note').value:'';
   closeWOComplete();
+  // If this WO was one-tap completed and is waiting to commit, commit it WITH these details.
+  if(typeof _pendingWODone!=='undefined'&&_pendingWODone&&_pendingWODone.id===id){ flushPendingWO({hours:hours,parts:parts,note:note}); return; }
   completeWO(id,{hours:hours,parts:parts,note:note});
+  try{mwRefresh();}catch(e){}
 }
 function autoGenerateWOs(){
   if(!CMMS_ENABLED||!isEditor())return Promise.resolve(0);
@@ -5076,23 +5088,90 @@ function updateCmmsBadge(){
   var overdue=WOS.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<today;}).length;
   setTabLabel('cmms','CMMS'+(overdue?'<span style="color:#f87171;font-weight:800"> '+overdue+'</span>':''));
 }
+// ═══════════ PM tasks due — compact row at the top of My Log, one-tap done ═══════════
+var _pendingWODone=null;   // {id, timer} — deferred commit so UNDO never needs a rollback
+function mwDue(){
+  var today=pmISO(new Date());
+  return (typeof WOS!=='undefined'?WOS:[]).filter(function(w){
+    return w && w.status!=='completed' && !w._pendingDone && w.due_date && w.due_date<=today;
+  }).sort(function(a,b){
+    var me=(typeof user!=='undefined'&&user)?user:'';
+    var am=(a.assignee===me)?0:1, bm=(b.assignee===me)?0:1;   // my own first
+    if(am!==bm)return am-bm;
+    return (a.due_date||'').localeCompare(b.due_date||'');     // then oldest/overdue first
+  });
+}
+function quickCompleteWO(id){
+  var w=(typeof WOS!=='undefined'?WOS:[]).filter(function(x){return x.id===id;})[0];
+  if(!w||w.status==='completed')return;
+  flushPendingWO();                 // only one pending at a time
+  w._pendingDone=true;
+  _pendingWODone={id:id, timer:setTimeout(function(){ flushPendingWO(); },6000)};
+  mwRefresh();
+  showWODoneToast();
+}
+function flushPendingWO(extras){
+  var p=_pendingWODone; if(!p)return;
+  _pendingWODone=null;
+  if(p.timer)clearTimeout(p.timer);
+  var t=document.getElementById('wo-done-toast'); if(t)t.remove();
+  var w=(typeof WOS!=='undefined'?WOS:[]).filter(function(x){return x.id===p.id;})[0];
+  if(w)delete w._pendingDone;
+  try{ completeWO(p.id, extras||{}); }catch(e){}
+  mwRefresh();
+}
+function undoPendingWO(){
+  var p=_pendingWODone; if(!p)return;
+  _pendingWODone=null;
+  if(p.timer)clearTimeout(p.timer);
+  var w=(typeof WOS!=='undefined'?WOS:[]).filter(function(x){return x.id===p.id;})[0];
+  if(w)delete w._pendingDone;
+  var t=document.getElementById('wo-done-toast'); if(t)t.remove();
+  mwRefresh();
+  try{toast('\u21a9\uFE0E '+T('mw_undo'));}catch(e){}
+}
+function mwRefresh(){
+  try{ injectMyPMTasks(); }catch(e){}
+}
+function showWODoneToast(){
+  var old=document.getElementById('wo-done-toast'); if(old)old.remove();
+  var d=document.createElement('div'); d.id='wo-done-toast';
+  d.style.cssText='position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#14532d;color:#fff;padding:11px 14px 11px 18px;border-radius:12px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 10px 34px rgba(0,0,0,.45);display:flex;align-items:center;gap:14px;max-width:94%';
+  d.innerHTML='<span>\u2713 '+T('mw_completed')+'</span>'+
+    '<button onclick="openWODetailsPending()" style="background:none;border:none;color:#a7f3d0;font-weight:700;font-size:13px;cursor:pointer;padding:2px 4px;white-space:nowrap">+ '+T('mw_adddetails')+'</button>'+
+    '<button onclick="undoPendingWO()" style="background:none;border:none;color:#fbbf24;font-weight:800;font-size:13.5px;cursor:pointer;padding:2px 6px;letter-spacing:.03em">'+T('mw_undo')+'</button>';
+  document.body.appendChild(d);
+  setTimeout(function(){ if(document.getElementById('wo-done-toast')===d){ d.style.transition='opacity .4s'; d.style.opacity='0'; setTimeout(function(){if(d.parentNode)d.remove();},420);} },5600);
+}
+function openWODetailsPending(){
+  var p=_pendingWODone; if(!p)return;
+  if(p.timer)clearTimeout(p.timer);              // hold the commit while they type
+  var t=document.getElementById('wo-done-toast'); if(t)t.remove();
+  openWOComplete(p.id);
+}
+// Never lose a completion if the app is closed/backgrounded mid-countdown.
+try{
+  document.addEventListener('visibilitychange',function(){ if(document.hidden)flushPendingWO(); });
+  window.addEventListener('pagehide',function(){ flushPendingWO(); });
+}catch(e){}
 function injectMyPMTasks(){
   var pane=gid('pane-log'); if(!pane)return;
   var ex=gid('mypm-tasks'); if(ex)ex.remove();
-  if(!WOS_LOADED||typeof user==='undefined'||!user)return;
+  if(typeof WOS_LOADED==='undefined'||!WOS_LOADED||typeof user==='undefined'||!user)return;
+  var due=mwDue(); if(!due.length)return;
   var today=pmISO(new Date());
-  var mine=WOS.filter(function(w){return w.status!=='completed'&&w.assignee===user&&w.due_date&&w.due_date<=today;});
-  if(!mine.length)return;
-  mine.sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');});
+  var me=user;
   var H='<div id="mypm-tasks" style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.35);border-radius:12px;padding:12px 13px;margin-bottom:14px">';
-  H+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px"><span style="font-size:15px">\ud83d\udd27</span><span style="font-size:12px;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:.04em">'+T('pm_due_title')+' \u00b7 '+mine.length+'</span></div>';
-  mine.forEach(function(w){
+  H+='<div style="font-size:12px;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:.04em;margin-bottom:9px">'+T('pm_due_title')+' \u00b7 '+due.length+'</div>';
+  due.forEach(function(w){
     var overdue=w.due_date<today;
-    H+='<div onclick="openPMTask('+w.id+')" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(96,165,250,.15);cursor:pointer">';
-    H+='<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--text);font-weight:600">'+rqEsc(pmDescFor(w)||'\u2014')+'</div>';
-    H+='<div style="font-size:11px;color:'+(overdue?'#f87171':'var(--text-3)')+'">'+rqEsc(w.asset||'')+' \u00b7 '+(overdue?T('pm_overdue'):T('pm_due'))+' '+w.due_date+'</div></div>';
-    H+='<span style="font-size:16px;color:var(--text-3);flex-shrink:0">\u203a</span>';
-    H+='<button onclick="event.stopPropagation();openWOComplete('+w.id+')" style="background:#2563eb;border:none;color:#fff;font-size:12px;font-weight:700;padding:9px 15px;border-radius:8px;cursor:pointer;white-space:nowrap">'+T('pm_done')+'</button>';
+    var sub=rqEsc(w.asset||'')+' \u00b7 '+(overdue?(T('pm_overdue')+' '+w.due_date):T('mw_duetoday'))+(w.assignee&&w.assignee!==me?(' \u00b7 '+rqEsc(w.assignee)):'');
+    H+='<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(96,165,250,.15)">';
+    H+='<div onclick="openPMTask('+w.id+')" style="flex:1;min-width:0;cursor:pointer">';
+    H+='<div style="font-size:13.5px;color:var(--text);font-weight:600;line-height:1.3">'+rqEsc(pmDescFor(w)||w.pm_code||'\u2014')+'</div>';
+    H+='<div style="font-size:11px;color:'+(overdue?'#f87171':'var(--text-3)')+';margin-top:2px">'+sub+'</div></div>';
+    H+='<span onclick="openPMTask('+w.id+')" style="font-size:16px;color:var(--text-3);flex-shrink:0;cursor:pointer">\u203a</span>';
+    H+='<button onclick="event.stopPropagation();quickCompleteWO('+w.id+')" style="background:#16a34a;border:none;color:#fff;font-size:12.5px;font-weight:700;padding:10px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;flex-shrink:0">'+T('pm_done')+'</button>';
     H+='</div>';
   });
   H+='</div>';
@@ -5142,6 +5221,13 @@ function openPMDetail(code){
   var src=PMS.filter(function(x){return x.code===code;})[0];
   _showPMDetail({code:code, asset:(cm&&cm.asset)||(src&&src.asset)||'', assetCode:(cm&&cm.asset_code)||''});
 }
+function pmVal(v){
+  if(!v)return v;
+  if(lang!=='uk')return v;
+  var M={'Preventive':'\u041f\u0440\u043e\u0444\u0456\u043b\u0430\u043a\u0442\u0438\u043a\u0430','Inspection':'\u041e\u0433\u043b\u044f\u0434','Corrective':'\u0420\u0435\u043c\u043e\u043d\u0442','Calibration':'\u041a\u0430\u043b\u0456\u0431\u0440\u0443\u0432\u0430\u043d\u043d\u044f','Safety':'\u0411\u0435\u0437\u043f\u0435\u043a\u0430','Food Safety PM':'\u0425\u0430\u0440\u0447\u043e\u0432\u0430 \u0431\u0435\u0437\u043f\u0435\u043a\u0430',
+    'Highest':'\u041d\u0430\u0439\u0432\u0438\u0449\u0438\u0439','High':'\u0412\u0438\u0441\u043e\u043a\u0438\u0439','Medium':'\u0421\u0435\u0440\u0435\u0434\u043d\u0456\u0439','Low':'\u041d\u0438\u0437\u044c\u043a\u0438\u0439'};
+  return M[v]||v;
+}
 function _showPMDetail(ctx){
   var code=ctx.code;
   var src=code?PMS.filter(function(x){return x.code===code;})[0]:null;
@@ -5164,12 +5250,12 @@ function _showPMDetail(ctx){
   var H='<div id="pmtask-modal" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:250;display:flex;align-items:flex-end;justify-content:center">';
   H+='<div style="background:var(--surface);width:100%;max-width:560px;max-height:90vh;overflow-y:auto;border-radius:18px 18px 0 0">';
   H+='<div style="position:sticky;top:0;background:var(--surface);padding:16px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:10px;z-index:1">';
-  H+='<div style="min-width:0"><div style="font-size:11px;font-weight:800;color:#60a5fa;letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px">\uD83D\uDD27 PM \u00b7 '+rqEsc(code||'')+'</div><div style="font-size:17px;font-weight:800;color:var(--text)">'+rqEsc(asset||'')+'</div></div>';
+  H+='<div style="min-width:0"><div style="font-size:11px;font-weight:800;color:#60a5fa;letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px">PM \u00b7 '+rqEsc(code||'')+'</div><div style="font-size:17px;font-weight:800;color:var(--text)">'+rqEsc(asset||'')+'</div></div>';
   H+='<button onclick="var m=document.getElementById(\'pmtask-modal\');if(m)m.remove()" style="width:32px;height:32px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);font-size:15px;cursor:pointer;flex-shrink:0">\u2715</button></div>';
   H+='<div style="padding:16px 18px">';
   H+='<div style="font-size:15px;font-weight:700;color:var(--text);line-height:1.5;margin-bottom:12px">'+rqEsc(name||'\u2014')+'</div>';
-  H+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">'+(due?chip((overdue?T('pm_overdue'):T('pm_due'))+': '+due,overdue?'#f87171':'#60a5fa'):'')+chip(freq)+chip(pr?('\u26A1 '+pr):'')+chip(hrs?(hrs+'h est'):'')+chip(typ)+'</div>';
-  H+='<div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+(lang==='uk'?'\u0417\u0430\u0432\u0434\u0430\u043d\u043d\u044f':'Tasks')+'</div>';
+  H+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">'+(due?chip((overdue?T('pm_overdue'):T('pm_due'))+': '+due,overdue?'#f87171':'#60a5fa'):'')+chip(freq)+chip(pr?pmVal(pr):'')+chip(hrs?(hrs+'h '+(lang==='uk'?'\u043e\u0440\u0456\u0454\u043d\u0442.':'est')):'')+chip(pmVal(typ))+'</div>';
+  H+='<div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+T('pm_tasks')+'</div>';
   if(tasks.length){
     H+='<div style="margin:0 0 18px">';
     var _n=0;
@@ -5183,23 +5269,23 @@ function _showPMDetail(ctx){
     });
     H+='</div>';
   } else {
-    H+='<div style="font-size:12.5px;color:var(--text-3);font-style:italic;background:var(--surface-2);border:1px dashed var(--border-2);border-radius:9px;padding:11px 13px;margin-bottom:18px">'+(lang==='uk'?'\u0414\u0435\u0442\u0430\u043b\u044c\u043d\u0456 \u043a\u0440\u043e\u043a\u0438 \u0449\u0435 \u043d\u0435 \u0434\u043e\u0434\u0430\u043d\u0456 \u2014 \u0434\u043e\u0434\u0430\u0439\u0442\u0435 \u0437 Fiix.':'No detailed steps on file yet \u2014 add them from Fiix.')+'</div>';
+    H+='<div style="font-size:12.5px;color:var(--text-3);font-style:italic;background:var(--surface-2);border:1px dashed var(--border-2);border-radius:9px;padding:11px 13px;margin-bottom:18px">'+T('pm_nosteps')+'</div>';
   }
-  H+='<div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+(lang==='uk'?'\u041e\u0441\u0442\u0430\u043d\u043d\u0456 \u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f':'Recent completions')+(hist.length?(' \u00b7 '+hist.length):'')+'</div>';
+  H+='<div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+T('pm_recent')+(hist.length?(' \u00b7 '+hist.length):'')+'</div>';
   if(hist.length){
     hist.forEach(function(h,i){
       var dd=h.date?new Date(h.date):null;
       var dl=dd&&!isNaN(dd)?dd.toLocaleDateString('en-CA',{year:'numeric',month:'short',day:'numeric'}):(''+(h.date||'')).slice(0,10);
       H+='<div onclick="pmPrintCompletion('+i+')" style="display:flex;align-items:center;gap:10px;background:var(--surface-2);border-radius:9px;padding:10px 12px;margin-bottom:7px;cursor:pointer">';
       H+='<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--text)">'+rqEsc(dl)+'</div><div style="font-size:11px;color:var(--text-3)">'+rqEsc(h.who||(lang==='uk'?'\u2014':'\u2014'))+(h.hours?(' \u00b7 '+h.hours+'h'):'')+'</div></div>';
-      H+='<span style="font-size:11px;font-weight:800;color:#60a5fa;white-space:nowrap;border:1px solid rgba(96,165,250,.4);border-radius:7px;padding:5px 9px">\uD83D\uDCC4 PDF</span>';
+      H+='<span style="font-size:11px;font-weight:800;color:#60a5fa;white-space:nowrap;border:1px solid rgba(96,165,250,.4);border-radius:7px;padding:5px 9px">PDF</span>';
       H+='</div>';
     });
   } else {
-    H+='<div style="font-size:12.5px;color:var(--text-3);margin-bottom:8px">'+(lang==='uk'?'\u0429\u0435 \u043d\u0435 \u0432\u0438\u043a\u043e\u043d\u0443\u0432\u0430\u043b\u043e\u0441\u044c.':'No completions logged yet.')+'</div>';
+    H+='<div style="font-size:12.5px;color:var(--text-3);margin-bottom:8px">'+T('pm_nocompletions')+'</div>';
   }
   H+='</div>';
-  if(w){ H+='<div style="position:sticky;bottom:0;background:var(--surface);padding:12px 18px 18px;border-top:1px solid var(--border)"><button onclick="var m=document.getElementById(\'pmtask-modal\');if(m)m.remove();openWOComplete('+w.id+')" style="width:100%;background:#16a34a;border:none;color:#fff;font-size:14px;font-weight:700;padding:13px;border-radius:10px;cursor:pointer">\u2713 '+T('pm_done')+'</button></div>'; }
+  if(w){ H+='<div style="position:sticky;bottom:0;background:var(--surface);padding:12px 18px 18px;border-top:1px solid var(--border)"><button onclick="var m=document.getElementById(\'pmtask-modal\');if(m)m.remove();quickCompleteWO('+w.id+')" style="width:100%;background:#16a34a;border:none;color:#fff;font-size:14px;font-weight:700;padding:13px;border-radius:10px;cursor:pointer">\u2713 '+T('pm_done')+'</button></div>'; }
   H+='</div></div>';
   document.body.insertAdjacentHTML('beforeend',H);
 }
@@ -5498,7 +5584,7 @@ function openKillSwitch(){
   if(user!==ADMIN){alert('Admin only.');return;}
   var H='<div id="kill-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:900;display:flex;align-items:center;justify-content:center;padding:20px">';
   H+='<div style="background:#140a0a;border:1px solid #ef4444;border-radius:16px;padding:22px;width:100%;max-width:430px;max-height:90vh;overflow-y:auto">';
-  H+='<div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">\uD83D\uDD25 Wipe everything</div>';
+  H+='<div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:8px">Wipe everything</div>';
   H+='<div style="font-size:13.5px;color:#e7d3d3;line-height:1.6;margin-bottom:12px">This permanently deletes <b>ALL</b> data and uploaded files for the whole team:</div>';
   H+='<div style="font-size:12.5px;color:var(--text-2);line-height:1.9;background:#1d0e0e;border-radius:9px;padding:11px 14px;margin-bottom:14px">\u2022 All shift logs &amp; utility logs<br>\u2022 All work orders &amp; PM schedules<br>\u2022 All work requests &amp; follow-ups<br>\u2022 All documents, folders &amp; uploaded files<br>\u2022 Schedules, filters &amp; pins</div>';
   H+='<div style="font-size:13px;color:#fca5a5;font-weight:700;margin-bottom:14px">There is no undo. If you have not downloaded a backup, cancel and do that first.</div>';
@@ -5645,11 +5731,11 @@ function testFireRequest(btn){
   sbFetch('bbw_requests',{method:'POST',body:JSON.stringify({reporter:'[TEST] '+ADMIN,department:'Test / Admin',asset_name:'[TEST] Krones Line 1',asset_code:'TEST',work:body,contact:null,requester_email:'',photos:'[]',notes:'[]',status:'new'})})
     .then(function(r){ if(!r.ok&&r.status!==201)throw new Error('HTTP '+r.status);
       try{notifyMaintenance({type:'request',subject:'[TEST] Maintenance request',body:body,reporter:'[TEST] '+ADMIN,department:'Test / Admin',asset_name:'[TEST] Krones Line 1',asset_code:'TEST',photos:[]});}catch(e){}
-      if(btn){btn.textContent='\u2713 Test request sent';setTimeout(function(){btn.disabled=false;btn.textContent='\uD83D\uDCE9 Send test maintenance request';},2500);}
+      if(btn){btn.textContent='\u2713 Test request sent';setTimeout(function(){btn.disabled=false;btn.textContent='Send test maintenance request';},2500);}
       alert('Test request created. Check: the maintenance inbox email, the red Requests badge, and (if enabled) a push notification. Then clear it with the button below.');
       try{REQUESTS=[];loadRequests();}catch(e){}
     })
-    .catch(function(e){ if(btn){btn.disabled=false;btn.textContent='\uD83D\uDCE9 Send test maintenance request';} alert('Test request failed: '+e.message); });
+    .catch(function(e){ if(btn){btn.disabled=false;btn.textContent='Send test maintenance request';} alert('Test request failed: '+e.message); });
 }
 
 function testFireForklift(btn){
@@ -5658,8 +5744,8 @@ function testFireForklift(btn){
   var stamp=new Date().toLocaleString();
   var flagged=[['Lift Chains & rollers','Needs repair'],['Fluid Leaks','Tag out']];
   var d={unit:'F1',date:pmISO(new Date()),shift:(typeof flShiftNow==='function'?flShiftNow():'A'),operator:'[TEST] '+ADMIN,notes:'Test issue fired from admin panel at '+stamp+'. Safe to ignore.'};
-  try{ flFileMaintenance(d.unit,d,flagged,[]); }catch(e){ if(btn){btn.disabled=false;btn.textContent='\uD83D\uDE9C Send test forklift issue';} alert('Test forklift issue failed: '+e.message); return; }
-  if(btn){btn.textContent='\u2713 Test forklift issue sent';setTimeout(function(){btn.disabled=false;btn.textContent='\uD83D\uDE9C Send test forklift issue';},2500);}
+  try{ flFileMaintenance(d.unit,d,flagged,[]); }catch(e){ if(btn){btn.disabled=false;btn.textContent='Send test forklift issue';} alert('Test forklift issue failed: '+e.message); return; }
+  if(btn){btn.textContent='\u2713 Test forklift issue sent';setTimeout(function(){btn.disabled=false;btn.textContent='Send test forklift issue';},2500);}
   alert('Test forklift issue created (F1, TAG OUT + Needs repair). Check the maintenance inbox email, the Requests badge, and push. Then clear it below.');
   try{REQUESTS=[];loadRequests();}catch(e){}
 }
@@ -5673,9 +5759,9 @@ function testClearAll(btn){
     sbFetch('bbw_requests?asset_code=eq.TEST',{method:'DELETE',headers:{'Prefer':'return=minimal'}}),
     sbFetch('bbw_requests?reporter=like.*%5BTEST%5D*',{method:'DELETE',headers:{'Prefer':'return=minimal'}})
   ]).then(function(){
-    if(btn){btn.textContent='\u2713 Cleared';setTimeout(function(){btn.disabled=false;btn.textContent='\uD83E\uDDF9 Clear all [TEST] records';},2000);}
+    if(btn){btn.textContent='\u2713 Cleared';setTimeout(function(){btn.disabled=false;btn.textContent='Clear all [TEST] records';},2000);}
     try{REQUESTS=[];loadRequests();}catch(e){}
-  }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent='\uD83E\uDDF9 Clear all [TEST] records';} alert('Clear failed: '+e.message); });
+  }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent='Clear all [TEST] records';} alert('Clear failed: '+e.message); });
 }
 
 function flFileMaintenance(unit,d,flagged,photoPaths){
@@ -5850,10 +5936,10 @@ function openMaintReqMenu(){
   var url=(location.origin+location.pathname)+'?request';
   var H='<div id="mreq-menu" style="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99000;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">';
   H+='<div style="background:var(--bg);border:1px solid var(--border);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:520px;padding:18px 18px 26px">';
-  H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:17px;font-weight:800;color:#fff">\uD83D\uDD27 Maintenance Request</div><button onclick="document.getElementById(\'mreq-menu\').remove()" style="padding:6px 12px;font-size:13px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);border-radius:8px;cursor:pointer">Close</button></div>';
+  H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:17px;font-weight:800;color:#fff">Maintenance Request</div><button onclick="document.getElementById(\'mreq-menu\').remove()" style="padding:6px 12px;font-size:13px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);border-radius:8px;cursor:pointer">Close</button></div>';
   H+='<div style="font-size:12px;color:var(--text-3);margin-bottom:14px">Post the QR around the plant, or open the request form directly.</div>';
   H+='<button onclick="document.getElementById(\'mreq-menu\').remove();openMaintReqQR()" style="width:100%;padding:14px;margin-bottom:10px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">&#9783;&nbsp; Show / print QR code</button>';
-  H+='<button onclick="document.getElementById(\'mreq-menu\').remove();window.open(\''+url+'\',\'_blank\')" style="width:100%;padding:14px;border-radius:11px;border:none;background:#2563eb;color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDCDD Open request form</button>';
+  H+='<button onclick="document.getElementById(\'mreq-menu\').remove();window.open(\''+url+'\',\'_blank\')" style="width:100%;padding:14px;border-radius:11px;border:none;background:#2563eb;color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Open request form</button>';
   H+='</div></div>';
   document.body.insertAdjacentHTML('beforeend',H);
 }
@@ -5924,7 +6010,7 @@ function flDashEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(
 function flDashMonLabel(d){return ['January','February','March','April','May','June','July','August','September','October','November','December'][d.getMonth()]+' '+d.getFullYear();}
 function flDashMonKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 // Company logo (uses the same image as the app header); falls back to a forklift glyph if missing.
-function flDashLogo(h){var el=document.querySelector('.hdr-logo')||document.querySelector('img[src^="data:image"]');var src=el?el.getAttribute('src'):'';return src?'<img src="'+src+'" alt="BBW" style="height:'+h+'px;display:block">':'<span style="font-size:'+h+'px">\uD83D\uDE9C</span>';}
+function flDashLogo(h){var el=document.querySelector('.hdr-logo')||document.querySelector('img[src^="data:image"]');var src=el?el.getAttribute('src'):'';return src?'<img src="'+src+'" alt="BBW" style="height:'+h+'px;display:block">':'';}
 function flDashLocalPin(){return localStorage.getItem('bbw_fldash_pin')||FLDASH_PIN;}
 function openFlDashGate(){
   try{document.title='Forklift Inspections — BBW';}catch(e){}
@@ -6138,7 +6224,7 @@ function renderFlDash(){
     if(!schedMonth){var _sn=new Date();schedMonth=new Date(_sn.getFullYear(),_sn.getMonth(),1);}
     H+='<div style="font-size:12px;color:#8b8b94;text-align:center;margin-bottom:12px">'+(schedCanEditScope()?'Driver schedule \u2014 tap any day to assign day / night drivers, vacation, sick & holidays.':'Driver schedule \u2014 tap any day to see who\u2019s on. View only.')+'</div>';
     if(schedCanEditScope()){
-    H+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;background:#16181d;border:1.5px dashed #2a2d35;border-radius:10px;cursor:pointer;color:#c7c7cf;font-size:13px;font-weight:600;margin-bottom:6px">&#128193; Upload driver schedule (Excel)<input type="file" id="fl-schedule-file" accept=".xlsx,.xls" style="display:none" onchange="parseTechSchedule(this,\'forklift\')"></label>';
+    H+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;background:#16181d;border:1.5px dashed #2a2d35;border-radius:10px;cursor:pointer;color:#c7c7cf;font-size:13px;font-weight:600;margin-bottom:6px"> Upload driver schedule (Excel)<input type="file" id="fl-schedule-file" accept=".xlsx,.xls" style="display:none" onchange="parseTechSchedule(this,\'forklift\')"></label>';
     H+='<div id="fl-upload-status" style="font-size:12px;color:#4ade80;margin-bottom:12px;display:none;text-align:center"></div>';
     }
     H+=schedMonthCardHTML();
@@ -6160,23 +6246,23 @@ function renderFlDash(){
   H+='<button onclick="flDashShiftMonth(1)" style="background:#16181d;border:1px solid #2a2d35;color:#fff;width:38px;height:38px;border-radius:9px;font-size:18px;cursor:pointer">\u203A</button>';
   H+='<button onclick="FLDASH_MONTH=new Date();renderFlDash()" style="background:#16181d;border:1px solid #2a2d35;color:#c7c7cf;font-size:12px;padding:9px 13px;border-radius:9px;cursor:pointer">This month</button>';
   H+='<div style="flex:1"></div>';
-  if(FLDASH_ROLE!=='driver') H+='<button onclick="flDashStats()" style="background:#fff;color:#000;border:none;font-size:13px;font-weight:800;padding:10px 16px;border-radius:9px;cursor:pointer">\uD83D\uDCCA Month stats</button>';
+  if(FLDASH_ROLE!=='driver') H+='<button onclick="flDashStats()" style="background:#fff;color:#000;border:none;font-size:13px;font-weight:800;padding:10px 16px;border-radius:9px;cursor:pointer">Month stats</button>';
   H+='</div>';
   // ── Tools panel ──
   H+='<div style="margin-bottom:18px">';
   H+='<div style="font-size:11px;font-weight:700;color:#8b8b94;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Tools</div>';
   if(FLDASH_ROLE==='driver'){
     // Drivers can only run an inspection — no exports, QR printing, or admin.
-    H+='<button onclick="openForkliftMenu()" style="width:100%;background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:14px;font-weight:700;padding:15px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">\uD83D\uDE9C Forklift Inspection</button>';
+    H+='<button onclick="openForkliftMenu()" style="width:100%;background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:14px;font-weight:700;padding:15px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">Forklift Inspection</button>';
   } else {
     H+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px">';
-    H+='<button onclick="openForkliftMenu()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">\uD83D\uDE9C Forklift Inspection</button>';
+    H+='<button onclick="openForkliftMenu()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">Forklift Inspection</button>';
     H+='<button onclick="openForkliftQR()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">&#9783; Print QR Codes</button>';
     H+='</div>';
     H+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">';
-    H+='<button onclick="flDashExportRange()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">&#128196; Inspections PDF</button>';
+    H+='<button onclick="flDashExportRange()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">Inspections PDF</button>';
     H+='<button onclick="flDashRequestQR()" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">&#9783; Help-Request QR</button>';
-    H+='<button id="fldash-csv-btn" onclick="flDashRequestsCSV(this)" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">\u2B07 Request logs CSV</button>';
+    H+='<button id="fldash-csv-btn" onclick="flDashRequestsCSV(this)" style="background:#16181d;border:1px solid #2a2d35;color:#e7e7ea;font-size:13px;font-weight:700;padding:13px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">Request logs CSV</button>';
     H+='</div>';
   }
   H+='</div>';
@@ -6277,7 +6363,7 @@ function flDashStats(){
   // Top inspectors
   H+='<div style="font-size:11px;font-weight:700;color:#8b8b94;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Inspections by operator</div>';
   opList.forEach(function(x){H+=bar(x[0],x[1],maxOp,'#60a5fa');});
-  if(opList.length){H+='<div style="font-size:12px;color:#4ade80;margin:6px 0 18px">\uD83C\uDFC6 Most inspections: <b>'+flDashEsc(opList[0][0])+'</b> ('+opList[0][1]+')</div>';}
+  if(opList.length){H+='<div style="font-size:12px;color:#4ade80;margin:6px 0 18px">Most inspections: <b>'+flDashEsc(opList[0][0])+'</b> ('+opList[0][1]+')</div>';}
   // By unit
   H+='<div style="font-size:11px;font-weight:700;color:#8b8b94;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">By forklift</div>';
   unitList.forEach(function(x){H+=bar(x[0],x[1],maxUnit,'#a855f7');});
@@ -6309,7 +6395,7 @@ function flDashRequestsCSV(btn){
   sbFetch('bbw_requests?kind=eq.forklift&select=*&order=created_at.desc&limit=5000')
     .then(function(r){return r.ok?r.json():[];})
     .then(function(rows){
-      if(!rows||!rows.length){if(btn){btn.disabled=false;btn.textContent='\u2B07 Request logs CSV';}alert('No forklift requests logged yet.');return;}
+      if(!rows||!rows.length){if(btn){btn.disabled=false;btn.textContent='Request logs CSV';}alert('No forklift requests logged yet.');return;}
       function esc(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
       var cols=['Created','Requester','Department','Email','Request','Status','Notes'];
       var lines=[cols.join(',')];
@@ -6323,9 +6409,9 @@ function flDashRequestsCSV(btn){
       var a=document.createElement('a');a.href=URL.createObjectURL(blob);
       a.download='BBW_Forklift_Requests_'+new Date().toISOString().slice(0,10)+'.csv';
       document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
-      if(btn){btn.disabled=false;btn.textContent='\u2B07 Request logs CSV';}
+      if(btn){btn.disabled=false;btn.textContent='Request logs CSV';}
     })
-    .catch(function(){if(btn){btn.disabled=false;btn.textContent='\u2B07 Request logs CSV';}alert('Could not fetch forklift requests.');});
+    .catch(function(){if(btn){btn.disabled=false;btn.textContent='Request logs CSV';}alert('Could not fetch forklift requests.');});
 }
 // ── Supervisor dashboard: Work Log CSV export (no login required) ──
 function flDashWorkLogCSV(btn){
@@ -6336,7 +6422,7 @@ function flDashWorkLogCSV(btn){
   sbFetch('bbw_worklog?select=*&date=gte.'+first.slice(0,10)+'&date=lt.'+next.slice(0,10)+'&order=date.asc,logged_at.asc&limit=5000')
     .then(function(r){return r.ok?r.json():[];})
     .then(function(rows){
-      if(!rows||!rows.length){if(btn){btn.disabled=false;btn.textContent='\u2B07 Work Log CSV';}alert('No work log entries for '+flDashMonLabel(m)+'.');return;}
+      if(!rows||!rows.length){if(btn){btn.disabled=false;btn.textContent='Work Log CSV';}alert('No work log entries for '+flDashMonLabel(m)+'.');return;}
       function esc(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
       var cols=['Date','Shift','Technician','Asset','Code','Type','Issue','Description','Start','End','DT hrs','Part','Qty','Priority'];
       var lines=[cols.join(',')];
@@ -6346,9 +6432,9 @@ function flDashWorkLogCSV(btn){
       var a=document.createElement('a');a.href=URL.createObjectURL(blob);
       a.download='BBW_WorkLog_'+mn[m.getMonth()]+m.getFullYear()+'.csv';
       document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
-      if(btn){btn.disabled=false;btn.textContent='\u2B07 Work Log CSV';}
+      if(btn){btn.disabled=false;btn.textContent='Work Log CSV';}
     })
-    .catch(function(){if(btn){btn.disabled=false;btn.textContent='\u2B07 Work Log CSV';}alert('Could not fetch work log data.');});
+    .catch(function(){if(btn){btn.disabled=false;btn.textContent='Work Log CSV';}alert('Could not fetch work log data.');});
 }
 
 // ── Supervisor dashboard: Shift Report picker (no login required) ──
@@ -6416,7 +6502,7 @@ function flDashRunRange(){
     H+='<div style="flex:1;min-width:120px;background:'+(flaggedCount?'#fef2f2':'#f8f8f8')+';border-radius:10px;padding:14px 16px"><div style="font-size:26px;font-weight:800;color:'+(flaggedCount?'#dc2626':'#111')+'">'+flaggedCount+'</div><div style="font-size:12px;color:#777;text-transform:uppercase;letter-spacing:.05em">With flags</div></div>';
     H+='</div>';
     // Print button
-    H+='<div class="noprint" style="margin-bottom:22px"><button onclick="window.print()" style="padding:11px 20px;background:#111;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer">\u2399 Print / Save as PDF</button></div>';
+    H+='<div class="noprint" style="margin-bottom:22px"><button onclick="window.print()" style="padding:11px 20px;background:#111;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer">Print / Save as PDF</button></div>';
     // Per-unit tables
     units.forEach(function(u){
       var list=byUnit[u];
@@ -6490,7 +6576,7 @@ function renderInventory(){
   // Search bar (always visible)
   H+='<div style="position:sticky;top:0;background:var(--bg);padding-bottom:10px;z-index:3">';
   H+='<div style="display:flex;gap:8px;margin-bottom:8px">';
-  H+='<input id="inv-search" value="'+escHtml(INV_SEARCH)+'" oninput="INV_SEARCH=this.value;invDrawBody()" placeholder="\uD83D\uDD0D Search item, part #, make, supplier\u2026" style="flex:1;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:#fff;font-size:14px;box-sizing:border-box">';
+  H+='<input id="inv-search" value="'+escHtml(INV_SEARCH)+'" oninput="INV_SEARCH=this.value;invDrawBody()" placeholder="Search item, part #, make, supplier\u2026" style="flex:1;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:#fff;font-size:14px;box-sizing:border-box">';
   H+='<button onclick="invToggleLow()" style="padding:0 14px;border-radius:10px;border:1px solid '+(INV_LOWONLY?'#ef4444':'var(--border)')+';background:'+(INV_LOWONLY?'rgba(239,68,68,.15)':'var(--surface-2)')+';color:'+(INV_LOWONLY?'#f87171':'var(--text-2)')+';font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Low stock</button>';
   H+='</div>';
   H+='</div>';
@@ -6531,7 +6617,7 @@ function invDrawBody(){
     folders.forEach(function(f){
       var lowN=INV.filter(function(i){return i.folder===f.name&&invIsLow(i);}).length;
       H+='<button onclick="invOpenFolder('+JSON.stringify(f.name).replace(/"/g,'&quot;')+')" style="width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px 16px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">';
-      H+='<div style="display:flex;align-items:center;gap:11px"><span style="font-size:19px">\uD83D\uDCC1</span><div><div style="font-size:15px;font-weight:700;color:#fff">'+escHtml(f.name)+'</div><div style="font-size:12px;color:var(--text-3)">'+f.count+' item'+(f.count!==1?'s':'')+'</div></div></div>';
+      H+='<div style="display:flex;align-items:center;gap:11px"><div><div style="font-size:15px;font-weight:700;color:#fff">'+escHtml(f.name)+'</div><div style="font-size:12px;color:var(--text-3)">'+f.count+' item'+(f.count!==1?'s':'')+'</div></div></div>';
       H+=(lowN?'<span style="background:rgba(239,68,68,.15);color:#f87171;font-size:10px;font-weight:800;border-radius:6px;padding:3px 8px">'+lowN+' low</span>':'<span style="color:var(--text-3);font-size:18px">\u203A</span>');
       H+='</button>';
     });
@@ -6559,8 +6645,8 @@ function invItemCard(i, showFolder){
   var meta=[];
   if(i.part_no)meta.push('Part# '+escHtml(i.part_no));
   if(i.make)meta.push(escHtml(i.make));
-  if(i.location)meta.push('\uD83D\uDCCD '+escHtml(i.location));
-  if(showFolder&&i.folder)meta.push('\uD83D\uDCC1 '+escHtml(i.folder));
+  if(i.location)meta.push(''+escHtml(i.location));
+  if(showFolder&&i.folder)meta.push(''+escHtml(i.folder));
   if(meta.length)H+='<div style="font-size:12px;color:var(--text-3);margin-top:3px;line-height:1.5">'+meta.join(' \u00b7 ')+'</div>';
   if(i.supplier)H+='<div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Supplier: '+escHtml(i.supplier)+'</div>';
   if(i.notes)H+='<div style="font-size:11.5px;color:var(--text-3);margin-top:3px;font-style:italic">'+escHtml(i.notes)+'</div>';
@@ -6689,11 +6775,11 @@ function renderMore(){
   var H='';
   H+='<div onclick="dangerTap()" style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace;cursor:default;user-select:none">build '+BUILD+'</div>';
   if(EDITORS.indexOf(user)>=0){
-    H+='<button onclick="openDashboard()" class="btn-primary" style="width:100%;padding:15px;font-size:15px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDCCA '+T('Maintenance Dashboard')+'</button>';
-    H+='<button onclick="openWeekDashboard()" class="btn-ghost" style="width:100%;padding:14px;font-size:14px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDCC5 Weekly stats</button>';
+    H+='<button onclick="openDashboard()" class="btn-primary" style="width:100%;padding:15px;font-size:15px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">'+T('Maintenance Dashboard')+'</button>';
+    H+='<button onclick="openWeekDashboard()" class="btn-ghost" style="width:100%;padding:14px;font-size:14px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:8px">Weekly stats</button>';
   }
-  H+='<button onclick="openForkliftMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDE9C Forklift Inspection</button>';
-  H+='<button onclick="openMaintReqMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDD27 Maintenance Request</button>';
+  H+='<button onclick="openForkliftMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Forklift Inspection</button>';
+  H+='<button onclick="openMaintReqMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Maintenance Request</button>';
   // Push notification enable button
   var pushSupported=('serviceWorker' in navigator)&&('PushManager' in window);
   var pushOn=false; try{pushOn=localStorage.getItem('bbw_push_on')==='1';}catch(e){}
@@ -6702,11 +6788,11 @@ function renderMore(){
   var isStandalone=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches);
   if(pushSupported){
     if(isIOS&&!isStandalone){
-      H+='<div style="width:100%;padding:12px 14px;margin-bottom:14px;border-radius:12px;border:1px solid #f59e0b;background:rgba(245,158,11,.12);color:#fbbf24;font-size:12.5px;line-height:1.5;box-sizing:border-box">\uD83D\uDCF2 <b>'+T('To get request alerts on iPhone')+':</b><br>'+T('Tap the Share button, then "Add to Home Screen", open the app from your Home Screen, then come back here to turn on push.')+'</div>';
+      H+='<div style="width:100%;padding:12px 14px;margin-bottom:14px;border-radius:12px;border:1px solid #f59e0b;background:rgba(245,158,11,.12);color:#fbbf24;font-size:12.5px;line-height:1.5;box-sizing:border-box"><b>'+T('To get request alerts on iPhone')+':</b><br>'+T('Tap the Share button, then "Add to Home Screen", open the app from your Home Screen, then come back here to turn on push.')+'</div>';
     } else if(!pushOn){
-      H+='<button onclick="enableTruePush()" style="width:100%;padding:12px;margin-bottom:14px;border-radius:12px;border:1px solid #3b82f6;background:rgba(59,130,246,.12);color:#60a5fa;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">\uD83D\uDD14 '+T('Turn on push (get requests when app is closed)')+'</button>';
+      H+='<button onclick="enableTruePush()" style="width:100%;padding:12px;margin-bottom:14px;border-radius:12px;border:1px solid #3b82f6;background:rgba(59,130,246,.12);color:#60a5fa;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">'+T('Turn on push (get requests when app is closed)')+'</button>';
     } else {
-      H+='<div style="width:100%;padding:11px 14px;margin-bottom:8px;border-radius:12px;border:1px solid #16a34a;background:rgba(22,163,74,.12);color:#4ade80;font-size:13.5px;font-weight:700;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px">\u2705 '+T('Push is ON for this device')+'</div>';
+      H+='<div style="width:100%;padding:11px 14px;margin-bottom:8px;border-radius:12px;border:1px solid #16a34a;background:rgba(22,163,74,.12);color:#4ade80;font-size:13.5px;font-weight:700;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px">'+T('Push is ON for this device')+'</div>';
       H+='<button onclick="disableTruePush()" style="width:100%;padding:9px;margin-bottom:14px;border-radius:10px;border:1px solid var(--border-2);background:transparent;color:var(--text-2);font-size:12.5px;font-weight:600;cursor:pointer">'+T('Turn off push on this device')+'</button>';
     }
   }
@@ -6775,13 +6861,13 @@ function renderMore(){
     H+='<div style="margin-bottom:12px">';
     H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:2px">Production Schedule (L1_Schedule_New.xlsx)</div>';
     H+='<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">Updates run timeline &amp; changeover warnings</div>';
-    H+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:var(--surface-2);border:1.5px dashed var(--border-2);border-radius:9px;cursor:pointer;color:var(--text-2);font-size:13px" id="prod-upload-lbl">&#128193; Upload production schedule<input type="file" id="prod-schedule-file" accept=".xlsx,.xls" style="display:none" onchange="parseProdSchedule(this)"></label>';
+    H+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:var(--surface-2);border:1.5px dashed var(--border-2);border-radius:9px;cursor:pointer;color:var(--text-2);font-size:13px" id="prod-upload-lbl"> Upload production schedule<input type="file" id="prod-schedule-file" accept=".xlsx,.xls" style="display:none" onchange="parseProdSchedule(this)"></label>';
     H+='<div id="prod-upload-status" style="font-size:12px;color:#4ade80;margin-top:6px;display:none"></div>';
     H+='</div>';
     H+='<div>';
     H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:2px">Technician Schedule (Schedule.xlsx)</div>';
     H+='<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">Shows who is on shift each day</div>';
-    H+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:var(--surface-2);border:1.5px dashed var(--border-2);border-radius:9px;cursor:pointer;color:var(--text-2);font-size:13px" id="tech-upload-lbl">&#128193; Upload technician schedule<input type="file" id="tech-schedule-file" accept=".xlsx,.xls" style="display:none" onchange="parseTechSchedule(this)"></label>';
+    H+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:var(--surface-2);border:1.5px dashed var(--border-2);border-radius:9px;cursor:pointer;color:var(--text-2);font-size:13px" id="tech-upload-lbl"> Upload technician schedule<input type="file" id="tech-schedule-file" accept=".xlsx,.xls" style="display:none" onchange="parseTechSchedule(this)"></label>';
     H+='<div id="tech-upload-status" style="font-size:12px;color:#4ade80;margin-top:6px;display:none"></div>';
     H+='</div></div>';
   }
@@ -6815,7 +6901,7 @@ function renderMore(){
     H+='<div style="background:#1a0a00;border:1.5px solid #7c2d12;border-radius:12px;padding:16px;margin-bottom:12px">';
     H+='<div style="font-size:12px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Admin — Praful Only</div>';
     H+='<div id="db-stats" style="background:var(--bg);border-radius:9px;padding:12px 14px;margin-bottom:14px;font-family:monospace;font-size:12px;color:var(--text-2)">Loading DB stats...</div>';
-    H+='<button onclick="downloadDataBackup(this)" style="width:100%;padding:12px;background:#15803d;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px">&#11015; '+T('Download Full Backup')+'</button>';
+    H+='<button onclick="downloadDataBackup(this)" style="width:100%;padding:12px;background:#15803d;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px">'+T('Download Full Backup')+'</button>';
     H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Reset Technician PINs</div>';
     H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:16px">';
     TECHS.filter(function(t){return t!==ADMIN;}).forEach(function(t){
@@ -6824,17 +6910,17 @@ function renderMore(){
     H+='</div>';
     H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Forklift Supervisor Access</div>';
     H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-bottom:8px">Supervisor page: <b>'+flBaseURL()+'?fldash</b></div>';
-    H+='<button onclick="flDashChangePin(true)" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:10px">\uD83D\uDD11 Change forklift-supervisor PIN</button>';
-    H+='<button onclick="flDashEditNotifyEmail()" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:16px">\u2709\uFE0F Set forklift request email</button>';
+    H+='<button onclick="flDashChangePin(true)" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:10px">Change forklift-supervisor PIN</button>';
+    H+='<button onclick="flDashEditNotifyEmail()" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:16px">Set forklift request email</button>';
     H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Auto-Send (EmailJS)</div>';
-    H+='<div style="background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.3);border-radius:9px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#4ade80;line-height:1.5">\u2705 Auto-send is built in \u2014 every device sends automatically, no setup needed.</div>';
+    H+='<div style="background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.3);border-radius:9px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#4ade80;line-height:1.5">Auto-send is built in \u2014 every device sends automatically, no setup needed.</div>';
     H+='<button onclick="testEJS(this)" style="width:100%;padding:12px;background:var(--surface-2);color:#fff;border:1px solid var(--border);border-radius:10px;font-size:13.5px;font-weight:600;cursor:pointer">Test Send Now</button>';
     H+='<div style="border-top:1px solid var(--border);margin:16px 0 12px"></div>';
-    H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:2px">\uD83E\uDDEA Test Panel (Praful only)</div>';
+    H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:2px">Test Panel (Praful only)</div>';
     H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-bottom:10px">Fires a real test through the full path \u2014 email + in-app toast/badge + push. Test records are tagged [TEST] and can be cleared below.</div>';
-    H+='<button onclick="testFireRequest(this)" style="width:100%;padding:12px;background:rgba(37,99,235,.15);color:#60a5fa;border:1px solid rgba(37,99,235,.35);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:8px">\uD83D\uDCE9 Send test maintenance request</button>';
-    H+='<button onclick="testFireForklift(this)" style="width:100%;padding:12px;background:rgba(217,119,6,.15);color:#f59e0b;border:1px solid rgba(217,119,6,.35);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:8px">\uD83D\uDE9C Send test forklift issue</button>';
-    H+='<button onclick="testClearAll(this)" style="width:100%;padding:10px;background:transparent;color:var(--text-2);border:1px solid var(--border-2);border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer">\uD83E\uDDF9 Clear all [TEST] records</button>';
+    H+='<button onclick="testFireRequest(this)" style="width:100%;padding:12px;background:rgba(37,99,235,.15);color:#60a5fa;border:1px solid rgba(37,99,235,.35);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:8px">Send test maintenance request</button>';
+    H+='<button onclick="testFireForklift(this)" style="width:100%;padding:12px;background:rgba(217,119,6,.15);color:#f59e0b;border:1px solid rgba(217,119,6,.35);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:8px">Send test forklift issue</button>';
+    H+='<button onclick="testClearAll(this)" style="width:100%;padding:10px;background:transparent;color:var(--text-2);border:1px solid var(--border-2);border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer">Clear all [TEST] records</button>';
     H+='</div>';
 
     // Changeover Assets Manager
@@ -6863,10 +6949,10 @@ function renderMore(){
 
   if(isAdmin && window.__dangerUnlocked){
     H+='<div style="background:#1a0c0c;border:1px solid rgba(239,68,68,.4);border-radius:12px;padding:16px;margin:22px 0 12px">';
-    H+='<div style="font-size:13px;font-weight:800;color:#ef4444;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">\u26A0\uFE0F Danger Zone</div>';
+    H+='<div style="font-size:13px;font-weight:800;color:#ef4444;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Danger Zone</div>';
     H+='<div style="font-size:12.5px;color:var(--text-3);line-height:1.5;margin-bottom:14px">Permanently erase the entire system \u2014 every log, work order, PM, request, document and uploaded file, for the whole team. There is no undo. Download a backup first.</div>';
-    H+='<button onclick="exportAllBackup(this)" style="width:100%;padding:12px;margin-bottom:9px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:700;border-radius:9px;cursor:pointer">\u2B07\uFE0F Download full backup (JSON)</button>';
-    H+='<button onclick="openKillSwitch()" style="width:100%;padding:12px;background:#7f1d1d;border:1px solid #ef4444;color:#fff;font-size:13.5px;font-weight:800;border-radius:9px;cursor:pointer">\uD83D\uDD25 Wipe everything permanently</button>';
+    H+='<button onclick="exportAllBackup(this)" style="width:100%;padding:12px;margin-bottom:9px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:700;border-radius:9px;cursor:pointer">Download full backup (JSON)</button>';
+    H+='<button onclick="openKillSwitch()" style="width:100%;padding:12px;background:#7f1d1d;border:1px solid #ef4444;color:#fff;font-size:13.5px;font-weight:800;border-radius:9px;cursor:pointer">Wipe everything permanently</button>';
     H+='</div>';
   }
   el.innerHTML=H;
@@ -6953,7 +7039,9 @@ function applyTheme(t){
       im.setAttribute('src',(t==='light'&&blackLogo)?blackLogo:im.__whiteSrc);
     }
   }catch(e){}
-  try{var ic=document.getElementById('theme-ic');if(ic)ic.innerHTML=(t==='light')?'&#9728;&#65039;':'&#127769;';}catch(e){}
+  try{var ic=document.getElementById('theme-ic');if(ic)ic.innerHTML=(t==='light')
+    ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6"/></svg>'
+    : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>';}catch(e){}
 }
 function toggleTheme(){
   var cur=document.documentElement.getAttribute('data-theme')||'dark';
@@ -7082,7 +7170,7 @@ function reportSummaryLines(R){
   } else { L.push('No machine downtime recorded. \u2713'); }
   if(R.totalCO>0){ L.push('Changeovers: '+R.coEvents.length+' totalling '+R.totalCO+' min'+(R.coTypes.length?' ('+R.coTypes.join(', ')+')':'')+'.'); }
   else { L.push('No changeovers this shift.'); }
-  if(R.issues.length){ L.push('\u26A0 '+R.issues.length+' open issue'+(R.issues.length===1?'':'s')+' handed to next shift'+(R.issues.length?': '+R.issues.slice(0,3).map(function(e){var iss=(R.tmap&&R.tmap[e.issue])?R.tmap[e.issue]:e.issue;return (e.assetName||'?')+(iss?' ('+iss+')':'');}).join('; ')+(R.issues.length>3?'…':''):'')+'.'); }
+  if(R.issues.length){ L.push(''+R.issues.length+' open issue'+(R.issues.length===1?'':'s')+' handed to next shift'+(R.issues.length?': '+R.issues.slice(0,3).map(function(e){var iss=(R.tmap&&R.tmap[e.issue])?R.tmap[e.issue]:e.issue;return (e.assetName||'?')+(iss?' ('+iss+')':'');}).join('; ')+(R.issues.length>3?'…':''):'')+'.'); }
   else { L.push('Clean handover \u2014 no pending issues. \u2713'); }
   if(R.parts.length){ L.push(R.parts.length+' part'+(R.parts.length===1?'':'s')+' awaiting order.'); }
   return L;
@@ -7360,10 +7448,10 @@ function pickShiftReport(date,shift){
   H+=lines.map(function(l){return '<div style="font-size:13.5px;color:#ddd;line-height:1.5;margin-bottom:7px;display:flex;gap:8px"><span style="color:#3b82f6">•</span><span>'+l.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</span></div>';}).join('');
   H+='</div>';
   H+='<div style="padding:14px 20px 20px;display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--border)">';
-  H+='<button onclick="sendReportToOutlook(\''+date+'\',\''+shift+'\')" class="btn-primary" style="width:100%;padding:14px;font-size:15px">&#9993;&#65039; '+T('Email to Maintenance')+'</button>';
+  H+='<button onclick="sendReportToOutlook(\''+date+'\',\''+shift+'\')" class="btn-primary" style="width:100%;padding:14px;font-size:15px">'+T('Email to Maintenance')+'</button>';
   H+='<div style="font-size:11.5px;color:var(--text-3);text-align:center;line-height:1.4;margin:-2px 0 2px">'+T('PDF downloads to your device \u2014 attach it in your email before sending.')+'</div>';
   H+='<div style="display:flex;gap:9px">';
-  H+='<button onclick="downloadReportPDF(\''+date+'\',\''+shift+'\')" class="btn-ghost" style="flex:1;padding:12px;font-size:14px">&#11015; '+T('Download PDF')+'</button>';
+  H+='<button onclick="downloadReportPDF(\''+date+'\',\''+shift+'\')" class="btn-ghost" style="flex:1;padding:12px;font-size:14px">'+T('Download PDF')+'</button>';
   H+='<button onclick="viewReportPDF(\''+date+'\',\''+shift+'\')" class="btn-ghost" style="flex:1;padding:12px;font-size:14px">&#128065; '+T('View')+'</button>';
   H+='</div>';
   H+='<button onclick="document.getElementById(\'report-act-modal\').remove()" style="width:100%;padding:10px;background:none;color:var(--text-2);border:none;font-size:14px;cursor:pointer">'+T('Cancel')+'</button>';
@@ -7425,7 +7513,7 @@ function openReportHTML(date,shift){
   var coHtml='';
   if(nextShiftCos.length){
     coHtml='<div style="margin-bottom:28px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px">';
-    coHtml+='<div style="font-size:14px;font-weight:700;color:#92400e;margin-bottom:10px">&#9888; Upcoming Changeovers — Next Shift</div>';
+    coHtml+='<div style="font-size:14px;font-weight:700;color:#92400e;margin-bottom:10px">Upcoming Changeovers — Next Shift</div>';
     nextShiftCos.forEach(function(co){
       coHtml+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #fde68a">';
       coHtml+='<span style="font-size:12px;font-weight:700;padding:3px 8px;background:#fef3c7;color:#92400e;border-radius:4px">'+co.type+'</span>';
@@ -7466,7 +7554,7 @@ function openReportHTML(date,shift){
   ml.push('Generated '+new Date().toLocaleString('en-CA'));
   var mailHref='mailto:maintenance@brunswickbierworks.com?subject='+encodeURIComponent(mailSubj)+'&body='+encodeURIComponent(ml.join('\n'));
 
-  H+='<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div style="font-size:12px;color:#999">Generated '+new Date().toLocaleString('en-CA')+'</div><div class="noprint" style="display:flex;gap:10px"><a href="'+mailHref+'" style="padding:10px 20px;background:#0078d4;color:#fff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;display:inline-block">&#9993; Send to Outlook</a><button onclick="window.print()" style="padding:10px 20px;background:var(--bg);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">&#11015; Download PDF</button></div></div>';
+  H+='<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div style="font-size:12px;color:#999">Generated '+new Date().toLocaleString('en-CA')+'</div><div class="noprint" style="display:flex;gap:10px"><a href="'+mailHref+'" style="padding:10px 20px;background:#0078d4;color:#fff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;display:inline-block">Send to Outlook</a><button onclick="window.print()" style="padding:10px 20px;background:var(--bg);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Download PDF</button></div></div>';
   H+='</body></html>';
   W.document.write(H);W.document.close();W.focus();
 }
@@ -7763,7 +7851,7 @@ function renderSchedule(){
 }
 function schedScopeToggleHTML(){
   function tab(scope,label){ var on=(SCHED_SCOPE===scope); return '<button onclick="schedSetScope(\''+scope+'\')" style="flex:1;padding:9px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;background:'+(on?'var(--surface-3)':'transparent')+';color:'+(on?'var(--text)':'var(--text-3)')+'">'+label+'</button>'; }
-  return '<div style="display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:4px;margin-bottom:14px">'+tab('tech','\uD83D\uDD27 '+schT('Maintenance'))+tab('forklift','\uD83D\uDE9C '+schT('Forklift'))+'</div>';
+  return '<div style="display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:4px;margin-bottom:14px">'+tab('tech',''+schT('Maintenance'))+tab('forklift',''+schT('Forklift'))+'</div>';
 }
 
 function schedShiftMonth(delta){ schedMonth=new Date(schedMonth.getFullYear(),schedMonth.getMonth()+delta,1); schedRerender(); }
@@ -7871,7 +7959,7 @@ function schedSummaryHTML(){
     H+=schedStatBox(schT('Day / Night')+' (hL)',hlNum(st.totDHL)+' / '+hlNum(st.totNHL),'#9b9ba3');
     H+='</div><div style="height:150px;margin-bottom:14px"><canvas id="schedChart"></canvas></div>';
   }
-  H+='<button onclick="schedMonthlyPDF()" style="width:100%;padding:12px;background:rgba(22,163,74,.15);color:#4ade80;border:1px solid rgba(22,163,74,.3);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">\uD83D\uDCC4 '+schT('Monthly summary')+'</button>';
+  H+='<button onclick="schedMonthlyPDF()" style="width:100%;padding:12px;background:rgba(22,163,74,.15);color:#4ade80;border:1px solid rgba(22,163,74,.3);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">'+schT('Monthly summary')+'</button>';
   H+='</div>';
   return H;
 }
@@ -7931,8 +8019,8 @@ function openDayEditor(ds){
   if(!canEdit){
     if(schedEdit.holiday)H+='<div style="background:rgba(217,119,6,.14);border:1px solid rgba(217,119,6,.4);border-radius:9px;padding:9px 11px;margin-bottom:12px"><span style="display:inline-block;background:#d97706;color:#fff;font-size:8px;font-weight:800;border-radius:3px;padding:1px 5px;margin-right:7px;vertical-align:middle">HOLIDAY</span><span style="font-size:13.5px;color:#fff;font-weight:600">'+rqEsc(schedEdit.holiday)+'</span><div style="font-size:11px;color:var(--text-3);margin-top:4px">'+schT('Plant closed \u2014 no crew expected')+'</div></div>';
     if(!schedEdit.holiday){
-    H+=schedReadRow('\u2600\uFE0F '+schT('Day shift'),'#f59e0b',schedEdit.day);
-    H+=schedReadRow('\uD83C\uDF19 '+schT('Night shift'),'#60a5fa',schedEdit.night);
+    H+=schedReadRow(schT('Day shift'),'#f59e0b',schedEdit.day);
+    H+=schedReadRow(schT('Night shift'),'#60a5fa',schedEdit.night);
     }
     H+=schedReadRow(schT('Vacation'),'#e879f9',schedEdit.vac);
     H+=schedReadRow(schT('Sick leave'),'#4ade80',schedEdit.sick);
@@ -7954,11 +8042,11 @@ function openDayEditor(ds){
     if(sc.comment)H+='<div style="margin-top:11px;font-size:13px;color:var(--text-2)">'+rqEsc(sc.comment)+'</div>';
     H+='<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:18px">'+schT('Read-only \u2014 only schedulers can edit')+'</div>';
   }else{
-    H+='<div style="font-size:11px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">\uD83C\uDFD6\uFE0F '+schT('Holiday (plant closed)')+'</div>';
+    H+='<div style="font-size:11px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">'+schT('Holiday (plant closed)')+'</div>';
     H+='<input id="se-holiday" value="'+rqEsc(schedEdit.holiday)+'" oninput="schedEdit.holiday=this.value" placeholder="'+schT('e.g. Canada Day \u2014 leave blank if open')+'" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 12px;font-size:14px;color:#fff;outline:none;margin-bottom:16px">';
-    H+='<div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">\u2600\uFE0F '+schT('Day shift')+'</div>';
+    H+='<div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">'+schT('Day shift')+'</div>';
     H+='<div id="se-day" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px">'+schedChipsHTML('day')+'</div>';
-    H+='<div style="font-size:11px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">\uD83C\uDF19 '+schT('Night shift')+'</div>';
+    H+='<div style="font-size:11px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">'+schT('Night shift')+'</div>';
     H+='<div id="se-night" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px">'+schedChipsHTML('night')+'</div>';
     H+='<div style="font-size:11px;font-weight:700;color:#e879f9;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">'+schT('On vacation')+'</div>';
     H+='<div id="se-vac" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px">'+schedChipsHTML('vac')+'</div>';
@@ -8123,7 +8211,7 @@ function schedProdRunsHTML(){
           H+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0">';
           H+='<div style="flex:1;height:1px;background:var(--surface-3)"></div>';
           H+='<div style="display:flex;flex-direction:column;gap:3px;align-items:center">';
-          cos.forEach(function(co){H+='<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:var(--surface-2);color:'+co.color+'">&#9888; '+co.type+(co.from?' ('+co.from+' &#8594; '+co.to+')':'')+'</span>';});
+          cos.forEach(function(co){H+='<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:var(--surface-2);color:'+co.color+'">'+co.type+(co.from?' ('+co.from+' &#8594; '+co.to+')':'')+'</span>';});
           H+='</div><div style="flex:1;height:1px;background:var(--surface-3)"></div></div>';
         }
         var rsh=(run.startDt.getHours()>=7&&run.startDt.getHours()<19)?'Day':'Night';
