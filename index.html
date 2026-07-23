@@ -4713,6 +4713,10 @@ function pmIsLocal(id){return /^L\d+$/.test(String(id));}
 function openPMForm(id){
   var p=id?CMMS_PMS.filter(function(x){return x.id==id;})[0]:{code:'',asset:'',asset_code:'',description:'',freq:'',priority:'',assignee:'',hours:'',pm_type:'Preventive',active:true,next_due:''};
   if(!p)return;
+  // Work instructions: whatever is saved in the database wins; otherwise start from the
+  // list imported from Fiix so editing never begins from a blank box.
+  var _curTasks=(p.tasks&&String(p.tasks).trim())?String(p.tasks)
+                 :((typeof PM_TASKS!=='undefined'&&PM_TASKS[p.code]&&PM_TASKS[p.code].tasks)?PM_TASKS[p.code].tasks:'');
   var techOpts=['','Abin','Adam','Akshay','Akshaylal','Anupam','Lahcen','Maksym','Praful','Sachin','Sergei','Technicians','Viktor','Vitalii','Yassine','Yehor'].map(function(t){return '<option'+(t===p.assignee?' selected':'')+'>'+t+'</option>';}).join('');
   var typeOpts=['Preventive','Inspection','Calibration','Food Safety PM'].map(function(t){return '<option'+(t===p.pm_type?' selected':'')+'>'+t+'</option>';}).join('');
   var prioOpts=['','Low','Medium','High','Highest'].map(function(t){return '<option'+(t===p.priority?' selected':'')+'>'+(t||'\u2014')+'</option>';}).join('');
@@ -4725,6 +4729,9 @@ function openPMForm(id){
   H+=fld('Code',  '<input id="pf-code" value="'+(p.code||'').replace(/"/g,'&quot;')+'" placeholder="e.g. SM301" style="'+ist+'">');
   H+=fld('Asset', '<select id="pf-asset" style="'+ist+'"><option value="|">\u2014 select asset \u2014</option>'+assetList+'</select>');
   H+=fld('Description', '<textarea id="pf-desc" rows="2" style="'+ist+';resize:vertical">'+(p.description||'')+'</textarea>');
+  H+=fld('Work Instructions \u2014 one step per line. An ALL-CAPS line ending in \u201c:\u201d becomes a section heading (e.g. \u201cSEAMER:\u201d).',
+        '<textarea id="pf-tasks" rows="10" placeholder="Check the filling valve support&#10;Check the level of lubricant&#10;&#10;SEAMER:&#10;Check for lid residue, clean if any" style="'+ist+';resize:vertical;line-height:1.5;font-size:13.5px">'+rqEsc(_curTasks)+'</textarea>'
+        +'<div style="font-size:11px;color:var(--text-3);margin-top:4px" id="pf-taskcount"></div>');
   H+=fld('Frequency (e.g. \u201cEvery Friday\u201d, \u201cThe 1st day of every month\u201d, \u201cEvery 3 months on the 1st\u201d)', '<input id="pf-freq" value="'+(p.freq||'').replace(/"/g,'&quot;')+'" oninput="pmFreqPreview()" style="'+ist+'"><div id="pf-freqprev" style="font-size:11px;color:var(--text-3);margin-top:4px"></div>');
   H+='<div style="display:flex;gap:9px">'+fld('Type','<select id="pf-type" style="'+ist+'">'+typeOpts+'</select>')+fld('Priority','<select id="pf-prio" style="'+ist+'">'+prioOpts+'</select>')+'</div>';
   H+='<div style="display:flex;gap:9px">'+fld('Assignee','<select id="pf-assignee" style="'+ist+'"><option value=""></option>'+techOpts+'</select>')+fld('Est. hours','<input id="pf-hours" type="number" step="0.05" value="'+(p.hours!=null?p.hours:'')+'" style="'+ist+'">')+'</div>';
@@ -4734,6 +4741,17 @@ function openPMForm(id){
   var ex=gid('pm-modal'); if(ex)ex.remove();
   document.body.insertAdjacentHTML('beforeend',H);
   pmFreqPreview();
+  try{
+    var ta=gid('pf-tasks');
+    if(ta){ ta.addEventListener('input',pmTaskCount); pmTaskCount(); }
+  }catch(e){}
+}
+function pmTaskCount(){
+  var ta=gid('pf-tasks'), el=gid('pf-taskcount'); if(!ta||!el)return;
+  var lines=ta.value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+  var heads=lines.filter(function(s){return /^[A-Z0-9][A-Z0-9 &/()\-'"]{1,24}:$/.test(s)&&!/[a-z]/.test(s);}).length;
+  var steps=lines.length-heads;
+  el.textContent=steps+' step'+(steps===1?'':'s')+(heads?(' \u00b7 '+heads+' section'+(heads===1?'':'s')):'');
 }
 function pmFreqPreview(){var el=gid('pf-freqprev');if(!el)return;var f=gid('pf-freq').value;var p=pmParseFreq(f);if(!f){el.textContent='';return;}if(!p){el.innerHTML='<span style="color:#fbbf24">Unrecognized pattern \u2014 will still save, but won\u2019t auto-schedule.</span>';return;}el.innerHTML='<span style="color:#34d399">\u2713 Next due '+pmNextDueISO(f,new Date())+'</span>';}
 function closePMForm(){var e=gid('pm-modal');if(e)e.remove();}
@@ -4741,16 +4759,32 @@ function savePM(id){
   var av=(gid('pf-asset').value||'|').split('|');
   var freq=gid('pf-freq').value.trim();
   var nd=gid('pf-nextdue').value||pmNextDueISO(freq,new Date());
-  var rec={code:gid('pf-code').value.trim(),asset:av[0]||'',asset_code:av[1]||'',description:gid('pf-desc').value.trim(),freq:freq,pm_type:gid('pf-type').value,priority:gid('pf-prio').value,assignee:gid('pf-assignee').value,hours:gid('pf-hours').value?parseFloat(gid('pf-hours').value):null,next_due:nd||null,updated_at:new Date().toISOString()};
+  var rec={code:gid('pf-code').value.trim(),asset:av[0]||'',asset_code:av[1]||'',description:gid('pf-desc').value.trim(),freq:freq,pm_type:gid('pf-type').value,priority:gid('pf-prio').value,assignee:gid('pf-assignee').value,hours:gid('pf-hours').value?parseFloat(gid('pf-hours').value):null,next_due:nd||null,updated_at:new Date().toISOString(),tasks:(gid('pf-tasks')?gid('pf-tasks').value.trim():'')};
   if(!rec.description){alert('Add a description');return;}
   if(pmIsLocal(id)){alert('These PMs are shown from the built-in list. To save edits, the bbw_pms table needs to accept writes (check Supabase RLS), then reopen this tab.');return;}
   var path=id?'bbw_pms?id=eq.'+id:'bbw_pms';
   var method=id?'PATCH':'POST';
   if(!id)rec.active=true;
+  function done(){ closePMForm(); loadCMMS(true).then(function(){cmmsRenderPMList();}); }
   sbFetch(path,{method:method,body:JSON.stringify(rec),headers:{'Prefer':'return=minimal'}}).then(function(r){
-    if(!r.ok&&r.status!==204){alert('Save failed ('+r.status+')');return;}
-    closePMForm();
-    loadCMMS(true).then(function(){cmmsRenderPMList();});
+    if(r.ok||r.status===204){ done(); return; }
+    if(r.status===400){
+      // Most likely the bbw_pms table has no "tasks" column yet. Save the rest so the
+      // edit is not lost, and tell the user exactly how to enable task editing.
+      return r.text().then(function(t){
+        if(/tasks/i.test(t)){
+          var noTasks=Object.assign({},rec); delete noTasks.tasks;
+          return sbFetch(path,{method:method,body:JSON.stringify(noTasks),headers:{'Prefer':'return=minimal'}}).then(function(r2){
+            if(r2.ok||r2.status===204){
+              alert('Saved everything except the Work Instructions.\n\nYour database needs one new column before task edits can be stored. In Supabase \u2192 SQL Editor, run:\n\nalter table bbw_pms add column if not exists tasks text;\n\nThen save again.');
+              done();
+            } else { alert('Save failed ('+r2.status+')'); }
+          });
+        }
+        alert('Save failed (400): '+t.slice(0,200));
+      });
+    }
+    alert('Save failed ('+r.status+')');
   }).catch(function(e){alert('Save failed: '+e.message);});
 }
 function togglePM(id){
@@ -5213,8 +5247,10 @@ var PM_TASKS={"SM1": {"tasks": "Clean Strainer at Feedwater tank\nINSPECT AND CL
 function pmTasksFor(code){
   var src=code?PMS.filter(function(x){return x.code===code;})[0]:null;
   var cm=(typeof CMMS_PMS!=='undefined')?CMMS_PMS.filter(function(x){return x.code===code;})[0]:null;
+  // Priority: what you edited in the app > the list imported from Fiix > built-in.
   var imp=(typeof PM_TASKS!=='undefined'&&PM_TASKS[code])?PM_TASKS[code].tasks:'';
-  var raw=imp||(cm&&cm.tasks)||(src&&src.tasks)||'';
+  var edited=(cm&&cm.tasks&&String(cm.tasks).trim())?cm.tasks:'';
+  var raw=edited||imp||(src&&src.tasks)||'';
   if(Array.isArray(raw))return raw.map(function(t){return (''+t).trim();}).filter(Boolean);
   if(typeof raw==='string'&&raw.trim())return raw.split(/\r?\n|\u2022/).map(function(t){return t.replace(/^\s*\d+[.)]\s*/,'').trim();}).filter(Boolean);
   return [];
