@@ -37,6 +37,9 @@ jobs:
         env:
           SUPABASE_URL:   ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY:   ${{ secrets.SUPABASE_KEY }}
+          SMTP_USER:      ${{ secrets.SMTP_USER }}
+          SMTP_PASS:      ${{ secrets.SMTP_PASS }}
+          SMTP_HOST:      ${{ vars.SMTP_HOST || 'smtp.office365.com' }}
           BREVO_API_KEY:  ${{ secrets.BREVO_API_KEY }}
           BREVO_FROM:     ${{ vars.BREVO_FROM || secrets.BREVO_FROM }}
           REPORT_TO:      ${{ vars.REPORT_TO || secrets.REPORT_TO || 'maintenance@brunswickbierworks.com' }}
