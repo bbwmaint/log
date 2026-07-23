@@ -1,0 +1,20 @@
+name: Brevo check
+
+# One job, one button, no options: asks Brevo which account this API key belongs
+# to, which senders are verified, and whether it has any delivery activity.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Ask Brevo about this API key
+        env:
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_FROM:    ${{ vars.BREVO_FROM || secrets.BREVO_FROM }}
+        run: node scripts/send-shift-report.mjs --diagnose
