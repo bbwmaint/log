@@ -39,6 +39,9 @@ const SMTP_USER  = (process.env.SMTP_USER || '').trim();
 const SMTP_PASS  = process.env.SMTP_PASS || '';
 const SMTP_HOST  = process.env.SMTP_HOST || 'smtp.office365.com';
 const SMTP_PORT  = +(process.env.SMTP_PORT || 587);
+// Storage: the PDF is uploaded to the app's existing Supabase bucket and linked in
+// the email. Keeps the PDF while using an email route that actually delivers.
+const PDF_BUCKET = process.env.PDF_BUCKET || 'bbw-docs';
 const EJS_API   = process.env.EMAILJS_ENDPOINT || 'https://api.emailjs.com/api/v1.0/email/send';
 
 /* ── time helpers (shift anchoring must match the app exactly) ───────────────
@@ -126,7 +129,7 @@ export function buildR(date, shift, rows) {
   };
 }
 
-export function emailBody(R) {
+export function emailBody(R, pdfUrl) {
   const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const lines = reportSummaryLines(R);
   const notes = [...new Set(R.se.map(e => e.shiftNote).filter(Boolean))];
@@ -144,13 +147,28 @@ ${block('Ongoing', R.ongoing, x => `${x.assetName || '?'} — ${x.desc || ''}${x
 ${block('Completed', R.done, x => `${x.assetName || '?'} — ${x.desc || ''}${x.who ? ` [${x.who}]` : ''}`)}
 ${block('Parts to order', R.parts, x => `${x.partName || x.assetName} x${x.partQty}${x.who ? ` [${x.who}]` : ''}`)}
 ${notes.length ? `<h3 style="font:600 14px system-ui;margin:18px 0 6px">Shift notes</h3><ul style="font:400 13.5px/1.55 system-ui;margin:0;padding-left:20px">${rowsOf(notes, n => n)}</ul>` : ''}
-<p style="font:400 13px system-ui;color:#6b7078;margin-top:20px">The full report is attached as a PDF. More detail in the app: <a href="${APP_URL}">${APP_URL}</a></p>
+${pdfUrl ? `<p style="margin:20px 0 6px"><a href="${pdfUrl}" style="display:inline-block;background:#1e1f22;color:#fff;text-decoration:none;font:600 14px system-ui;padding:11px 20px;border-radius:6px">Download the full PDF report</a></p>` : ''}
+<p style="font:400 13px system-ui;color:#6b7078;margin-top:14px">More detail in the app: <a href="${APP_URL}">${APP_URL}</a></p>
 <p style="font:400 12px system-ui;color:#9aa0a8">This is an automated message — please do not reply to this email.<br>— Brunswick Bierworks Maintenance</p>
 </div>`;
   const text = `${R.shift} Shift Report — ${R.date}\nTechnicians: ${R.techs.join(', ') || '—'}\n\n` +
     lines.map(l => '  • ' + l).join('\n') +
-    `\n\nFull report attached as PDF.\n${APP_URL}\n\nThis is an automated message — please do not reply to this email.\n— Brunswick Bierworks Maintenance`;
+    (pdfUrl ? `\n\nFull PDF report:\n${pdfUrl}` : '') +
+    `\n\nMore detail in the app: ${APP_URL}\n\nThis is an automated message — please do not reply to this email.\n— Brunswick Bierworks Maintenance`;
   return { html, text, subject: `BBW Maintenance Report — ${R.date} ${R.shift} Shift` };
+}
+
+/* ── PDF hosting ────────────────────────────────────────────────────────── */
+/** Upload the report to Supabase Storage and return a public link. */
+async function uploadPDF(pdf, filename) {
+  const path = `reports/${filename}`;
+  const r = await fetch(`${SB_URL}/storage/v1/object/${PDF_BUCKET}/${encodeURI(path)}`, {
+    method: 'POST',
+    headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/pdf', 'x-upsert': 'true' },
+    body: pdf
+  });
+  if (!r.ok) throw new Error(`upload failed: ${r.status} ${(await r.text()).slice(0, 200)}`);
+  return `${SB_URL}/storage/v1/object/public/${PDF_BUCKET}/${encodeURI(path)}`;
 }
 
 /* ── email ──────────────────────────────────────────────────────────────── */
@@ -273,7 +291,9 @@ async function main() {
 
   console.log(`Toronto time: ${parts.date} ${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}`);
   console.log(`Target shift: ${target.date} ${target.shift}  (${shiftWindow(target)})`);
-  const route = (SMTP_USER && SMTP_PASS) ? `SMTP as ${SMTP_USER}` : (BREVO_KEY ? `Brevo as ${BREVO_FROM || '(BREVO_FROM not set!)'}` : 'EmailJS');
+  const route = (EJS_PRIV && EJS_PUB && (process.env.PREFER_EMAILJS || '1') !== '0') ? 'EmailJS (via your Outlook)'
+              : (SMTP_USER && SMTP_PASS) ? `SMTP as ${SMTP_USER}`
+              : (BREVO_KEY ? `Brevo as ${BREVO_FROM || '(BREVO_FROM not set!)'}` : 'EmailJS');
   console.log(`Sending via: ${route}  ->  ${TO_EMAIL}`);
   if (BREVO_KEY && !BREVO_FROM && !DRY && !(SMTP_USER && SMTP_PASS)) {
     throw new Error('BREVO_FROM is not set. Add a repository VARIABLE named BREVO_FROM ' +
@@ -294,21 +314,44 @@ async function main() {
     try { rows = await fetchEntries(target.date, target.shift); }
     catch (e) { if (!DRY) throw e; console.warn('Could not reach Supabase (dry run, continuing with no entries):', e.message); }
   }
-  const R    = buildR(target.date, target.shift, rows);
-  const mail = emailBody(R);
+  const R = buildR(target.date, target.shift, rows);
   console.log(`Entries: ${R.se.length}`);
 
   let pdf = null, fname = reportFileName(R);
   try { pdf = buildReportPDF(R); console.log(`PDF: ${fname} (${pdf.length} bytes)`); }
-  catch (e) { console.warn('PDF build failed, sending without attachment:', e.message); }
+  catch (e) { console.warn('PDF build failed:', e.message); }
+
+  // Host the PDF so the email can link to it even when attachments are not possible.
+  let pdfUrl = null;
+  if (pdf && SB_URL && SB_KEY && !DRY) {
+    try { pdfUrl = await uploadPDF(pdf, fname); console.log(`PDF hosted: ${pdfUrl}`); }
+    catch (e) { console.warn(`Could not upload the PDF: ${e.message}`); }
+  }
+  const mail = emailBody(R, pdfUrl);
 
   if (DRY) {
-    console.log(`\n--- DRY RUN ---\nTo: ${TO_EMAIL}\nSubject: ${mail.subject}\nAttachment: ${pdf ? `${fname} (${pdf.length} bytes)` : 'none'}\n\n${mail.text}`);
+    console.log(`\n--- DRY RUN ---\nTo: ${TO_EMAIL}\nSubject: ${mail.subject}\nPDF: ${pdf ? `${fname} (${pdf.length} bytes)` : 'none'}\n\n${mail.text}`);
     if (pdf && val('save-pdf')) { const { writeFileSync } = await import('node:fs'); writeFileSync(val('save-pdf'), pdf); console.log(`Saved ${val('save-pdf')}`); }
     return;
   }
 
+  const haveEJS  = EJS_PRIV && EJS_PUB;
+  const preferEJS = haveEJS && (process.env.PREFER_EMAILJS || '1') !== '0';
   const haveSMTP = SMTP_USER && SMTP_PASS;
+
+  // EmailJS relays through the company's own Outlook account, so the mail is not
+  // "external mail claiming to be us" — it is us. That is what survives the filters
+  // here, and the PDF travels as a link rather than an attachment.
+  if (preferEJS) {
+    try {
+      await sendEmailJS(mail);
+      console.log(`Sent to ${TO_EMAIL} via EmailJS${pdfUrl ? ' with a link to the PDF' : ''}`);
+      return;
+    } catch (e) {
+      console.error(`EmailJS failed: ${e.message}`);
+      console.error('  Falling back to the next provider...');
+    }
+  }
   if (!haveSMTP && !BREVO_KEY && !(EJS_PRIV && EJS_PUB)) {
     await unclaim(claimId);
     throw new Error('No email provider configured — set SMTP_USER/SMTP_PASS (recommended), BREVO_API_KEY, or EMAILJS_* keys');
