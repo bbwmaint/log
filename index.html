@@ -1531,8 +1531,10 @@ function submitEntry(){
       sbFetch('bbw_worklog?id=eq.'+entry.sbId,{method:'PATCH',body:JSON.stringify(pfull),headers:{'Prefer':'return=minimal'}})
         .then(function(r){
           if(r.status===400){
-            var pbase=Object.assign({},pfull); delete pbase.co_mins; delete pbase.co_type; delete pbase.photo; delete pbase.photos;
-            return sbFetch('bbw_worklog?id=eq.'+entry.sbId,{method:'PATCH',body:JSON.stringify(pbase),headers:{'Prefer':'return=minimal'}});
+            return r.text().then(function(t){
+              var fix=_dropBadColumn(pfull,t);
+              return sbFetch('bbw_worklog?id=eq.'+entry.sbId,{method:'PATCH',body:JSON.stringify(fix.payload),headers:{'Prefer':'return=minimal'}});
+            });
           }
           return r;
         })
@@ -2463,6 +2465,26 @@ function downloadDataBackup(btn){
   }).catch(function(e){alert('Backup failed: '+e.message);if(btn){btn.innerHTML=orig;btn.disabled=false;}});
 }
 
+// Supabase 400s name the offending column, e.g. "Could not find the 'co_mins'
+// column". Strip ONLY that column and retry — a blanket strip silently threw away
+// changeover minutes and photos whenever anything else caused a 400.
+function _dropBadColumn(payload, errText){
+  var m=/'([a-z0-9_]+)' column/i.exec(errText||'');
+  var col=m&&m[1];
+  var out=Object.assign({},payload);
+  if(col&&Object.prototype.hasOwnProperty.call(out,col)){
+    delete out[col];
+    console.warn('BBW sync: database rejected the "'+col+'" column, saving without it. '+
+                 'Add that column to bbw_worklog or this data will keep being lost.');
+    return {payload:out, dropped:[col]};
+  }
+  // Unknown cause: fall back to the legacy strip, but say so loudly.
+  var legacy=['co_mins','co_type','photo','photos'].filter(function(k){return Object.prototype.hasOwnProperty.call(out,k);});
+  legacy.forEach(function(k){delete out[k];});
+  console.warn('BBW sync: save rejected ('+String(errText||'').slice(0,200)+'). '+
+               'Retrying without: '+legacy.join(', ')+' — CHANGEOVER AND PHOTO DATA WILL BE MISSING for this entry.');
+  return {payload:out, dropped:legacy};
+}
 function syncEntry(e){
   var full={
     date:e.date,shift:e.shift,type:e.type,priority:e.priority||null,
@@ -2489,9 +2511,10 @@ function syncEntry(e){
   sbFetch('bbw_worklog',{method:'POST',body:JSON.stringify(full)})
     .then(function(r){
       if(r.status===400){
-        // Changeover columns may not exist yet — retry without them so logging never breaks.
-        var base=Object.assign({},full); delete base.co_mins; delete base.co_type; delete base.photo; delete base.photos;
-        return sbFetch('bbw_worklog',{method:'POST',body:JSON.stringify(base)}).then(function(r2){return r2.json();});
+        return r.text().then(function(t){
+          var fix=_dropBadColumn(full,t);
+          return sbFetch('bbw_worklog',{method:'POST',body:JSON.stringify(fix.payload)}).then(function(r2){return r2.json();});
+        });
       }
       return r.json();
     })
