@@ -2,9 +2,11 @@
   "name": "bbw-shift-report",
   "private": true,
   "type": "module",
-  "description": "Automatic BBW maintenance shift report \u2014 reads Supabase, builds the PDF, emails it.",
+  "description": "Automatic BBW maintenance shift report — reads Supabase, builds the PDF, emails it.",
   "dependencies": {
     "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.8"
+    "jspdf-autotable": "^5.0.8",
+    "nodemailer": "^9.0.3",
+    "smtp-server": "^3.19.2"
   }
 }
