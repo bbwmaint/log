@@ -25,12 +25,13 @@ const EJS_PRIV  = process.env.EMAILJS_PRIVATE_KEY || '';
 const EJS_PUB   = process.env.EMAILJS_PUBLIC_KEY  || '';
 const EJS_SVC   = process.env.EMAILJS_SERVICE  || 'service_q7rtzse';
 const EJS_TPL   = process.env.EMAILJS_TEMPLATE || 'template_i01whhv';
-const TO_EMAIL  = (process.env.REPORT_TO || 'maintenance@brunswickbierworks.com').trim().toLowerCase();
+const TO_EMAIL  = (process.env.REPORT_TO || 'maintenance@brunswickbierworks.com').trim();
 const APP_URL   = process.env.APP_URL || 'https://bbwmaint.github.io/';
 const BREVO_KEY  = process.env.BREVO_API_KEY || '';
-// Brevo matches the sender literally, so 'Maint@' != the verified 'maint@'.
-// Normalise case and stray whitespace here so a typo in the variable can't break sending.
-const BREVO_FROM = (process.env.BREVO_FROM || '').trim().toLowerCase();
+// Brevo compares the sender against the verified entry LITERALLY, including case.
+// Whatever is stored in Brevo -> Senders must be reproduced exactly, so only strip
+// stray whitespace here. (Forcing lower case breaks a sender verified in capitals.)
+const BREVO_FROM = (process.env.BREVO_FROM || '').trim();
 const BREVO_API  = process.env.BREVO_ENDPOINT || 'https://api.brevo.com/v3/smtp/email';
 const EJS_API   = process.env.EMAILJS_ENDPOINT || 'https://api.emailjs.com/api/v1.0/email/send';
 
@@ -161,9 +162,14 @@ async function sendBrevo({ subject, html, text }, pdf, filename) {
   });
   const txt = await r.text();
   if (!r.ok) throw new Error(`Brevo ${r.status}: ${txt}`);
-  // Print what Brevo actually returned — the messageId is what you search their logs for.
+  // The API accepting the request does NOT mean it was sent — Brevo can still reject
+  // the sender afterwards, which only shows in their Logs. Print the exact string used
+  // so it can be compared character-for-character with Brevo -> Senders.
   console.log(`Brevo accepted (HTTP ${r.status}): ${txt}`);
-  console.log(`  from: ${BREVO_FROM}   to: ${TO_EMAIL}`);
+  console.log(`  from: "${BREVO_FROM}"   to: "${TO_EMAIL}"`);
+  console.log('  If no email arrives, open Brevo -> Logs. A "Sending has been rejected'
+            + ' because the sender ... is not valid" error there means this exact string'
+            + ' does not match the verified sender (case included).');
   return txt;
 }
 
