@@ -25,10 +25,12 @@ const EJS_PRIV  = process.env.EMAILJS_PRIVATE_KEY || '';
 const EJS_PUB   = process.env.EMAILJS_PUBLIC_KEY  || '';
 const EJS_SVC   = process.env.EMAILJS_SERVICE  || 'service_q7rtzse';
 const EJS_TPL   = process.env.EMAILJS_TEMPLATE || 'template_i01whhv';
-const TO_EMAIL  = process.env.REPORT_TO || 'maintenance@brunswickbierworks.com';
+const TO_EMAIL  = (process.env.REPORT_TO || 'maintenance@brunswickbierworks.com').trim().toLowerCase();
 const APP_URL   = process.env.APP_URL || 'https://bbwmaint.github.io/';
 const BREVO_KEY  = process.env.BREVO_API_KEY || '';
-const BREVO_FROM = process.env.BREVO_FROM || '';
+// Brevo matches the sender literally, so 'Maint@' != the verified 'maint@'.
+// Normalise case and stray whitespace here so a typo in the variable can't break sending.
+const BREVO_FROM = (process.env.BREVO_FROM || '').trim().toLowerCase();
 const BREVO_API  = process.env.BREVO_ENDPOINT || 'https://api.brevo.com/v3/smtp/email';
 const EJS_API   = process.env.EMAILJS_ENDPOINT || 'https://api.emailjs.com/api/v1.0/email/send';
 
