@@ -182,7 +182,7 @@ async function sendEmailJS({ subject, text }) {
 
 /* ── diagnostics: ask Brevo about the key the workflow is actually using ──── */
 async function brevoGet(path) {
-  const r = await fetch(`https://api.brevo.com/v3/${path}`, { headers: { 'api-key': BREVO_KEY, accept: 'application/json' } });
+  const r = await fetch(`${process.env.BREVO_API_BASE || 'https://api.brevo.com/v3'}/${path}`, { headers: { 'api-key': BREVO_KEY, accept: 'application/json' } });
   const t = await r.text();
   return { status: r.status, body: t };
 }
