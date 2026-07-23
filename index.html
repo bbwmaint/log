@@ -1992,10 +1992,13 @@ function notifyForkliftTeam(payload){
       ejsSend({
         to_email:to,
         subject:payload.subject||'Forklift help request',
-        message:(payload.body||'')+'\n\n\u2014\nPlease check the BBW Forklift dashboard for more details.',
+        message:(payload.body||'')
+                +_photoBlock(payload.photos)
+                +'\n\n\u2014\nPlease check the BBW Forklift dashboard for more details.'
+                +'\n\nThis is an automated message \u2014 please do not reply to this email.',
         reporter:payload.reporter||'',
         asset_name:payload.asset_name||'Forklift Help',
-        photos:(payload.photos||[]).join('\n')
+        photos:''
       }).catch(function(){});
     });
   }catch(e){}
@@ -5725,6 +5728,14 @@ function notifyRequester(req, kind, detail, by){
     }).catch(function(){});
   }catch(e){}
 }
+// Photo links belong with the request text, not after the sign-off. Build a labelled
+// block so the reader knows what the URL is before they see it.
+function _photoBlock(list){
+  var a=(list||[]).filter(Boolean);
+  if(!a.length)return '';
+  if(a.length===1)return '\n\nPhoto attached to this request (tap to view):\n'+a[0];
+  return '\n\n'+a.length+' photos attached to this request (tap to view):\n'+a.map(function(u,i){return (i+1)+'. '+u;}).join('\n');
+}
 function notifyMaintenance(payload){
  try{ payload=payload||{}; payload.to=MAILTO; payload.at=new Date().toISOString();
    if(NOTIFY_HOOK){ fetch(NOTIFY_HOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){}); return; }
@@ -5732,10 +5743,13 @@ function notifyMaintenance(payload){
    ejsSend({
      to_email:MAILTO,
      subject:payload.subject||('BBW Maintenance \u2014 '+(payload.type||'notification')),
-     message:(payload.body||payload.message||'')+'\n\nThis is an automated message \u2014 please do not reply to this email.\n\n\u2014\nPlease check the BBW Log for more details: https://bbwmaint.github.io/log/',
+     message:(payload.body||payload.message||'')
+             +_photoBlock(payload.photos)
+             +'\n\n\u2014\nPlease check the BBW Log for more details: https://bbwmaint.github.io/log/'
+             +'\n\nThis is an automated message \u2014 please do not reply to this email.',
      reporter:payload.reporter||payload.operator||'',
      asset_name:payload.asset_name||payload.asset||'',
-     photos:(payload.photos||[]).join('\n')
+     photos:''   // links are inside the message above, in the right place
    }).catch(function(){});
  }catch(e){}
 }
