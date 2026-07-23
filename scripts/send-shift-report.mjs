@@ -33,6 +33,12 @@ const BREVO_KEY  = process.env.BREVO_API_KEY || '';
 // stray whitespace here. (Forcing lower case breaks a sender verified in capitals.)
 const BREVO_FROM = (process.env.BREVO_FROM || '').trim();
 const BREVO_API  = process.env.BREVO_ENDPOINT || 'https://api.brevo.com/v3/smtp/email';
+// Office 365 direct send: authenticates as a real mailbox on your own tenant, so
+// Microsoft treats it as internal mail — no DKIM/DMARC/DNS involved.
+const SMTP_USER  = (process.env.SMTP_USER || '').trim();
+const SMTP_PASS  = process.env.SMTP_PASS || '';
+const SMTP_HOST  = process.env.SMTP_HOST || 'smtp.office365.com';
+const SMTP_PORT  = +(process.env.SMTP_PORT || 587);
 const EJS_API   = process.env.EMAILJS_ENDPOINT || 'https://api.emailjs.com/api/v1.0/email/send';
 
 /* ── time helpers (shift anchoring must match the app exactly) ───────────────
@@ -148,6 +154,23 @@ ${notes.length ? `<h3 style="font:600 14px system-ui;margin:18px 0 6px">Shift no
 }
 
 /* ── email ──────────────────────────────────────────────────────────────── */
+async function sendSMTP({ subject, html, text }, pdf, filename) {
+  const { default: nodemailer } = await import('nodemailer');
+  const tx = nodemailer.createTransport({
+    host: SMTP_HOST, port: SMTP_PORT, secure: false,          // STARTTLS on 587
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+    requireTLS: true
+  });
+  const info = await tx.sendMail({
+    from: `"BBW Maintenance" <${SMTP_USER}>`,                 // must be the mailbox itself
+    to: TO_EMAIL, subject, text, html,
+    attachments: pdf ? [{ filename, content: pdf, contentType: 'application/pdf' }] : []
+  });
+  console.log(`SMTP accepted: ${info.messageId}`);
+  if (info.rejected && info.rejected.length) throw new Error(`rejected for: ${info.rejected.join(', ')}`);
+  return info;
+}
+
 async function sendBrevo({ subject, html, text }, pdf, filename) {
   const body = {
     sender: { name: 'BBW Maintenance', email: BREVO_FROM },
@@ -250,8 +273,9 @@ async function main() {
 
   console.log(`Toronto time: ${parts.date} ${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}`);
   console.log(`Target shift: ${target.date} ${target.shift}  (${shiftWindow(target)})`);
-  console.log(`Sender: ${BREVO_FROM || '(BREVO_FROM not set!)'}  ->  ${TO_EMAIL}`);
-  if (BREVO_KEY && !BREVO_FROM && !DRY) {
+  const route = (SMTP_USER && SMTP_PASS) ? `SMTP as ${SMTP_USER}` : (BREVO_KEY ? `Brevo as ${BREVO_FROM || '(BREVO_FROM not set!)'}` : 'EmailJS');
+  console.log(`Sending via: ${route}  ->  ${TO_EMAIL}`);
+  if (BREVO_KEY && !BREVO_FROM && !DRY && !(SMTP_USER && SMTP_PASS)) {
     throw new Error('BREVO_FROM is not set. Add a repository VARIABLE named BREVO_FROM ' +
                     'containing the exact address you verified in Brevo (Settings -> ' +
                     'Secrets and variables -> Actions -> Variables tab). Refusing to send ' +
@@ -284,9 +308,26 @@ async function main() {
     return;
   }
 
-  if (!BREVO_KEY && !(EJS_PRIV && EJS_PUB)) {
+  const haveSMTP = SMTP_USER && SMTP_PASS;
+  if (!haveSMTP && !BREVO_KEY && !(EJS_PRIV && EJS_PUB)) {
     await unclaim(claimId);
-    throw new Error('No email provider configured — set BREVO_API_KEY (recommended) or EMAILJS_* keys');
+    throw new Error('No email provider configured — set SMTP_USER/SMTP_PASS (recommended), BREVO_API_KEY, or EMAILJS_* keys');
+  }
+
+  // Preferred: send as your own Office 365 mailbox. Nothing to authenticate, nothing
+  // for IT to approve, and attachments work — so the PDF goes with it.
+  if (haveSMTP) {
+    try {
+      await sendSMTP(mail, pdf, fname);
+      console.log(`Sent to ${TO_EMAIL} as ${SMTP_USER} via ${SMTP_HOST}${pdf ? ' with PDF attached' : ''}`);
+      return;
+    } catch (smtpErr) {
+      console.error(`SMTP send failed: ${smtpErr.message}`);
+      if (/535|5\.7\.139|SmtpClientAuthentication|disabled/i.test(smtpErr.message))
+        console.error('  -> This mailbox has SMTP AUTH disabled, or the password/MFA is blocking sign-in. See SETUP-SMTP.md.');
+      if (!BREVO_KEY && !(EJS_PRIV && EJS_PUB)) { await unclaim(claimId); throw smtpErr; }
+      console.error('  Falling back to the next provider...');
+    }
   }
 
   try {
