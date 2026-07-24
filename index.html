@@ -3571,36 +3571,43 @@ function utRender(){
   var pts=utSeries(m.k,UT_STATE.days,perHL);
   var unit=perHL?(m.u+'/hL'):m.u;
   var H='';
-  // ── header ──
-  H+='<div style="position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 16px 0;z-index:2">';
-  H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">';
-  H+='<div style="font-size:19px;font-weight:800;color:var(--text)">'+utT('Utility trends')+'</div>';
-  H+='<button onclick="closeUtilTrend()" style="width:34px;height:34px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);font-size:16px;cursor:pointer">\u2715</button></div>';
-  // meter chips
-  H+='<div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:12px;-webkit-overflow-scrolling:touch">';
+
+  // ── header ──────────────────────────────────────────────────────────────
+  H+='<div style="position:sticky;top:0;background:var(--bg);z-index:3;padding:16px 18px 0">';
+  H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">';
+  H+='<div><div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em">'+utT('Utility trends')+'</div>';
+  H+='<div style="font-size:22px;font-weight:800;color:var(--text);line-height:1.2;margin-top:2px">'+m.n+'</div></div>';
+  H+='<button onclick="closeUtilTrend()" style="flex-shrink:0;width:32px;height:32px;border-radius:50%;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);font-size:14px;cursor:pointer;line-height:1">\u2715</button></div>';
+  H+='<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none">';
   UT_METERS.forEach(function(x){
     var on=(x.k===m.k);
-    H+='<button onclick="utSet(\'meter\',\''+x.k+'\')" style="flex-shrink:0;padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid '+(on?x.c:'var(--border)')+';background:'+(on?x.c+'22':'var(--surface-2)')+';color:'+(on?x.c:'var(--text-3)')+'">'+x.n+'</button>';
+    H+='<button onclick="utSet(\'meter\',\''+x.k+'\')" style="flex-shrink:0;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;border:1px solid '+(on?'transparent':'var(--border)')+';background:'+(on?x.c:'transparent')+';color:'+(on?'#0b0c0e':'var(--text-3)')+'">'+x.n+'</button>';
   });
-  H+='</div></div>';
-  H+='<div style="padding:14px 16px 40px">';
-  // ── range + per-hL ──
-  H+='<div style="display:flex;gap:7px;align-items:center;margin-bottom:14px;flex-wrap:wrap">';
-  [[7,'7d'],[30,'30d'],[90,'90d'],[0,utT('All')]].forEach(function(r){
+  H+='</div><div style="height:1px;background:var(--border)"></div></div>';
+
+  H+='<div style="padding:16px 18px 44px">';
+
+  // ── range + per hL ──────────────────────────────────────────────────────
+  H+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">';
+  H+='<div style="display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:3px;gap:2px">';
+  [[7,'7D'],[30,'30D'],[90,'90D'],[0,utT('All')]].forEach(function(r){
     var on=(UT_STATE.days===r[0]);
-    H+='<button onclick="utSet(\'days\','+r[0]+')" style="padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;border:1px solid '+(on?'var(--text-2)':'var(--border)')+';background:'+(on?'var(--surface-3)':'transparent')+';color:'+(on?'var(--text)':'var(--text-3)')+'">'+r[1]+'</button>';
+    H+='<button onclick="utSet(\'days\','+r[0]+')" style="padding:6px 13px;border:none;border-radius:6px;font-size:11.5px;font-weight:700;letter-spacing:.02em;cursor:pointer;background:'+(on?'var(--surface-3)':'transparent')+';color:'+(on?'var(--text)':'var(--text-3)')+'">'+r[1]+'</button>';
   });
+  H+='</div>';
   if(m.perHL){
-    H+='<button onclick="utSet(\'perHL\')" style="margin-left:auto;padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;border:1px solid '+(perHL?'#4ade80':'var(--border)')+';background:'+(perHL?'rgba(74,222,128,.12)':'transparent')+';color:'+(perHL?'#4ade80':'var(--text-3)')+'">per hL</button>';
+    H+='<button onclick="utSet(\'perHL\')" style="margin-left:auto;padding:7px 13px;border-radius:20px;font-size:11.5px;font-weight:700;cursor:pointer;border:1px solid '+(perHL?'#4ade80':'var(--border)')+';background:'+(perHL?'rgba(74,222,128,.13)':'transparent')+';color:'+(perHL?'#4ade80':'var(--text-3)')+'">'+utT('per hL')+'</button>';
   }
   H+='</div>';
+
   if(pts.length<2){
-    H+='<div style="text-align:center;padding:50px 20px;color:var(--text-3)">';
-    H+='<div style="font-size:15px;font-weight:600;color:var(--text-2);margin-bottom:6px">'+utT('Not enough readings yet')+'</div>';
-    H+='<div style="font-size:13px;line-height:1.5">'+(perHL?utT('Needs daily readings plus production hL on the schedule for the same days.'):utT('Log this reading on a few days and the trend will appear here.'))+'</div></div></div>';
+    H+='<div style="text-align:center;padding:60px 24px">';
+    H+='<div style="font-size:15px;font-weight:600;color:var(--text-2);margin-bottom:7px">'+utT('Not enough readings yet')+'</div>';
+    H+='<div style="font-size:13px;color:var(--text-3);line-height:1.55">'+(perHL?utT('Needs daily readings plus production hL on the schedule for the same days.'):utT('Log this reading on a few days and the trend will appear here.'))+'</div></div></div>';
     host.innerHTML=H; return;
   }
-  // ── stats ──
+
+  // ── headline ────────────────────────────────────────────────────────────
   var vals=pts.map(function(p){return p.v;});
   var last=vals[vals.length-1], mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals);
   var avg=vals.reduce(function(a,b){return a+b;},0)/vals.length;
@@ -3608,57 +3615,82 @@ function utRender(){
   var prevAvg=half?vals.slice(0,half).reduce(function(a,b){return a+b;},0)/half:null;
   var recAvg=vals.slice(half).reduce(function(a,b){return a+b;},0)/(vals.length-half);
   var chg=(prevAvg&&prevAvg!==0)?((recAvg-prevAvg)/Math.abs(prevAvg))*100:null;
-  H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:15px 16px;margin-bottom:14px">';
-  H+='<div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">'+(m.cum?utT('Latest daily use'):utT('Latest reading'))+'</div>';
-  H+='<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap"><div style="font-size:30px;font-weight:800;color:'+m.c+';line-height:1.1">'+utFmt(last)+'</div><div style="font-size:14px;color:var(--text-3)">'+unit+'</div>';
+
+  H+='<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:4px">';
+  H+='<div><div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px">'+(m.cum?utT('Latest daily use'):utT('Latest reading'))+'</div>';
+  H+='<div style="display:flex;align-items:baseline;gap:7px"><span style="font-size:38px;font-weight:800;color:var(--text);line-height:1;letter-spacing:-.02em">'+utFmt(last)+'</span>';
+  H+='<span style="font-size:13px;color:var(--text-3);font-weight:600">'+unit+'</span></div></div>';
   if(chg!=null){
     var up=chg>0, col=up?'#f87171':'#4ade80';
-    H+='<div style="margin-left:auto;font-size:12.5px;font-weight:700;color:'+col+'">'+(up?'\u25B2':'\u25BC')+' '+Math.abs(Math.round(chg))+'% '+utT('vs earlier')+'</div>';
+    H+='<div style="text-align:right"><div style="display:inline-flex;align-items:center;gap:4px;background:'+col+'1a;border-radius:20px;padding:5px 11px"><span style="color:'+col+';font-size:11px">'+(up?'\u25B2':'\u25BC')+'</span><span style="color:'+col+';font-size:12.5px;font-weight:800">'+Math.abs(Math.round(chg))+'%</span></div>';
+    H+='<div style="font-size:10.5px;color:var(--text-3);margin-top:5px">'+utT('vs earlier')+'</div></div>';
   }
   H+='</div>';
-  H+='<div style="font-size:11.5px;color:var(--text-3);margin-top:3px">'+pts[pts.length-1].d+'</div></div>';
-  // ── chart ──
-  var W=1000,Hh=300,PL=64,PR=16,PT=16,PB=34;
-  var rng=(mx-mn)||Math.abs(mx)||1, pad=rng*0.12, lo=mn-pad, hi=mx+pad;
-  function X(i){ return PL+(i/(pts.length-1))*(W-PL-PR); }
-  function Y(v){ return PT+(1-((v-lo)/((hi-lo)||1)))*(Hh-PT-PB); }
-  var line=pts.map(function(p,i){return (i?'L':'M')+X(i).toFixed(1)+' '+Y(p.v).toFixed(1);}).join(' ');
-  var area=line+' L'+X(pts.length-1).toFixed(1)+' '+(Hh-PB)+' L'+X(0).toFixed(1)+' '+(Hh-PB)+' Z';
-  H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:12px 8px 8px;margin-bottom:14px;overflow-x:auto">';
-  H+='<svg viewBox="0 0 '+W+' '+Hh+'" style="width:100%;min-width:320px;height:auto;display:block">';
-  H+='<defs><linearGradient id="utg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+m.c+'" stop-opacity=".28"/><stop offset="100%" stop-color="'+m.c+'" stop-opacity="0"/></linearGradient></defs>';
-  [0,0.25,0.5,0.75,1].forEach(function(f){
-    var v=hi-(hi-lo)*f, y=Y(v);
-    H+='<line x1="'+PL+'" y1="'+y.toFixed(1)+'" x2="'+(W-PR)+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 6"/>';
-    H+='<text x="'+(PL-8)+'" y="'+(y+4).toFixed(1)+'" text-anchor="end" font-size="15" fill="var(--text-3)">'+utFmt(v)+'</text>';
-  });
-  H+='<path d="'+area+'" fill="url(#utg)"/>';
-  H+='<path d="'+line+'" fill="none" stroke="'+m.c+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
-  pts.forEach(function(p,i){
-    var r=(i===pts.length-1)?5:2.5;
-    H+='<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="'+r+'" fill="'+m.c+'"/>';
-  });
-  var step=Math.max(1,Math.ceil(pts.length/5));
-  pts.forEach(function(p,i){
-    if(i%step&&i!==pts.length-1)return;
-    H+='<text x="'+X(i).toFixed(1)+'" y="'+(Hh-10)+'" text-anchor="middle" font-size="14" fill="var(--text-3)">'+p.d.slice(5)+'</text>';
-  });
-  H+='</svg></div>';
-  // ── min / avg / max ──
-  H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:14px">';
-  [[utT('Lowest'),mn],[utT('Average'),avg],[utT('Highest'),mx]].forEach(function(s){
-    H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:11px 12px">';
-    H+='<div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">'+s[0]+'</div>';
-    H+='<div style="font-size:16px;font-weight:800;color:var(--text)">'+utFmt(s[1])+'</div></div>';
+  H+='<div style="font-size:11.5px;color:var(--text-3);margin-bottom:18px">'+utDateLabel(pts[pts.length-1].d)+'</div>';
+
+  // ── chart (drawn at true pixel size once we can measure the container) ──
+  H+='<div id="ut-chart" style="margin:0 -4px 20px"></div>';
+
+  // ── stats ───────────────────────────────────────────────────────────────
+  H+='<div style="display:flex;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">';
+  [[utT('Lowest'),mn],[utT('Average'),avg],[utT('Highest'),mx]].forEach(function(s,i){
+    H+='<div style="flex:1;padding:13px 14px'+(i?';border-left:1px solid var(--border)':'')+'">';
+    H+='<div style="font-size:9.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">'+s[0]+'</div>';
+    H+='<div style="font-size:15.5px;font-weight:700;color:var(--text)">'+utFmt(s[1])+'</div></div>';
   });
   H+='</div>';
-  H+='<div style="font-size:11.5px;color:var(--text-3);line-height:1.5">'+
-     (m.cum?utT('Charted as daily use \u2014 each point is the change from the previous reading.')
-           :utT('Charted as the reading taken that day.'))+
-     (perHL?(' '+utT('Divided by that day\u2019s production hL from the schedule.')):'')+
-     '</div>';
+  H+='<div style="font-size:11.5px;color:var(--text-3);line-height:1.55;margin-top:14px">'+
+     (m.cum?utT('Each point is the change since the previous reading, so this is use per day.')
+           :utT('Each point is the reading taken that day.'))+
+     (perHL?(' '+utT('Divided by that day\u2019s production from the schedule.')):'')+'</div>';
   H+='</div>';
   host.innerHTML=H;
+  utDrawChart(pts,m,unit);
+}
+function utDateLabel(ds){
+  try{ var d=new Date(ds+'T12:00:00');
+       return d.toLocaleDateString(lang==='uk'?'uk-UA':'en-CA',{weekday:'short',month:'short',day:'numeric'}); }
+  catch(e){ return ds; }
+}
+/** Draw at the container's real pixel width so text and strokes stay crisp. */
+function utDrawChart(pts,m,unit){
+  var box=gid('ut-chart'); if(!box)return;
+  var W=Math.max(280,box.clientWidth||320), H=232;
+  var PL=46,PR=12,PT=14,PB=26;
+  var vals=pts.map(function(p){return p.v;});
+  var mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals);
+  var rng=(mx-mn)||Math.abs(mx)||1, lo=mn-rng*0.15, hi=mx+rng*0.15;
+  function X(i){ return PL+(pts.length===1?0:(i/(pts.length-1))*(W-PL-PR)); }
+  function Y(v){ return PT+(1-((v-lo)/((hi-lo)||1)))*(H-PT-PB); }
+  var line=pts.map(function(p,i){return (i?'L':'M')+X(i).toFixed(1)+' '+Y(p.v).toFixed(1);}).join(' ');
+  var area=line+' L'+X(pts.length-1).toFixed(1)+' '+(H-PB)+' L'+X(0).toFixed(1)+' '+(H-PB)+' Z';
+  var gid_='utg'+m.k;
+  var s='<svg width="100%" viewBox="0 0 '+W+' '+H+'" style="display:block;overflow:visible">';
+  s+='<defs><linearGradient id="'+gid_+'" x1="0" y1="0" x2="0" y2="1">'
+    +'<stop offset="0%" stop-color="'+m.c+'" stop-opacity=".22"/><stop offset="100%" stop-color="'+m.c+'" stop-opacity="0"/></linearGradient></defs>';
+  // horizontal guides + y labels
+  [0,0.5,1].forEach(function(f){
+    var v=hi-(hi-lo)*f, y=Y(v);
+    s+='<line x1="'+PL+'" y1="'+y.toFixed(1)+'" x2="'+(W-PR)+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="1" opacity=".7"/>';
+    s+='<text x="'+(PL-9)+'" y="'+(y+3.5).toFixed(1)+'" text-anchor="end" font-size="10" font-weight="600" fill="var(--text-3)">'+utFmt(v)+'</text>';
+  });
+  s+='<path d="'+area+'" fill="url(#'+gid_+')"/>';
+  s+='<path d="'+line+'" fill="none" stroke="'+m.c+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  // only mark the most recent point; a dot per day gets noisy over 90 days
+  var lx=X(pts.length-1), ly=Y(pts[pts.length-1].v);
+  s+='<circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="5.5" fill="'+m.c+'" opacity=".22"/>';
+  s+='<circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="3" fill="'+m.c+'"/>';
+  // date axis
+  var step=Math.max(1,Math.round((pts.length-1)/3));
+  for(var i=0;i<pts.length;i+=step){
+    var anchor=(i===0)?'start':(i>=pts.length-1?'end':'middle');
+    s+='<text x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="'+anchor+'" font-size="10" fill="var(--text-3)">'+pts[i].d.slice(5).replace('-','/')+'</text>';
+  }
+  if((pts.length-1)%step!==0){
+    s+='<text x="'+X(pts.length-1).toFixed(1)+'" y="'+(H-8)+'" text-anchor="end" font-size="10" fill="var(--text-3)">'+pts[pts.length-1].d.slice(5).replace('-','/')+'</text>';
+  }
+  s+='</svg>';
+  box.innerHTML=s;
 }
 function renderUtil(){
   var el=gid('pane-util');
