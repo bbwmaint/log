@@ -2361,9 +2361,9 @@ function reqAddNote(id){
   notes.push({by:user,at:new Date().toISOString(),text:txt});
   sbFetch('bbw_requests?id=eq.'+id,{method:'PATCH',body:JSON.stringify({notes:JSON.stringify(notes)})})
     .then(function(){
+      // Adding a note notifies ONLY the person who raised the request (if they
+      // left an email). The maintenance team is intentionally not emailed here.
       try{notifyRequester(r,'note',txt,user);}catch(e){}
-      // Always notify the maintenance inbox too (requester may not have left an email)
-      try{ ejsSend({to_email:MAILTO, subject:'Note added \u2014 '+(r.asset_name||r.department||'request'), message:(user||'Someone')+' added a note to the maintenance request for "'+(r.asset_name||r.department||'')+'":\n\n"'+txt+'"\n\nOriginal request:\n'+(r.work||'')+'\n\n\u2014 BBW Maintenance', reporter:r.reporter||'', asset_name:r.asset_name||'', photos:''}).catch(function(){}); }catch(e){}
       REQUESTS=[]; return loadRequests();
     }).then(drawRequests)
     .catch(function(e){ alert('Failed: '+e.message); });
