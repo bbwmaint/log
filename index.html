@@ -4702,6 +4702,7 @@ function pmAdvanceISO(freq, doneISO){ var p=pmParseFreq(freq); var d=pmAdvance(p
 // ═══════════════ CMMS (admin only) ═══════════════
 var CMMS_PMS=[]; var CMMS_SUB='pms'; var CMMS_LOADED=false;
 var CMMS_FILTER={q:'',type:'',assignee:'',status:'active'};
+var CMMS_SORT='due';   // due | code | name | asset | tech | priority | freq
 
 function cmmsParseAsset(s){var m=String(s||'').match(/^(.*?)\s*\(([^)]+)\)\s*$/);if(m)return {name:m[1].trim(),code:m[2].trim()};return {name:(s||'').trim(),code:''};}
 
@@ -4823,6 +4824,9 @@ function renderPMModule(){
   H+='<div style="display:flex;gap:7px;margin-bottom:12px">';
   H+=sel('type','All types',types,CMMS_FILTER.type);
   H+=sel('assignee','All techs',assignees,CMMS_FILTER.assignee);
+  var sorts=[['due','Due date'],['code','PM code'],['name','Name A\u2013Z'],['asset','Asset A\u2013Z'],['tech','Technician'],['priority','Priority'],['freq','Frequency']];
+  H+='<select onchange="CMMS_SORT=this.value;cmmsRenderPMList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;color:var(--text);font-size:12.5px">'
+     +sorts.map(function(s){return '<option value="'+s[0]+'"'+(s[0]===CMMS_SORT?' selected':'')+'>Sort: '+s[1]+'</option>';}).join('')+'</select>';
   H+='<select onchange="CMMS_FILTER.status=this.value;cmmsRenderPMList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px;color-scheme:dark"><option value="active"'+(CMMS_FILTER.status==='active'?' selected':'')+'>Active</option><option value="paused"'+(CMMS_FILTER.status==='paused'?' selected':'')+'>Paused</option><option value="all"'+(CMMS_FILTER.status==='all'?' selected':'')+'>All</option></select>';
   H+='</div>';
   H+='<div id="pm-list"></div>';
@@ -4839,7 +4843,28 @@ function pmFilter(){
     if(f.assignee&&p.assignee!==f.assignee)return false;
     if(q){var hay=((p.code||'')+' '+(p.asset||'')+' '+(p.asset_code||'')+' '+(p.description||'')+' '+(p.freq||'')).toLowerCase();if(hay.indexOf(q)<0)return false;}
     return true;
-  });
+  }).sort(pmSortFn);
+}
+function pmSortFn(a,b){
+  var s=CMMS_SORT;
+  function txt(v){ return String(v==null?'':v).toLowerCase(); }
+  function num(v){ var n=parseInt(String(v||'').replace(/\D+/g,''),10); return isNaN(n)?999999:n; }
+  function byName(){ return txt(a.description).localeCompare(txt(b.description)); }
+  if(s==='code')     return num(a.code)-num(b.code) || txt(a.code).localeCompare(txt(b.code));
+  if(s==='name')     return byName();
+  if(s==='asset')    return txt(a.asset).localeCompare(txt(b.asset)) || byName();
+  if(s==='tech')     { // unassigned last, then A-Z by technician
+                       var ta=txt(a.assignee), tb=txt(b.assignee);
+                       if(!ta!==!tb) return ta?-1:1;
+                       return ta.localeCompare(tb) || byName(); }
+  if(s==='priority') { var rank={highest:0,high:1,medium:2,low:3};
+                       var ra=rank[txt(a.priority)]==null?4:rank[txt(a.priority)];
+                       var rb=rank[txt(b.priority)]==null?4:rank[txt(b.priority)];
+                       return ra-rb || byName(); }
+  if(s==='freq')     return txt(a.freq).localeCompare(txt(b.freq)) || byName();
+  // default: soonest due first, undated last
+  var da=a.next_due||'9999-99-99', db=b.next_due||'9999-99-99';
+  return da.localeCompare(db) || byName();
 }
 function pmDueChip(p){
   if(!p.next_due)return '';
@@ -4995,23 +5020,46 @@ function woNextCode(){var maxN=WOS.reduce(function(m,w){var n=parseInt(String(w.
 function generateWOs(){
   return Promise.all([loadCMMS(),loadWOs(true)]).then(function(){
     var today=pmISO(new Date());
-    // Key everything by pm_code (stable) with pm_id as fallback — pm_id is not stable
-    // across local/DB loads, which used to let completed WOs regenerate.
+    // Index completed work by EVERY identifier a work order might carry. Older rows
+    // may lack pm_code, and some were closed without a completed_at timestamp, so
+    // fall back through the other date fields rather than treating them as never done.
     var openByPm={}, doneByPm={};
+    function mark(map,key,val){ if(!key)return; if(val===true){map[key]=true;return;} if(!map[key]||val>map[key])map[key]=val; }
     WOS.forEach(function(w){
-      var key=w.pm_code||w.pm_id; if(!key)return;
-      if(w.status!=='completed'){ openByPm[key]=true; }
-      else if(w.completed_at){ var d=(''+w.completed_at).slice(0,10); if(!doneByPm[key]||d>doneByPm[key])doneByPm[key]=d; }
+      if(!w)return;
+      var keys=[w.pm_code,w.pm_id].filter(Boolean);
+      if(!keys.length)return;
+      if(w.status!=='completed'){ keys.forEach(function(k){mark(openByPm,k,true);}); return; }
+      var d=w.completed_at||w.updated_at||w.due_date||'';
+      d=(''+d).slice(0,10);
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return;
+      keys.forEach(function(k){mark(doneByPm,k,d);});
     });
     var made=[];
     CMMS_PMS.forEach(function(p){
       if(!p.active)return;
-      var key=p.code||p.id;
-      if(openByPm[key])return;                     // already has an open WO
-      // Effective due date: if this PM was completed, the next one isn't due until a full
-      // interval AFTER that completion — so closing it doesn't respawn a WO the next day.
-      var effDue = (doneByPm[key]&&p.freq) ? pmAdvanceISO(p.freq, doneByPm[key]) : p.next_due;
-      if(!effDue || effDue>today) return;
+      var lastDone=null;
+      [p.code,p.id].forEach(function(k){ if(k&&doneByPm[k]&&(!lastDone||doneByPm[k]>lastDone))lastDone=doneByPm[k]; });
+      if(p.last_done&&(!lastDone||p.last_done>lastDone))lastDone=(''+p.last_done).slice(0,10);
+      var hasOpen=(p.code&&openByPm[p.code])||(p.id&&openByPm[p.id]);
+      if(hasOpen)return;                       // already waiting to be done
+      if(lastDone&&lastDone>=today)return;     // done today — never respawn same day
+
+      var effDue;
+      if(lastDone){
+        if(p.freq){
+          effDue=pmAdvanceISO(p.freq,lastDone);          // one full interval after it was done
+          if(!effDue)return;                             // frequency unreadable -> do not guess
+        } else {
+          // No frequency on the PM. Without one we cannot know when it is next due,
+          // so only re-raise it if its own next_due has moved past the last completion.
+          if(!p.next_due||p.next_due<=lastDone)return;
+          effDue=p.next_due;
+        }
+      } else {
+        effDue=p.next_due;
+      }
+      if(!effDue||effDue>today)return;
       made.push({pm_id:p.id,pm_code:p.code,asset:p.asset,asset_code:p.asset_code,description:p.description,priority:p.priority,wo_type:p.pm_type,assignee:p.assignee,status:'open',due_date:effDue,hours_est:p.hours});
     });
     if(!made.length)return 0;
