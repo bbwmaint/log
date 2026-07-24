@@ -5476,9 +5476,13 @@ function injectMyPMTasks(){
   var pane=gid('pane-log'); if(!pane)return;
   var ex=gid('mypm-tasks'); if(ex)ex.remove();
   if(typeof WOS_LOADED==='undefined'||!WOS_LOADED||typeof user==='undefined'||!user)return;
-  var due=mwDue(); if(!due.length)return;
-  var today=pmISO(new Date());
   var me=user;
+  var due=mwDue();
+  // Editors see every due PM; technicians see only PMs assigned to themselves,
+  // and the panel is hidden entirely for a tech who has none of their own due.
+  if(!isEditor()){ due=due.filter(function(w){return w.assignee===me;}); }
+  if(!due.length)return;
+  var today=pmISO(new Date());
   var H='<div id="mypm-tasks" style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.35);border-radius:12px;padding:12px 13px;margin-bottom:14px">';
   H+='<div style="font-size:12px;font-weight:800;color:#60a5fa;text-transform:uppercase;letter-spacing:.04em;margin-bottom:9px">'+T('pm_due_title')+' \u00b7 '+due.length+'</div>';
   due.forEach(function(w){
