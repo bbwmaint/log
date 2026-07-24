@@ -1,11 +1,9 @@
 name: BBW shift report
 
+# Scheduling lives in Supabase (pg_cron), which fires on time — GitHub's own
+# scheduler ran late and sometimes skipped runs entirely. Supabase triggers this
+# workflow via the API; you can also run it by hand from the Actions tab.
 on:
-  schedule:
-    # Hourly. The script works out which shift just ended in Toronto time
-    # (handles EST/EDT), and skips if that report was already sent — so a
-    # delayed or failed run heals itself on the next hour.
-    - cron: '5 * * * *'
   workflow_dispatch:
     inputs:
       date:
@@ -18,8 +16,8 @@ on:
         description: 'Print the email instead of sending it'
         type: boolean
         default: false
-      diagnose:
-        description: 'Ask Brevo which account this key belongs to and what it can send'
+      force:
+        description: 'Send again even if this shift was already sent'
         type: boolean
         default: false
 
@@ -35,22 +33,17 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Send shift report
         env:
-          SUPABASE_URL:   ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY:   ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
           EMAILJS_PUBLIC_KEY:  ${{ secrets.EMAILJS_PUBLIC_KEY }}
           EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
           EMAILJS_SERVICE:     ${{ vars.EMAILJS_SERVICE  || 'service_q7rtzse' }}
           EMAILJS_TEMPLATE:    ${{ vars.EMAILJS_TEMPLATE || 'template_i01whhv' }}
-          SMTP_USER:      ${{ secrets.SMTP_USER }}
-          SMTP_PASS:      ${{ secrets.SMTP_PASS }}
-          SMTP_HOST:      ${{ vars.SMTP_HOST || 'smtp.office365.com' }}
-          BREVO_API_KEY:  ${{ secrets.BREVO_API_KEY }}
-          BREVO_FROM:     ${{ vars.BREVO_FROM || secrets.BREVO_FROM }}
-          REPORT_TO:      ${{ vars.REPORT_TO || secrets.REPORT_TO || 'maintenance@brunswickbierworks.com' }}
+          REPORT_TO:           ${{ vars.REPORT_TO || 'maintenance@brunswickbierworks.com' }}
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.date }}" ];  then ARGS="$ARGS --date ${{ github.event.inputs.date }}"; fi
           if [ -n "${{ github.event.inputs.shift }}" ]; then ARGS="$ARGS --shift ${{ github.event.inputs.shift }}"; fi
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
-          if [ "${{ github.event.inputs.diagnose }}" = "true" ]; then ARGS="--diagnose"; fi
+          if [ "${{ github.event.inputs.force }}"   = "true" ]; then ARGS="$ARGS --force"; fi
           node scripts/send-shift-report.mjs $ARGS
