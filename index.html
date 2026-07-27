@@ -783,7 +783,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-25d \u00b7 grid-fix';
+var APP_BUILD='2026-07-25e \u00b7 requests';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2221,31 +2221,59 @@ function reqStatusPill(s){
   var x=m[s]||m['new'];
   return '<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;color:'+x[1]+';background:'+x[2]+';text-transform:uppercase;white-space:nowrap">'+x[0]+'</span>';
 }
+// Card styled to the approved mockup: asset + status pill, dept/code, 2-line body,
+// hairline, then reporter avatar + relative time + photo count. Per-card action
+// buttons moved into the detail view (tap the card) to match the design.
+function reqAgo(iso){
+  try{
+    var d=new Date(iso); if(isNaN(d))return '';
+    var m=Math.floor((Date.now()-d.getTime())/60000);
+    if(m<1)return 'now';
+    if(m<60)return m+'m ago';
+    var h=Math.floor(m/60); if(h<24)return h+'h ago';
+    var dy=Math.floor(h/24); if(dy<30)return dy+'d ago';
+    return Math.floor(dy/30)+'mo ago';
+  }catch(e){ return ''; }
+}
+function reqInitials(n){
+  return (''+(n||'?')).split(/\s+/).map(function(w){return w.charAt(0);}).join('').slice(0,2).toUpperCase();
+}
 function reqCard(r){
   var notes=[]; try{notes=JSON.parse(r.notes||'[]');}catch(e){}
   var photos=[]; try{photos=JSON.parse(r.photos||'[]');}catch(e){}
-  var done=r.status==='done';
-  var H='<div data-reqid="'+r.id+'" onclick="openRequest('+r.id+')" style="background:var(--surface);border:1px solid '+(done?'var(--border)':'rgba(245,158,11,.35)')+';border-left:3px solid '+(done?'#16a34a':'#f59e0b')+';border-radius:11px;padding:13px 14px;margin-bottom:10px;cursor:pointer">';
-  H+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><div style="font-size:14.5px;font-weight:700;color:#fff">'+rqEsc(r.asset_name||r.department)+'</div>'+reqStatusPill(r.status)+'</div>';
-  H+='<div style="font-size:13px;color:var(--text-1);line-height:1.5;margin-bottom:7px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+rqEsc(r.work)+'</div>';
-  H+='<div style="font-size:11px;color:var(--text-3)">'+T('req_by')+rqEsc(r.reporter)+' \u2022 '+rqEsc(r.department)+' \u2022 '+docFmtDate(r.created_at)+'</div>';
-  var chips='';
-  if(photos.length) chips+='<span style="color:#60a5fa">'+(lang==='uk'?'\u0424\u043e\u0442\u043e ':'Photos ')+photos.length+'</span>';
-  if(notes.length) chips+='<span style="color:var(--text-3)">'+(lang==='uk'?'\u041d\u043e\u0442\u0430\u0442\u043a\u0438 ':'Notes ')+notes.length+'</span>';
-  if(done&&r.closed_by) chips+='<span style="color:#16a34a">'+T('req_closedby')+rqEsc(r.closed_by)+'</span>';
-  if(r.assignee) chips+='<span style="color:#c8a24b">'+rqEsc(r.assignee)+'</span>';
-  if(chips) H+='<div style="display:flex;gap:12px;margin-top:7px;font-size:11px">'+chips+'<span style="margin-left:auto;color:#f59e0b">'+T('pin_viewall')+'</span></div>';
-  else H+='<div style="text-align:right;margin-top:4px;font-size:11px;color:#f59e0b">'+T('pin_viewall')+'</div>';
-  H+='<button onclick="event.stopPropagation();openRequest('+r.id+')" style="width:100%;margin-top:10px;background:#2563eb;border:none;color:#fff;font-size:13.5px;font-weight:700;padding:12px;border-radius:9px;cursor:pointer">'+T('req_viewdetails')+' \u203a</button>';
-  if(typeof user!=='undefined'&&user){
-    H+='<div onclick="event.stopPropagation()" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">';
-    if(r.status==='new') H+='<button onclick="reqSetStatus('+r.id+',\'in_progress\')" style="'+rqBtn('#3b82f6')+'">'+T('req_start')+'</button>';
-    if(!done&&r.status!=='parts_ordered') H+='<button onclick="reqSetStatus('+r.id+',\'parts_ordered\')" style="'+rqBtn('#a855f7')+'">'+(T('req_parts')||'Parts ordered')+'</button>';
-    if(!done) H+='<button onclick="reqSetStatus('+r.id+',\'done\')" style="'+rqBtn('#16a34a')+'">'+T('req_markdone')+'</button>';
-    H+='<button onclick="reqAddNote('+r.id+')" style="'+rqBtn('#52525b')+'">'+T('req_addnote')+'</button>';
-    H+='</div>';
-  }
-  H+='</div>';
+  var H='<div data-reqid="'+r.id+'" onclick="openRequest('+r.id+')" '+
+    'style="background:var(--surface);border:1px solid var(--border);border-radius:14px;'+
+    'padding:13px 14px;margin-bottom:9px;cursor:pointer">';
+  // title row
+  H+='<div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:7px">'+
+     '<div style="flex:1;min-width:0">'+
+       '<div style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:-.01em;'+
+       'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+
+       rqEsc(r.asset_name||r.department||'\u2014')+'</div>'+
+       '<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+
+       rqEsc(r.department||'')+(r.asset_code?(' \u00b7 '+rqEsc(r.asset_code)):'')+'</div>'+
+     '</div>'+reqStatusPill(r.status)+'</div>';
+  // body
+  H+='<div style="font-size:12.5px;color:var(--text-2);line-height:1.45;margin-bottom:10px;'+
+     'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">'+
+     rqEsc(r.work||'')+'</div>';
+  // footer
+  H+='<div style="display:flex;align-items:center;gap:8px;padding-top:9px;border-top:1px solid var(--border)">'+
+     '<span style="width:22px;height:22px;border-radius:7px;background:var(--surface-2);'+
+     'color:var(--text-2);font-size:8.5px;font-weight:700;display:flex;align-items:center;'+
+     'justify-content:center;flex-shrink:0">'+reqInitials(r.reporter)+'</span>'+
+     '<span style="font-size:11.5px;font-weight:600;color:var(--text);white-space:nowrap;'+
+     'overflow:hidden;text-overflow:ellipsis">'+rqEsc(r.reporter||'')+'</span>'+
+     '<span style="font-size:11.5px;color:var(--text-3);white-space:nowrap">\u00b7 '+
+     reqAgo(r.created_at)+'</span><div style="flex:1"></div>';
+  if(photos.length)H+='<span style="display:flex;align-items:center;gap:4px;color:var(--text-3);'+
+     'font-size:11px;font-weight:600"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" '+
+     'stroke="currentColor" stroke-width="1.8"><path d="M3 8.5A2 2 0 0 1 5 6.5h1.6l1-1.7h4.8l1 1.7H19'+
+     'a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.2"/></svg>'+
+     photos.length+'</span>';
+  if(notes.length)H+='<span style="font-size:11px;font-weight:600;color:var(--text-3);margin-left:8px">'+
+     notes.length+'\u00b7</span>';
+  H+='</div></div>';
   return H;
 }
 function closeRequestDetail(){ var m=gid('req-detail-modal'); if(m)m.remove(); }
@@ -2504,22 +2532,61 @@ function resetCMMSSchedule(){
     }).catch(function(e){alert('PMs reset partly failed: '+e.message);});
   }).catch(function(e){alert('Reset failed: '+e.message);});
 }
+var REQ_FILTER='open';
+function reqSetFilter(f){ REQ_FILTER=f; try{drawRequests();}catch(e){} }
 function drawRequests(){try{updateReqTabCount();}catch(e){}
   var el=gid('pane-requests'); if(!el)return;
   var maint=REQUESTS.filter(function(r){return r.kind!=='forklift';});
   var open=maint.filter(function(r){return r.status!=='done';});
   var done=maint.filter(function(r){return r.status==='done';});
+  var mine=maint.filter(function(r){
+    return r.status!=='done' && (r.assignee===user||r.reporter===user); });
   var followups=allE.filter(function(e){return e.type==='followup';});
-  var doneFollow=allE.filter(function(e){return e.type==='followup_done';});
-  var H='';
-  H+='<div style="font-size:13px;font-weight:800;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">'+T('req_wr')+(open.length?' \u2022 '+open.length+' '+T('req_open'):'')+'</div>';
-  if(!open.length) H+='<div style="padding:22px;text-align:center;color:var(--text-3);font-size:13px">'+T('req_noopen')+'</div>';
-  else open.forEach(function(r){ H+=reqCard(r); });
-  H+='<div style="font-size:13px;font-weight:800;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin:22px 0 10px">'+T('req_follow')+(followups.length?' \u2022 '+followups.length:'')+'</div>';
-  if(!followups.length) H+='<div style="padding:16px;text-align:center;color:var(--text-3);font-size:12px">'+T('req_nofollow')+'</div>';
-  else followups.slice().reverse().forEach(function(e){ H+=followCard(e); });
-  var compCount=done.length+doneFollow.length;
-  if(compCount){ H+='<div style="font-size:13px;font-weight:800;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin:22px 0 10px">'+T('req_completed')+' \u2022 '+compCount+'</div>'; doneFollow.slice().reverse().slice(0,30).forEach(function(e){ H+=followCard(e); }); done.slice(0,30).forEach(function(r){ H+=reqCard(r); }); }
+  var depts={}; open.forEach(function(r){ if(r.department)depts[r.department]=1; });
+  var nDept=Object.keys(depts).length;
+
+  var list = REQ_FILTER==='done' ? done : (REQ_FILTER==='mine' ? mine : open);
+
+  var H='<div style="max-width:1680px;margin:0 auto">';
+  // header
+  H+='<div style="display:flex;align-items:center;gap:12px;margin-bottom:13px">'+
+     '<div style="flex:1;min-width:0">'+
+       '<div style="font-size:23px;font-weight:750;color:var(--text);letter-spacing:-.025em">'+
+       T('req_wr')+'</div>'+
+       '<div style="font-size:11.5px;color:var(--text-3);margin-top:3px">'+open.length+' '+
+       T('req_open')+(nDept?(' \u00b7 '+nDept+' '+(lang==='uk'?'\u0432\u0456\u0434\u0434\u0456\u043b\u0456\u0432':'departments')):'')+'</div></div>'+
+     '<span onclick="openSheet(null)" style="width:38px;height:38px;border-radius:11px;'+
+     'background:var(--text);color:var(--surface);display:flex;align-items:center;'+
+     'justify-content:center;flex-shrink:0;cursor:pointer;font-size:21px;font-weight:400;'+
+     'line-height:1">+</span></div>';
+  // segmented control
+  var uk=(typeof lang!=='undefined'&&lang==='uk');
+  var seg=[['open',uk?'\u0412\u0456\u0434\u043a\u0440\u0438\u0442\u0456':'Open',open.length],
+           ['mine',uk?'\u041c\u043e\u0457':'Mine',mine.length],
+           ['done',uk?'\u0413\u043e\u0442\u043e\u0432\u0456':'Done',done.length]];
+  H+='<div style="display:flex;gap:3px;background:var(--surface-2);border-radius:10px;'+
+     'padding:3px;margin-bottom:13px">';
+  seg.forEach(function(x){
+    var on=REQ_FILTER===x[0];
+    H+='<div onclick="reqSetFilter(\''+x[0]+'\')" style="flex:1;text-align:center;padding:7px 0;'+
+       'border-radius:8px;font-size:12.5px;font-weight:'+(on?'700':'550')+';cursor:pointer;color:'+
+       (on?'var(--text)':'var(--text-3)')+';'+
+       (on?'background:var(--surface);box-shadow:0 1px 3px rgba(16,16,24,.09)':'')+'">'+
+       x[1]+(x[2]?(' '+x[2]):'')+'</div>';
+  });
+  H+='</div>';
+
+  if(!list.length) H+='<div style="padding:30px 22px;text-align:center;color:var(--text-3);'+
+    'font-size:13px">'+T('req_noopen')+'</div>';
+  else list.forEach(function(r){ H+=reqCard(r); });
+
+  // follow-ups stay reachable (they are real work), shown alongside Open
+  if(REQ_FILTER==='open'&&followups.length){
+    H+='<div style="font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;'+
+       'letter-spacing:.1em;margin:20px 0 9px 4px">'+T('req_follow')+' \u00b7 '+followups.length+'</div>';
+    followups.slice().reverse().forEach(function(e){ H+=followCard(e); });
+  }
+  H+='</div>';
   el.innerHTML='<div class="md-split"><div class="md-list">'+H+'</div><div class="md-detail" id="req-detail-pane"><div class="md-empty">'+T('req_selectone')+'</div></div></div>';
   updateReqBadge();
 }
