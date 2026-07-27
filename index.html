@@ -320,6 +320,19 @@ select option,select optgroup{background:#1b1c20;color:#fff}
      Declared last + higher specificity so rule order can't bite. */
   @media(max-width:999px){ body #nav-burger{display:none!important} }
 
+  /* ---- swipe-to-action on request cards (touch only) ---- */
+  .sw-wrap{position:relative;margin-bottom:9px;border-radius:14px;overflow:hidden}
+  .sw-bg{position:absolute;inset:0;display:flex;align-items:center;
+    justify-content:space-between;padding:0 20px;border-radius:14px;opacity:0}
+  .sw-bg .sw-r,.sw-bg .sw-l{display:flex;align-items:center;gap:7px;font-size:13.5px;
+    font-weight:700;color:#fff;opacity:0}
+  .sw-wrap.sw-right .sw-bg{background:#16a34a;opacity:1}
+  .sw-wrap.sw-right .sw-r{opacity:1}
+  .sw-wrap.sw-left .sw-bg{background:#2563eb;opacity:1}
+  .sw-wrap.sw-left .sw-l{opacity:1}
+  .sw-card{position:relative;will-change:transform}
+  .sw-wrap.sw-animate .sw-card{transition:transform .22s cubic-bezier(.3,.8,.4,1)}
+
   /* ---- sidebar sections + user chip ---- */
   .side-sect{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;
     letter-spacing:.11em;padding:16px 13px 7px}
@@ -783,7 +796,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-25e \u00b7 requests';
+var APP_BUILD='2026-07-25f \u00b7 swipe';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2241,9 +2254,23 @@ function reqInitials(n){
 function reqCard(r){
   var notes=[]; try{notes=JSON.parse(r.notes||'[]');}catch(e){}
   var photos=[]; try{photos=JSON.parse(r.photos||'[]');}catch(e){}
-  var H='<div data-reqid="'+r.id+'" onclick="openRequest('+r.id+')" '+
+  var done=r.status==='done', ongoing=r.status==='in_progress';
+  // Swipe layer: right -> Done, left -> In progress. Actions the card no longer
+  // shows as buttons stay one gesture away.
+  var H='<div class="sw-wrap" data-swid="'+r.id+'"'+(done?' data-swdone="1"':'')+
+        (ongoing?' data-swong="1"':'')+'>'+
+    '<div class="sw-bg">'+
+      '<span class="sw-r"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" '+
+      'stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">'+
+      '<path d="M4.5 12.5l5 5 10-11"/></svg>'+(lang==='uk'?'\u0413\u043e\u0442\u043e\u0432\u043e':'Done')+'</span>'+
+      '<span class="sw-l">'+(lang==='uk'?'\u0412 \u0440\u043e\u0431\u043e\u0442\u0456':'In progress')+
+      '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
+      'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'+
+      '<path d="M21 12a9 9 0 1 1-2.64-6.36M21 4.5V9h-4.5"/></svg></span>'+
+    '</div>'+
+    '<div data-reqid="'+r.id+'" onclick="openRequest('+r.id+')" class="sw-card" '+
     'style="background:var(--surface);border:1px solid var(--border);border-radius:14px;'+
-    'padding:13px 14px;margin-bottom:9px;cursor:pointer">';
+    'padding:13px 14px;cursor:pointer">';
   // title row
   H+='<div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:7px">'+
      '<div style="flex:1;min-width:0">'+
@@ -2273,7 +2300,7 @@ function reqCard(r){
      photos.length+'</span>';
   if(notes.length)H+='<span style="font-size:11px;font-weight:600;color:var(--text-3);margin-left:8px">'+
      notes.length+'\u00b7</span>';
-  H+='</div></div>';
+  H+='</div></div></div>';
   return H;
 }
 function closeRequestDetail(){ var m=gid('req-detail-modal'); if(m)m.remove(); }
@@ -2532,6 +2559,124 @@ function resetCMMSSchedule(){
     }).catch(function(e){alert('PMs reset partly failed: '+e.message);});
   }).catch(function(e){alert('Reset failed: '+e.message);});
 }
+// ── Swipe-to-action for request cards ────────────────────────────────────────
+// Right = mark done, left = mark in progress. Deliberately conservative:
+//  * only engages once horizontal travel clearly beats vertical, so the list still scrolls
+//  * suppresses the card's click so a swipe never opens the detail view
+//  * no-ops when the target status is already set
+//  * every commit is undoable from the toast, because "done" emails the requester
+var SW={id:null,x0:0,y0:0,dx:0,lock:null,el:null,wrap:null,w:0};
+function swReset(animate){
+  if(SW.wrap){
+    if(animate)SW.wrap.classList.add('sw-animate');
+    SW.wrap.classList.remove('sw-left','sw-right');
+    if(SW.el)SW.el.style.transform='';
+    var wr=SW.wrap;
+    setTimeout(function(){ try{wr.classList.remove('sw-animate');}catch(e){} },240);
+  }
+  SW.id=null; SW.lock=null; SW.el=null; SW.wrap=null; SW.dx=0;
+}
+function swStart(e){
+  if(!e.touches||e.touches.length!==1)return;
+  var wrap=e.target.closest?e.target.closest('.sw-wrap'):null;
+  if(!wrap)return;
+  var card=wrap.querySelector('.sw-card'); if(!card)return;
+  SW.id=wrap.getAttribute('data-swid'); SW.wrap=wrap; SW.el=card;
+  SW.x0=e.touches[0].clientX; SW.y0=e.touches[0].clientY;
+  SW.dx=0; SW.lock=null; SW.w=wrap.getBoundingClientRect().width||300;
+  wrap.classList.remove('sw-animate');
+}
+function swMove(e){
+  if(!SW.id||!e.touches||e.touches.length!==1)return;
+  var dx=e.touches[0].clientX-SW.x0, dy=e.touches[0].clientY-SW.y0;
+  if(SW.lock===null){
+    if(Math.abs(dy)>10&&Math.abs(dy)>Math.abs(dx)){ SW.lock='v'; swReset(false); return; }
+    if(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy)) SW.lock='h';
+    else return;
+  }
+  if(SW.lock!=='h')return;
+  // block the swipe direction that would be a no-op
+  var isDone=SW.wrap.getAttribute('data-swdone')==='1';
+  var isOng =SW.wrap.getAttribute('data-swong')==='1';
+  if(dx>0&&isDone)dx=Math.min(dx*0.18,26);
+  if(dx<0&&isOng) dx=Math.max(dx*0.18,-26);
+  SW.dx=dx;
+  e.preventDefault();                      // we own this gesture now
+  SW.el.style.transform='translateX('+dx+'px)';
+  SW.wrap.classList.toggle('sw-right',dx>18);
+  SW.wrap.classList.toggle('sw-left', dx<-18);
+}
+function swEnd(){
+  if(!SW.id){ swReset(false); return; }
+  var dx=SW.dx, id=SW.id, wrap=SW.wrap;
+  var isDone=wrap&&wrap.getAttribute('data-swdone')==='1';
+  var isOng =wrap&&wrap.getAttribute('data-swong')==='1';
+  var thresh=Math.min(96,Math.max(64,SW.w*0.3));
+  var fire=null;
+  if(dx>=thresh&&!isDone)fire='done';
+  else if(dx<=-thresh&&!isOng)fire='in_progress';
+  if(fire){
+    // suppress the click that follows a touch gesture
+    try{ if(SW.el)SW.el.__swBlock=Date.now(); }catch(e){}
+    swReset(true);
+    reqSwipeApply(id,fire);
+  }else swReset(true);
+}
+function reqSwipeApply(id,status){
+  var r=REQUESTS.filter(function(x){return ''+x.id===''+id;})[0];
+  var prev=r?r.status:null;
+  try{ reqSetStatus(id,status); }catch(e){ return; }
+  var uk=(typeof lang!=='undefined'&&lang==='uk');
+  var label=status==='done'?(uk?'\u0413\u043e\u0442\u043e\u0432\u043e':'Marked done')
+                           :(uk?'\u0412 \u0440\u043e\u0431\u043e\u0442\u0456':'Marked in progress');
+  try{ swToastUndo(label,id,prev); }catch(e){ try{toast(label);}catch(e2){} }
+}
+function swToastUndo(msg,id,prev){
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;left:50%;bottom:96px;transform:translateX(-50%);'+
+    'background:#16161a;color:#fff;padding:11px 14px 11px 18px;border-radius:12px;'+
+    'font-size:14px;font-weight:600;z-index:9999;display:flex;align-items:center;gap:14px;'+
+    'box-shadow:0 8px 28px rgba(0,0,0,.3);max-width:92vw';
+  t.innerHTML='<span></span>';
+  t.firstChild.textContent=msg;
+  if(prev){
+    var u=document.createElement('button');
+    u.textContent=(typeof lang!=='undefined'&&lang==='uk')?'\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438':'Undo';
+    u.style.cssText='background:none;border:none;color:#7c6bf0;font-size:14px;'+
+      'font-weight:800;cursor:pointer;padding:0;font-family:inherit';
+    u.onclick=function(){ try{reqSetStatus(id,prev);}catch(e){} t.remove(); };
+    t.appendChild(u);
+  }
+  document.body.appendChild(t);
+  setTimeout(function(){ t.style.transition='opacity .4s'; t.style.opacity='0';
+    setTimeout(function(){ try{t.remove();}catch(e){} },420); },5000);
+}
+// bind once, only where touch + phone layout apply
+(function(){
+  try{
+    if(!('ontouchstart' in window))return;
+    var pane=null;
+    var bind=function(){
+      pane=gid('pane-requests'); if(!pane||pane.__swBound)return;
+      pane.__swBound=true;
+      pane.addEventListener('touchstart',swStart,{passive:true});
+      pane.addEventListener('touchmove', swMove ,{passive:false});
+      pane.addEventListener('touchend',  swEnd ,{passive:true});
+      pane.addEventListener('touchcancel',function(){swReset(true);},{passive:true});
+      // a completed swipe must not also open the detail view
+      pane.addEventListener('click',function(e){
+        var c=e.target.closest?e.target.closest('.sw-card'):null;
+        if(c&&c.__swBlock&&Date.now()-c.__swBlock<600){
+          e.preventDefault(); e.stopPropagation(); c.__swBlock=0;
+        }
+      },true);
+    };
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);
+    else bind();
+    setTimeout(bind,1500);
+  }catch(e){}
+})();
+
 var REQ_FILTER='open';
 function reqSetFilter(f){ REQ_FILTER=f; try{drawRequests();}catch(e){} }
 function drawRequests(){try{updateReqTabCount();}catch(e){}
