@@ -319,6 +319,38 @@ select option,select optgroup{background:#1b1c20;color:#fff}
   /* Bottom tabs are the primary phone nav, so the header burger is redundant.
      Declared last + higher specificity so rule order can't bite. */
   @media(max-width:999px){ body #nav-burger{display:none!important} }
+
+  /* ---- sidebar sections + user chip ---- */
+  .side-sect{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;
+    letter-spacing:.11em;padding:16px 13px 7px}
+  #tabbar>button:first-of-type{margin-top:0}
+  .side-user{display:flex;align-items:center;gap:10px;margin-top:auto;padding:10px 11px;
+    background:var(--surface);border:1px solid var(--border);border-radius:11px}
+  .side-av{width:29px;height:29px;border-radius:8px;background:rgba(124,107,240,.16);
+    color:var(--accent);font-size:11px;font-weight:700;display:flex;align-items:center;
+    justify-content:center;flex-shrink:0}
+  .side-un{display:flex;flex-direction:column;min-width:0}
+  .side-n{font-size:13px;font-weight:650;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .side-r{font-size:11px;color:var(--text-3);white-space:nowrap}
+
+  /* ---- Home: phone stack -> desktop dashboard grid ---- */
+  .hm-wrap{max-width:1680px;margin:0 auto}
+  .hm-kpis{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:11px}
+  .hm-kpi5{display:none}
+  .hm-row2>*+*{margin-top:11px}
+  .hm-row3{display:none}
+  @media(min-width:1000px){
+    .hm-kpis{grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}
+    .hm-kpi5{display:block}
+    .hm-kpis>div{padding:16px 18px 15px!important}
+    .hm-kpis .hm-val{font-size:27px!important}
+    .hm-kpis .hm-lbl{font-size:13px!important}
+    .hm-row2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:16px}
+    .hm-row2>*+*{margin-top:0}
+    .hm-row3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:16px;align-items:start}
+    .hm-greet .hm-hi{font-size:26px!important}
+    .hm-sec{padding-top:2px!important}
+  }
 </style>
 </head>
 <body style="margin:0;padding:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:#fff">
@@ -751,7 +783,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-25b \u00b7 home-exact';
+var APP_BUILD='2026-07-25c \u00b7 desktop-grid';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -5516,6 +5548,27 @@ function autoGenerateWOs(){
   if(!CMMS_ENABLED||!isEditor())return Promise.resolve(0);
   return generateWOs().then(function(n){ try{updateCmmsBadge();}catch(e){} try{injectMyPMTasks();}catch(e){} return n; }).catch(function(){return 0;});
 }
+// Mirror the approved dashboard layout: WORKSPACE / PLANT / REPORTS / SUPPORT
+// headings between the nav buttons, and a user chip pinned at the bottom.
+var SIDE_SECTIONS=[['home','Workspace'],['assets','Plant'],['reports','Reports'],['more','Support']];
+function buildSideSections(tb){
+  if(!tb)return;
+  SIDE_SECTIONS.forEach(function(pair){
+    var btn=gid('tab-'+pair[0]); if(!btn||btn.previousElementSibling&&btn.previousElementSibling.className==='side-sect')return;
+    var h=document.createElement('div'); h.className='side-sect'; h.textContent=pair[1];
+    tb.insertBefore(h,btn);
+  });
+  if(!tb.querySelector('.side-user')){
+    var u=document.createElement('div'); u.className='side-user';
+    var ini=(''+(typeof user!=='undefined'&&user?user:'?')).split(/\s+/)
+             .map(function(w){return w.charAt(0);}).join('').slice(0,2).toUpperCase();
+    var role=(typeof isEditor==='function'&&isEditor())?'Maintenance manager':'Technician';
+    u.innerHTML='<span class="side-av">'+ini+'</span><span class="side-un">'+
+      '<span class="side-n">'+(typeof rqEsc==='function'?rqEsc(user||''):'')+'</span>'+
+      '<span class="side-r">'+role+'</span></span>';
+    tb.appendChild(u);
+  }
+}
 function enhanceDesktop(){
   var tb=gid('tabbar'); if(!tb)return;
   if(!tb.querySelector('.side-brand')){
@@ -5526,7 +5579,9 @@ function enhanceDesktop(){
     // brand img was cloned from whatever src the header had - force the correct ink
     try{ syncLogos(document.documentElement.getAttribute('data-theme')||'light'); }catch(e){}
   }
-  Object.keys(TAB_ICONS).forEach(function(k){var b=gid('tab-'+k); if(b&&!b.querySelector('.tab-ic')){var s=document.createElement('span');s.className='tab-ic';s.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+TAB_ICONS[k]+'</svg>';b.insertBefore(s,b.firstChild);}});
+  Object.keys(TAB_ICONS).forEach(function(k){var b=gid('tab-'+k); if(b&&!b.querySelector('.tab-ic')){var sp=document.createElement('span');sp.className='tab-ic';sp.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+TAB_ICONS[k]+'</svg>';b.insertBefore(sp,b.firstChild);}});
+  // ── group the nav into labelled sections + pin a user chip at the bottom
+  try{ buildSideSections(tb); }catch(e){}
 }
 function renderDashboard(){
   var el=gid('pane-dash'); if(!el)return;
@@ -5803,17 +5858,18 @@ function renderHome(){
       I_MAIL  ='<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 8l9 6 9-6"/>',
       I_ALERT ='<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/>',
       I_WR    ='<path d="M14.5 4.5a4.5 4.5 0 0 0 5.9 5.9L21 11l-8.5 8.5a2.1 2.1 0 0 1-3-3L18 8z"/>',
-      I_CHEV  ='<path d="M9 6l6 6-6 6"/>';
+      I_CHEV  ='<path d="M9 6l6 6-6 6"/>',
+      I_PKG   ='<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M7.8 5.3 16.2 10M12 12v9"/>';
   var CARD='background:var(--surface);border:1px solid var(--border);border-radius:14px';
 
   // KPI tile - geometry lifted from the approved mockup
   function kpi(label,icon,chip,val,sub,subCol,tap){
     return '<div '+(tap?('onclick="'+tap+'" style="cursor:pointer;'):'style="')+CARD+';padding:11px 12px 10px">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">'+
-        '<span style="font-size:11.5px;font-weight:600;color:var(--text-2)">'+label+'</span>'+
+        '<span class="hm-lbl" style="font-size:11.5px;font-weight:600;color:var(--text-2)">'+label+'</span>'+
         '<span style="width:22px;height:22px;border-radius:6px;background:'+chip+';color:#fff;'+
         'display:flex;align-items:center;justify-content:center;flex-shrink:0">'+homeIco(icon,12.5)+'</span></div>'+
-      '<div style="font-size:23px;font-weight:700;color:var(--text);letter-spacing:-.02em;line-height:1">'+val+'</div>'+
+      '<div class="hm-val" style="font-size:23px;font-weight:700;color:var(--text);letter-spacing:-.02em;line-height:1">'+val+'</div>'+
       '<div style="font-size:11px;font-weight:500;color:'+subCol+';margin-top:5px">'+sub+'</div></div>';
   }
 
@@ -5822,13 +5878,13 @@ function renderHome(){
         {weekday:'long',day:'numeric',month:'long'}); }catch(e){ dstr=today; }
   var ini=(''+me).split(/\s+/).map(function(w){return w.charAt(0);}).join('').slice(0,2).toUpperCase();
 
-  var H='';
+  var H='<div class="hm-wrap">';
   // ── greeting + avatar
-  H+='<div style="display:flex;align-items:center;gap:12px;padding:4px 2px 11px">'+
+  H+='<div class="hm-greet" style="display:flex;align-items:center;gap:12px;padding:4px 2px 11px">'+
      '<div style="flex:1;min-width:0">'+
        '<div style="font-size:11.5px;font-weight:600;color:var(--text-3);letter-spacing:.02em">'+rqEsc(dstr)+'</div>'+
-       '<div style="font-size:23px;font-weight:750;color:var(--text);letter-spacing:-.025em;margin-top:2px;'+
-       'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+homeGreeting()+', '+rqEsc(me)+'</div></div>'+
+       '<div class="hm-hi" style="font-size:23px;font-weight:750;color:var(--text);letter-spacing:-.025em;'+
+       'margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+homeGreeting()+', '+rqEsc(me)+'</div></div>'+
      '<span style="width:36px;height:36px;border-radius:10px;background:rgba(124,107,240,.16);'+
      'color:var(--accent);font-size:12px;font-weight:700;display:flex;align-items:center;'+
      'justify-content:center;flex-shrink:0">'+ini+'</span></div>';
@@ -5850,7 +5906,7 @@ function renderHome(){
   }
 
   // ── 2x2 KPI grid
-  H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:11px">';
+  H+='<div class="hm-kpis">';
   H+=kpi(hT('PM compliance','\u0414\u043e\u0442\u0440\u0438\u043c\u0430\u043d\u043d\u044f \u041f\u041c'),I_TARGET,'#6366f1',
         (comp==null?'\u2013':comp+'%'),
         (comp==null?hT('no data yet','\u043d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445'):(compN+' '+hT('in 30d','\u0437\u0430 30\u0434'))),
@@ -5863,7 +5919,13 @@ function renderHome(){
         'var(--text-3)',"showTab('requests')");
   H+=kpi(hT('Downtime','\u041f\u0440\u043e\u0441\u0442\u0456\u0439'),I_ALERT,'#dc2626',dtMonth+'h',
         hT('this month','\u0446\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f'),'var(--text-3)');
+  var lowN=0;
+  try{ lowN=(typeof INV!=='undefined'?INV:[]).filter(function(i){return invIsLow(i);}).length; }catch(e){}
+  H+='<div class="hm-kpi5">'+kpi(hT('Parts below min','\u0417\u0430\u043f\u0447\u0430\u0441\u0442\u0438\u043d\u0438'),I_PKG,'#8b5cf6',lowN,
+        lowN?hT('reorder needed','\u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e \u0437\u0430\u043c\u043e\u0432\u0438\u0442\u0438'):hT('stocked','\u0432 \u043d\u0430\u044f\u0432\u043d\u043e\u0441\u0442\u0456'),
+        lowN?'var(--bad)':'var(--text-3)',"showTab('inventory')")+'</div>';
   H+='</div>';
+  H+='<div class="hm-row2">';
 
   // ── PM completions chart (plan line only when there is real plan data)
   if(totDone||totPlan){
@@ -5884,14 +5946,14 @@ function renderHome(){
            (hasPlan?hT('PM completions vs plan','\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f \u041f\u041c'):hT('PM completions','\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f \u041f\u041c'))+'</div>'+
            '<div style="font-size:11px;color:var(--text-3);margin-top:3px">'+totDone+
            (hasPlan?(' '+hT('of','\u0437')+' '+totPlan):'')+' \u00b7 12'+hT('m','\u043c')+'</div></div>'+badge+'</div>'+
-       homeSpark(doneS,w,84,'#7c6bf0',hasPlan?planS:null)+
+       '<div id="hm-chart" style="min-height:84px"></div>'+
        '<div style="display:flex;justify-content:space-between;font-size:10px;font-weight:500;'+
        'color:var(--text-3);padding:0 2px 2px">'+mlab.map(function(m){return '<span>'+m+'</span>';}).join('')+'</div></div>';
   }
 
   // ── today's PM tasks
   if(due.length){
-    H+='<div style="display:flex;align-items:center;justify-content:space-between;padding:2px 4px 8px">'+
+    H+='<div class="hm-sec" style="display:flex;align-items:center;justify-content:space-between;padding:2px 4px 8px">'+
        '<span style="font-size:10.5px;font-weight:650;color:var(--text-3);text-transform:uppercase;'+
        'letter-spacing:.1em">'+hT("Today's PM tasks",'\u041f\u041c \u0441\u044c\u043e\u0433\u043e\u0434\u043d\u0456')+' \u00b7 '+due.length+'</span>'+
        '<span onclick="showTab(\'cmms\')" style="font-size:11.5px;font-weight:650;color:var(--accent);'+
@@ -5928,9 +5990,93 @@ function renderHome(){
     H+='</div>';
   }
 
+  H+='</div>';   // close .hm-row2
+
+  // ── desktop-only lower row: work log volume + downtime by asset
+  var wk=[],iss=[],lbl=[];
+  try{
+    var E2=(typeof allE!=='undefined'&&allE&&allE.length)?allE:[];
+    var DONE2={completed:1,done:1,pm:1,followup_done:1};
+    for(var b=7;b>=0;b--){
+      var s0=new Date(); s0.setDate(s0.getDate()-b*7-6); var e0=new Date(); e0.setDate(e0.getDate()-b*7);
+      var a=pmISO(s0), z=pmISO(e0), dn=0, ip=0;
+      E2.forEach(function(e){ var d=(''+(e.date||'')); if(d<a||d>z)return;
+        if(DONE2[e.type])dn++; else if(typeof isIssueType==='function'&&isIssueType(e))ip++; });
+      wk.push(dn); iss.push(ip);
+      lbl.push('W'+Math.ceil(((e0-new Date(e0.getFullYear(),0,1))/86400000+new Date(e0.getFullYear(),0,1).getDay()+1)/7));
+    }
+  }catch(e){}
+  var dtA={};
+  try{
+    var mo2=today.slice(0,7);
+    ((typeof allE!=='undefined'&&allE)?allE:[]).forEach(function(e){
+      var v=parseFloat(e.dt); if(isNaN(v)||v<=0)return;
+      if((''+(e.date||'')).slice(0,7)!==mo2)return;
+      var k=e.assetName||e.asset||'\u2014'; dtA[k]=(dtA[k]||0)+v; });
+  }catch(e){}
+  var dtList=Object.keys(dtA).map(function(k){return [k,dtA[k]];})
+              .sort(function(a,b){return b[1]-a[1];}).slice(0,5);
+  var dtMax=dtList.length?dtList[0][1]:0;
+
+  H+='<div class="hm-row3">';
+  // work log volume
+  var bw=Math.max(8,wk.length), maxB=Math.max.apply(null,wk.concat(iss).concat([1]));
+  var bars='';
+  wk.forEach(function(v,i){
+    var hD=Math.round(v/maxB*104), hI=Math.round(iss[i]/maxB*104);
+    bars+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0">'+
+      '<div style="width:100%;max-width:30px;display:flex;flex-direction:column;justify-content:flex-end;height:112px">'+
+        '<div style="height:'+hD+'px;background:#4e9c81;border-radius:3px 3px 0 0"></div>'+
+        '<div style="height:'+hI+'px;background:rgba(220,38,38,.35);border-radius:0 0 3px 3px"></div>'+
+      '</div>'+
+      '<span style="font-size:10px;color:var(--text-3);font-weight:500">'+lbl[i]+'</span></div>';
+  });
+  var totD=wk.reduce(function(a,b){return a+b;},0), totI=iss.reduce(function(a,b){return a+b;},0);
+  H+='<div style="'+CARD+';padding:16px 18px 12px">'+
+     '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">'+
+       '<div><div style="font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.01em">'+
+         hT('Work log volume','\u041e\u0431\u0441\u044f\u0433 \u0436\u0443\u0440\u043d\u0430\u043b\u0443')+'</div>'+
+         '<div style="font-size:12.5px;color:var(--text-3);margin-top:4px">'+totD+' '+hT('completed','\u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043e')+
+         ' \u00b7 '+totI+' '+hT('issues','\u043f\u0440\u043e\u0431\u043b\u0435\u043c')+' \u00b7 8'+hT('w','\u0442')+'</div></div></div>'+
+     '<div style="display:flex;gap:6px;align-items:flex-end">'+bars+'</div></div>';
+  // downtime by asset
+  var rows='';
+  dtList.forEach(function(r,i){
+    var pctw=dtMax?Math.round(r[1]/dtMax*100):0;
+    rows+='<div style="display:flex;align-items:center;gap:12px;padding:11px 0'+
+      (i?';border-top:1px solid var(--border)':'')+'">'+
+      '<span style="flex:0 0 190px;font-size:13.5px;font-weight:650;color:var(--text);white-space:nowrap;'+
+      'overflow:hidden;text-overflow:ellipsis">'+rqEsc(r[0])+'</span>'+
+      '<div style="flex:1;height:6px;border-radius:4px;background:var(--surface-2);overflow:hidden;min-width:60px">'+
+        '<div style="width:'+pctw+'%;height:100%;border-radius:4px;background:var(--accent)"></div></div>'+
+      '<span style="flex:0 0 54px;text-align:right;font-size:13.5px;font-weight:700;color:var(--text)">'+
+      (Math.round(r[1]*10)/10)+'h</span></div>';
+  });
+  if(!rows)rows='<div style="padding:18px 0;font-size:12.5px;color:var(--text-3)">'+
+    hT('No downtime logged this month','\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u043e\u0441\u0442\u043e\u0457\u0432')+'</div>';
+  H+='<div style="'+CARD+';padding:16px 18px 12px">'+
+     '<div style="font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.01em">'+
+       hT('Downtime by asset','\u041f\u0440\u043e\u0441\u0442\u0456\u0439 \u0437\u0430 \u043e\u0431\u043b\u0430\u0434\u043d\u0430\u043d\u043d\u044f\u043c')+'</div>'+
+     '<div style="font-size:12.5px;color:var(--text-3);margin-top:4px;margin-bottom:6px">'+dtMonth+'h '+
+       hT('this month','\u0446\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f')+'</div>'+rows+'</div>';
+  H+='</div>';
+
   H+='<div onclick="forceUpdateApp()" style="text-align:center;font-size:9.5px;color:var(--text-3);'+
      'font-family:ui-monospace,monospace;padding:16px 0 6px;cursor:pointer">build '+APP_BUILD+'</div>';
+  H+='</div>';   // close .hm-wrap
   el.innerHTML=H;
+  // The sparkline needs its container's real width, which only exists after layout.
+  // Measuring here (instead of guessing from the pane) keeps the grid column from
+  // being blown out to the full pane width.
+  try{
+    var cc=gid('hm-chart');
+    if(cc){
+      var draw=function(){ var cw=Math.max(180,cc.clientWidth||280);
+        cc.innerHTML=homeSpark(doneS,cw,84,'#7c6bf0',hasPlan?planS:null); };
+      draw();
+      if(window.ResizeObserver&&!cc.__ro){ cc.__ro=new ResizeObserver(function(){draw();}); cc.__ro.observe(cc); }
+    }
+  }catch(e){}
   try{ homeSyncBadge(); }catch(e){}
 }
 
