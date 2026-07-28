@@ -328,9 +328,13 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     .hm-kpis>div{padding:16px 18px 15px!important}
     .hm-kpis .hm-val{font-size:27px!important}
     .hm-kpis .hm-lbl{font-size:13px!important}
-    .hm-row2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:16px}
+    .hm-row2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:stretch;margin-bottom:16px}
+    .hm-row2>div{display:flex;flex-direction:column}
+    .hm-row2>div>div:last-child{flex:1}
+    #hm-chart{min-height:238px!important;flex:1}
     .hm-row2>*+*{margin-top:0}
-    .hm-row3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:16px;align-items:start}
+    .hm-row3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:16px;align-items:stretch}
+    .hm-row3>div{height:100%}
     .hm-greet .hm-hi{font-size:26px!important}
     .hm-sec{padding-top:2px!important}
   }
@@ -766,7 +770,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-25g \u00b7 forklift-theme';
+var APP_BUILD='2026-07-25h \u00b7 fixes';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1326,6 +1330,7 @@ function showTab(name){
   var atb=gid('tab-'+name);
   if(atb){atb.style.color='#fff';atb.style.borderBottomColor='#fff';atb.classList.add('dz-active');}
   try{homeSyncTabs(name);homeSyncBadge();}catch(e){}
+  try{if(window.matchMedia&&window.matchMedia('(min-width:1000px)').matches)enhanceDesktop();}catch(e){}
   function _safe(fn,pane){ try{ fn(); }catch(e){ try{ var p=gid('pane-'+pane); if(p&&!p.innerHTML.trim()){ p.innerHTML='<div style="padding:20px;color:#f87171;font-size:12.5px;line-height:1.5">Something went wrong rendering this tab.<br><span style="color:var(--text-3);font-size:11px">'+String(e&&e.message||e).replace(/</g,'&lt;')+'</span><br><button onclick="location.reload()" style="margin-top:10px;padding:8px 14px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;color:var(--text);font-weight:700;cursor:pointer">Reload</button></div>'; } }catch(_x){} console.warn('render '+pane+' failed',e); } }
   if(name==='home')_safe(renderHome,'home');
   if(name==='shift')_safe(renderShift,'shift');
@@ -2670,7 +2675,7 @@ function drawRequests(){try{updateReqTabCount();}catch(e){}
        T('req_wr')+'</div>'+
        '<div style="font-size:11.5px;color:var(--text-3);margin-top:3px">'+open.length+' '+
        T('req_open')+(nDept?(' \u00b7 '+nDept+' '+(lang==='uk'?'\u0432\u0456\u0434\u0434\u0456\u043b\u0456\u0432':'departments')):'')+'</div></div>'+
-     '<span onclick="openSheet(null)" style="width:38px;height:38px;border-radius:11px;'+
+     '<span onclick="openMaintReqMenu()" style="width:38px;height:38px;border-radius:11px;'+
      'background:var(--text);color:var(--surface);display:flex;align-items:center;'+
      'justify-content:center;flex-shrink:0;cursor:pointer;font-size:21px;font-weight:400;'+
      'line-height:1">+</span></div>';
@@ -2704,6 +2709,7 @@ function drawRequests(){try{updateReqTabCount();}catch(e){}
   H+='</div>';
   el.innerHTML='<div class="md-split"><div class="md-list">'+H+'</div><div class="md-detail" id="req-detail-pane"><div class="md-empty">'+T('req_selectone')+'</div></div></div>';
   updateReqBadge();
+  try{homeRefresh();}catch(e){}
 }
 function reqSetStatus(id,status){
   var r=REQUESTS.filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
@@ -2969,6 +2975,7 @@ function loadFromSB(){
         return !found; // keep only if not yet in SB
       });
       allE=sbEntries.concat(pendingLocal);
+      try{homeRefresh();}catch(e){}
       // Rebuild current shift entries — anchor to the SHIFT's start date (not the
       // calendar date) so a night shift doesn't empty out when the clock passes midnight.
       var isday=isDay();
@@ -5904,6 +5911,7 @@ function undoPendingWO(){
   try{toast('\u21a9\uFE0E '+T('mw_undo'));}catch(e){}
 }
 function mwRefresh(){
+  try{setTimeout(homeRefresh,0);}catch(e){}
   try{ injectMyPMTasks(); }catch(e){}
 }
 function showWODoneToast(){
@@ -6272,7 +6280,8 @@ function renderHome(){
     var cc=gid('hm-chart');
     if(cc){
       var draw=function(){ var cw=Math.max(180,cc.clientWidth||280);
-        cc.innerHTML=homeSpark(doneS,cw,84,'#7c6bf0',hasPlan?planS:null); };
+        var ch=Math.max(84,Math.min(320,cc.clientHeight||84));
+        cc.innerHTML=homeSpark(doneS,cw,ch,'#7c6bf0',hasPlan?planS:null); };
       draw();
       if(window.ResizeObserver&&!cc.__ro){ cc.__ro=new ResizeObserver(function(){draw();}); cc.__ro.observe(cc); }
     }
@@ -6281,6 +6290,12 @@ function renderHome(){
 }
 
 // Badge on the Requests bottom tab
+// Home is computed from WOS / REQUESTS / allE. If it renders before those load it
+// shows zeros until a manual refresh, so re-render whenever data arrives.
+function homeRefresh(){
+  try{ var p=gid('pane-home'); if(p&&getComputedStyle(p).display!=='none')renderHome(); }catch(e){}
+  try{ homeSyncBadge(); }catch(e){}
+}
 function homeSyncBadge(){
   var b=gid('bt-badge'); if(!b)return;
   var n=0;
@@ -7115,7 +7130,7 @@ function flDashRequestQR(){
   var url=flBaseURL()+'?flreq';
   var data='';try{data=flQRDataURL(url);}catch(e){}
   var H='<div id="flreq-qr" style="position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:99000;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">';
-  H+='<div style="background:var(--text);border-radius:16px;max-width:420px;width:100%;padding:26px;text-align:center;color:#111">';
+  H+='<div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:26px;text-align:center;color:#111">';
   H+='<div style="font-size:19px;font-weight:800;margin-bottom:4px">Forklift Help Request</div>';
   H+='<div style="font-size:13px;color:#666;margin-bottom:18px">Print &amp; post this. Anyone can scan to request forklift help \u2014 it lands in this dashboard.</div>';
   if(data)H+='<img src="'+data+'" style="width:230px;height:230px;margin:0 auto 14px;display:block">';
@@ -7127,7 +7142,7 @@ function flDashRequestQR(){
 function openForkliftQR(){
  var ex=gid('fl-qr');if(ex)ex.remove();
  var base=flBaseURL();
- var H='<div id="fl-qr" style="position:fixed;inset:0;background:var(--text);z-index:9001;overflow-y:auto;color:#111">';
+ var H='<div id="fl-qr" style="position:fixed;inset:0;background:#fff;z-index:9001;overflow-y:auto;color:#111">';
  H+='<div class="fl-noprint" style="position:sticky;top:0;background:var(--surface-2);color:var(--text);padding:12px 15px;display:flex;align-items:center;gap:10px;z-index:3"><button onclick="document.getElementById(\'fl-qr\').remove()" style="background:var(--surface-2);border:1px solid #555;color:var(--text);padding:8px 13px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer">Close</button><div style="flex:1;font-weight:800">Forklift QR codes</div><button onclick="window.print()" style="background:var(--text);border:none;color:#111;padding:8px 16px;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer">Print</button></div>';
  H+='<div style="max-width:760px;margin:0 auto;padding:24px 20px 60px">';
  H+='<div style="text-align:center;margin-bottom:20px"><div style="font-size:20px;font-weight:800">Brunswick Bierworks &mdash; Forklift Inspection</div><div style="font-size:13px;color:#555;margin-top:4px">Scan a unit&#39;s code with your phone camera to open its pre-operation checklist.</div></div>';
@@ -7140,6 +7155,25 @@ function openForkliftQR(){
   H+='</div>';});
  H+='</div></div></div>';
  document.body.insertAdjacentHTML('beforeend',H);
+}
+
+// Theme toggle for the standalone forklift dashboard. It has its own chrome and
+// never showed the app's header button, so supervisors had no way to switch.
+function flDashThemeBtn(){
+  var dark=(document.documentElement.getAttribute('data-theme')||'light')!=='light';
+  var ic=dark
+    ? '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.4 4.4l1.6 1.6M18 18l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.4 19.6 6 18M18 6l1.6-1.6"/>'
+    : '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/>';
+  return '<button onclick="flDashToggleTheme()" aria-label="Toggle theme" '+
+    'style="background:var(--surface);border:1px solid var(--border-2);color:var(--text);'+
+    'width:38px;height:38px;border-radius:9px;cursor:pointer;display:flex;align-items:center;'+
+    'justify-content:center;flex-shrink:0">'+
+    '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
+    'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+ic+'</svg></button>';
+}
+function flDashToggleTheme(){
+  try{ toggleTheme(); }catch(e){}
+  try{ renderFlDash(); }catch(e){}
 }
 
 // ═══════════════ Forklift Supervisor Dashboard (standalone, ?fldash) ═══════════════
@@ -7338,6 +7372,7 @@ function renderFlDash(){
   H+='<div style="position:sticky;top:0;background:var(--surface-2);border-bottom:1px solid var(--border);padding:10px 14px;z-index:5">';
   H+='<div style="display:flex;align-items:center;gap:10px">';
   H+='<div style="display:flex;align-items:center;flex-shrink:0">'+flDashLogo(24)+'</div>';
+  H+='<div style="flex:1"></div>'+flDashThemeBtn();
   H+='<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Forklift Dashboard</div><div style="font-size:11px;color:var(--text-3)">Brunswick Bierworks</div></div>';
   H+='<button onclick="flDashLock()" style="background:var(--surface-2);border:1px solid var(--border-2);color:var(--text-2);font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer;flex-shrink:0">Lock</button>';
   H+='</div>';
@@ -9618,40 +9653,105 @@ function parseTechSchedule(input, scope){
       var _todayDS=localDateStr(new Date());
       var T={};
       Object.keys(_oldSched).forEach(function(k){ T[k]=(k==='__rate__')?_oldSched[k]:Object.assign({},_oldSched[k]); });
-      var dates=data[0],day=data[1],night=data[2],comments=data[3];
-      if(!dates)return;
-      var _updated=0,_pastKept=0;
-      for(var c=1;c<dates.length;c++){
-        if(!dates[c])continue;
-        var dt3=null;
-        var dv=dates[c];
-        if(dv instanceof Date){dt3=dv;}
-        else if(typeof dv==='number'){
-          // Excel serial date - convert
-          dt3=new Date((dv-25569)*86400*1000);
-        }else if(typeof dv==='string'){
-          dt3=new Date(dv);
+      // ── Layout detection ───────────────────────────────────────────────────
+      // Legacy layout: row0=dates, row1=day crew, row2=night crew, row3=comments.
+      // New layout: several stacked blocks, each starting with a header row of
+      // dates, then a weekday row, then one row per role (label in column A).
+      //   block 1 -> Day crew, block 2 -> Night crew, block 3+ -> appended notes.
+      function _toDate(v){
+        if(v==null||v==='')return null;
+        var d=null;
+        if(v instanceof Date)d=v;
+        else if(typeof v==='number')d=new Date((v-25569)*86400*1000);
+        else if(typeof v==='string'){ var t=v.trim(); if(!/\d/.test(t))return null; d=new Date(t); }
+        return (d&&!isNaN(d.getTime()))?d:null;
+      }
+      function _ds(d){
+        var yr=d.getFullYear(),mo=d.getMonth(),dy=d.getDate();
+        if(d.getUTCHours()===0&&d.getHours()!==0){yr=d.getUTCFullYear();mo=d.getUTCMonth();dy=d.getUTCDate();}
+        return yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(dy).padStart(2,'0');
+      }
+      var _DAYNAMES=/^(mon|tue|wed|thu|fri|sat|sun)/i;
+      function _isWeekdayRow(row){
+        if(!row)return false;
+        var hit=0,tot=0;
+        for(var c=1;c<row.length;c++){ var v=row[c]; if(v==null||v==='')continue; tot++;
+          if(typeof v==='string'&&_DAYNAMES.test(v.trim()))hit++; }
+        return tot>0 && hit/tot>0.6;
+      }
+      // find every header row (>=3 real dates)
+      var _headers=[];
+      for(var r=0;r<data.length;r++){
+        var row=data[r]||[], dc=0;
+        for(var c=1;c<row.length;c++) if(_toDate(row[c]))dc++;
+        if(dc>=3)_headers.push(r);
+      }
+      var perDate={};      // ds -> {day:[],night:[],notes:[]}
+      var _blockInfo=[];
+      function _slot(ds){ if(!perDate[ds])perDate[ds]={day:[],night:[],notes:[]}; return perDate[ds]; }
+
+      if(_headers.length>1){
+        // ── multi-block layout ──
+        for(var bi=0;bi<_headers.length;bi++){
+          var hr=_headers[bi], stop=(bi+1<_headers.length)?_headers[bi+1]:data.length;
+          var hdr=data[hr]||[];
+          var roleRows=[];
+          for(var rr=hr+1;rr<stop;rr++){
+            var row2=data[rr]||[];
+            if(_isWeekdayRow(row2))continue;
+            var filled=0; for(var c2=1;c2<row2.length;c2++) if(row2[c2]!=null&&row2[c2]!=='')filled++;
+            if(!filled)continue;
+            roleRows.push(row2);
+          }
+          var target=(bi===0)?'day':(bi===1?'night':'notes');
+          _blockInfo.push({n:bi+1,rows:roleRows.length,target:target});
+          for(var c3=1;c3<hdr.length;c3++){
+            var dd=_toDate(hdr[c3]); if(!dd)continue;
+            var ds3=_ds(dd), bucket=_slot(ds3);
+            roleRows.forEach(function(rw){
+              var v=rw[c3]; if(v==null||String(v).trim()==='')return;
+              var label=String(rw[0]==null?'':rw[0]).trim();
+              var val=String(v).trim();
+              if(target==='notes')bucket.notes.push((label?label+': ':'')+val);
+              else bucket[target].push(val);
+            });
+          }
         }
-        if(!dt3||isNaN(dt3.getTime()))continue;
-        // Normalize to local date string to avoid UTC offset issues
-        var yr=dt3.getFullYear(),mo=dt3.getMonth(),dy=dt3.getDate();
-        // Handle UTC dates from SheetJS (add offset)
-        if(dt3.getUTCHours()===0&&dt3.getHours()!==0){yr=dt3.getUTCFullYear();mo=dt3.getUTCMonth();dy=dt3.getUTCDate();}
-        var ds=yr+'-'+String(mo+1).padStart(2,'0')+'-'+String(dy).padStart(2,'0');
-        if(ds<_todayDS){_pastKept++;continue;}   // freeze the past — leave existing history untouched
-        var _o=T[ds]||{};              // preserve this day's extras if it already existed
-        _o.day=day&&day[c]?String(day[c]).trim():'';
-        _o.night=night&&night[c]?String(night[c]).trim():'';
-        var _cm=comments&&comments[c]?String(comments[c]).trim():'';
+      }else{
+        // ── legacy single-block layout ──
+        var dates0=data[0],day0=data[1],night0=data[2],com0=data[3];
+        if(!dates0)return;
+        for(var c4=1;c4<dates0.length;c4++){
+          var d4=_toDate(dates0[c4]); if(!d4)continue;
+          var b4=_slot(_ds(d4));
+          if(day0&&day0[c4])b4.day.push(String(day0[c4]).trim());
+          if(night0&&night0[c4])b4.night.push(String(night0[c4]).trim());
+          if(com0&&com0[c4])b4.notes.push(String(com0[c4]).trim());
+        }
+      }
+      function _uniq(a){var o=[],seen={};a.forEach(function(x){var k=x.toLowerCase();
+        if(x&&!seen[k]){seen[k]=1;o.push(x);}});return o;}
+      var dates={length:0};
+      var _updated=0,_pastKept=0;
+      Object.keys(perDate).sort().forEach(function(ds){
+        if(ds<_todayDS){_pastKept++;return;}   // freeze the past - leave history untouched
+        var src=perDate[ds];
+        var _o=T[ds]||{};                      // preserve this day's extras if it existed
+        _o.day=_uniq(src.day).join(', ');
+        _o.night=_uniq(src.night).join(', ');
+        var _cm=_uniq(src.notes).join(' \u00b7 ');
         if(_cm){_o.comment=_cm;} else if(_o.comment==null){_o.comment='';}
         T[ds]=_o;
         _updated++;
-      }
+      });
       if(scope==='forklift')forkliftSchedule=T; else techSchedule=T;
       try{localStorage.setItem(scope==='forklift'?'bbw_fl_sched':'bbw_tech_sched',JSON.stringify(T));}catch(ex){}
       if(scope==='forklift'){ if(typeof FLDASH_OK!=='undefined'&&FLDASH_OK){try{renderFlDash();}catch(_e){}} }
       else { var _ps=SCHED_SCOPE; SCHED_SCOPE='tech'; try{renderSchedule();}catch(_e){} SCHED_SCOPE=_ps; }
-      if(el){el.textContent='\u2713 Updated '+_updated+' day(s) from today \u2014 syncing...';el.style.color='#4ade80';}
+      var _bmsg='';
+      if(_blockInfo.length){ _bmsg=' \u00b7 '+_blockInfo.map(function(b){
+        return 'block'+b.n+'\u2192'+(b.target==='notes'?'notes':b.target)+' ('+b.rows+' rows)'; }).join(', '); }
+      if(el){el.textContent='\u2713 Updated '+_updated+' day(s) from today'+_bmsg+' \u2014 syncing...';el.style.color='var(--ok)';}
       saveScheduleToSB(scope,T).then(function(ok){if(el){el.textContent='\u2713 '+_updated+' day(s) updated from today onward \u00b7 earlier history kept'+(ok?' \u2014 synced to all devices':' \u2014 saved locally (sync failed)');el.style.color=ok?'#4ade80':'#fbbf24';}});
     }catch(err){if(el){el.textContent='Error: '+err.message;el.style.color='#ef4444';}}
   };
