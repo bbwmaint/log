@@ -770,7 +770,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-25j \u00b7 volume-yoy';
+var APP_BUILD='2026-07-25k \u00b7 fl-qr-fix';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7334,7 +7334,7 @@ function flDashRequestQR(){
 function openForkliftQR(){
  var ex=gid('fl-qr');if(ex)ex.remove();
  var base=flBaseURL();
- var H='<div id="fl-qr" style="position:fixed;inset:0;background:#fff;z-index:9001;overflow-y:auto;color:#111">';
+ var H='<div id="fl-qr" style="position:fixed;inset:0;background:#fff;z-index:99600;overflow-y:auto;color:#111">';
  H+='<div class="fl-noprint" style="position:sticky;top:0;background:var(--surface-2);color:var(--text);padding:12px 15px;display:flex;align-items:center;gap:10px;z-index:3"><button onclick="document.getElementById(\'fl-qr\').remove()" style="background:var(--surface-2);border:1px solid #555;color:var(--text);padding:8px 13px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer">Close</button><div style="flex:1;font-weight:800">Forklift QR codes</div><button onclick="window.print()" style="background:var(--text);border:none;color:#111;padding:8px 16px;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer">Print</button></div>';
  H+='<div style="max-width:760px;margin:0 auto;padding:24px 20px 60px">';
  H+='<div style="text-align:center;margin-bottom:20px"><div style="font-size:20px;font-weight:800">Brunswick Bierworks &mdash; Forklift Inspection</div><div style="font-size:13px;color:#555;margin-top:4px">Scan a unit&#39;s code with your phone camera to open its pre-operation checklist.</div></div>';
@@ -7564,9 +7564,9 @@ function renderFlDash(){
   H+='<div style="position:sticky;top:0;background:var(--surface-2);border-bottom:1px solid var(--border);padding:10px 14px;z-index:5">';
   H+='<div style="display:flex;align-items:center;gap:10px">';
   H+='<div style="display:flex;align-items:center;flex-shrink:0">'+flDashLogo(24)+'</div>';
-  H+='<div style="flex:1"></div>'+flDashThemeBtn();
   H+='<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Forklift Dashboard</div><div style="font-size:11px;color:var(--text-3)">Brunswick Bierworks</div></div>';
-  H+='<button onclick="flDashLock()" style="background:var(--surface-2);border:1px solid var(--border-2);color:var(--text-2);font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer;flex-shrink:0">Lock</button>';
+  H+=flDashThemeBtn();
+  H+='<button onclick="flDashLock()" style="background:var(--surface-2);border:1px solid var(--border-2);color:var(--text-2);font-size:12px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer;flex-shrink:0">Sign out</button>';
   H+='</div>';
   if(FLDASH_ROLE!=='driver'){
   H+='<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">';
