@@ -770,7 +770,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-25i \u00b7 tech-view';
+var APP_BUILD='2026-07-25j \u00b7 volume-yoy';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4865,6 +4865,25 @@ function weekXLSX(){
   XLSX.writeFile(wb,'BBW_Weekly_'+b.start+'.xlsx');
 }
 
+// ── Monthly production volume, hL ──────────────────────────────────────────────
+// Historical reference figures supplied by the brewery. The Schedule tab only
+// carries live volume from mid-2026 onward, so these are the authoritative
+// monthly totals used for year-over-year comparison in the monthly report.
+// To add a month: '2026-07':81200   (value in hL, not thousands)
+var BBW_VOLUME_HL={
+  '2025-01':31670,'2025-02':51500,'2025-03':51530,'2025-04':61450,
+  '2025-05':54570,'2025-06':61990,'2025-07':57480,'2025-08':51420,
+  '2025-09':70370,'2025-10':73210,'2025-11':71330,'2025-12':63710,
+  '2026-01':42190,'2026-02':61950,'2026-03':71770,'2026-04':72230,
+  '2026-05':75950,'2026-06':78310
+};
+function volHLFor(ym){ var v=BBW_VOLUME_HL[ym]; return (v==null?null:+v); }
+function volK(v){ return v==null?'\u2014':((v/1000).toFixed(2)+'K'); }
+function volDelta(cur,prev){
+  if(cur==null||prev==null||!prev)return null;
+  return (cur-prev)/prev*100;
+}
+
 function reportPDF(C,b,titleText,subtitle,fileTag){
   var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
   if(!JS){alert('PDF library not ready \u2014 try again in a moment.');return;}
@@ -4929,6 +4948,78 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
   });
   T('hL per '+(useWeekly?'week (Sun\u2013Sat)':'day')+' \u2014 bar colour = mean productivity (green 72%+, amber 60-71%, red under 60%)',M,base+26,7.5,'normal',SUB);
   y=base+40;
+
+  // ---- Production vs last year (monthly reports only) ----
+  if(/MONTHLY/i.test(titleText||'')){
+    var _ym=(b&&b.start)?String(b.start).slice(0,7):'';
+    var _yr=+_ym.slice(0,4), _mo=+_ym.slice(5,7);
+    var _prevYm=(_yr-1)+'-'+String(_mo).padStart(2,'0');
+    var _cur=volHLFor(_ym), _prev=volHLFor(_prevYm);
+    if(_cur!=null||_prev!=null){
+      section('Production Volume vs Last Year');
+      var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      // headline cards
+      ensure(72);
+      var vg=10,vcols=3,vcw=(CW-vg*(vcols-1))/vcols,vch=52;
+      function vcard(i,label,val,sub,col){
+        var x=M+i*(vcw+vg);
+        dc(HAIR);doc.setLineWidth(.8);fc([255,255,255]);doc.roundedRect(x,y,vcw,vch,4,4,'FD');
+        T(label.toUpperCase(),x+9,y+14,6.6,'bold',SUB);
+        T(val,x+9,y+33,15,'bold',col||INK);
+        if(sub)T(sub,x+9,y+45,7.2,'normal',SUB);
+      }
+      var _d=volDelta(_cur,_prev);
+      vcard(0,MON[_mo-1]+' '+_yr,volK(_cur),'hL produced',INK);
+      vcard(1,MON[_mo-1]+' '+(_yr-1),volK(_prev),'same month last year',SLATE);
+      vcard(2,'Change',(_d==null?'\u2014':((_d>0?'+':'')+_d.toFixed(1)+'%')),
+            (_d==null?'no comparison':(_d>=0?'above last year':'below last year')),
+            _d==null?SLATE:(_d>=0?GREEN:RED));
+      y+=vch+16;
+
+      // month-by-month table
+      ensure(40+14*13);
+      var cx=[M, M+150, M+270, M+390];
+      T('MONTH',cx[0],y,7,'bold',SUB);
+      T(String(_yr-1),cx[1],y,7,'bold',SUB);
+      T(String(_yr),cx[2],y,7,'bold',SUB);
+      T('CHANGE',cx[3],y,7,'bold',SUB);
+      y+=5;dc(HAIR);doc.setLineWidth(.7);doc.line(M,y,W-M,y);y+=12;
+      var sumP=0,sumC=0,nP=0,nC=0;
+      for(var mi=0;mi<12;mi++){
+        var mm=String(mi+1).padStart(2,'0');
+        var pv=volHLFor((_yr-1)+'-'+mm), cv=volHLFor(_yr+'-'+mm);
+        if(pv==null&&cv==null)continue;
+        if(pv!=null){sumP+=pv;nP++;}
+        if(cv!=null){sumC+=cv;nC++;}
+        var dd=volDelta(cv,pv);
+        var isCur=(mi+1)===_mo;
+        if(isCur){ fc([248,248,250]); doc.rect(M-4,y-9,CW+8,14,'F'); }
+        T(MON[mi],cx[0],y,8.4,isCur?'bold':'normal',INK);
+        T(volK(pv),cx[1],y,8.4,'normal',SLATE);
+        T(volK(cv),cx[2],y,8.4,isCur?'bold':'normal',INK);
+        T(dd==null?'\u2014':((dd>0?'+':'')+dd.toFixed(1)+'%'),cx[3],y,8.4,
+          dd==null?'normal':'bold', dd==null?SLATE:(dd>=0?GREEN:RED));
+        y+=14;
+      }
+      // year-to-date over the months present in BOTH years
+      var ytdP=0,ytdC=0;
+      for(var mj=0;mj<12;mj++){
+        var m2=String(mj+1).padStart(2,'0');
+        var p2=volHLFor((_yr-1)+'-'+m2), c2=volHLFor(_yr+'-'+m2);
+        if(p2!=null&&c2!=null){ytdP+=p2;ytdC+=c2;}
+      }
+      if(ytdP&&ytdC){
+        y+=2;dc(HAIR);doc.setLineWidth(.7);doc.line(M,y-9,W-M,y-9);y+=4;
+        var yd=volDelta(ytdC,ytdP);
+        T('YTD (matched months)',cx[0],y,8.4,'bold',INK);
+        T(volK(ytdP),cx[1],y,8.4,'bold',SLATE);
+        T(volK(ytdC),cx[2],y,8.4,'bold',INK);
+        T((yd>0?'+':'')+yd.toFixed(1)+'%',cx[3],y,8.4,'bold',yd>=0?GREEN:RED);
+        y+=14;
+      }
+      y+=6;
+    }
+  }
 
   // ---- Downtime by Asset (native hbars) ----
   section('Downtime by Asset');
