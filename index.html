@@ -770,7 +770,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-25k \u00b7 fl-qr-fix';
+var APP_BUILD='2026-07-25l \u00b7 charts+compliance';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3969,7 +3969,7 @@ function utRender(){
   }
   H+='</div>';
 
-  if(pts.length<2){
+  if(pts.length<1){
     H+='<div style="text-align:center;padding:60px 24px">';
     H+='<div style="font-size:15px;font-weight:600;color:var(--text-2);margin-bottom:7px">'+utT('Not enough readings yet')+'</div>';
     H+='<div style="font-size:13px;color:var(--text-3);line-height:1.55">'+(perHL?utT('Needs daily readings plus production hL on the schedule for the same days.'):utT('Log this reading on a few days and the trend will appear here.'))+'</div></div></div>';
@@ -4022,44 +4022,140 @@ function utDateLabel(ds){
   catch(e){ return ds; }
 }
 /** Draw at the container's real pixel width so text and strokes stay crisp. */
+// ═══════════ Interactive trend chart (shared) ═══════════
+// Draws an SVG line/area with Y gridlines, X labels, and a hover crosshair that
+// reports the exact point under the pointer. Used by the Home dashboard and the
+// utility trends so every chart behaves the same way.
+//   pts  : [{d:'2026-07-01', v:12.3}, ...]   (d = label/date, v = value)
+//   opts : {h, color, fmt, unit, label, plan:[...], planLabel}
+var _TCID=0;
+function trendChart(host, pts, opts){
+  if(!host)return;
+  opts=opts||{};
+  var W=Math.max(220,host.clientWidth||300), H=opts.h||232;
+  var col=opts.color||'#7c6bf0';
+  var fmt=opts.fmt||function(v){ return (Math.round(v*100)/100).toLocaleString(); };
+  var PL=opts.padL||46, PR=12, PT=14, PB=26;
+  if(!pts||!pts.length){
+    host.innerHTML='<div style="padding:34px 12px;text-align:center;font-size:12.5px;'+
+      'color:var(--text-3)">'+((typeof utT==='function')?utT('No readings yet'):'No data yet')+'</div>';
+    return;
+  }
+  var vals=pts.map(function(p){return +p.v;});
+  var plan=(opts.plan&&opts.plan.length===pts.length)?opts.plan.map(Number):null;
+  var all=plan?vals.concat(plan):vals;
+  var mn=Math.min.apply(null,all), mx=Math.max.apply(null,all);
+  if(mn===mx){ var pad=Math.abs(mn)||1; mn-=pad*0.5; mx+=pad*0.5; }
+  var rng=(mx-mn)||1, lo=mn-rng*0.12, hi=mx+rng*0.12;
+  var n=pts.length;
+  function X(i){ return n===1 ? PL+(W-PL-PR)/2 : PL+(i/(n-1))*(W-PL-PR); }
+  function Y(v){ return PT+(1-((v-lo)/(hi-lo)))*(H-PT-PB); }
+
+  var id='tc'+(++_TCID);
+  var g='';
+  // Y gridlines + labels
+  var TICKS=4;
+  for(var t=0;t<=TICKS;t++){
+    var vv=lo+(hi-lo)*(t/TICKS), yy=Y(vv);
+    g+='<line x1="'+PL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-PR)+'" y2="'+yy.toFixed(1)+
+       '" stroke="var(--border)" stroke-width="1" stroke-dasharray="2 4"/>';
+    g+='<text x="'+(PL-8)+'" y="'+(yy+3.5).toFixed(1)+'" text-anchor="end" font-size="9.5" '+
+       'fill="var(--text-3)" font-weight="500">'+fmt(vv)+'</text>';
+  }
+  // X labels (first, middle, last - avoids crowding)
+  var xi=n===1?[0]:(n<=4?pts.map(function(_,i){return i;}):[0,Math.floor((n-1)/2),n-1]);
+  xi.forEach(function(i){
+    var anc=i===0?'start':(i===n-1?'end':'middle');
+    g+='<text x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="'+anc+'" font-size="9.5" '+
+       'fill="var(--text-3)" font-weight="500">'+((pts[i].l!=null)?pts[i].l:pts[i].d)+'</text>';
+  });
+  function path(arr){
+    var d='M '+X(0).toFixed(1)+' '+Y(arr[0]).toFixed(1);
+    for(var i=1;i<arr.length;i++){
+      var p0=[X(i-1),Y(arr[i-1])], p1=[X(i),Y(arr[i])];
+      var cx=(p0[0]+p1[0])/2;
+      d+=' C '+cx.toFixed(1)+' '+p0[1].toFixed(1)+', '+cx.toFixed(1)+' '+p1[1].toFixed(1)+
+         ', '+p1[0].toFixed(1)+' '+p1[1].toFixed(1);
+    }
+    return d;
+  }
+  var line=n===1?'':path(vals);
+  var area=n===1?'':(line+' L '+X(n-1).toFixed(1)+' '+(H-PB)+' L '+X(0).toFixed(1)+' '+(H-PB)+' Z');
+  var planPath=(plan&&n>1)?('<path d="'+path(plan)+'" fill="none" stroke="var(--text-3)" '+
+     'stroke-width="1.5" stroke-dasharray="4 3.5" opacity=".75"/>'):'';
+
+  var dots='';
+  if(n===1) dots='<circle cx="'+X(0).toFixed(1)+'" cy="'+Y(vals[0]).toFixed(1)+'" r="4.5" '+
+    'fill="var(--surface)" stroke="'+col+'" stroke-width="2.6"/>';
+
+  var svg='<svg id="'+id+'" width="'+W+'" height="'+H+'" style="display:block;touch-action:none">'+
+    '<defs><linearGradient id="'+id+'g" x1="0" y1="0" x2="0" y2="1">'+
+    '<stop offset="0%" stop-color="'+col+'" stop-opacity=".20"/>'+
+    '<stop offset="100%" stop-color="'+col+'" stop-opacity="0"/></linearGradient></defs>'+
+    g+
+    (area?'<path d="'+area+'" fill="url(#'+id+'g)"/>':'')+planPath+
+    (line?'<path d="'+line+'" fill="none" stroke="'+col+'" stroke-width="2.2" '+
+      'stroke-linejoin="round" stroke-linecap="round"/>':'')+dots+
+    '<line id="'+id+'x" x1="0" y1="'+PT+'" x2="0" y2="'+(H-PB)+'" stroke="'+col+
+      '" stroke-width="1" opacity="0" pointer-events="none"/>'+
+    '<circle id="'+id+'d" r="4.5" fill="var(--surface)" stroke="'+col+
+      '" stroke-width="2.6" opacity="0" pointer-events="none"/>'+
+    '<rect id="'+id+'hit" x="0" y="0" width="'+W+'" height="'+H+'" fill="transparent"/>'+
+    '</svg>';
+
+  host.innerHTML='<div style="position:relative">'+svg+
+    '<div id="'+id+'tip" style="position:absolute;pointer-events:none;opacity:0;'+
+    'background:var(--surface);border:1px solid var(--border);border-radius:9px;'+
+    'padding:7px 10px;box-shadow:0 6px 20px rgba(16,16,24,.16);white-space:nowrap;'+
+    'transition:opacity .08s;z-index:5"></div></div>';
+
+  // ── hover / drag readout ──
+  var svgEl=document.getElementById(id), tip=document.getElementById(id+'tip');
+  var xline=document.getElementById(id+'x'), dot=document.getElementById(id+'d');
+  var hit=document.getElementById(id+'hit');
+  if(!svgEl||!hit)return;
+  function nearest(clientX){
+    var r=svgEl.getBoundingClientRect();
+    var px=(clientX-r.left)*(W/r.width);
+    var best=0,bd=1e9;
+    for(var i=0;i<n;i++){ var d=Math.abs(X(i)-px); if(d<bd){bd=d;best=i;} }
+    return best;
+  }
+  function show(clientX){
+    var i=nearest(clientX), px=X(i), py=Y(vals[i]);
+    xline.setAttribute('x1',px); xline.setAttribute('x2',px); xline.setAttribute('opacity','.45');
+    dot.setAttribute('cx',px); dot.setAttribute('cy',py); dot.setAttribute('opacity','1');
+    var lbl=(pts[i].l!=null)?pts[i].l:pts[i].d;
+    var body='<div style="font-size:10.5px;font-weight:700;color:var(--text-3);'+
+      'text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">'+lbl+'</div>'+
+      '<div style="font-size:13.5px;font-weight:700;color:var(--text)">'+fmt(vals[i])+
+      (opts.unit?(' <span style="font-size:10.5px;font-weight:600;color:var(--text-3)">'+opts.unit+'</span>'):'')+'</div>';
+    if(plan)body+='<div style="font-size:11px;font-weight:600;color:var(--text-3);margin-top:2px">'+
+      (opts.planLabel||'plan')+' '+fmt(plan[i])+'</div>';
+    tip.innerHTML=body;
+    tip.style.opacity='1';
+    var r=svgEl.getBoundingClientRect(), scale=r.width/W;
+    var tw=tip.offsetWidth||90;
+    var left=px*scale-tw/2;
+    left=Math.max(2,Math.min(r.width-tw-2,left));
+    tip.style.left=left+'px';
+    tip.style.top=Math.max(0,py*scale-tip.offsetHeight-12)+'px';
+  }
+  function hide(){ tip.style.opacity='0'; xline.setAttribute('opacity','0'); dot.setAttribute('opacity','0'); }
+  hit.addEventListener('mousemove',function(e){ show(e.clientX); });
+  hit.addEventListener('mouseleave',hide);
+  hit.addEventListener('touchstart',function(e){ if(e.touches[0])show(e.touches[0].clientX); },{passive:true});
+  hit.addEventListener('touchmove', function(e){ if(e.touches[0]){show(e.touches[0].clientX); e.preventDefault();} },{passive:false});
+  hit.addEventListener('touchend',hide,{passive:true});
+}
+
 function utDrawChart(pts,m,unit){
   var box=gid('ut-chart'); if(!box)return;
-  var W=Math.max(280,box.clientWidth||320), H=232;
-  var PL=46,PR=12,PT=14,PB=26;
-  var vals=pts.map(function(p){return p.v;});
-  var mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals);
-  var rng=(mx-mn)||Math.abs(mx)||1, lo=mn-rng*0.15, hi=mx+rng*0.15;
-  function X(i){ return PL+(pts.length===1?0:(i/(pts.length-1))*(W-PL-PR)); }
-  function Y(v){ return PT+(1-((v-lo)/((hi-lo)||1)))*(H-PT-PB); }
-  var line=pts.map(function(p,i){return (i?'L':'M')+X(i).toFixed(1)+' '+Y(p.v).toFixed(1);}).join(' ');
-  var area=line+' L'+X(pts.length-1).toFixed(1)+' '+(H-PB)+' L'+X(0).toFixed(1)+' '+(H-PB)+' Z';
-  var gid_='utg'+m.k;
-  var s='<svg width="100%" viewBox="0 0 '+W+' '+H+'" style="display:block;overflow:visible">';
-  s+='<defs><linearGradient id="'+gid_+'" x1="0" y1="0" x2="0" y2="1">'
-    +'<stop offset="0%" stop-color="'+m.c+'" stop-opacity=".22"/><stop offset="100%" stop-color="'+m.c+'" stop-opacity="0"/></linearGradient></defs>';
-  // horizontal guides + y labels
-  [0,0.5,1].forEach(function(f){
-    var v=hi-(hi-lo)*f, y=Y(v);
-    s+='<line x1="'+PL+'" y1="'+y.toFixed(1)+'" x2="'+(W-PR)+'" y2="'+y.toFixed(1)+'" stroke="var(--border)" stroke-width="1" opacity=".7"/>';
-    s+='<text x="'+(PL-9)+'" y="'+(y+3.5).toFixed(1)+'" text-anchor="end" font-size="10" font-weight="600" fill="var(--text-3)">'+utFmt(v)+'</text>';
+  // One reading is still worth plotting - it used to render nothing at all.
+  trendChart(box, pts.map(function(p){return {d:p.d, l:utDateLabel(p.d), v:p.v};}), {
+    h:232, color:'#7c6bf0', unit:unit,
+    fmt:function(v){ return (typeof utFmt==='function')?utFmt(v):(Math.round(v*100)/100).toLocaleString(); }
   });
-  s+='<path d="'+area+'" fill="url(#'+gid_+')"/>';
-  s+='<path d="'+line+'" fill="none" stroke="'+m.c+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
-  // only mark the most recent point; a dot per day gets noisy over 90 days
-  var lx=X(pts.length-1), ly=Y(pts[pts.length-1].v);
-  s+='<circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="5.5" fill="'+m.c+'" opacity=".22"/>';
-  s+='<circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="3" fill="'+m.c+'"/>';
-  // date axis
-  var step=Math.max(1,Math.round((pts.length-1)/3));
-  for(var i=0;i<pts.length;i+=step){
-    var anchor=(i===0)?'start':(i>=pts.length-1?'end':'middle');
-    s+='<text x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="'+anchor+'" font-size="10" fill="var(--text-3)">'+pts[i].d.slice(5).replace('-','/')+'</text>';
-  }
-  if((pts.length-1)%step!==0){
-    s+='<text x="'+X(pts.length-1).toFixed(1)+'" y="'+(H-8)+'" text-anchor="end" font-size="10" fill="var(--text-3)">'+pts[pts.length-1].d.slice(5).replace('-','/')+'</text>';
-  }
-  s+='</svg>';
-  box.innerHTML=s;
 }
 function renderUtil(){
   var el=gid('pane-util');
@@ -6204,6 +6300,9 @@ function renderHome(){
   try{
     var cut=new Date(); cut.setDate(cut.getDate()-30); var cutISO=pmISO(cut), onTime=0;
     (typeof WOS!=='undefined'?WOS:[]).forEach(function(w){
+      // Only count work that is actually closed. A stray completed_at on a still-open
+      // WO was inflating this and made the subtext read like a backlog of due tasks.
+      if(w.status!=='completed')return;
       var c=(''+(w.completed_at||'')).slice(0,10);
       if(!c||c<cutISO)return;
       compN++; if(!w.due_date||c<=w.due_date)onTime++;
@@ -6303,7 +6402,8 @@ function renderHome(){
   H+='<div class="hm-kpis">';
   H+=kpi(hT('PM compliance','\u0414\u043e\u0442\u0440\u0438\u043c\u0430\u043d\u043d\u044f \u041f\u041c'),I_TARGET,'#6366f1',
         (comp==null?'\u2013':comp+'%'),
-        (comp==null?hT('no data yet','\u043d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445'):(compN+' '+hT('in 30d','\u0437\u0430 30\u0434'))),
+        (comp==null?hT('no data yet','\u043d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445')
+                   :(compN+' '+hT('completed \u00b7 30d','\u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043e \u00b7 30\u0434'))),
         'var(--text-3)');
   H+=kpi(hT('Tasks due','\u0417\u0430\u0432\u0434\u0430\u043d\u043d\u044f'),I_CLOCK,'#16a34a',due.length,
         overdue.length?(overdue.length+' '+hT('overdue','\u043f\u0440\u043e\u0441\u0442\u0440\u043e\u0447\u0435\u043d\u043e')):hT('on track','\u0432 \u043d\u043e\u0440\u043c\u0456'),
@@ -6471,9 +6571,16 @@ function renderHome(){
   try{
     var cc=gid('hm-chart');
     if(cc){
-      var draw=function(){ var cw=Math.max(180,cc.clientWidth||280);
-        var ch=Math.max(84,Math.min(320,cc.clientHeight||84));
-        cc.innerHTML=homeSpark(doneS,cw,ch,'#7c6bf0',hasPlan?planS:null); };
+      var draw=function(){
+        var ch=Math.max(120,Math.min(320,cc.clientHeight||140));
+        var mlabels=months.map(function(d){
+          try{ return d.toLocaleDateString('en-CA',{month:'short',year:'2-digit'}); }catch(e){ return ''; } });
+        trendChart(cc, doneS.map(function(v,i){return {d:mlabels[i], l:mlabels[i], v:v};}), {
+          h:ch, color:'#7c6bf0', padL:34,
+          plan:hasPlan?planS:null, planLabel:'plan',
+          fmt:function(v){ return String(Math.round(v)); }
+        });
+      };
       draw();
       if(window.ResizeObserver&&!cc.__ro){ cc.__ro=new ResizeObserver(function(){draw();}); cc.__ro.observe(cc); }
     }
