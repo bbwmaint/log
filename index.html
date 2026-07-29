@@ -770,7 +770,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-25p \u00b7 ontime-everywhere';
+var APP_BUILD='2026-07-25q \u00b7 live-refresh';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2709,7 +2709,7 @@ function drawRequests(){try{updateReqTabCount();}catch(e){}
   H+='</div>';
   el.innerHTML='<div class="md-split"><div class="md-list">'+H+'</div><div class="md-detail" id="req-detail-pane"><div class="md-empty">'+T('req_selectone')+'</div></div></div>';
   updateReqBadge();
-  try{homeRefresh();}catch(e){}
+  try{homeSyncBadge(); if(gid('pane-home'))renderHome();}catch(e){}
 }
 function reqSetStatus(id,status){
   var r=REQUESTS.filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
@@ -3299,7 +3299,36 @@ function checkShiftEnd(){
   if((h===7||h===19)&&m===0)showSendModal();
 }
 
-function renderAll(){renderLog();renderShift();checkUBanner();}
+// ═══════════ Live refresh after data changes ═══════════
+// Panes were only re-rendered on tab switch, so a tile you were already looking at
+// kept its old numbers until a page reload. Any write now invalidates the cached
+// month-scale stats and re-renders whichever pane is actually on screen.
+var TAB_RENDERERS={
+  home:'renderHome', log:'renderLog', shift:'renderShift', prev:'renderPrev',
+  util:'renderUtil', assets:'renderAssets', schedule:'renderSchedule',
+  cmms:'renderCMMS', reports:'renderReports', requests:'renderRequests',
+  dash:'renderDashboard', inventory:'renderInventory', more:'renderMore'
+};
+function activePane(){
+  for(var k in TAB_RENDERERS){
+    var p=gid('pane-'+k);
+    try{ if(p&&getComputedStyle(p).display!=='none')return k; }catch(e){}
+  }
+  return null;
+}
+// kind: 'log' | 'wo' | 'request' | 'util' | 'inventory' | undefined (= everything)
+function dataChanged(kind){
+  // worklog and utility writes change month-scale aggregates
+  if(!kind||kind==='log'||kind==='util'){ try{ STATS.key=null; STATS.rows=null; }catch(e){} }
+  try{ homeSyncBadge(); }catch(e){}
+  var t=activePane(); if(!t)return;
+  var fn=window[TAB_RENDERERS[t]];
+  try{ if(typeof fn==='function')fn(); }catch(e){}
+  // Home is the landing screen and aggregates everything, so keep it warm even
+  // when the change happened while another tab was open.
+  if(t!=='home'){ try{ if(gid('pane-home'))renderHome(); }catch(e){} }
+}
+function renderAll(){renderLog();renderShift();checkUBanner();try{dataChanged();}catch(e){}}
 
 function card(e,mine){
   var labels={assigned:T('assigned')||'Assigned',completed:T('completed')||'Completed',
@@ -4332,6 +4361,7 @@ function saveUtil(){
   try{localStorage.setItem('bbw_util',JSON.stringify(utilLogs));}catch(e){}
   syncUtil(rec);
   renderUtil();
+  try{dataChanged('util');}catch(e){}
 }
 
 // ═══════════ Edit readings for any past day — open to everyone ═══════════
@@ -4400,6 +4430,7 @@ function saveUtilEdit(date){
   syncUtil(rec);
   closeUtilEdit();
   renderUtil();
+  try{dataChanged('util');}catch(e){}
 }
 
 function renderPM(){
@@ -6297,7 +6328,7 @@ function undoPendingWO(){
   try{toast('\u21a9\uFE0E '+T('mw_undo'));}catch(e){}
 }
 function mwRefresh(){
-  try{setTimeout(homeRefresh,0);}catch(e){}
+  try{setTimeout(function(){dataChanged('wo');},0);}catch(e){}
   try{ injectMyPMTasks(); }catch(e){}
 }
 function showWODoneToast(){
@@ -8432,7 +8463,7 @@ function invSaveItem(id, folder, btn){
   var method = (id!=null && id!=='null') ? 'PATCH' : 'POST';
   function send(payload){ return sbFetch(url,{method:method,headers:{'Prefer':'return=minimal'},body:JSON.stringify(payload)}); }
   function ok(r){ return r.ok||r.status===201||r.status===204; }
-  function done(){ var m=gid('inv-form');if(m)m.remove(); loadInventory(function(){renderInventory();}); }
+  function done(){ var m=gid('inv-form');if(m)m.remove(); loadInventory(function(){renderInventory();try{dataChanged('inventory');}catch(e){}}); }
   send(row).then(function(r){
     if(ok(r)){ done(); return; }
     // If the inventory table has no `photos` column yet, still save the rest.
