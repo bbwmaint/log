@@ -770,7 +770,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-25l \u00b7 charts+compliance';
+var APP_BUILD='2026-07-25n \u00b7 pm-buffer';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3711,6 +3711,17 @@ function renderAssets(){
   });
 
   // Downtime by asset (machine down only)
+  // Use the month-scale rows when present; allE alone covers ~3 days and made this
+  // ranking read a fraction of the real figure.
+  var _sr=(typeof STATS!=='undefined'&&STATS&&STATS.rows)?STATS.rows:null;
+  if(!_sr&&typeof statsLoad==='function')statsLoad(function(rows){
+    if(rows){ try{ if(gid('pane-assets')&&getComputedStyle(gid('pane-assets')).display!=='none')renderAssets(); }catch(e){} } });
+  if(_sr){
+    var _mo=(typeof pmISO==='function'?pmISO(new Date()):new Date().toISOString().slice(0,10)).slice(0,7);
+    monthData=_sr.filter(function(r){return (''+(r.date||'')).slice(0,7)===_mo;})
+                 .map(function(r){return {assetName:r.asset,machineDown:r.md?'yes':'',
+                        dt:r.dt,type:r.type,date:r.date};});
+  }
   var assetDT={}, assetCount={}, assetIssues={};
   monthData.forEach(function(e){
     var a=e.assetName||'General';
@@ -5458,7 +5469,11 @@ function renderTechPMs(el){
     try{
       var d=new Date(ds+'T00:00:00'), t=new Date(today+'T00:00:00');
       var n=Math.round((d-t)/86400000);
-      if(n<0)return hT('Overdue','\u041f\u0440\u043e\u0441\u0442\u0440\u043e\u0447\u0435\u043d\u043e');
+      if(pmIsOverdue(ds,today)){
+        var od=pmOverdueDays(ds,today);
+        return hT('Overdue '+od+'d','\u041f\u0440\u043e\u0441\u0442\u0440\u043e\u0447\u0435\u043d\u043e '+od+'\u0434');
+      }
+      if(n<0)return hT('Due','\u0421\u044c\u043e\u0433\u043e\u0434\u043d\u0456');
       if(n===0)return hT('Today','\u0421\u044c\u043e\u0433\u043e\u0434\u043d\u0456');
       if(n===1)return hT('Tomorrow','\u0417\u0430\u0432\u0442\u0440\u0430');
       if(n<7)return hT('In '+n+' days','\u0427\u0435\u0440\u0435\u0437 '+n+' \u0434\u043d.');
@@ -5466,7 +5481,7 @@ function renderTechPMs(el){
     }catch(e){ return ds; }
   }
   function row(w,ix,dim){
-    var od=w.due_date<today;
+    var od=pmIsOverdue(w.due_date,today);
     var pill=od
       ? '<span style="background:rgba(220,38,38,.13);color:var(--bad);font-size:10px;font-weight:700;'+
         'border-radius:6px;padding:2px 6px;white-space:nowrap">'+hT('Overdue','\u041f\u0440\u043e\u0441\u0442\u0440\u043e\u0447\u0435\u043d\u043e')+'</span>'
@@ -5624,7 +5639,7 @@ function pmSortFn(a,b){
 }
 function pmDueChip(p){
   if(!p.next_due)return '';
-  var today=pmISO(new Date()); var overdue=p.next_due<today; var soon=p.next_due===today;
+  var today=pmISO(new Date()); var overdue=pmIsOverdue(p.next_due,today); var soon=p.next_due===today;
   var col=overdue?'#f87171':(soon?'#fbbf24':'var(--text-3)');
   var lbl=overdue?'Overdue '+p.next_due:(soon?'Due today':'Due '+p.next_due);
   return '<span style="color:'+col+';font-size:11px;font-weight:600">'+lbl+'</span>';
@@ -5830,7 +5845,7 @@ var WO_STATUS={open:{label:'Open',col:'#9b9ba3'},assigned:{label:'Assigned',col:
 function woDetailBody(w){
   var st=WO_STATUS[w.status]||WO_STATUS.open;
   var today=pmISO(new Date());
-  var overdue=w.status!=='completed'&&w.due_date&&w.due_date<today;
+  var overdue=w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);
   var pc={Highest:'#f87171',High:'#fb923c',Medium:'#fbbf24',Low:'#9b9ba3'}[w.priority]||'var(--text-3)';
   var H='';
   H+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px"><span style="font-size:11px;color:var(--text-3);font-family:monospace">'+(w.wo_code||'')+(w.pm_code?' \u00b7 '+w.pm_code:' \u00b7 manual')+'</span><span style="background:'+st.col+'22;color:'+st.col+';font-size:10px;font-weight:800;padding:4px 10px;border-radius:999px;border:1px solid '+st.col+'55">'+st.label+'</span></div>';
@@ -5915,7 +5930,7 @@ function renderWOList(){
   var today=pmISO(new Date());
   if(isDesktop()){
     host.innerHTML='<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">'+list.length+' work order'+(list.length>1?'s':'')+'</div>'+list.map(function(w){
-      var st=WO_STATUS[w.status]||WO_STATUS.open; var overdue=w.status!=='completed'&&w.due_date&&w.due_date<today; var c=pmTypeColor(w.wo_type);
+      var st=WO_STATUS[w.status]||WO_STATUS.open; var overdue=w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today); var c=pmTypeColor(w.wo_type);
       return '<div data-woid="'+w.id+'" onclick="woSelect('+w.id+')" style="background:var(--surface);border:1px solid var(--border);border-left:3px solid '+c+';border-radius:10px;padding:11px 13px;margin-bottom:8px;cursor:pointer">'+
         '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:13.5px;font-weight:700;color:#fff;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(w.description||'(no description)')+'</span><span style="background:'+st.col+'22;color:'+st.col+';font-size:9px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap">'+st.label+'</span></div>'+
         '<div style="font-size:11.5px;color:var(--text-3);margin-top:4px;display:flex;gap:6px"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(w.asset||'')+(w.asset_code?' \u00b7 '+w.asset_code:'')+(w.assignee?' \u00b7 '+w.assignee:'')+'</span><span'+(overdue?' style="color:#f87171;font-weight:700"':'')+'>'+(overdue?'Overdue':(w.due_date||''))+'</span></div>'+
@@ -5926,7 +5941,7 @@ function renderWOList(){
   host.innerHTML='<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">'+list.length+' work order'+(list.length>1?'s':'')+'</div>'+list.map(function(w){
     var st=WO_STATUS[w.status]||WO_STATUS.open;
     var pc={Highest:'#f87171',High:'#fb923c',Medium:'#fbbf24',Low:'#9b9ba3'}[w.priority]||'var(--text-3)';
-    var overdue=w.status!=='completed'&&w.due_date&&w.due_date<today;
+    var overdue=w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);
     var H='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:9px">';
     H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">';
     H+='<div style="min-width:0"><div style="font-size:11px;color:var(--text-3);font-family:monospace">'+(w.wo_code||'')+(w.pm_code?' \u00b7 '+w.pm_code:' \u00b7 manual')+'</div>';
@@ -6074,9 +6089,9 @@ function dashDrill(kind){
   var reqs=(typeof REQUESTS!=='undefined'?REQUESTS:[])||[]; var wos=(typeof WOS!=='undefined'?WOS:[])||[];
   var title='', rows=[];
   if(kind==='requests'){ title='Open requests'; rows=reqs.filter(function(r){return r.status!=='done';}).map(function(r){return {t:(r.asset_name||r.department||'Request'),s:'By '+(r.reporter||'')+(r.department?' \u00b7 '+r.department:''),click:'openRequest('+r.id+')'};}); }
-  else if(kind==='overdue'){ title='Overdue work orders'; rows=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<today;}).sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');}).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:'')+' \u00b7 due '+w.due_date,click:'openWOComplete('+w.id+')',bad:true};}); }
+  else if(kind==='overdue'){ title='Overdue work orders'; rows=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);}).sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');}).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:'')+' \u00b7 due '+w.due_date,click:'openWOComplete('+w.id+')',bad:true};}); }
   else if(kind==='ontime'){ var ym=today.slice(0,7); title='Scheduled this month'; rows=wos.filter(function(w){return (w.due_date||'').slice(0,7)===ym;}).map(function(w){var done=w.status==='completed'; var ot=done&&w.completed_at&&w.completed_at.slice(0,10)<=w.due_date; return {t:w.description,s:(w.asset||'')+' \u00b7 due '+w.due_date,badge:done?(ot?'On time':'Late'):'Open',badcol:done?(ot?'#10b981':'#ef4444'):'#9b9ba3',click:'openWOComplete('+w.id+')'};}); }
-  else { title='PMs due today'; var dueAll=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today;}); rows=(teamView?dueAll:dueAll.filter(function(w){return w.assignee===user;})).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:''),click:'openWOComplete('+w.id+')',bad:w.due_date<today};}); }
+  else { title='PMs due today'; var dueAll=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today;}); rows=(teamView?dueAll:dueAll.filter(function(w){return w.assignee===user;})).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:''),click:'openWOComplete('+w.id+')',bad:pmIsOverdue(w.due_date,today)};}); }
   var H='<div id="dash-drill" onclick="if(event.target===this)closeDashDrill()" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:760;display:flex;align-items:center;justify-content:center;padding:20px">';
   H+='<div style="background:var(--bg);border:1px solid var(--border);border-radius:15px;width:100%;max-width:470px;max-height:84vh;display:flex;flex-direction:column;overflow:hidden">';
   H+='<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border)"><div style="font-size:16px;font-weight:800;color:#fff">'+title+'<span style="font-size:13px;color:var(--text-3);font-weight:600"> \u00b7 '+rows.length+'</span></div><button onclick="closeDashDrill()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:31px;height:31px;border-radius:8px;cursor:pointer;font-size:15px">\u2715</button></div>';
@@ -6115,14 +6130,14 @@ function drawDashboard(el){
   var wos=(typeof WOS!=='undefined'?WOS:[])||[];
   var openReq=reqs.filter(function(r){return r.status!=='done';}).length;
   var follow=allE.filter(function(e){return e.type==='followup';}).length;
-  var overdue=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<today;}).length;
+  var overdue=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);}).length;
   var ym=today.slice(0,7);
   var sched=wos.filter(function(w){return (w.due_date||'').slice(0,7)===ym;});
   var onTime=sched.filter(function(w){return w.status==='completed'&&w.completed_at&&w.completed_at.slice(0,10)<=w.due_date;}).length;
   var pct=sched.length?Math.round(onTime/sched.length*100):null;
   var teamView=(user===ADMIN);
   var dueToday=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today&&(teamView||w.assignee===user);});
-  var techMap={}; wos.forEach(function(w){if(w.status==='completed')return;var t=w.assignee||'Unassigned';techMap[t]=techMap[t]||{t:t,n:0,od:0};techMap[t].n++;if(w.due_date&&w.due_date<today)techMap[t].od++;});
+  var techMap={}; wos.forEach(function(w){if(w.status==='completed')return;var t=w.assignee||'Unassigned';techMap[t]=techMap[t]||{t:t,n:0,od:0};techMap[t].n++;if(w.due_date&&pmIsOverdue(w.due_date,today))techMap[t].od++;});
   var techs=Object.keys(techMap).map(function(k){return techMap[k];}).sort(function(a,b){return b.n-a.n;}).slice(0,6);
   var maxN=techs.reduce(function(m,x){return Math.max(m,x.n);},1);
   var openList=reqs.filter(function(r){return r.status!=='done';}).slice(0,5);
@@ -6146,18 +6161,58 @@ function drawDashboard(el){
   openList.forEach(function(r){H+='<div class="dz-row" onclick="openRequest('+r.id+')" style="cursor:pointer"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">'+rqEsc(r.asset_name||r.department||'Request')+'</div><div style="font-size:11.5px;color:var(--text-3)">By '+rqEsc(r.reporter||'')+' \u00b7 '+rqEsc(r.department||'')+'</div></div>'+reqStatusPill(r.status)+'</div>';});
   H+='</div><div class="dz-card"><div class="dz-h3">PMs due today</div>';
   if(!dueToday.length)H+='<div style="color:var(--text-3);font-size:13px;padding:6px 0">Nothing due today.</div>';
-  dueToday.slice(0,8).forEach(function(w){var od=w.due_date<today;H+='<div class="dz-row"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">'+rqEsc(w.description||'')+'</div><div style="font-size:11.5px;color:var(--text-3)">'+rqEsc(w.asset||'')+' \u00b7 '+rqEsc(w.assignee||'Unassigned')+'</div></div>'+(od?'<span class="dz-pill" style="background:rgba(239,68,68,.15);color:#ef4444">Overdue</span>':'')+'</div>';});
+  dueToday.slice(0,8).forEach(function(w){var od=pmIsOverdue(w.due_date,today);H+='<div class="dz-row"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">'+rqEsc(w.description||'')+'</div><div style="font-size:11.5px;color:var(--text-3)">'+rqEsc(w.asset||'')+' \u00b7 '+rqEsc(w.assignee||'Unassigned')+'</div></div>'+(od?'<span class="dz-pill" style="background:rgba(239,68,68,.15);color:#ef4444">Overdue</span>':'')+'</div>';});
   H+='</div></div></div></div>';
   el.innerHTML=H;
 }
 function updateCmmsBadge(){
   var btn=gid('tab-cmms'); if(!btn)return;
   var today=pmISO(new Date());
-  var overdue=WOS.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<today;}).length;
+  var overdue=WOS.filter(function(w){return w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);}).length;
   setTabLabel('cmms','CMMS'+(overdue?'<span style="color:#f87171;font-weight:800"> '+overdue+'</span>':''));
 }
 // ═══════════ PM tasks due — compact row at the top of My Log, one-tap done ═══════════
 var _pendingWODone=null;   // {id, timer} — deferred commit so UNDO never needs a rollback
+// ═══════════ PM grace buffer ═══════════
+// A PM is workable from its due_date, but is not counted late until the buffer has
+// elapsed. Weekly PMs landing on a Friday were scored 3-4 days late simply because
+// nobody works the weekend; the buffer measures the crew rather than the calendar.
+// Day 1 overdue is the first day AFTER the buffer expires.
+var PM_BUFFER_DAYS=7;
+function pmShiftISO(ds,days){
+  if(!ds)return ds;
+  try{
+    var d=new Date(ds+'T00:00:00');
+    if(isNaN(d.getTime()))return ds;
+    d.setDate(d.getDate()+days);
+    return pmISO(d);
+  }catch(e){ return ds; }
+}
+// Last date a PM can be completed and still count as on time.
+function pmGraceEnd(ds){ return pmShiftISO(ds,PM_BUFFER_DAYS); }
+// Is it past the buffer as of `today` (defaults to now)?
+function pmIsOverdue(ds,today){
+  if(!ds)return false;
+  today=today||pmISO(new Date());
+  return today>pmGraceEnd(ds);
+}
+// Whole days past the buffer. Due 1 Jul + 7d buffer -> 9 Jul returns 1.
+function pmOverdueDays(ds,today){
+  if(!ds)return 0;
+  today=today||pmISO(new Date());
+  try{
+    var a=new Date(pmGraceEnd(ds)+'T00:00:00'), b=new Date(today+'T00:00:00');
+    var n=Math.round((b-a)/86400000);
+    return n>0?n:0;
+  }catch(e){ return 0; }
+}
+// Was this completion on time, allowing the buffer?
+function pmCompletedOnTime(dueISO,completedISO){
+  if(!dueISO)return true;
+  if(!completedISO)return false;
+  return (''+completedISO).slice(0,10) <= pmGraceEnd(dueISO);
+}
+
 function mwDue(){
   var today=pmISO(new Date());
   return (typeof WOS!=='undefined'?WOS:[]).filter(function(w){
@@ -6276,6 +6331,35 @@ function homeSpark(vals,w,h,col,plan){
     '" r="3.4" fill="var(--surface)" stroke="'+col+'" stroke-width="2.2"/></svg>';
 }
 
+// ═══════════ Month-scale stats loader ═══════════
+// The main entry cache (allE) deliberately holds only the last ~3 days, because the
+// log view is a shift tool. Anything reporting on a MONTH must not read from it:
+// doing so silently under-reported downtime by ~10x (2.6h shown vs 21h actual).
+// This pulls just the few columns needed, for 13 months, cached for the day.
+var STATS={key:null,rows:null,loading:false};
+function statsLoad(cb){
+  var key=pmISO(new Date());
+  if(STATS.rows&&STATS.key===key){ cb&&cb(STATS.rows); return; }
+  if(STATS.loading){ cb&&cb(null); return; }
+  STATS.loading=true;
+  var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-12);
+  var from=pmISO(d);
+  sbFetch('bbw_worklog?select=date,downtime_hrs,machine_down,type,asset_name&date=gte.'+from+'&limit=50000')
+    .then(function(r){return r.json();})
+    .then(function(rows){
+      STATS.loading=false;
+      if(!Array.isArray(rows))rows=[];
+      STATS.key=key;
+      STATS.rows=rows.map(function(r){
+        return { date:r.date||'', dt:(parseFloat(r.downtime_hrs)||0),
+                 md:(r.machine_down==='yes'||r.machine_down==='partial'),
+                 type:r.type||'', asset:r.asset_name||'General' };
+      });
+      cb&&cb(STATS.rows);
+    })
+    .catch(function(){ STATS.loading=false; cb&&cb(null); });
+}
+
 function renderHome(){
   var el=gid('pane-home'); if(!el)return;
   if(typeof user==='undefined'||!user){ el.innerHTML=''; return; }
@@ -6287,7 +6371,7 @@ function renderHome(){
   var due=[];
   try{ if(typeof WOS_LOADED!=='undefined'&&WOS_LOADED){ due=mwDue();
         if(!isEditor())due=due.filter(function(w){return w.assignee===me;}); } }catch(e){}
-  var overdue=due.filter(function(w){return w.due_date<today;});
+  var overdue=due.filter(function(w){return pmIsOverdue(w.due_date,today);});
 
   var openReq=0,newReq=0;
   try{ var R=(typeof REQUESTS!=='undefined'&&REQUESTS)?REQUESTS:[];
@@ -6305,18 +6389,26 @@ function renderHome(){
       if(w.status!=='completed')return;
       var c=(''+(w.completed_at||'')).slice(0,10);
       if(!c||c<cutISO)return;
-      compN++; if(!w.due_date||c<=w.due_date)onTime++;
+      compN++; if(pmCompletedOnTime(w.due_date,c))onTime++;
     });
     if(compN)comp=Math.round(onTime/compN*100);
   }catch(e){}
 
   // ── downtime this month + 12-month completions/plan series
   var dtMonth=0, months=[], doneS=[], planS=[];
+  var statRows=(STATS&&STATS.rows)?STATS.rows:null;
+  if(!statRows)statsLoad(function(rows){ if(rows)homeRefresh(); });
   try{
-    var E=(typeof allE!=='undefined'&&allE&&allE.length)?allE:((typeof entries!=='undefined'&&entries)?entries:[]);
+    // Month-scale numbers come from statRows (full history). allE is only ~3 days,
+    // so it is a fallback for first paint, not a source of truth for the month.
+    var E=statRows||((typeof allE!=='undefined'&&allE&&allE.length)?allE.map(function(e){
+      return {date:e.date,dt:parseFloat(e.dt)||0,
+              md:(e.machineDown==='yes'||e.machineDown==='partial'),
+              type:e.type,asset:e.assetName||'General'};
+    }):[]);
     var mo=today.slice(0,7);
-    E.forEach(function(e){ if((''+(e.date||'')).slice(0,7)===mo){
-      var v=parseFloat(e.dt); if(!isNaN(v))dtMonth+=v; } });
+    // Machine downtime only - matches the Assets ranking and the shift reports.
+    E.forEach(function(e){ if((''+(e.date||'')).slice(0,7)===mo && e.md){ dtMonth+=(e.dt||0); } });
     var DONE={completed:1,done:1,pm:1,followup_done:1};
     var dmap={}, pmap={};
     E.forEach(function(e){ if(!DONE[e.type])return;
@@ -6392,7 +6484,9 @@ function renderHome(){
        '<span style="color:var(--bad);display:flex;flex-shrink:0">'+homeIco(I_ALERT,17,1.9)+'</span>'+
        '<div style="flex:1;min-width:0">'+
          '<div style="font-size:12.5px;font-weight:650;color:var(--bad)">'+overdue.length+' '+
-           hT('PM tasks overdue','\u041f\u041c \u043f\u0440\u043e\u0441\u0442\u0440\u043e\u0447\u0435\u043d\u043e')+'</div>'+
+           hT('PM tasks overdue','\u041f\u041c \u043f\u0440\u043e\u0441\u0442\u0440\u043e\u0447\u0435\u043d\u043e')+
+           (function(){ var mx=0; overdue.forEach(function(w){ var d=pmOverdueDays(w.due_date,today); if(d>mx)mx=d; });
+             return mx?(' \u00b7 '+hT('up to '+mx+'d','\u0434\u043e '+mx+'\u0434')):''; })()+'</div>'+
          '<div style="font-size:11px;color:var(--text-2);margin-top:1px;white-space:nowrap;'+
          'overflow:hidden;text-overflow:ellipsis">'+names+'</div></div>'+
        '<span style="color:var(--text-3);display:flex;flex-shrink:0">'+homeIco(I_CHEV,15)+'</span></div>';
@@ -6459,7 +6553,7 @@ function renderHome(){
        'cursor:pointer">'+hT('View all','\u0423\u0441\u0456')+' \u203a</span></div>';
     H+='<div style="'+CARD+';overflow:hidden">';
     due.slice(0,6).forEach(function(w2,ix){
-      var od=w2.due_date<today;
+      var od=pmIsOverdue(w2.due_date,today);
       var pill=od
         ? '<span style="background:rgba(220,38,38,.13);color:var(--bad);font-size:10px;font-weight:700;'+
           'border-radius:6px;padding:2px 6px;white-space:nowrap">'+hT('Overdue','\u041f\u0440\u043e\u0441\u0442\u0440\u043e\u0447\u0435\u043d\u043e')+'</span>'
@@ -6906,7 +7000,7 @@ function renderComplianceModule(){
     WOS.forEach(function(w){
       if(w.status==='completed')return;
       if(w.status==='open')open++; else if(w.status==='assigned')assigned++; else if(w.status==='in_progress')inprog++;
-      if(w.due_date&&w.due_date<today)overdue++;
+      if(w.due_date&&pmIsOverdue(w.due_date,today))overdue++;
       if(w.priority==='High'||w.priority==='Highest')highActive++;
     });
     var active=open+assigned+inprog;
@@ -6934,7 +7028,7 @@ function renderComplianceModule(){
     H+=cmmsTrendHTML(today);
     // by-tech backlog
     var techMap={};
-    WOS.forEach(function(w){if(w.status==='completed')return;var t=w.assignee||'\u2014';techMap[t]=techMap[t]||{t:t,n:0,od:0};techMap[t].n++;if(w.due_date&&w.due_date<today)techMap[t].od++;});
+    WOS.forEach(function(w){if(w.status==='completed')return;var t=w.assignee||'\u2014';techMap[t]=techMap[t]||{t:t,n:0,od:0};techMap[t].n++;if(w.due_date&&pmIsOverdue(w.due_date,today))techMap[t].od++;});
     var techs=Object.keys(techMap).map(function(k){return techMap[k];}).sort(function(a,b){return b.n-a.n;});
     if(techs.length){
       H+='<div style="font-size:12px;font-weight:700;color:var(--text);margin:18px 0 9px">Open work by technician</div>';
