@@ -290,6 +290,16 @@ select option,select optgroup{background:#1b1c20;color:#fff}
      Declared last + higher specificity so rule order can't bite. */
   @media(max-width:999px){ body #nav-burger{display:none!important} }
 
+  /* ---- pull to refresh ---- */
+  #ptr{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;
+    justify-content:center;pointer-events:none;z-index:40;opacity:0;height:0;overflow:hidden}
+  #ptr .ptr-c{width:32px;height:32px;border-radius:50%;background:var(--surface);
+    border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 8px rgba(16,16,24,.14);color:var(--accent)}
+  #ptr svg{transition:transform .1s linear}
+  #ptr.ptr-spin svg{animation:ptrspin .7s linear infinite}
+  @keyframes ptrspin{to{transform:rotate(360deg)}}
+
   /* ---- swipe-to-action on request cards (touch only) ---- */
   .sw-wrap{position:relative;margin-bottom:9px;border-radius:14px;overflow:hidden}
   .sw-bg{position:absolute;inset:0;display:flex;align-items:center;
@@ -770,7 +780,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-25q \u00b7 live-refresh';
+var APP_BUILD='2026-07-25r \u00b7 pm-race+ptr';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2645,6 +2655,92 @@ function swToastUndo(msg,id,prev){
           e.preventDefault(); e.stopPropagation(); c.__swBlock=0;
         }
       },true);
+    };
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);
+    else bind();
+    setTimeout(bind,1500);
+  }catch(e){}
+})();
+
+// ═══════════ Pull to refresh ═══════════
+// Works on any tab: pull down from the top of the scroll area to re-pull data from
+// the server and re-render. Deliberately only engages when already scrolled to the
+// very top, and only for a clearly vertical drag, so it never fights the request
+// cards' horizontal swipe or normal scrolling.
+var PTR={y0:0,dy:0,active:false,lock:null,busy:false};
+function ptrEl(){
+  var el=gid('ptr');
+  if(!el){
+    var host=gid('content'); if(!host)return null;
+    if(getComputedStyle(host).position==='static')host.style.position='relative';
+    el=document.createElement('div'); el.id='ptr';
+    el.innerHTML='<div class="ptr-c"><svg width="17" height="17" viewBox="0 0 24 24" '+
+      'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '+
+      'stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 4.5V9h-4.5"/></svg></div>';
+    host.insertBefore(el, host.firstChild);
+  }
+  return el;
+}
+function ptrSet(dy,spin){
+  var el=ptrEl(); if(!el)return;
+  var h=Math.min(64,dy);
+  el.style.height=h+'px';
+  el.style.opacity=String(Math.min(1,dy/56));
+  var sv=el.querySelector('svg');
+  if(sv&&!spin)sv.style.transform='rotate('+Math.min(360,dy*4)+'deg)';
+  el.classList.toggle('ptr-spin',!!spin);
+}
+function ptrReset(){
+  var el=gid('ptr');
+  if(el){ el.style.height='0px'; el.style.opacity='0'; el.classList.remove('ptr-spin'); }
+  PTR.active=false; PTR.dy=0; PTR.lock=null;
+}
+function ptrRefresh(){
+  if(PTR.busy)return;
+  PTR.busy=true; ptrSet(56,true);
+  var jobs=[];
+  try{ STATS.key=null; STATS.rows=null; }catch(e){}
+  try{ if(typeof loadFromSB==='function')jobs.push(Promise.resolve(loadFromSB())); }catch(e){}
+  try{ if(typeof loadWOs==='function')jobs.push(Promise.resolve(loadWOs(true))); }catch(e){}
+  try{ if(typeof loadRequests==='function')jobs.push(Promise.resolve(loadRequests())); }catch(e){}
+  try{ if(typeof loadInventory==='function'&&activePane()==='inventory')
+        jobs.push(new Promise(function(res){ loadInventory(res); })); }catch(e){}
+  var done=function(){
+    PTR.busy=false; ptrReset();
+    try{ dataChanged(); }catch(e){}
+    try{ updateReqBadge(); }catch(e){}
+  };
+  Promise.all(jobs).then(done).catch(done);
+  setTimeout(function(){ if(PTR.busy)done(); },9000);   // never leave it spinning
+}
+(function(){
+  try{
+    if(!('ontouchstart' in window))return;
+    var bind=function(){
+      var host=gid('content'); if(!host||host.__ptrBound)return;
+      host.__ptrBound=true;
+      host.addEventListener('touchstart',function(e){
+        if(PTR.busy||!e.touches||e.touches.length!==1)return;
+        if(host.scrollTop>0)return;                 // only from the very top
+        PTR.y0=e.touches[0].clientY; PTR.dy=0; PTR.lock=null; PTR.active=true;
+      },{passive:true});
+      host.addEventListener('touchmove',function(e){
+        if(!PTR.active||PTR.busy||!e.touches||e.touches.length!==1)return;
+        var dy=e.touches[0].clientY-PTR.y0;
+        var dx=Math.abs((e.touches[0].clientX||0)-(PTR.x0||e.touches[0].clientX));
+        if(PTR.lock===null){
+          if(dy<6){ PTR.active=false; return; }      // scrolling up - let it go
+          PTR.lock='v';
+        }
+        if(host.scrollTop>0){ ptrReset(); return; }
+        PTR.dy=dy*0.5;                               // resistance
+        if(PTR.dy>4){ e.preventDefault(); ptrSet(PTR.dy,false); }
+      },{passive:false});
+      host.addEventListener('touchend',function(){
+        if(!PTR.active||PTR.busy){ return; }
+        if(PTR.dy>=52)ptrRefresh(); else ptrReset();
+      },{passive:true});
+      host.addEventListener('touchcancel',ptrReset,{passive:true});
     };
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);
     else bind();
@@ -5843,6 +5939,7 @@ function deletePM(id){
 
 // ═══════════════ CMMS — Work Orders ═══════════════
 var WOS=[]; var WOS_LOADED=false;
+var WO_UNCONFIRMED={};   // id -> patch applied locally, awaiting server confirmation
 var WO_FILTER={status:'open',assignee:''};
 
 function loadWOs(force){
@@ -5854,6 +5951,14 @@ function loadWOs(force){
       if(w)w.description=_bestPMDesc(w.description, w.pm_code||w.code, w.asset);
       return w;
     });
+    // A fetch that was already in flight when a PM was completed would otherwise
+    // overwrite it back to open. Re-apply anything not yet confirmed by the server.
+    try{
+      Object.keys(WO_UNCONFIRMED).forEach(function(id){
+        var w=WOS.filter(function(x){return String(x.id)===String(id);})[0];
+        if(w)Object.assign(w,WO_UNCONFIRMED[id]);
+      });
+    }catch(e){}
     WOS_LOADED=true;return WOS;
   });
 }
@@ -6050,8 +6155,17 @@ function completeWO(id, extras){
   var patch={status:'completed',completed_by:user,completed_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   if(extras.hours!=null&&extras.hours!=='')patch.hours_spent=parseFloat(extras.hours);
   if(noteParts.length)patch.notes=(w.notes?w.notes+' \u2022 ':'')+noteParts.join(' \u2022 ');
-  sbFetch('bbw_wos?id=eq.'+id,{method:'PATCH',body:JSON.stringify(patch),headers:{'Prefer':'return=minimal'}}).then(function(){
-    Object.assign(w,patch);
+  // Apply locally BEFORE the round-trip. Previously the status only changed once the
+  // PATCH resolved, but flushPendingWO had already cleared _pendingDone and
+  // re-rendered - so for the length of the request the PM was neither pending nor
+  // completed and popped back into the due list until the user refreshed.
+  var _prev={status:w.status,completed_by:w.completed_by,completed_at:w.completed_at};
+  Object.assign(w,patch);
+  WO_UNCONFIRMED[id]=patch;
+  try{mwRefresh();}catch(e){}
+  sbFetch('bbw_wos?id=eq.'+id,{method:'PATCH',body:JSON.stringify(patch),headers:{'Prefer':'return=minimal'}}).then(function(r){
+    if(r&&r.ok===false&&r.status!==204)throw new Error('HTTP '+r.status);
+    delete WO_UNCONFIRMED[id];
     if(w.pm_id||w.pm_code){
       var p=CMMS_PMS.filter(function(x){return (w.pm_code&&x.code===w.pm_code)||(w.pm_id&&x.id===w.pm_id);})[0];
       if(p&&p.freq){var nd=pmAdvanceISO(p.freq,today);p.next_due=nd;p.last_done=today;if(p.code)sbFetch('bbw_pms?code=eq.'+encodeURIComponent(p.code),{method:'PATCH',body:JSON.stringify({next_due:nd,last_done:today,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}});}
@@ -6061,6 +6175,13 @@ function completeWO(id, extras){
     try{if(gid('wo-detail-pane')&&isDesktop())woSelect(id);}catch(e){}
     try{updateCmmsBadge();}catch(e){}
     try{if(gid('pane-log')&&gid('pane-log').style.display!=='none'){renderLog();injectPinnedRequests();injectMyPMTasks();}}catch(e){}
+    try{dataChanged('wo');}catch(e){}
+  }).catch(function(){
+    // Roll back rather than leave work looking done when it never saved.
+    delete WO_UNCONFIRMED[id];
+    try{ Object.assign(w,_prev); }catch(e){}
+    try{ toast(((typeof lang!=='undefined'&&lang==='uk')?'\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0437\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u2014 \u0441\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0449\u0435 \u0440\u0430\u0437':'Could not save completion \u2014 please try again'), true, 4000); }catch(e){}
+    try{ mwRefresh(); }catch(e){}
   });
 }
 function logFromWO(w, extras){
