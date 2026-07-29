@@ -770,7 +770,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-25o \u00b7 cyrillic-pdf';
+var APP_BUILD='2026-07-25p \u00b7 ontime-everywhere';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6129,7 +6129,7 @@ function dashDrill(kind){
   var title='', rows=[];
   if(kind==='requests'){ title='Open requests'; rows=reqs.filter(function(r){return r.status!=='done';}).map(function(r){return {t:(r.asset_name||r.department||'Request'),s:'By '+(r.reporter||'')+(r.department?' \u00b7 '+r.department:''),click:'openRequest('+r.id+')'};}); }
   else if(kind==='overdue'){ title='Overdue work orders'; rows=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);}).sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');}).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:'')+' \u00b7 due '+w.due_date,click:'openWOComplete('+w.id+')',bad:true};}); }
-  else if(kind==='ontime'){ var ym=today.slice(0,7); title='Scheduled this month'; rows=wos.filter(function(w){return (w.due_date||'').slice(0,7)===ym;}).map(function(w){var done=w.status==='completed'; var ot=done&&w.completed_at&&w.completed_at.slice(0,10)<=w.due_date; return {t:w.description,s:(w.asset||'')+' \u00b7 due '+w.due_date,badge:done?(ot?'On time':'Late'):'Open',badcol:done?(ot?'#10b981':'#ef4444'):'#9b9ba3',click:'openWOComplete('+w.id+')'};}); }
+  else if(kind==='ontime'){ var ym=today.slice(0,7); title='Scheduled this month'; rows=wos.filter(function(w){return (w.due_date||'').slice(0,7)===ym;}).map(function(w){var done=w.status==='completed'; var ot=done&&pmCompletedOnTime(w.due_date,w.completed_at); return {t:w.description,s:(w.asset||'')+' \u00b7 due '+w.due_date,badge:done?(ot?'On time':'Late'):'Open',badcol:done?(ot?'#10b981':'#ef4444'):'#9b9ba3',click:'openWOComplete('+w.id+')'};}); }
   else { title='PMs due today'; var dueAll=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today;}); rows=(teamView?dueAll:dueAll.filter(function(w){return w.assignee===user;})).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:''),click:'openWOComplete('+w.id+')',bad:pmIsOverdue(w.due_date,today)};}); }
   var H='<div id="dash-drill" onclick="if(event.target===this)closeDashDrill()" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:760;display:flex;align-items:center;justify-content:center;padding:20px">';
   H+='<div style="background:var(--bg);border:1px solid var(--border);border-radius:15px;width:100%;max-width:470px;max-height:84vh;display:flex;flex-direction:column;overflow:hidden">';
@@ -6172,8 +6172,12 @@ function drawDashboard(el){
   var overdue=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);}).length;
   var ym=today.slice(0,7);
   var sched=wos.filter(function(w){return (w.due_date||'').slice(0,7)===ym;});
-  var onTime=sched.filter(function(w){return w.status==='completed'&&w.completed_at&&w.completed_at.slice(0,10)<=w.due_date;}).length;
-  var pct=sched.length?Math.round(onTime/sched.length*100):null;
+  // Only judge PMs that have actually been settled: completed, or past the buffer.
+  // Counting work that is not yet late as a miss made mid-month look far worse than
+  // it was, because PMs due later in the month can't possibly be done yet.
+  var judged=sched.filter(function(w){return w.status==='completed'||pmIsOverdue(w.due_date,today);});
+  var onTime=judged.filter(function(w){return w.status==='completed'&&pmCompletedOnTime(w.due_date,w.completed_at);}).length;
+  var pct=judged.length?Math.round(onTime/judged.length*100):null;
   var teamView=(user===ADMIN);
   var dueToday=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today&&(teamView||w.assignee===user);});
   var techMap={}; wos.forEach(function(w){if(w.status==='completed')return;var t=w.assignee||'Unassigned';techMap[t]=techMap[t]||{t:t,n:0,od:0};techMap[t].n++;if(w.due_date&&pmIsOverdue(w.due_date,today))techMap[t].od++;});
@@ -6186,7 +6190,7 @@ function drawDashboard(el){
   H+='<div class="dz-kpis">';
   H+=kpi('Open requests',openReq,(follow?follow+' follow-up'+(follow>1?'s':'')+' pending':'none pending'),'#60a5fa','requests');
   H+=kpi('Overdue work orders',overdue,(overdue?'needs attention':'all on track'),overdue?'#ef4444':'#10b981','overdue');
-  H+=kpi('On-time this month',(pct==null?'\u2014':pct+'%'),sched.length+' scheduled',(pct==null||pct>=90)?'#10b981':(pct>=75?'#f59e0b':'#ef4444'),'ontime');
+  H+=kpi('On-time this month',(pct==null?'\u2014':pct+'%'),judged.length+' assessed',(pct==null||pct>=90)?'#10b981':(pct>=75?'#f59e0b':'#ef4444'),'ontime');
   H+=kpi('PMs due today',dueToday.length,(teamView?'across the team':'your PMs due'),'#f59e0b','pms');
   H+='</div><div class="dz-grid"><div>';
   H+='<div class="dz-card" style="margin-bottom:16px">'+(typeof cmmsTrendHTML==='function'?cmmsTrendHTML(today):'')+'</div>';
@@ -6952,8 +6956,9 @@ function cmmsTrendHTML(todayISO){
   var bars=months.map(function(d){
     var ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
     var sched=WOS.filter(function(w){return (w.due_date||'').slice(0,7)===ym;});
-    var onTime=sched.filter(function(w){return w.status==='completed'&&w.completed_at&&w.completed_at.slice(0,10)<=w.due_date;}).length;
-    return {label:d.toLocaleDateString('en-CA',{month:'short'}),pct:sched.length?Math.round(onTime/sched.length*100):null,n:sched.length};
+    var judged=sched.filter(function(w){return w.status==='completed'||pmIsOverdue(w.due_date,todayISO);});
+    var onTime=judged.filter(function(w){return w.status==='completed'&&pmCompletedOnTime(w.due_date,w.completed_at);}).length;
+    return {label:d.toLocaleDateString('en-CA',{month:'short'}),pct:judged.length?Math.round(onTime/judged.length*100):null,n:judged.length};
   });
   var H='<div style="font-size:12px;font-weight:700;color:var(--text);margin:18px 0 9px">'+T('cmms_trend')+'</div>';
   H+='<div style="display:flex;align-items:flex-end;gap:6px;height:96px;padding:8px 6px;background:var(--surface);border:1px solid var(--border);border-radius:10px">';
@@ -7045,8 +7050,9 @@ function renderComplianceModule(){
     var active=open+assigned+inprog;
     var dueThis=WOS.filter(function(w){return (w.due_date||'').slice(0,7)===month;});
     var doneThis=dueThis.filter(function(w){return w.status==='completed';});
-    var onTime=dueThis.filter(function(w){return w.status==='completed'&&w.completed_at&&w.completed_at.slice(0,10)<=w.due_date;}).length;
-    var pct=dueThis.length?Math.round(onTime/dueThis.length*100):100;
+    var judgedThis=dueThis.filter(function(w){return w.status==='completed'||pmIsOverdue(w.due_date);});
+    var onTime=judgedThis.filter(function(w){return w.status==='completed'&&pmCompletedOnTime(w.due_date,w.completed_at);}).length;
+    var pct=judgedThis.length?Math.round(onTime/judgedThis.length*100):100;
     var gcol=pct>=90?'#34d399':(pct>=75?'#fbbf24':'#f87171');
     var monthName=new Date(today+'T00:00:00').toLocaleDateString('en-CA',{month:'long',year:'numeric'});
     var H='<div style="text-align:center;margin-bottom:6px"><div style="font-size:12px;color:var(--text-3);margin-bottom:6px">Schedule compliance \u00b7 '+monthName+'</div>';
