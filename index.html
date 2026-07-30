@@ -801,7 +801,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-30f \u00b7 pagination';
+var APP_BUILD='2026-07-30g \u00b7 asset-detail';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3996,29 +3996,44 @@ function renderAssets(){
   });
 }
 
+// Map a bbw_worklog row to the entry shape the log card expects.
+function wlRowToEntry(r){
+  var photos=[]; try{ if(r.photos){ var a=JSON.parse(r.photos); if(a&&a.length)photos=a; } }catch(e){}
+  return {
+    id:r.id, sbId:r.id, date:r.date, shift:r.shift, type:r.type, priority:r.priority||'',
+    assetName:r.asset_name||'', assetCode:r.asset_code||'', issue:r.issue||'',
+    desc:r.description||'', start:r.start_time||'', end:r.end_time||'',
+    dt:r.downtime_hrs||0, partName:r.part_name||'', partQty:r.part_qty||'1',
+    who:r.who||'', shiftNote:r.shift_note||'', loggedAt:r.logged_at, photo:'',
+    synced:true, machineDown:r.machine_down||'', coMins:r.co_mins||0,
+    coType:r.co_type||'', photos:photos
+  };
+}
 function showAssetDetail(assetName){
-  // The ranking counts a whole month from STATS; allE only holds ~3 days. Reading
-  // different sets meant a row saying "22 logs" opened onto "No logs found".
-  var logs=allE.filter(function(e){return e.assetName===assetName;});
+  // Render whatever is already cached, then pull the full month for this asset.
+  // An earlier version synthesised placeholder rows from the stats cache, which
+  // produced blank cards with live Edit/Delete buttons pointing at nothing.
+  var local=allE.filter(function(e){return e.assetName===assetName;});
+  paintAssetDetail(assetName, local);
   try{
-    if(typeof STATS!=='undefined'&&STATS&&STATS.rows&&typeof ASSET_MONTH!=='undefined'&&ASSET_MONTH){
-      var _m=ASSET_MONTH.getFullYear()+'-'+String(ASSET_MONTH.getMonth()+1).padStart(2,'0');
-      var seen={}; logs.forEach(function(e){seen[(e.date||'')+'|'+(e.issue||'')]=1;});
-      var extra=STATS.rows.filter(function(r){
-        return r.asset===assetName && (''+(r.date||'')).slice(0,7)===_m
-               && !seen[(r.date||'')+'|'];
-      }).map(function(r){
-        return {date:r.date, assetName:r.asset, type:r.type, dt:r.dt,
-                machineDown:r.md?'yes':'', who:'', issue:'', fix:'', _lite:true};
-      });
-      // keep full local rows, top up with month rows the cache doesn't hold
-      var haveDates={}; logs.forEach(function(e){haveDates[e.date]=(haveDates[e.date]||0)+1;});
-      logs=logs.concat(extra.filter(function(r){
-        if(haveDates[r.date]){ haveDates[r.date]--; return false; }
-        return true;
-      }));
-    }
+    var m=(typeof ASSET_MONTH!=='undefined'&&ASSET_MONTH)?ASSET_MONTH:new Date();
+    var y=m.getFullYear(), mo=m.getMonth();
+    var from=pmISO(new Date(y,mo,1)), to=pmISO(new Date(y,mo+1,0));
+    var q='bbw_worklog?select=*&asset_name=eq.'+encodeURIComponent(assetName)+
+          '&date=gte.'+from+'&date=lte.'+to+'&order=date.desc';
+    sbFetchAll(q).then(function(rows){
+      if(!Array.isArray(rows))return;
+      var full=rows.map(wlRowToEntry);
+      // prefer local copies (they may hold unsynced edits)
+      var byId={}; local.forEach(function(e){ if(e.sbId!=null)byId[e.sbId]=e; });
+      var merged=full.map(function(e){ return byId[e.sbId]||e; });
+      local.forEach(function(e){ if(e.sbId==null)merged.unshift(e); });
+      paintAssetDetail(assetName, merged);
+    }).catch(function(){});
   }catch(e){}
+}
+function paintAssetDetail(assetName, logs){
+  logs=(logs||[]).slice();
   logs.sort(function(a,b){var da=(a.date||'')+(a.loggedAt||'');var db=(b.date||'')+(b.loggedAt||'');return db.localeCompare(da);});
   var totalDT=logs.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).reduce(function(a,e){return a+(e.dt||0);},0);
   var totalCO=logs.filter(function(e){return e.coMins>0;}).reduce(function(a,e){return a+(e.coMins||0);},0);
