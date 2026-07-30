@@ -324,6 +324,26 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     }
   }
 
+  /* ---- primary buttons written for dark mode ----
+     Several actions are styled background:#fff / color:#000 - a white pill on a dark
+     canvas. In light mode that is a white button on a white card: invisible, and it
+     reads as plain text ("Acknowledge Handover", "Save Readings"). Invert them so
+     the primary action stays the strongest thing on screen in both themes.
+     The QR sheet is excluded - it must print white with black ink. */
+  html[data-theme="light"] button[style*="background:#fff"]:not(#fl-qr button){
+    background: var(--text) !important;
+    color: var(--surface) !important;
+    border: 1px solid var(--text) !important;
+  }
+  html[data-theme="light"] [style*="background:#fff"][onclick]:not(button):not(#fl-qr *){
+    background: var(--text) !important;
+    color: var(--surface) !important;
+  }
+  /* give every themed surface a visible edge so cards read as cards */
+  html[data-theme="light"] [style*="background:var(--surface-2)"][style*="border:1px solid var(--border)"]{
+    border-color: var(--border-2) !important;
+  }
+
   /* ---- pull to refresh ---- */
   #ptr{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;
     justify-content:center;pointer-events:none;z-index:40;opacity:0;height:0;overflow:hidden}
@@ -814,7 +834,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-30h \u00b7 sticky-headers';
+var APP_BUILD='2026-07-30i \u00b7 buttons';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
