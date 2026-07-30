@@ -801,7 +801,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-25s \u00b7 safe-area';
+var APP_BUILD='2026-07-30a \u00b7 pdf-cyrillic';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -5151,28 +5151,36 @@ function pdfUnicode(doc){
     doc.addFont('BBWSans.ttf','BBWSans','normal');
     doc.addFileToVFS('BBWSans-Bold.ttf',BBW_FONT_B);
     doc.addFont('BBWSans-Bold.ttf','BBWSans','bold');
+    doc.__uniFonts=true;
     var NONLATIN=/[^\u0000-\u00FF]/;
-    var flat=function(t){ return Array.isArray(t)?t.join(' '):String(t==null?'':t); };
-    // Swap fonts per string: Latin text keeps Helvetica so existing layouts are
-    // untouched; only non-Latin strings use the embedded face.
-    var wrap=function(fn){
-      var orig=doc[fn].bind(doc);
-      doc[fn]=function(){
-        var a=arguments;
-        if(!NONLATIN.test(flat(a[0])))return orig.apply(null,a);
-        var cur=doc.getFont?doc.getFont():null;
-        var style=(cur&&cur.fontStyle==='bold')?'bold':'normal';
-        var name=cur?cur.fontName:'helvetica';
-        try{ doc.setFont('BBWSans',style); }catch(e){}
-        var out;
-        try{ out=orig.apply(null,a); }
-        finally{ try{ doc.setFont(name,style); }catch(e){} }
-        return out;
-      };
+    var flat=function(t){
+      if(Array.isArray(t))return t.join(' ');
+      return (typeof t==='string')?t:'';
     };
-    ['text','splitTextToSize','getTextWidth','getStringUnitWidth'].forEach(function(fn){
-      if(typeof doc[fn]==='function')wrap(fn);
-    });
+    // Wrap ONLY text(). jsPDF calls getTextWidth / getStringUnitWidth /
+    // splitTextToSize internally while rendering, so switching fonts inside those
+    // re-enters the font machinery mid-draw and throws
+    // "Invalid arguments passed to jsPDF.text".
+    var origText=doc.text.bind(doc);
+    doc.text=function(){
+      var a=arguments;
+      var s=flat(a[0]);
+      if(!s||!NONLATIN.test(s))return origText.apply(null,a);
+      var name='helvetica', style='normal';
+      try{ var cur=doc.getFont&&doc.getFont();
+        if(cur){ name=cur.fontName||name; style=(cur.fontStyle==='bold')?'bold':'normal'; }
+      }catch(e){}
+      try{ doc.setFont('BBWSans',style); }catch(e){}
+      var out;
+      try{ out=origText.apply(null,a); }
+      catch(e){
+        // never let the font swap break a report - restore and draw as before
+        try{ doc.setFont(name,style); }catch(e2){}
+        return origText.apply(null,a);
+      }
+      try{ doc.setFont(name,style); }catch(e){}
+      return out;
+    };
     doc.__uniReady=true;
   }catch(e){}
   return doc;
@@ -5414,7 +5422,7 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
     doc.setPage(p);
     dc(HAIR);doc.setLineWidth(.6);doc.line(M,H-42,W-M,H-42);
     T('Brunswick Bierworks \u2014 Maintenance',M,H-30,8,'normal',SUB);
-    T('Generated '+gen+'   \u00b7   Page '+p+' of '+pages,W-M,H-30,8,'normal',SUB,'right');
+    T('Generated '+gen+'   \u00b7   build '+(typeof APP_BUILD!=='undefined'?APP_BUILD:'?')+'   \u00b7   Page '+p+' of '+pages,W-M,H-30,8,'normal',SUB,'right');
   }
   doc.save((fileTag||'BBW_Report')+'.pdf');
 }
@@ -9264,7 +9272,7 @@ function buildReportPDF(R){
   var pages=doc.internal.getNumberOfPages();
   for(var p=1;p<=pages;p++){ doc.setPage(p);
     doc.setTextColor(160,160,160); doc.setFont(RF,'normal'); doc.setFontSize(8);
-    doc.text('Generated '+new Date().toLocaleString('en-CA')+(R.translated?'  \u00b7  Ukrainian entries auto-translated':''),M,doc.internal.pageSize.getHeight()-18);
+    doc.text('Generated '+new Date().toLocaleString('en-CA')+'  \u00b7  build '+(typeof APP_BUILD!=='undefined'?APP_BUILD:'?')+(R.translated?'  \u00b7  Ukrainian entries auto-translated':''),M,doc.internal.pageSize.getHeight()-18);
     doc.text('Page '+p+' of '+pages,W-M,doc.internal.pageSize.getHeight()-18,{align:'right'});
   }
   return doc.output('blob');
