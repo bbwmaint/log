@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes,viewport-fit=cover">
 <meta name="theme-color" content="#111111">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -801,7 +801,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-30b \u00b7 pdf-font-reuse';
+var APP_BUILD='2026-07-30c \u00b7 ux-fixes';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2754,12 +2754,12 @@ function ptrRefresh(){
           PTR.lock='v';
         }
         if(host.scrollTop>0){ ptrReset(); return; }
-        PTR.dy=dy*0.5;                               // resistance
+        PTR.dy=dy*0.6;                               // resistance
         if(PTR.dy>4){ e.preventDefault(); ptrSet(PTR.dy,false); }
       },{passive:false});
       host.addEventListener('touchend',function(){
         if(!PTR.active||PTR.busy){ return; }
-        if(PTR.dy>=52)ptrRefresh(); else ptrReset();
+        if(PTR.dy>=38)ptrRefresh(); else ptrReset();
       },{passive:true});
       host.addEventListener('touchcancel',ptrReset,{passive:true});
     };
@@ -3813,8 +3813,22 @@ function aeSave(origCode,isNew){
   if(isNew&&AE_ROWS.some(function(x){return x.code===code;})){alert('That asset code already exists.');return;}
   var oldName=null; if(!isNew){var cur=AE_ROWS.filter(function(x){return x.code===origCode;})[0];oldName=cur?cur.name:null;}
   var sv=gid('ae-save'); if(sv){sv.disabled=true;sv.textContent='Saving\u2026';}
-  var done=function(){ return loadAssetsFromDB().then(refreshAeRows).then(function(){closeAeModal();renderAssetEditor();}); };
-  var fail=function(e){ if(sv){sv.disabled=false;sv.textContent='Save';} alert('Save failed: '+((e&&e.message)||e)+'\n\nIf this is the first time, run the bbw_assets migration in Supabase.'); };
+  var _aeGuard=setTimeout(function(){          // failsafe: always recover the form
+    if(sv&&sv.disabled){ sv.disabled=false; sv.textContent='Save';
+      try{ toast('Still saving \u2014 check your connection and try again', true, 4000); }catch(e){} }
+  },12000);
+  // Close as soon as the write succeeds and reload in the background. A stalled
+  // reload used to leave the modal open with the button stuck on "Saving...",
+  // with a page refresh the only way out.
+  var done=function(){
+    try{ closeAeModal(); }catch(e){}
+    try{ renderAssetEditor(); }catch(e){}
+    return Promise.resolve(loadAssetsFromDB())
+      .then(refreshAeRows)
+      .then(function(){ try{ renderAssetEditor(); }catch(e){} })
+      .catch(function(){});
+  };
+  var fail=function(e){ try{clearTimeout(_aeGuard);}catch(_){} if(sv){sv.disabled=false;sv.textContent='Save';} alert('Save failed: '+((e&&e.message)||e)+'\n\nIf this is the first time, run the bbw_assets migration in Supabase.'); };
   var req;
   if(isNew){
     var sort=AE_ROWS.length?Math.max.apply(null,AE_ROWS.map(function(x){return x.sort||0;}))+1:0;
@@ -3830,6 +3844,7 @@ function aeSave(origCode,isNew){
       sbFetch('bbw_worklog?and=(asset_name.eq.'+encodeURIComponent(oldName)+',or(asset_code.is.null,asset_code.eq.))',{method:'PATCH',body:JSON.stringify({asset_name:name})}).catch(function(){});
       sbFetch('bbw_requests?asset_name=eq.'+encodeURIComponent(oldName),{method:'PATCH',body:JSON.stringify({asset_name:name})}).catch(function(){});
     }
+    try{clearTimeout(_aeGuard);}catch(_){}
     return done();
   }).catch(fail);
 }
@@ -4443,9 +4458,9 @@ function renderUtil(){
     H+='<tr><td colspan="23" style="text-align:center;padding:20px;color:var(--text-3)">'+utT('No readings yet')+'</td></tr>';
   }else{
     utilLogs.slice(0,20).forEach(function(r,ri){
-      var bg=ri%2===0?'':'background:rgba(255,255,255,.02)';
+      var bg=ri%2===0?'':'background:var(--surface-2)';
       H+='<tr style="border-bottom:1px solid rgba(255,255,255,.04);'+bg+'">';
-      H+='<td style="padding:6px 8px;color:#ccc;text-align:left;white-space:nowrap;position:sticky;left:0;background:'+(ri%2===0?'var(--surface)':'#1d1d22')+';border-right:1px solid var(--border);z-index:1"><div style="display:flex;align-items:center;gap:8px">'+r.date+'<button onclick="openUtilEdit(\''+r.date+'\')" style="background:var(--surface-2);border:1px solid var(--border-2);color:#60a5fa;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;cursor:pointer;font-family:inherit">'+utT('Edit')+'</button></div></td>';
+      H+='<td style="padding:6px 8px;color:var(--text-2);text-align:left;white-space:nowrap;position:sticky;left:0;background:'+(ri%2===0?'var(--surface)':'var(--surface-2)')+';border-right:1px solid var(--border);z-index:1"><div style="display:flex;align-items:center;gap:8px">'+r.date+'<button onclick="openUtilEdit(\''+r.date+'\')" style="background:var(--surface-2);border:1px solid var(--border-2);color:#60a5fa;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;cursor:pointer;font-family:inherit">'+utT('Edit')+'</button></div></td>';
       // Monitoring: w3,w5,gas,elec,boil,past,cool,steam
       [r.w3,r.w5,r.gas,r.elec,r.boil,r.past,r.cool,r.steam].forEach(function(v,ci){
         H+='<td style="padding:5px 5px;color:'+(v!=null?'#93c5fd':'var(--text-3)')+';text-align:right'+(ci===7?';border-right:1px solid #1e3a5f':'')+'">'+(v!=null?v:'\u2013')+'</td>';
@@ -6817,7 +6832,10 @@ function renderHome(){
   // ── desktop-only lower row: work log volume + downtime by asset
   var wk=[],iss=[],lbl=[];
   try{
-    var E2=(typeof allE!=='undefined'&&allE&&allE.length)?allE:[];
+    // Month-scale rows: allE holds only ~3 days, which left every earlier week at zero.
+    var E2=(typeof STATS!=='undefined'&&STATS&&STATS.rows)?STATS.rows.map(function(r){
+             return {date:r.date,type:r.type,dt:r.dt,assetName:r.asset};
+           }):((typeof allE!=='undefined'&&allE&&allE.length)?allE:[]);
     var DONE2={completed:1,done:1,pm:1,followup_done:1};
     for(var b=7;b>=0;b--){
       var s0=new Date(); s0.setDate(s0.getDate()-b*7-6); var e0=new Date(); e0.setDate(e0.getDate()-b*7);
