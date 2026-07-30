@@ -801,7 +801,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-30e \u00b7 charts+ttl';
+var APP_BUILD='2026-07-30f \u00b7 pagination';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2914,6 +2914,22 @@ function updateReqTabCount(){
 }
 // =================== END WORK REQUESTS MODULE ===================
 
+// PostgREST returns at most 1000 rows per request and silently ignores a larger
+// `limit`. Any query that can exceed that must page, or it quietly under-reports.
+function sbFetchAll(path){
+  var PAGE=1000, all=[], guard=0;
+  function page(off){
+    return sbFetch(path,{headers:{'Range-Unit':'items','Range':off+'-'+(off+PAGE-1)}})
+      .then(function(r){ return r.json(); })
+      .then(function(rows){
+        if(!Array.isArray(rows))rows=[];
+        all=all.concat(rows);
+        if(rows.length>=PAGE && ++guard<40) return page(off+PAGE);
+        return all;
+      });
+  }
+  return page(0);
+}
 function sbFetch(path,opts){
   opts=opts||{};
   var headers={'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/json','Prefer':'return=representation'};
@@ -4775,7 +4791,7 @@ function dashAssetKey(e){return (e.asset_name||'General')+(e.asset_code?' ('+e.a
 
 function loadDashboardData(month){
   var b=monthBounds(month);
-  var wl=sbFetch('bbw_worklog?select=*&date=gte.'+b.start+'&date=lte.'+b.end+'&order=date.asc&limit=5000').then(function(r){return r.json();});
+  var wl=sbFetchAll('bbw_worklog?select=*&date=gte.'+b.start+'&date=lte.'+b.end+'&order=date.asc');
   var ut=sbFetch('bbw_util_log?select=*&date=gte.'+b.start+'&date=lte.'+b.end+'&order=date.asc&limit=5000').then(function(r){return r.json();});
   return Promise.all([wl,ut]).then(function(a){return {entries:a[0]||[],utils:a[1]||[]};});
 }
@@ -5485,7 +5501,7 @@ function weekPDF(){
 // Generic range loader (worklog/utils for the range; requests/WOs filtered client-side by weekStats)
 function loadReportData(startStr,endStr){
   function j(r){return r.ok?r.json():[];}
-  var wl=sbFetch('bbw_worklog?select=*&date=gte.'+startStr+'&date=lte.'+endStr+'&limit=20000').then(j);
+  var wl=sbFetchAll('bbw_worklog?select=*&date=gte.'+startStr+'&date=lte.'+endStr+'&order=date.asc');
   var ut=sbFetch('bbw_util_log?select=*&date=gte.'+startStr+'&date=lte.'+endStr+'&limit=20000').then(j);
   var rq=sbFetch('bbw_requests?select=*&limit=8000').then(j);
   var wo=sbFetch('bbw_wos?select=*&limit=20000').then(j);
@@ -6619,11 +6635,9 @@ function statsLoad(cb){
   STATS.loading=true;
   var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-12);
   var from=pmISO(d);
-  sbFetch('bbw_worklog?select=date,downtime_hrs,machine_down,type,asset_name&date=gte.'+from+'&limit=50000')
-    .then(function(r){return r.json();})
-    .then(function(rows){
+  var base='bbw_worklog?select=date,downtime_hrs,machine_down,type,asset_name&date=gte.'+from+'&order=date.asc';
+  sbFetchAll(base).then(function(rows){
       STATS.loading=false;
-      if(!Array.isArray(rows))rows=[];
       STATS.key=key; STATS.at=Date.now();
       STATS.rows=rows.map(function(r){
         return { date:r.date||'', dt:(parseFloat(r.downtime_hrs)||0),
