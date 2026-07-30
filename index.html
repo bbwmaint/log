@@ -46,7 +46,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   /* ================= LIGHT THEME (scoped; dark mode untouched) ================= */
   html[data-theme="light"]{
     --bg:#f6f6f8; --surface:#ffffff; --surface-2:#f4f4f7; --surface-3:#ededf2;
-    --border:#e7e7ec; --border-2:#dcdce4;
+    --border:#dfdfe6; --border-2:#cfcfda;
     --text:#16161a; --text-2:#63636f; --text-3:#9b9ba6;
     --ok:#16a34a; --warn:#d97706; --bad:#dc2626; --info:#63636f;
     --accent:#7c6bf0;
@@ -801,7 +801,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-30c \u00b7 ux-fixes';
+var APP_BUILD='2026-07-30e \u00b7 charts+ttl';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3878,7 +3878,8 @@ function renderAssets(){
   if(!_sr&&typeof statsLoad==='function')statsLoad(function(rows){
     if(rows){ try{ if(gid('pane-assets')&&getComputedStyle(gid('pane-assets')).display!=='none')renderAssets(); }catch(e){} } });
   if(_sr){
-    var _mo=(typeof pmISO==='function'?pmISO(new Date()):new Date().toISOString().slice(0,10)).slice(0,7);
+    // Must honour the month the user selected, not "now" - the arrows appeared dead.
+    var _mo=ASSET_MONTH.getFullYear()+'-'+String(ASSET_MONTH.getMonth()+1).padStart(2,'0');
     monthData=_sr.filter(function(r){return (''+(r.date||'')).slice(0,7)===_mo;})
                  .map(function(r){return {assetName:r.asset,machineDown:r.md?'yes':'',
                         dt:r.dt,type:r.type,date:r.date};});
@@ -3980,7 +3981,28 @@ function renderAssets(){
 }
 
 function showAssetDetail(assetName){
+  // The ranking counts a whole month from STATS; allE only holds ~3 days. Reading
+  // different sets meant a row saying "22 logs" opened onto "No logs found".
   var logs=allE.filter(function(e){return e.assetName===assetName;});
+  try{
+    if(typeof STATS!=='undefined'&&STATS&&STATS.rows&&typeof ASSET_MONTH!=='undefined'&&ASSET_MONTH){
+      var _m=ASSET_MONTH.getFullYear()+'-'+String(ASSET_MONTH.getMonth()+1).padStart(2,'0');
+      var seen={}; logs.forEach(function(e){seen[(e.date||'')+'|'+(e.issue||'')]=1;});
+      var extra=STATS.rows.filter(function(r){
+        return r.asset===assetName && (''+(r.date||'')).slice(0,7)===_m
+               && !seen[(r.date||'')+'|'];
+      }).map(function(r){
+        return {date:r.date, assetName:r.asset, type:r.type, dt:r.dt,
+                machineDown:r.md?'yes':'', who:'', issue:'', fix:'', _lite:true};
+      });
+      // keep full local rows, top up with month rows the cache doesn't hold
+      var haveDates={}; logs.forEach(function(e){haveDates[e.date]=(haveDates[e.date]||0)+1;});
+      logs=logs.concat(extra.filter(function(r){
+        if(haveDates[r.date]){ haveDates[r.date]--; return false; }
+        return true;
+      }));
+    }
+  }catch(e){}
   logs.sort(function(a,b){var da=(a.date||'')+(a.loggedAt||'');var db=(b.date||'')+(b.loggedAt||'');return db.localeCompare(da);});
   var totalDT=logs.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).reduce(function(a,e){return a+(e.dt||0);},0);
   var totalCO=logs.filter(function(e){return e.coMins>0;}).reduce(function(a,e){return a+(e.coMins||0);},0);
@@ -4427,7 +4449,7 @@ function renderUtil(){
 
   // History table
   H+='<div style="background:var(--surface);border-radius:12px;overflow:hidden;margin-top:0">';
-  H+='<div style="padding:12px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em">'+utT('Recent Readings')+'</span><button onclick="openUtilTrend()" style="margin-left:auto;background:var(--surface-2);border:1px solid var(--border-2);color:#60a5fa;font-size:12px;font-weight:700;padding:7px 13px;border-radius:9px;cursor:pointer">'+utT('View trends')+' \u203a</button><span>'+'</div>';
+  H+='<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border)">'+'<span style="font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.07em">'+utT('Recent Readings')+'</span><div style="flex:1"></div>'+'<button onclick="openUtilTrend()" style="background:var(--accent);border:none;color:#fff;font-size:12.5px;font-weight:700;padding:8px 15px;border-radius:9px;cursor:pointer;white-space:nowrap">'+utT('View trends')+' \u203a</button></div>';
   H+='<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">';
   H+='<table style="width:100%;border-collapse:collapse;font-size:11px;font-family:ui-monospace,SFMono-Regular,monospace;min-width:900px">';
   // Group headers
@@ -5272,12 +5294,20 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
 
   // ---- Production vs last year (monthly reports only) ----
   if(/MONTHLY/i.test(titleText||'')){
+    var _curMeasured=false;
     var _ym=(b&&b.start)?String(b.start).slice(0,7):'';
     var _yr=+_ym.slice(0,4), _mo=+_ym.slice(5,7);
     var _prevYm=(_yr-1)+'-'+String(_mo).padStart(2,'0');
     var _cur=volHLFor(_ym), _prev=volHLFor(_prevYm);
+    // Months absent from the reference table fall back to the volume this report
+    // already measured, so the current month is never blank.
+    if(_cur==null){
+      var _mv=(C&&C.kpis&&C.kpis.volHL!=null)?+C.kpis.volHL:((C&&C.volHL!=null)?+C.volHL:null);
+      if(_mv!=null&&!isNaN(_mv)&&_mv>0){ _cur=_mv; _curMeasured=true; }
+    }
     if(_cur!=null||_prev!=null){
       section('Production Volume vs Last Year');
+      var _curNote=_curMeasured?'hL logged this month':'hL produced';
       var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       // headline cards
       ensure(72);
@@ -5290,7 +5320,7 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
         if(sub)T(sub,x+9,y+45,7.2,'normal',SUB);
       }
       var _d=volDelta(_cur,_prev);
-      vcard(0,MON[_mo-1]+' '+_yr,volK(_cur),'hL produced',INK);
+      vcard(0,MON[_mo-1]+' '+_yr,volK(_cur),_curNote,INK);
       vcard(1,MON[_mo-1]+' '+(_yr-1),volK(_prev),'same month last year',SLATE);
       vcard(2,'Change',(_d==null?'\u2014':((_d>0?'+':'')+_d.toFixed(1)+'%')),
             (_d==null?'no comparison':(_d>=0?'above last year':'below last year')),
@@ -5332,7 +5362,7 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
       if(ytdP&&ytdC){
         y+=2;dc(HAIR);doc.setLineWidth(.7);doc.line(M,y-9,W-M,y-9);y+=4;
         var yd=volDelta(ytdC,ytdP);
-        T('YTD (matched months)',cx[0],y,8.4,'bold',INK);
+        T('YTD - months in both years',cx[0],y,8.4,'bold',INK);
         T(volK(ytdP),cx[1],y,8.4,'bold',SLATE);
         T(volK(ytdC),cx[2],y,8.4,'bold',INK);
         T((yd>0?'+':'')+yd.toFixed(1)+'%',cx[3],y,8.4,'bold',yd>=0?GREEN:RED);
@@ -6579,10 +6609,12 @@ function homeSpark(vals,w,h,col,plan){
 // log view is a shift tool. Anything reporting on a MONTH must not read from it:
 // doing so silently under-reported downtime by ~10x (2.6h shown vs 21h actual).
 // This pulls just the few columns needed, for 13 months, cached for the day.
-var STATS={key:null,rows:null,loading:false};
+var STATS={key:null,rows:null,loading:false,at:0};
+var STATS_TTL=4*60*1000;   // re-pull after 4 minutes so other people's entries land
 function statsLoad(cb){
   var key=pmISO(new Date());
-  if(STATS.rows&&STATS.key===key){ cb&&cb(STATS.rows); return; }
+  var fresh=STATS.at&&(Date.now()-STATS.at)<STATS_TTL;
+  if(STATS.rows&&STATS.key===key&&fresh){ cb&&cb(STATS.rows); return; }
   if(STATS.loading){ cb&&cb(null); return; }
   STATS.loading=true;
   var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-12);
@@ -6592,7 +6624,7 @@ function statsLoad(cb){
     .then(function(rows){
       STATS.loading=false;
       if(!Array.isArray(rows))rows=[];
-      STATS.key=key;
+      STATS.key=key; STATS.at=Date.now();
       STATS.rows=rows.map(function(r){
         return { date:r.date||'', dt:(parseFloat(r.downtime_hrs)||0),
                  md:(r.machine_down==='yes'||r.machine_down==='partial'),
@@ -6860,17 +6892,34 @@ function renderHome(){
 
   H+='<div class="hm-row3">';
   // work log volume
-  var bw=Math.max(8,wk.length), maxB=Math.max.apply(null,wk.concat(iss).concat([1]));
+  var maxB=Math.max.apply(null,wk.concat(iss).concat([1]));
+  // round the axis up to something readable
+  var step=maxB<=5?1:(maxB<=10?2:(maxB<=25?5:(maxB<=50?10:(maxB<=100?20:50))));
+  var top=Math.ceil(maxB/step)*step;
+  var PLOT=104;
+  var ticks='';
+  for(var t=0;t<=top;t+=step){
+    var ty=PLOT-Math.round(t/top*PLOT);
+    ticks+='<div style="position:absolute;left:0;right:0;top:'+ty+'px;border-top:1px dashed var(--border)">'+
+      '<span style="position:absolute;left:0;top:-7px;font-size:9.5px;color:var(--text-3);'+
+      'font-weight:500;background:var(--surface);padding-right:4px">'+t+'</span></div>';
+  }
   var bars='';
   wk.forEach(function(v,i){
-    var hD=Math.round(v/maxB*104), hI=Math.round(iss[i]/maxB*104);
-    bars+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0">'+
-      '<div style="width:100%;max-width:30px;display:flex;flex-direction:column;justify-content:flex-end;height:112px">'+
+    var hD=Math.round(v/top*PLOT), hI=Math.round(iss[i]/top*PLOT);
+    var tip=lbl[i]+' \u00b7 '+v+' '+hT('completed','\u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043e')+
+            (iss[i]?(' \u00b7 '+iss[i]+' '+hT('issues','\u043f\u0440\u043e\u0431\u043b\u0435\u043c')):'');
+    bars+='<div class="wlv-col" data-tip="'+rqEsc(tip)+'" '+
+      'style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;'+
+      'cursor:default;position:relative">'+
+      '<div style="width:100%;max-width:30px;display:flex;flex-direction:column;justify-content:flex-end;height:'+PLOT+'px">'+
         '<div style="height:'+hD+'px;background:#4e9c81;border-radius:3px 3px 0 0"></div>'+
         '<div style="height:'+hI+'px;background:rgba(220,38,38,.35);border-radius:0 0 3px 3px"></div>'+
       '</div>'+
       '<span style="font-size:10px;color:var(--text-3);font-weight:500">'+lbl[i]+'</span></div>';
   });
+  bars='<div style="position:absolute;left:26px;right:0;top:0;height:'+PLOT+'px;pointer-events:none">'+ticks+'</div>'+
+       '<div style="display:flex;gap:6px;align-items:flex-end;padding-left:26px">'+bars+'</div>';
   var totD=wk.reduce(function(a,b){return a+b;},0), totI=iss.reduce(function(a,b){return a+b;},0);
   H+='<div style="'+CARD+';padding:16px 18px 12px">'+
      '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">'+
@@ -6878,7 +6927,11 @@ function renderHome(){
          hT('Work log volume','\u041e\u0431\u0441\u044f\u0433 \u0436\u0443\u0440\u043d\u0430\u043b\u0443')+'</div>'+
          '<div style="font-size:12.5px;color:var(--text-3);margin-top:4px">'+totD+' '+hT('completed','\u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043e')+
          ' \u00b7 '+totI+' '+hT('issues','\u043f\u0440\u043e\u0431\u043b\u0435\u043c')+' \u00b7 8'+hT('w','\u0442')+'</div></div></div>'+
-     '<div style="display:flex;gap:6px;align-items:flex-end">'+bars+'</div></div>';
+     '<div id="wlv-wrap" style="position:relative">'+bars+
+     '<div id="wlv-tip" style="position:absolute;pointer-events:none;opacity:0;background:var(--surface);'+
+     'border:1px solid var(--border);border-radius:9px;padding:7px 10px;font-size:11.5px;font-weight:600;'+
+     'color:var(--text);white-space:nowrap;box-shadow:0 6px 20px rgba(16,16,24,.16);transition:opacity .08s;'+
+     'z-index:5"></div></div></div>';
   // downtime by asset
   var rows='';
   dtList.forEach(function(r,i){
@@ -6905,6 +6958,28 @@ function renderHome(){
      'font-family:ui-monospace,monospace;padding:16px 0 6px;cursor:pointer">build '+APP_BUILD+'</div>';
   H+='</div>';   // close .hm-wrap
   el.innerHTML=H;
+  // hover readout for the work-log bars, same behaviour as the line charts
+  try{
+    var wrap=gid('wlv-wrap'), wtip=gid('wlv-tip');
+    if(wrap&&wtip){
+      var cols=wrap.querySelectorAll('.wlv-col');
+      var showCol=function(c){
+        wtip.textContent=c.getAttribute('data-tip')||'';
+        wtip.style.opacity='1';
+        var wr=wrap.getBoundingClientRect(), cr=c.getBoundingClientRect();
+        var left=cr.left-wr.left+cr.width/2-wtip.offsetWidth/2;
+        left=Math.max(0,Math.min(wr.width-wtip.offsetWidth,left));
+        wtip.style.left=left+'px';
+        wtip.style.top=Math.max(0,cr.top-wr.top-wtip.offsetHeight-6)+'px';
+      };
+      Array.prototype.forEach.call(cols,function(c){
+        c.addEventListener('mouseenter',function(){showCol(c);});
+        c.addEventListener('touchstart',function(){showCol(c);},{passive:true});
+      });
+      wrap.addEventListener('mouseleave',function(){wtip.style.opacity='0';});
+      wrap.addEventListener('touchend',function(){setTimeout(function(){wtip.style.opacity='0';},1600);},{passive:true});
+    }
+  }catch(e){}
   // The sparkline needs its container's real width, which only exists after layout.
   // Measuring here (instead of guessing from the pane) keeps the grid column from
   // being blown out to the full pane width.
