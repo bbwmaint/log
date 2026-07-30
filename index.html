@@ -291,24 +291,37 @@ select option,select optgroup{background:#1b1c20;color:#fff}
   @media(max-width:999px){ body #nav-burger{display:none!important} }
 
   /* ---- iOS notch / Dynamic Island ----
-     Full-screen overlays are position:fixed;inset:0, so without an inset their
-     headers sit underneath the status bar and the clock overlaps the title.
-     max() keeps a sane minimum on devices with no inset (desktop, older phones). */
+     Two different cases, and mixing them up breaks the layout:
+     (a) plain overlays -> pad the container itself.
+     (b) SCROLL containers with a position:sticky header -> pad the HEADER, never
+         the container. Padding the container leaves a gap the sticky bar parks
+         below, and content scrolls up into it above the header. */
   @supports (padding-top: env(safe-area-inset-top)) {
-    #ut-modal, #fldash, #fl-qr, #fl-overlay, #asset-detail-modal,
-    #fldash-stats, #fldash-rng-modal, #fldrv-modal, #flreq-qr, #fl-menu,
+    /* (a) */
+    #fldash, #fldash-stats, #fldash-rng-modal, #fldrv-modal, #flreq-qr, #fl-menu,
     #mreq-menu, #mreq-qr, #inv-form, #inv-fpick, #util-edit, #pm-modal,
     #wo-modal, #kill-modal, #report-act-modal, #shift-pick-modal, #lb {
       padding-top: max(14px, env(safe-area-inset-top)) !important;
       padding-bottom: max(0px, env(safe-area-inset-bottom)) !important;
       box-sizing: border-box !important;
     }
-    /* the slide-out nav keeps its own 16px and adds the inset on top */
+    /* (b) container keeps its top edge; only the sticky bar clears the island */
+    #ut-modal, #fl-overlay, #fl-qr, #asset-detail-modal {
+      padding-top: 0 !important;
+      padding-bottom: max(0px, env(safe-area-inset-bottom)) !important;
+      box-sizing: border-box !important;
+    }
+    #ut-modal > div[style*="position:sticky"],
+    #fl-overlay > div[style*="position:sticky"],
+    #fl-qr > div[style*="position:sticky"],
+    #asset-detail-modal > div[style*="position:sticky"],
+    #fldash > div[style*="position:sticky"] {
+      padding-top: calc(14px + env(safe-area-inset-top)) !important;
+      top: 0 !important;
+    }
     @media(max-width:999px){
       #tabbar{ padding-top: calc(16px + env(safe-area-inset-top)) !important; }
     }
-    /* sticky bars inside a full-screen overlay need the same clearance */
-    #fldash > div[style*="position:sticky"]{ top:0 }
   }
 
   /* ---- pull to refresh ---- */
@@ -801,7 +814,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-30g \u00b7 asset-detail';
+var APP_BUILD='2026-07-30h \u00b7 sticky-headers';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
