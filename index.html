@@ -403,11 +403,14 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     .hm-kpis .hm-lbl{font-size:13px!important}
     .hm-row2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:stretch;margin-bottom:16px}
     .hm-row2>div{display:flex;flex-direction:column}
-    .hm-row2>div>div:last-child{flex:1}
-    #hm-chart{min-height:238px!important;flex:1}
+    .hm-row2>div>div:last-child{flex:1;display:flex;flex-direction:column}
+    #hm-chart{min-height:200px!important;flex:1;display:flex;align-items:stretch}
+    #hm-chart>div{flex:1;display:flex;align-items:stretch}
+    #hm-chart svg{width:100%;height:100%}
     .hm-row2>*+*{margin-top:0}
     .hm-row3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:16px;align-items:stretch}
-    .hm-row3>div{height:100%}
+    .hm-row3>div{display:flex;flex-direction:column}
+    .hm-row3 .wlv-fill{flex:1;display:flex;flex-direction:column;justify-content:flex-end}
     .hm-greet .hm-hi{font-size:26px!important}
     .hm-sec{padding-top:2px!important}
   }
@@ -632,7 +635,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     </div>
     <div id="shift-preview" style="display:none;border:1px solid;border-radius:7px;padding:7px 10px;font-size:12px;margin-bottom:10px;font-weight:600"></div>
     <div id="f-backfill" style="display:none;border:1px solid #f59e0b55;background:rgba(245,158,11,.08);border-radius:8px;padding:10px 12px;margin-bottom:10px">
-      <div style="font-size:10px;font-weight:800;color:#fbbf24;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">&#128274; Admin \u00b7 file to a past date</div>
+      <div style="font-size:10px;font-weight:800;color:#fbbf24;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">&#128274; Admin &middot; file to a past date</div>
       <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:8px">
         <div><div style="font-size:11px;color:var(--text-2);margin-bottom:4px">Date</div>
           <input type="date" id="f-date" onchange="updateShiftPreview()" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:9px;font-size:14px;color:#fff;outline:none"></div>
@@ -843,7 +846,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-30j \u00b7 assign+btn';
+var APP_BUILD='2026-07-30l \u00b7 form-fixes';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6949,7 +6952,7 @@ function renderHome(){
       var idx=(want===1)?0:Math.round(q*(nL-1)/(want-1));
       try{ mlab.push(months[idx].toLocaleDateString('en-CA',{month:'short'})); }catch(e){ mlab.push(''); }
     }
-    H+='<div style="'+CARD+';padding:12px 14px 8px;margin-bottom:11px">'+
+    H+='<div style="'+CARD+';padding:12px 14px 8px;margin-bottom:11px;display:flex;flex-direction:column">'+
        '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:2px">'+
          '<div><div style="font-size:13.5px;font-weight:700;color:var(--text);letter-spacing:-.01em">'+
            (hasPlan?hT('PM completions vs plan','\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f \u041f\u041c'):hT('PM completions','\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f \u041f\u041c'))+'</div>'+
@@ -7038,7 +7041,7 @@ function renderHome(){
   // round the axis up to something readable
   var step=maxB<=5?1:(maxB<=10?2:(maxB<=25?5:(maxB<=50?10:(maxB<=100?20:50))));
   var top=Math.ceil(maxB/step)*step;
-  var PLOT=104;
+  var PLOT=104;   // baseline; grown to fill the card after layout
   var ticks='';
   for(var t=0;t<=top;t+=step){
     var ty=PLOT-Math.round(t/top*PLOT);
@@ -7069,7 +7072,7 @@ function renderHome(){
          hT('Work log volume','\u041e\u0431\u0441\u044f\u0433 \u0436\u0443\u0440\u043d\u0430\u043b\u0443')+'</div>'+
          '<div style="font-size:12.5px;color:var(--text-3);margin-top:4px">'+totD+' '+hT('completed','\u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043e')+
          ' \u00b7 '+totI+' '+hT('issues','\u043f\u0440\u043e\u0431\u043b\u0435\u043c')+' \u00b7 8'+hT('w','\u0442')+'</div></div></div>'+
-     '<div id="wlv-wrap" style="position:relative">'+bars+
+     '<div id="wlv-wrap" class="wlv-fill" style="position:relative">'+bars+
      '<div id="wlv-tip" style="position:absolute;pointer-events:none;opacity:0;background:var(--surface);'+
      'border:1px solid var(--border);border-radius:9px;padding:7px 10px;font-size:11.5px;font-weight:600;'+
      'color:var(--text);white-space:nowrap;box-shadow:0 6px 20px rgba(16,16,24,.16);transition:opacity .08s;'+
@@ -7100,6 +7103,43 @@ function renderHome(){
      'font-family:ui-monospace,monospace;padding:16px 0 6px;cursor:pointer">build '+APP_BUILD+'</div>';
   H+='</div>';   // close .hm-wrap
   el.innerHTML=H;
+  // Grow the bars to fill whatever height the stretched card gives us; a fixed
+  // plot height under an equal-height row just leaves dead white space.
+  try{
+    var wv=gid('wlv-wrap');
+    if(wv){
+      var grown=false;
+      var grow=function(){
+        if(grown)return;                              // one-shot: growing the bars
+        var avail=wv.clientHeight-24;                 // changes the card height, which
+        avail=Math.min(avail,240);                    // would re-trigger a resize loop
+        if(!(avail>120))return;
+        grown=true;
+        var cols=wv.querySelectorAll('.wlv-col');
+        if(!cols.length)return;
+        var oldPlot=104, scale=avail/oldPlot;
+        if(scale<=1.02)return;
+        Array.prototype.forEach.call(cols,function(c){
+          var stack=c.firstChild; if(!stack)return;
+          stack.style.height=Math.round(avail)+'px';
+          Array.prototype.forEach.call(stack.children,function(seg){
+            var h=parseFloat(seg.style.height)||0;
+            seg.style.height=Math.round(h*scale)+'px';
+          });
+        });
+        var grid=wv.firstChild;
+        if(grid&&grid.getAttribute&&grid.getAttribute('style')&&
+           grid.getAttribute('style').indexOf('position:absolute')>=0){
+          grid.style.height=Math.round(avail)+'px';
+          Array.prototype.forEach.call(grid.children,function(g){
+            var t=parseFloat(g.style.top)||0;
+            g.style.top=Math.round(t*scale)+'px';
+          });
+        }
+      };
+      if(window.requestAnimationFrame)requestAnimationFrame(grow); else setTimeout(grow,0);
+    }
+  }catch(e){}
   // hover readout for the work-log bars, same behaviour as the line charts
   try{
     var wrap=gid('wlv-wrap'), wtip=gid('wlv-tip');
