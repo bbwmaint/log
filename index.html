@@ -155,7 +155,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   /* the forklift supervisor dashboard is a deliberately dark overlay:
      re-assert its light-on-dark palette so the flips above do not blind it */
   html[data-theme="light"] [style*="color:#93c5fd"]{ color:#1d4ed8 !important; }
-  html[data-theme="light"] [style*="solid #1e3a5f"]{ border-right-color:var(--border-2) !important; }
+  html[data-theme="light"] [style*="solid #1e3a5f"]{ border-right-color:var(--text-3) !important; }
   html[data-theme="light"] [style*="color:#c4b5fd"]{ color:#6d28d9 !important; }
   html[data-theme="light"] [style*="color:#fdba74"]{ color:#c2410c !important; }
   html[data-theme="light"] [style*="color:#d4d4d8"]{ color:var(--text-2) !important; }
@@ -324,6 +324,15 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     }
   }
 
+  html[data-theme="light"] .btn-primary{
+    background: var(--text) !important;
+    color: var(--surface) !important;
+    border: 1px solid var(--text) !important;
+  }
+  html[data-theme="light"] .fab{
+    background: var(--text) !important;
+    color: var(--surface) !important;
+  }
   /* ---- primary buttons written for dark mode ----
      Several actions are styled background:#fff / color:#000 - a white pill on a dark
      canvas. In light mode that is a white button on a white card: invisible, and it
@@ -834,7 +843,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-30i \u00b7 buttons';
+var APP_BUILD='2026-07-30j \u00b7 assign+btn';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3696,7 +3705,7 @@ function renderPrev(){
     if(!prev.length){
       H+='<div style="background:var(--bg);border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:3px solid var(--border-2)">';
       H+='<div style="font-size:13px;font-weight:700;color:var(--text-3)">'+sv.shift+' Shift — '+sv.date+'</div>';
-      H+='<div style="font-size:12px;color:var(--border-2);margin-top:4px">No entries logged</div></div>';
+      H+='<div style="font-size:12px;color:var(--text-3);margin-top:4px">No entries logged</div></div>';
       return;
     }
     foundAny=true;
@@ -6177,7 +6186,7 @@ function woDetailBody(w){
   if(w.status==='completed'&&w.completed_by)H+='<div style="margin-top:6px;color:var(--text-3)">Completed by '+w.completed_by+(w.completed_at?' \u00b7 '+(''+w.completed_at).slice(0,10):'')+(w.hours_spent?' \u00b7 '+w.hours_spent+'h':'')+'</div>';
   H+='</div>';
   H+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
-  if(w.status==='open')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Assign</button>';
+  if(w.status==='open')H+='<button onclick="openWOAssign('+w.id+')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Assign</button>';
   if(w.status==='assigned')H+='<button onclick="woStatus('+w.id+',\'in_progress\')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Start</button>';
   if(w.status==='in_progress')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Pause</button>';
   if(w.status!=='completed')H+='<button onclick="openWOComplete('+w.id+')" class="btn-primary" style="flex:1;min-width:96px;height:40px;font-size:13px">Complete</button>';
@@ -6273,7 +6282,7 @@ function renderWOList(){
     H+='<span style="margin-left:auto'+(overdue?';color:#f87171;font-weight:700':'')+'">'+(overdue?'Overdue ':'Due ')+(w.due_date||'\u2014')+'</span>';
     H+='</div>';
     H+='<div style="display:flex;gap:7px;margin-top:11px;padding-top:10px;border-top:1px solid var(--border)">';
-    if(w.status==='open')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Assign</button>';
+    if(w.status==='open')H+='<button onclick="openWOAssign('+w.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Assign</button>';
     if(w.status==='assigned')H+='<button onclick="woStatus('+w.id+',\'in_progress\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Start</button>';
     if(w.status==='in_progress')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Pause</button>';
     if(w.status!=='completed')H+='<button onclick="openWOComplete('+w.id+')" class="btn-primary" style="flex:1;height:31px;font-size:12px">Complete</button>';
@@ -6285,6 +6294,77 @@ function renderWOList(){
     H+='</div>';
     return H;
   }).join('');
+}
+// Assign a work order to a specific technician. The button used to just set the
+// status to "assigned" without recording anyone, so nobody knew whose job it was.
+function openWOAssign(id){
+  var w=(typeof WOS!=='undefined'?WOS:[]).filter(function(x){return x.id===id;})[0];
+  if(!w)return;
+  var ex=gid('wo-assign'); if(ex)ex.remove();
+  var uk=(typeof lang!=='undefined'&&lang==='uk');
+  var list=(typeof TECHS!=='undefined'&&TECHS.length)?TECHS.slice():[];
+  var cur=w.assignee||'';
+  var H='<div id="wo-assign" onclick="if(event.target===this)closeWOAssign()" '+
+    'style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;display:flex;'+
+    'align-items:flex-end;justify-content:center">'+
+    '<div style="background:var(--bg);border-top-left-radius:16px;border-top-right-radius:16px;'+
+    'width:100%;max-width:520px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">';
+  H+='<div style="padding:15px 17px;border-bottom:1px solid var(--border)">'+
+     '<div style="font-size:16px;font-weight:800;color:var(--text)">'+
+       (uk?'\u041f\u0440\u0438\u0437\u043d\u0430\u0447\u0438\u0442\u0438':'Assign to')+'</div>'+
+     '<div style="font-size:12px;color:var(--text-3);margin-top:2px">'+
+       rqEsc(pmDescFor(w)||w.pm_code||('WO'+w.id))+'</div></div>';
+  H+='<div style="overflow-y:auto;padding:8px 12px 4px">';
+  list.forEach(function(t){
+    var on=(t===cur);
+    H+='<div onclick="woAssignTo('+id+',\''+t.replace(/'/g,"\\'")+'\')" '+
+       'style="display:flex;align-items:center;gap:11px;padding:12px 12px;border-radius:11px;'+
+       'cursor:pointer;margin-bottom:4px;'+(on?'background:var(--surface-2)':'')+'">'+
+       '<span style="width:30px;height:30px;border-radius:9px;background:rgba(124,107,240,.16);'+
+       'color:var(--accent);font-size:11px;font-weight:700;display:flex;align-items:center;'+
+       'justify-content:center;flex-shrink:0">'+t.slice(0,2).toUpperCase()+'</span>'+
+       '<span style="flex:1;font-size:14px;font-weight:600;color:var(--text)">'+rqEsc(t)+'</span>'+
+       (on?'<span style="color:var(--accent);font-size:16px;font-weight:800">\u2713</span>':'')+
+       '</div>';
+  });
+  H+='</div>';
+  H+='<div style="display:flex;gap:9px;padding:12px 16px calc(14px + env(safe-area-inset-bottom,0px));'+
+     'border-top:1px solid var(--border)">'+
+     '<button onclick="closeWOAssign()" style="flex:1;padding:13px;background:var(--surface-2);'+
+     'color:var(--text-2);border:1px solid var(--border);border-radius:10px;font-size:15px;'+
+     'font-weight:700;cursor:pointer">'+(uk?'\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438':'Cancel')+'</button>';
+  if(cur)H+='<button onclick="woAssignTo('+id+',\'\')" style="flex:1;padding:13px;'+
+     'background:var(--surface-2);color:var(--bad);border:1px solid var(--border);border-radius:10px;'+
+     'font-size:15px;font-weight:700;cursor:pointer">'+(uk?'\u0417\u043d\u044f\u0442\u0438':'Unassign')+'</button>';
+  H+='</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function closeWOAssign(){ var m=gid('wo-assign'); if(m)m.remove(); }
+function woAssignTo(id,tech){
+  var w=(typeof WOS!=='undefined'?WOS:[]).filter(function(x){return x.id===id;})[0];
+  if(!w){ closeWOAssign(); return; }
+  var prev={assignee:w.assignee,status:w.status};
+  // apply locally first so the card updates immediately
+  w.assignee=tech||null;
+  if(tech && w.status==='open')w.status='assigned';
+  if(!tech && w.status==='assigned')w.status='open';
+  closeWOAssign();
+  try{ mwRefresh(); }catch(e){}
+  try{ if(gid('wo-list'))renderWOList(); }catch(e){}
+  var patch={assignee:tech||null,status:w.status,updated_at:new Date().toISOString()};
+  sbFetch('bbw_wos?id=eq.'+id,{method:'PATCH',body:JSON.stringify(patch),
+    headers:{'Prefer':'return=minimal'}})
+    .then(function(r){
+      if(r&&r.ok===false&&r.status!==204)throw new Error('HTTP '+r.status);
+      try{ toast(tech?((typeof lang!=='undefined'&&lang==='uk')?('\u041f\u0440\u0438\u0437\u043d\u0430\u0447\u0435\u043d\u043e: '+tech):('Assigned to '+tech))
+                     :'Unassigned'); }catch(e){}
+      try{ dataChanged('wo'); }catch(e){}
+    })
+    .catch(function(){
+      w.assignee=prev.assignee; w.status=prev.status;
+      try{ toast('Could not save assignment \u2014 try again', true, 4000); }catch(e){}
+      try{ mwRefresh(); if(gid('wo-list'))renderWOList(); }catch(e){}
+    });
 }
 function woStatus(id,status){
   sbFetch('bbw_wos?id=eq.'+id,{method:'PATCH',body:JSON.stringify({status:status,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}}).then(function(){var w=WOS.filter(function(x){return x.id===id;})[0];if(w)w.status=status;renderWOList();try{if(gid('wo-detail-pane')&&isDesktop())woSelect(id);}catch(e){}});
@@ -9550,7 +9630,7 @@ function openReportHTML(date,shift){
   function rows(items,cols){
     if(!items.length)return '<tr><td colspan="'+cols+'" style="padding:10px;color:#999;font-style:italic">None this shift</td></tr>';
     return items.map(function(e){
-      var descCell=(e.issue?'<div style="font-weight:700;color:#111;margin-bottom:2px">'+sanitize(e.issue)+'</div>':'')+(e.desc?'<div style="color:var(--border-2);line-height:1.5">'+sanitize(e.desc)+'</div>':'');
+      var descCell=(e.issue?'<div style="font-weight:700;color:#111;margin-bottom:2px">'+sanitize(e.issue)+'</div>':'')+(e.desc?'<div style="color:var(--text-3);line-height:1.5">'+sanitize(e.desc)+'</div>':'');
       if(cols===4){return '<tr><td style="padding:8px 10px;border-bottom:1px solid #eee;font-weight:600">'+(sanitize(e.assetName||'General'))+(e.assetCode?' <span style="color:#999;font-size:11px">('+e.assetCode+')</span>':'')+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee">'+descCell+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee;color:var(--text-3);white-space:nowrap">'+(e.start?e.start+(e.end?'-'+e.end:''):'')+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee;color:var(--text-3)">'+sanitize(e.who||'')+'</td></tr>';}
       return '<tr><td style="padding:8px 10px;border-bottom:1px solid #eee;font-weight:600">'+sanitize(e.assetName||'General')+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee">'+descCell+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee;color:var(--text-3)">'+sanitize(e.who||'')+'</td></tr>';
     }).join('');
