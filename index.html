@@ -252,8 +252,8 @@ select option,select optgroup{background:#1b1c20;color:#fff}
   .tab-ic{display:inline-block!important;width:18px;height:18px;vertical-align:-4px;margin-right:11px;color:var(--text-3)}
   .tab-ic svg{width:18px;height:18px;display:block}
   #tabbar>button.dz-active .tab-ic{color:#c8a24b}
-  .side-brand{display:block!important;padding:2px 13px 16px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:12px;overflow:hidden}
-  .side-brand img{width:136px;max-width:100%;display:block;margin-bottom:9px}
+  .side-brand{display:block!important;padding:14px 16px 16px;border-bottom:1px solid var(--border);margin-bottom:12px}
+  .side-brand img{width:100%;max-width:150px;height:auto;display:block;margin-bottom:9px;object-fit:contain}
   .side-sub{font-size:9px;letter-spacing:.14em;color:var(--text-3);text-transform:uppercase;font-weight:700;white-space:nowrap}
   .hdr-logo{display:none!important}
   #content{padding:24px 30px!important}
@@ -281,8 +281,8 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     .tab-ic{display:inline-block!important;width:19px;height:19px;vertical-align:-4px;margin-right:13px;color:var(--text-3)}
     .tab-ic svg{width:19px;height:19px;display:block}
     #tabbar>button.dz-active .tab-ic{color:#c8a24b}
-    .side-brand{display:block!important;padding:2px 13px 16px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:12px;overflow:hidden}
-    .side-brand img{width:150px;max-width:100%;display:block;margin-bottom:9px}
+    .side-brand{display:block!important;padding:14px 16px 16px;border-bottom:1px solid var(--border);margin-bottom:12px}
+    .side-brand img{width:100%;max-width:160px;height:auto;display:block;margin-bottom:9px;object-fit:contain}
     .side-sub{font-size:9px;letter-spacing:.14em;color:var(--text-3);text-transform:uppercase;font-weight:700;white-space:nowrap}
   }
   @media(min-width:1000px){ #nav-burger{display:none!important} #nav-backdrop{display:none!important} }
@@ -846,7 +846,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-07-30l \u00b7 form-fixes';
+var APP_BUILD='2026-07-31a \u00b7 volume-capture';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1141,6 +1141,9 @@ function loginUser(name){
   try{renderAll();}catch(e){console.error('renderAll',e);}
   try{autoGenerateWOs();}catch(e){}
   try{showPage('pg-app');}catch(e){console.error('showPage',e);}
+  // Load saved monthly volume, then record any closed month not yet captured.
+  try{ volLoadSaved(function(){ setTimeout(volAutoCapture,3000); }); }catch(e){}
+
   // Landing tab: managers get the dashboard on desktop; technicians open straight into My Work.
   try{
     var _last=null; try{_last=sessionStorage.getItem('bbw_tab');}catch(_e){}
@@ -5245,7 +5248,68 @@ var BBW_VOLUME_HL={
   '2026-01':42190,'2026-02':61950,'2026-03':71770,'2026-04':72230,
   '2026-05':75950,'2026-06':78310
 };
-function volHLFor(ym){ var v=BBW_VOLUME_HL[ym]; return (v==null?null:+v); }
+// Monthly hL captured from the schedule and stored in bbw_system, so the
+// year-over-year table keeps itself up to date instead of needing a code edit.
+// Saved figures win over the seed table above.
+var VOL_SAVED={};
+function volLoadSaved(cb){
+  sbFetch('bbw_system?id=eq.volume_hl&select=data')
+    .then(function(r){return r.json();})
+    .then(function(rows){
+      var d=(rows&&rows[0])?rows[0].data:null;
+      if(typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){ d=null; } }
+      VOL_SAVED=(d&&typeof d==='object')?d:{};
+      cb&&cb(VOL_SAVED);
+    })
+    .catch(function(){ cb&&cb(null); });
+}
+function volSaveMonth(ym,hl,cb){
+  if(!ym||!(hl>0)){ cb&&cb(false); return; }
+  VOL_SAVED[ym]=Math.round(hl);
+  sbFetch('bbw_system',{method:'POST',
+    headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+    body:JSON.stringify({id:'volume_hl',data:VOL_SAVED,updated_at:new Date().toISOString()})})
+    .then(function(r){ cb&&cb(!!(r&&(r.ok||r.status===201||r.status===204))); })
+    .catch(function(){ cb&&cb(false); });
+}
+// Total a month straight from the schedule the team already uploads.
+function volFromSchedule(ym){
+  try{
+    var TS=(typeof techSchedule!=='undefined'&&techSchedule)?techSchedule:{};
+    var tot=0, seen=false;
+    Object.keys(TS).forEach(function(ds){
+      if(String(ds).slice(0,7)!==ym)return;
+      var sc=TS[ds]||{};
+      var dh=(typeof dHLof==='function')?dHLof(sc):(+sc.dHL||0);
+      var nh=(typeof nHLof==='function')?nHLof(sc):(+sc.nHL||0);
+      if(dh||nh)seen=true;
+      tot+=dh+nh;
+    });
+    return seen?Math.round(tot):null;
+  }catch(e){ return null; }
+}
+// Once a month closes, record its total automatically - one pass, no prompting.
+function volAutoCapture(){
+  try{
+    if(typeof techSchedule==='undefined'||!techSchedule)return;
+    var now=new Date();
+    var cur=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    var months={};
+    Object.keys(techSchedule).forEach(function(ds){
+      var k=String(ds).slice(0,7);
+      if(/^\d{4}-\d{2}$/.test(k) && k<cur)months[k]=1;      // closed months only
+    });
+    Object.keys(months).forEach(function(ym){
+      if(VOL_SAVED[ym]!=null)return;                        // already recorded
+      var v=volFromSchedule(ym);
+      if(v!=null&&v>0)volSaveMonth(ym,v);
+    });
+  }catch(e){}
+}
+function volHLFor(ym){
+  var v=(VOL_SAVED&&VOL_SAVED[ym]!=null)?VOL_SAVED[ym]:BBW_VOLUME_HL[ym];
+  return (v==null?null:+v);
+}
 function volK(v){ return v==null?'\u2014':((v/1000).toFixed(2)+'K'); }
 function volDelta(cur,prev){
   if(cur==null||prev==null||!prev)return null;
