@@ -298,6 +298,8 @@ select option,select optgroup{background:#1b1c20;color:#fff}
          below, and content scrolls up into it above the header. */
   @supports (padding-top: env(safe-area-inset-top)) {
     /* (a) */
+    /* #ut-modal header is position:static, so the container carries the inset */
+    #ut-modal,
     #fldash, #fldash-stats, #fldash-rng-modal, #fldrv-modal, #flreq-qr, #fl-menu,
     #mreq-menu, #mreq-qr, #inv-form, #inv-fpick, #util-edit, #pm-modal,
     #wo-modal, #kill-modal, #report-act-modal, #shift-pick-modal, #lb {
@@ -306,7 +308,8 @@ select option,select optgroup{background:#1b1c20;color:#fff}
       box-sizing: border-box !important;
     }
     /* (b) container keeps its top edge; only the sticky bar clears the island */
-    #ut-modal, #fl-overlay, #fl-qr, #asset-detail-modal {
+    /* these DO have a sticky header, so the header carries the inset */
+    #fl-overlay, #fl-qr, #asset-detail-modal {
       padding-top: 0 !important;
       padding-bottom: max(0px, env(safe-area-inset-bottom)) !important;
       box-sizing: border-box !important;
@@ -871,7 +874,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-04b \u00b7 chart+picker';
+var APP_BUILD='2026-08-04c \u00b7 chart+compliance';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4398,14 +4401,17 @@ function trendChart(host, pts, opts){
     return d;
   }
   if(opts.mode==='bars'){
-    var slot=(W-PL-PR)/n, bw=Math.min(slot*0.62,46);
+    var slot=(W-PL-PR)/n, bw=Math.min(slot*0.58, n<=4?72:46);
     var bars='';
     vals.forEach(function(v,i){
       var cx=PL+slot*i+slot/2, y=Y(v), base=Y(Math.max(0,lo));
       var h=Math.max(0,base-y);
       var partial=opts.partialLast&&i===n-1;
       bars+='<rect x="'+(cx-bw/2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+
-        '" height="'+h.toFixed(1)+'" rx="3" fill="'+col+'" fill-opacity="'+(partial?'.38':'.9')+'"/>';
+        '" height="'+h.toFixed(1)+'" rx="4" fill="'+col+'" fill-opacity="'+(partial?'.32':'.92')+'"/>';
+      if(v>0)bars+='<text x="'+cx.toFixed(1)+'" y="'+Math.max(11,y-6).toFixed(1)+
+        '" text-anchor="middle" font-size="10.5" font-weight="700" fill="'+
+        (partial?'var(--text-3)':'var(--text)')+'">'+fmt(v)+'</text>';
       if(partial)bars+='<rect x="'+(cx-bw/2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+
         '" height="'+h.toFixed(1)+'" rx="3" fill="none" stroke="'+col+
         '" stroke-width="1.4" stroke-dasharray="3 3"/>';
@@ -7336,8 +7342,11 @@ function renderHome(){
     if(cc){
       var draw=function(){
         var ch=Math.max(120,Math.min(320,cc.clientHeight||140));
+        var spansYears=months.length>1 &&
+          months[0].getFullYear()!==months[months.length-1].getFullYear();
         var mlabels=months.map(function(d){
-          try{ return d.toLocaleDateString('en-CA',{month:'short',year:'2-digit'}); }catch(e){ return ''; } });
+          try{ return d.toLocaleDateString('en-CA',
+            spansYears?{month:'short',year:'2-digit'}:{month:'short'}); }catch(e){ return ''; } });
         // Monthly totals are categories, not a continuous signal. A spline through
         // three points invents an S-curve that isn't in the data, and the current
         // month always looks like a collapse because it is only part-way through.
@@ -7588,7 +7597,13 @@ function cmmsTrendHTML(todayISO){
     var sched=WOS.filter(function(w){return (w.due_date||'').slice(0,7)===ym;});
     var judged=sched.filter(function(w){return w.status==='completed'||pmIsOverdue(w.due_date,todayISO);});
     var onTime=judged.filter(function(w){return w.status==='completed'&&pmCompletedOnTime(w.due_date,w.completed_at);}).length;
-    return {label:d.toLocaleDateString('en-CA',{month:'short'}),pct:judged.length?Math.round(onTime/judged.length*100):null,n:judged.length};
+    // A percentage from a handful of PMs is noise: August read 100% off 2 assessed
+    // while its other 30 sat inside the buffer - a score that could only fall.
+    // Under 5 assessed, report the count instead of a percentage.
+    var enough=judged.length>=5;
+    return {label:d.toLocaleDateString('en-CA',{month:'short'}),
+            pct:(enough?Math.round(onTime/judged.length*100):null),
+            n:judged.length, few:(judged.length>0&&!enough)};
   });
   var H='<div style="font-size:12px;font-weight:700;color:var(--text);margin:18px 0 9px">'+T('cmms_trend')+'</div>';
   H+='<div style="display:flex;align-items:flex-end;gap:6px;height:96px;padding:8px 6px;background:var(--surface);border:1px solid var(--border);border-radius:10px">';
@@ -7596,7 +7611,8 @@ function cmmsTrendHTML(todayISO){
     var h=b.pct==null?3:Math.max(4,Math.round(b.pct*0.62));
     var col=b.pct==null?'var(--border-2)':(b.pct>=90?'#34d399':b.pct>=75?'#fbbf24':'#f87171');
     H+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;justify-content:flex-end">';
-    H+='<div style="font-size:9px;color:var(--text-3)">'+(b.pct==null?'\u2013':b.pct+'%')+'</div>';
+    H+='<div style="font-size:9px;color:var(--text-3)">'+
+      (b.pct==null?(b.few?(b.n+'\u00b7so far'):'\u2013'):(b.pct+'%'))+'</div>';
     H+='<div style="width:78%;height:'+h+'px;background:'+col+';border-radius:4px 4px 0 0"></div>';
     H+='<div style="font-size:9px;color:var(--text-3)">'+b.label+'</div>';
     H+='</div>';
