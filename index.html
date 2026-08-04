@@ -706,9 +706,15 @@ select option,select optgroup{background:#1b1c20;color:#fff}
             <option value="partial">Partial — reduced speed</option>
           </select>
         </div>
+        <div style="margin-bottom:11px">
+          <div style="font-size:12px;color:var(--text-2);margin-bottom:4px" id="lbl-withwho">Worked with (optional)</div>
+          <select id="f-withwho" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:11px;color:var(--text);font-size:15px">
+            <option value="">— Just me —</option>
+          </select>
+        </div>
         <div id="f-dt-wrap" style="display:none">
-          <div style="font-size:12px;color:var(--text-2);margin-bottom:4px" id="lbl-dthrs">DT hrs</div>
-          <input type="number" id="f-dt" min="0" step="0.25" placeholder="0.0" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:10px;font-size:15px;color:#fff;outline:none;font-family:monospace">
+          <div style="font-size:12px;color:var(--text-2);margin-bottom:4px" id="lbl-dthrs">DT mins</div>
+          <input type="number" id="f-dt" min="0" step="5" placeholder="0" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:10px;font-size:15px;color:#fff;outline:none;font-family:monospace">
         </div>
       </div>
     </div>
@@ -874,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-04c \u00b7 chart+compliance';
+var APP_BUILD='2026-08-04d \u00b7 dt-mins+partner';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1590,6 +1596,19 @@ function openSheet(id){
   if(gid('f-co'))gid('f-co').value='';
   if(gid('f-cotype'))gid('f-cotype').value='';
   if(gid('f-dt-wrap'))gid('f-dt-wrap').style.display='none';
+  // "Worked with": everyone except the person logging it
+  try{
+    var ww=gid('f-withwho');
+    if(ww){
+      var uk=(typeof lang!=='undefined'&&lang==='uk');
+      var opts='<option value="">\u2014 '+(uk?'\u041b\u0438\u0448\u0435 \u044f':'Just me')+' \u2014</option>';
+      (typeof TECHS!=='undefined'?TECHS:[]).forEach(function(t){
+        if(t===user)return;
+        opts+='<option value="'+escHtml(t)+'">'+escHtml(t)+'</option>';
+      });
+      ww.innerHTML=opts; ww.value='';
+    }
+  }catch(e){}
   gid('sheet-title').textContent=id?'Edit Entry':'Log Work';
   if(id){
     var e=entries.find(function(x){return x.id===id;})||allE.find(function(x){return x.id===id;});
@@ -1597,7 +1616,8 @@ function openSheet(id){
       setType(e.type); if(e.priority)setPrio(e.priority);
       if(e.assetCode)selA2(e.assetCode,e.assetName);
       else if(e.assetName){selA={c:'',n:e.assetName};gid('asearch').value=e.assetName;}
-      if(gid('f-issue'))gid('f-issue').value=e.issue||''; gid('f-desc').value=e.desc||''; gid('f-start').value=e.start||''; gid('f-end').value=e.end||''; gid('f-dt').value=e.dt||'';
+      if(gid('f-issue'))gid('f-issue').value=e.issue||''; gid('f-desc').value=e.desc||''; gid('f-start').value=e.start||''; gid('f-end').value=e.end||''; gid('f-dt').value=dtHrsToMins(e.dt);
+      if(gid('f-withwho'))gid('f-withwho').value=e.withWho||'';
       if(isEditor()){ if(gid('f-date'))gid('f-date').value=e.date||''; if(gid('f-shift'))gid('f-shift').value=(e.shift==='Day'||e.shift==='Night')?e.shift:''; }
       try{updateShiftPreview();}catch(_){}
       if(e.partName){gid('f-pname').value=e.partName;gid('f-pqty').value=e.partQty||1;}
@@ -1698,6 +1718,26 @@ function toggleDT(val){
   else { if(gid('f-dt'))gid('f-dt').value=''; var _a=gid('dt-auto'); if(_a)_a.style.display='none'; }  // running = no downtime
 }
 
+// The log form captures downtime in MINUTES - that is how the floor thinks about
+// it ("the filler was down 20 minutes"). Everything downstream (dashboards, asset
+// ranking, shift and monthly reports) works in HOURS, so convert at the edge and
+// keep storing hours exactly as before. 1 minute = 0.0167 h.
+// Downtime reads naturally as minutes below an hour and hours above. Storage is
+// always hours; this only affects display.
+function dtLabel(h){
+  var x=parseFloat(h); if(isNaN(x)||x<=0)return '0';
+  var mins=Math.round(x*60);
+  if(mins<60)return mins+'min';
+  return (Math.round(x*100)/100)+'h';
+}
+function dtMinsToHrs(v){
+  var m=parseFloat(v); if(isNaN(m)||m<=0)return 0;
+  return Math.round((m/60)*10000)/10000;
+}
+function dtHrsToMins(h){
+  var x=parseFloat(h); if(isNaN(x)||x<=0)return '';
+  return String(Math.round(x*60));
+}
 function calcDT(){
   var s=gid('f-start').value,e=gid('f-end').value;
   if(!s||!e)return;
@@ -1708,9 +1748,9 @@ function calcDT(){
   var hrs=(diff/60).toFixed(2);
   // Working time is only downtime when the machine is actually down/partial.
   if(md!=='yes'&&md!=='partial'){ var _a=gid('dt-auto'); if(_a)_a.style.display='none'; return; }
-  gid('f-dt').value=hrs;
+  gid('f-dt').value=diff;                 // this field is in minutes
   var el=gid('dt-auto');
-  el.textContent='Auto: '+hrs+'h ('+Math.floor(diff/60)+'h '+diff%60+'m)';
+  el.textContent='Auto: '+diff+' min'+(diff>=60?(' ('+Math.floor(diff/60)+'h '+(diff%60)+'m)'):'');
   el.style.display='block';
 }
 
@@ -1778,7 +1818,7 @@ function submitEntry(){
         return shiftForMins(mins);
       }
       return isDay()?'Day':'Night';
-    })(),type:ctype,priority:cprio,assetName:(selA?selA.n:(gid('asearch')?gid('asearch').value.trim():'')),assetCode:(selA?selA.c:''),issue:gid('f-issue')?gid('f-issue').value.trim():'',desc:gid('f-desc').value.trim(),start:gid('f-start').value,end:gid('f-end').value,dt:((gid('f-machinedown')&&(gid('f-machinedown').value==='yes'||gid('f-machinedown').value==='partial'))?(parseFloat(gid('f-dt').value)||0):0),machineDown:gid('f-machinedown')?gid('f-machinedown').value:'',coMins:parseInt(gid('f-co')?gid('f-co').value:0)||0,coType:gid('f-cotype')?gid('f-cotype').value:'',partName:gid('f-pname').value.trim(),partQty:gid('f-pqty').value||'1',photos:photos.slice(),photo:(photos[0]||null),who:(user===ADMIN&&gid('f-assignedto')&&gid('f-assignedto').value)?gid('f-assignedto').value:user,loggedAt:new Date().toISOString(),shiftNote:gid('snote').value};
+    })(),type:ctype,priority:cprio,assetName:(selA?selA.n:(gid('asearch')?gid('asearch').value.trim():'')),assetCode:(selA?selA.c:''),issue:gid('f-issue')?gid('f-issue').value.trim():'',desc:gid('f-desc').value.trim(),start:gid('f-start').value,end:gid('f-end').value,withWho:(gid('f-withwho')?gid('f-withwho').value:''),dt:((gid('f-machinedown')&&(gid('f-machinedown').value==='yes'||gid('f-machinedown').value==='partial'))?dtMinsToHrs(gid('f-dt').value):0),machineDown:gid('f-machinedown')?gid('f-machinedown').value:'',coMins:parseInt(gid('f-co')?gid('f-co').value:0)||0,coType:gid('f-cotype')?gid('f-cotype').value:'',partName:gid('f-pname').value.trim(),partQty:gid('f-pqty').value||'1',photos:photos.slice(),photo:(photos[0]||null),who:(user===ADMIN&&gid('f-assignedto')&&gid('f-assignedto').value)?gid('f-assignedto').value:user,loggedAt:new Date().toISOString(),shiftNote:gid('snote').value};
   if(editId){
     // Find the original BEFORE overwriting, so we keep its Supabase link.
     var orig=allE.find(function(x){return x.id===editId;})||entries.find(function(x){return x.id===editId;});
@@ -1799,7 +1839,7 @@ function submitEntry(){
         asset_name:entry.assetName||null,asset_code:entry.assetCode||null,
         issue:entry.issue||null,description:entry.desc||null,start_time:entry.start||null,end_time:entry.end||null,
         downtime_hrs:entry.dt||0,part_name:entry.partName||null,part_qty:entry.partQty||null,
-        who:entry.who||null,shift_note:entry.shiftNote||null,
+        who:entry.who||null,with_who:entry.withWho||null,shift_note:entry.shiftNote||null,
         machine_down:entry.machineDown||null,
         co_mins:entry.coMins||0,co_type:entry.coType||null,photos:JSON.stringify(entry.photos||[]),photo:(entry.photos&&entry.photos[0])||entry.photo||null
       };
@@ -2323,7 +2363,7 @@ function loadFollowups(){
         if(hit)return;
         allE.push({ id:r.id,sbId:r.id,date:r.date,shift:r.shift||'',type:r.type,priority:r.priority||'',
           assetName:r.asset_name||'',assetCode:r.asset_code||'',issue:r.issue||'',desc:r.description||'',
-          who:r.who||'',loggedAt:r.logged_at,synced:true,
+          who:r.who||'',withWho:r.with_who||'',loggedAt:r.logged_at,synced:true,
           photos:(function(){try{if(r.photos){var a=JSON.parse(r.photos);if(a&&a.length)return a;}}catch(e){}return r.photo?[r.photo]:[];})(),photo:r.photo||'' });
       });
     }).catch(function(){});
@@ -3186,7 +3226,7 @@ function loadFromSB(){
           id:r.id,sbId:r.id,date:r.date,shift:r.shift,type:r.type,priority:r.priority||'',
           assetName:r.asset_name||'',assetCode:r.asset_code||'',issue:r.issue||'',desc:r.description||'',
           start:r.start_time||'',end:r.end_time||'',dt:r.downtime_hrs||0,
-          partName:r.part_name||'',partQty:r.part_qty||'1',who:r.who||'',
+          partName:r.part_name||'',partQty:r.part_qty||'1',who:r.who||'',withWho:r.with_who||'',
           shiftNote:r.shift_note||'',loggedAt:r.logged_at,photo:'',synced:true,
           machineDown:r.machine_down||'',coMins:r.co_mins||0,coType:r.co_type||'',photos:(function(){try{if(r.photos){var a=JSON.parse(r.photos);if(a&&a.length)return a;}}catch(e){}return r.photo?[r.photo]:[];})(),photo:r.photo||''
         };
@@ -3580,10 +3620,11 @@ function card(e,mine){
   html+='<div class="tnum" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:11px;font-size:11.5px;color:var(--text-3)">';
   if(time)html+='<span>'+time+'</span>';
   if((e.priority==='urgent'||e.priority==='high'))html+='<span style="color:var(--bad);font-weight:700;letter-spacing:.04em">'+e.priority.toUpperCase()+'</span>';
-  if(e.dt>0&&(e.machineDown==='yes'||e.machineDown==='partial'))html+='<span style="color:var(--bad)">'+e.dt+'h DT</span>';
+  if(e.dt>0&&(e.machineDown==='yes'||e.machineDown==='partial'))html+='<span style="color:var(--bad)">'+dtLabel(e.dt)+' DT</span>';
   if(e.machineDown==='yes')html+='<span style="color:var(--bad);font-weight:700;letter-spacing:.04em">MACHINE DOWN</span>';
   if(e.machineDown==='partial')html+='<span style="color:var(--warn);font-weight:700;letter-spacing:.04em">PARTIAL</span>';
   if(e.coMins>0)html+='<span style="color:var(--warn)">CO '+e.coMins+'min</span>';
+  if(e.withWho)html+='<span title="Worked with">+ '+rqEsc(e.withWho)+'</span>';
   var _synced=(e.sbId||e.synced);
   var _syncInd=_synced?'<span title="Saved" style="color:#34d399;font-size:12px;font-weight:800">\u2713</span>':'<span class="sync-dot" title="Saving\u2026" style="width:7px;height:7px;border-radius:50%;background:#fbbf24;display:inline-block"></span>';
   html+='<span style="margin-left:auto;display:flex;align-items:center;gap:7px;color:var(--text-2)">'+_syncInd+'<span style="width:20px;height:20px;border-radius:50%;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--text-2)">'+initial+'</span>'+who+'</span>';
@@ -4097,7 +4138,7 @@ function wlRowToEntry(r){
     assetName:r.asset_name||'', assetCode:r.asset_code||'', issue:r.issue||'',
     desc:r.description||'', start:r.start_time||'', end:r.end_time||'',
     dt:r.downtime_hrs||0, partName:r.part_name||'', partQty:r.part_qty||'1',
-    who:r.who||'', shiftNote:r.shift_note||'', loggedAt:r.logged_at, photo:'',
+    who:r.who||'',withWho:r.with_who||'', shiftNote:r.shift_note||'', loggedAt:r.logged_at, photo:'',
     synced:true, machineDown:r.machine_down||'', coMins:r.co_mins||0,
     coType:r.co_type||'', photos:photos
   };
@@ -9106,9 +9147,21 @@ function invDrawBody(){
   var q=(INV_SEARCH||'').trim().toLowerCase();
   var searching = q.length>0 || INV_LOWONLY;
   var H='';
+  if(searching&&INV_FOLDER){
+    H+='<div style="display:flex;align-items:center;gap:9px;background:var(--surface-2);'+
+       'border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:10px">'+
+       '<span style="font-size:12px;color:var(--text-2)">Searching in <b style="color:var(--text)">'+
+       escHtml(INV_FOLDER)+'</b></span><div style="flex:1"></div>'+
+       '<span onclick="invOpenFolder(null)" style="font-size:12px;font-weight:700;'+
+       'color:var(--accent);cursor:pointer;white-space:nowrap">Search all \u203a</span></div>';
+  }
   if(searching){
     // Flat search across everything
-    var res=INV.filter(function(i){
+    // Scope to the open folder. Searching "bearing" while standing at Blue cabinet 1
+    // should list that cabinet's bearings, not every bearing in the plant. The
+    // folder list (no folder open) still searches everything.
+    var scope=INV_FOLDER?INV.filter(function(i){return (i.folder||'')===INV_FOLDER;}):INV;
+    var res=scope.filter(function(i){
       if(INV_LOWONLY&&!invIsLow(i))return false;
       if(!q)return true;
       return [(i.item||''),(i.part_no||''),(i.make||''),(i.supplier||''),(i.location||''),(i.folder||''),(i.notes||'')].join(' ').toLowerCase().indexOf(q)>=0;
@@ -9589,7 +9642,7 @@ function setLang(l){
   try{if(gid('pane-assets')&&gid('pane-assets').style.display!=='none')renderAssets();}catch(e){}
   try{if(gid('pane-prev')&&gid('pane-prev').style.display!=='none')renderPrev();}catch(e){}
   // Update static UI text
-  var LABELS_EN={'lbl-templates':'Templates','lbl-quickadd':'Quick Add','lbl-type':'Type','lbl-asset':'Asset','lbl-issue':'Issue','lbl-whatdone':'Description / Work done','lbl-start':'Start','lbl-end':'End','lbl-dthrs':'DT hrs','lbl-partnum':'Part name / number','lbl-priority':'Priority','lbl-photo':'Photo (optional)','lbl-takephoto':'Take Photo','lbl-library':'From Library','sheet-title':'Log Work','submit-btn':'Add to Log','pin-title':'Please choose your name'};
+  var LABELS_EN={'lbl-templates':'Templates','lbl-quickadd':'Quick Add','lbl-type':'Type','lbl-asset':'Asset','lbl-issue':'Issue','lbl-whatdone':'Description / Work done','lbl-start':'Start','lbl-end':'End','lbl-dthrs':'DT mins','lbl-partnum':'Part name / number','lbl-priority':'Priority','lbl-photo':'Photo (optional)','lbl-takephoto':'Take Photo','lbl-library':'From Library','sheet-title':'Log Work','submit-btn':'Add to Log','pin-title':'Please choose your name'};
   var LABELS_UK={'lbl-templates':'Шаблони','lbl-quickadd':'Швидке додавання','lbl-type':'Тип','lbl-asset':'Актив','lbl-issue':'Проблема','lbl-whatdone':'Опис / Виконана робота','lbl-start':'Початок','lbl-end':'Кінець','lbl-dthrs':'Простій','lbl-partnum':'Деталь / номер','lbl-priority':'Пріоритет','lbl-photo':'Фото (необов\'язково)','lbl-takephoto':'Зробити фото','lbl-library':'З галереї','sheet-title':'Записати роботу','submit-btn':'Додати','pin-title':'Будь ласка, виберіть своє ім\'я'};
   var UI=l==='uk'?LABELS_UK:LABELS_EN;
   UI['pin-sub']=l==='uk'?'Виберіть своє ім\'я':'Select your name to continue';
