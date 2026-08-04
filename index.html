@@ -353,6 +353,31 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     border-color: var(--border-2) !important;
   }
 
+  /* ---- native date/month/time controls ----
+     The calendar and clock glyphs are drawn by the browser, not by us. Without
+     color-scheme the browser assumes a dark page and paints a near-black icon,
+     which vanishes on a light input. Telling it the real scheme fixes the icon,
+     the picker popup and the spinners in one go. */
+  html[data-theme="light"] input[type="date"],
+  html[data-theme="light"] input[type="month"],
+  html[data-theme="light"] input[type="time"],
+  html[data-theme="light"] input[type="datetime-local"],
+  html[data-theme="light"] select{ color-scheme: light; }
+  html[data-theme="dark"] input[type="date"],
+  html[data-theme="dark"] input[type="month"],
+  html[data-theme="dark"] input[type="time"],
+  html[data-theme="dark"] input[type="datetime-local"],
+  html[data-theme="dark"] select{ color-scheme: dark; }
+  /* make the picker glyph clearly tappable rather than a faint smudge */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator{
+    opacity:.75; cursor:pointer; padding:2px;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator:hover,
+  input[type="month"]::-webkit-calendar-picker-indicator:hover{ opacity:1; }
+
   /* ---- pull to refresh ---- */
   #ptr{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;
     justify-content:center;pointer-events:none;z-index:40;opacity:0;height:0;overflow:hidden}
@@ -846,7 +871,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-04a \u00b7 offline-cache';
+var APP_BUILD='2026-08-04b \u00b7 chart+picker';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4337,6 +4362,8 @@ function trendChart(host, pts, opts){
   var mn=Math.min.apply(null,all), mx=Math.max.apply(null,all);
   if(mn===mx){ var pad=Math.abs(mn)||1; mn-=pad*0.5; mx+=pad*0.5; }
   var rng=(mx-mn)||1, lo=mn-rng*0.12, hi=mx+rng*0.12;
+  // Counts have no negative half - a "-16 completions" gridline is nonsense.
+  if(opts.minZero){ lo=0; hi=mx+rng*0.12; if(hi<=0)hi=1; }
   var n=pts.length;
   function X(i){ return n===1 ? PL+(W-PL-PR)/2 : PL+(i/(n-1))*(W-PL-PR); }
   function Y(v){ return PT+(1-((v-lo)/(hi-lo)))*(H-PT-PB); }
@@ -4352,6 +4379,7 @@ function trendChart(host, pts, opts){
     g+='<text x="'+(PL-8)+'" y="'+(yy+3.5).toFixed(1)+'" text-anchor="end" font-size="9.5" '+
        'fill="var(--text-3)" font-weight="500">'+fmt(vv)+'</text>';
   }
+  var gY=g;   // gridlines + Y labels only; bar mode draws its own X axis
   // X labels (first, middle, last - avoids crowding)
   var xi=n===1?[0]:(n<=4?pts.map(function(_,i){return i;}):[0,Math.floor((n-1)/2),n-1]);
   xi.forEach(function(i){
@@ -4368,6 +4396,64 @@ function trendChart(host, pts, opts){
          ', '+p1[0].toFixed(1)+' '+p1[1].toFixed(1);
     }
     return d;
+  }
+  if(opts.mode==='bars'){
+    var slot=(W-PL-PR)/n, bw=Math.min(slot*0.62,46);
+    var bars='';
+    vals.forEach(function(v,i){
+      var cx=PL+slot*i+slot/2, y=Y(v), base=Y(Math.max(0,lo));
+      var h=Math.max(0,base-y);
+      var partial=opts.partialLast&&i===n-1;
+      bars+='<rect x="'+(cx-bw/2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+
+        '" height="'+h.toFixed(1)+'" rx="3" fill="'+col+'" fill-opacity="'+(partial?'.38':'.9')+'"/>';
+      if(partial)bars+='<rect x="'+(cx-bw/2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+
+        '" height="'+h.toFixed(1)+'" rx="3" fill="none" stroke="'+col+
+        '" stroke-width="1.4" stroke-dasharray="3 3"/>';
+      if(plan){
+        var py=Y(plan[i]);
+        bars+='<line x1="'+(cx-bw/2-2).toFixed(1)+'" y1="'+py.toFixed(1)+'" x2="'+(cx+bw/2+2).toFixed(1)+
+          '" y2="'+py.toFixed(1)+'" stroke="var(--text-3)" stroke-width="1.6" stroke-dasharray="4 3"/>';
+      }
+    });
+    var bx='';
+    pts.forEach(function(p,i){
+      var cx=PL+slot*i+slot/2;
+      bx+='<text x="'+cx.toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle" font-size="9.5" '+
+          'fill="var(--text-3)" font-weight="500">'+((p.l!=null)?p.l:p.d)+'</text>';
+    });
+    host.innerHTML='<div style="position:relative"><svg id="'+id+'" width="'+W+'" height="'+H+
+      '" style="display:block;touch-action:none">'+gY+bars+bx+
+      '<rect id="'+id+'hit" x="0" y="0" width="'+W+'" height="'+H+'" fill="transparent"/></svg>'+
+      '<div id="'+id+'tip" style="position:absolute;pointer-events:none;opacity:0;'+
+      'background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:7px 10px;'+
+      'box-shadow:0 6px 20px rgba(16,16,24,.16);white-space:nowrap;transition:opacity .08s;z-index:5"></div></div>';
+    var sv=document.getElementById(id), tp=document.getElementById(id+'tip');
+    var ht=document.getElementById(id+'hit');
+    if(sv&&ht){
+      var showB=function(clientX){
+        var r=sv.getBoundingClientRect();
+        var px=(clientX-r.left)*(W/r.width);
+        var i=Math.max(0,Math.min(n-1,Math.floor((px-PL)/slot)));
+        var lbl=(pts[i].l!=null)?pts[i].l:pts[i].d;
+        tp.innerHTML='<div style="font-size:10.5px;font-weight:700;color:var(--text-3);'+
+          'text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">'+lbl+
+          (opts.partialLast&&i===n-1?' \u00b7 so far':'')+'</div>'+
+          '<div style="font-size:13.5px;font-weight:700;color:var(--text)">'+fmt(vals[i])+'</div>'+
+          (plan?('<div style="font-size:11px;font-weight:600;color:var(--text-3);margin-top:2px">'+
+            (opts.planLabel||'plan')+' '+fmt(plan[i])+'</div>'):'');
+        tp.style.opacity='1';
+        var scale=r.width/W, tw=tp.offsetWidth||90;
+        var cx=PL+slot*i+slot/2;
+        tp.style.left=Math.max(2,Math.min(r.width-tw-2,cx*scale-tw/2))+'px';
+        tp.style.top=Math.max(0,Y(vals[i])*scale-tp.offsetHeight-10)+'px';
+      };
+      ht.addEventListener('mousemove',function(e){showB(e.clientX);});
+      ht.addEventListener('mouseleave',function(){tp.style.opacity='0';});
+      ht.addEventListener('touchstart',function(e){if(e.touches[0])showB(e.touches[0].clientX);},{passive:true});
+      ht.addEventListener('touchmove',function(e){if(e.touches[0]){showB(e.touches[0].clientX);e.preventDefault();}},{passive:false});
+      ht.addEventListener('touchend',function(){tp.style.opacity='0';},{passive:true});
+    }
+    return;
   }
   var line=n===1?'':path(vals);
   var area=n===1?'':(line+' L '+X(n-1).toFixed(1)+' '+(H-PB)+' L '+X(0).toFixed(1)+' '+(H-PB)+' Z');
@@ -7038,10 +7124,9 @@ function renderHome(){
          '<div><div style="font-size:13.5px;font-weight:700;color:var(--text);letter-spacing:-.01em">'+
            (hasPlan?hT('PM completions vs plan','\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f \u041f\u041c'):hT('PM completions','\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043d\u044f \u041f\u041c'))+'</div>'+
            '<div style="font-size:11px;color:var(--text-3);margin-top:3px">'+totDone+
-           (hasPlan?(' '+hT('of','\u0437')+' '+totPlan):'')+' \u00b7 '+months.length+hT('m','\u043c')+'</div></div>'+badge+'</div>'+
-       '<div id="hm-chart" style="min-height:84px"></div>'+
-       '<div style="display:flex;justify-content:space-between;font-size:10px;font-weight:500;'+
-       'color:var(--text-3);padding:0 2px 2px">'+mlab.map(function(m){return '<span>'+m+'</span>';}).join('')+'</div></div>';
+           (hasPlan?(' '+hT('of','\u0437')+' '+totPlan):'')+' \u00b7 '+months.length+hT('m','\u043c')+
+           ' \u00b7 '+hT('this month partial','\u043f\u043e\u0442\u043e\u0447\u043d\u0438\u0439 \u043c\u0456\u0441\u044f\u0446\u044c \u043d\u0435\u043f\u043e\u0432\u043d\u0438\u0439')+'</div></div>'+badge+'</div>'+
+       '<div id="hm-chart" style="min-height:84px"></div></div>';
   }
   H+='</div><div>';   // close column 1, open column 2: today's tasks
 
@@ -7253,8 +7338,12 @@ function renderHome(){
         var ch=Math.max(120,Math.min(320,cc.clientHeight||140));
         var mlabels=months.map(function(d){
           try{ return d.toLocaleDateString('en-CA',{month:'short',year:'2-digit'}); }catch(e){ return ''; } });
+        // Monthly totals are categories, not a continuous signal. A spline through
+        // three points invents an S-curve that isn't in the data, and the current
+        // month always looks like a collapse because it is only part-way through.
         trendChart(cc, doneS.map(function(v,i){return {d:mlabels[i], l:mlabels[i], v:v};}), {
-          h:ch, color:'#7c6bf0', padL:34,
+          h:ch, color:'#7c6bf0', padL:34, mode:'bars', minZero:true,
+          partialLast:true,
           plan:hasPlan?planS:null, planLabel:'plan',
           fmt:function(v){ return String(Math.round(v)); }
         });
