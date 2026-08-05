@@ -10955,10 +10955,19 @@ function schedProdRunsHTML(){
 
 function getUpcomingChangeovers(hoursAhead){
   var now3=new Date(),cut2=new Date(now3.getTime()+hoursAhead*3600000);
-  var rel=scheduleRuns.filter(function(r){return r.startDt&&r.startDt>=now3&&r.startDt<=cut2;});
+  // Walk ALL runs in chronological order and compare each run to its true
+  // predecessor, then keep only changeovers whose switch-time falls in the
+  // window. Filtering runs to the window FIRST (as before) dropped the
+  // changeover from the currently-running product into the next shift's first
+  // run, because the current run starts before 'now' — the very changeover the
+  // next shift most needs. This is additive: in-window transitions are detected
+  // exactly as before; it only recovers the boundary (current -> next) one.
+  var runs=scheduleRuns.filter(function(r){return r.startDt;}).slice()
+    .sort(function(a,b){return a.startDt-b.startDt;});
   var cos=[];
-  for(var i=1;i<rel.length;i++){
-    var p=rel[i-1],c=rel[i];
+  for(var i=1;i<runs.length;i++){
+    var p=runs[i-1],c=runs[i];
+    if(c.startDt<now3||c.startDt>cut2)continue;
     if(p.canSize!==c.canSize)cos.push({type:'Can Format CO',from:p.canSize,to:c.canSize,at:c.startDt,color:'#ef4444'});
     if(p.pkgFormat!==c.pkgFormat)cos.push({type:'Pkg Format CO',from:p.pkgFormat,to:c.pkgFormat,at:c.startDt,color:'#f59e0b'});
     if(c.cleaning&&c.cleaning!=='None'&&c.cleaning!=='FLUSH')cos.push({type:'CIP Required',from:c.cleaning,to:'',at:c.startDt,color:'#a78bfa'});
