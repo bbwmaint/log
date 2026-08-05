@@ -5588,8 +5588,8 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
   T(subtitle,W-M,y+20,9.5,'normal',SUB,'right');
   y+=38;dc(GOLD);doc.setLineWidth(1.4);doc.line(M,y,W-M,y);y+=20;
 
-  // ---- KPI cards (4 x 2) ----
-  var gap=10,cols=4,cardW=(CW-gap*(cols-1))/cols,cardH=54;
+  // ---- KPI cards (3 x 3) ----
+  var gap=10,cols=3,cardW=(CW-gap*(cols-1))/cols,cardH=54;
   function card(i,label,val,sub,vcol){
     var col=i%cols,row=Math.floor(i/cols);
     var x=M+col*(cardW+gap),cy=y+row*(cardH+gap);
@@ -5600,15 +5600,16 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
   }
   var pm=C.pmPct==null?'\u2014':C.pmPct+'%';
   var res=C.avgResHrs==null?'\u2014':(C.avgResHrs<48?(Math.round(C.avgResHrs*10)/10)+' h':(Math.round(C.avgResHrs/24*10)/10)+' d');
-  card(0,'Downtime',C.downtimeHrs+' h',C.dtEvents+' machine-down',RED);
-  card(1,'PM Completion',pm,(C.pmDue?C.pmDone+'/'+C.pmDue+' due':'none due'),C.pmPct!=null?prodCol(C.pmPct>=90?80:C.pmPct):INK);
-  card(2,'Requests',String(C.reqReceived),C.reqClosed+' closed',BLUE);
-  card(3,'Avg Resolve',res,'new to done',INK);
-  card(4,'Volume',hlNum(C.volHL)+' hL','D/N '+hlNum(C.dHL)+' / '+hlNum(C.nHL),INK);
-  card(5,'Mean Productivity',(C.meanProd==null?'\u2014':C.meanProd+'%'),'daily average',prodCol(C.meanProd));
-  card(6,'Productivity',(C.attain==null?'\u2014':C.attain+'%'),(C.weeklyTarget>0?'vs '+hlNum(C.weeklyTarget)+' hL':'set target'),prodCol(C.attain));
-  card(7,'Tasks Logged',String(C.tasks),C.techs+' technicians',INK);
-  y+=2*cardH+gap+18;
+  card(0,'Machine Down',(C.downHrs!=null?C.downHrs:C.downtimeHrs)+' h',(C.downEvents!=null?C.downEvents:C.dtEvents)+' events',RED);
+  card(1,'Running Slow',(C.slowHrs!=null?C.slowHrs:0)+' h',(C.slowEvents!=null?C.slowEvents:0)+' partial',AMBER);
+  card(2,'PM Completion',pm,(C.pmDue?C.pmDone+'/'+C.pmDue+' due':'none due'),C.pmPct!=null?prodCol(C.pmPct>=90?80:C.pmPct):INK);
+  card(3,'Requests',String(C.reqReceived),C.reqClosed+' closed',BLUE);
+  card(4,'Avg Resolve',res,'new to done',INK);
+  card(5,'Volume',hlNum(C.volHL)+' hL','D/N '+hlNum(C.dHL)+' / '+hlNum(C.nHL),INK);
+  card(6,'Mean Productivity',(C.meanProd==null?'\u2014':C.meanProd+'%'),'daily average',prodCol(C.meanProd));
+  card(7,'Productivity',(C.attain==null?'\u2014':C.attain+'%'),(C.weeklyTarget>0?'vs '+hlNum(C.weeklyTarget)+' hL':'set target'),prodCol(C.attain));
+  card(8,'Tasks Logged',String(C.tasks),C.techs+' technicians',INK);
+  y+=3*cardH+2*gap+18;
 
   // ---- Production (native bars) — daily for a week, weekly for a month ----
   var useWeekly=(C.dayVols&&C.dayVols.length>8&&C.weekVols&&C.weekVols.length);
@@ -5753,21 +5754,29 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
   var techs=(C.workloadByTech||[]).slice(0,12);
   if(!techs.length){T('No entries this block.',M,y+2,9.5,'normal',SUB);y+=18;}
   else{
-    var heads=['Technician','Completed','Issues','Parts','Other','Total'];
-    var nameW=CW-5*70, colW=70, rowH=16;
+    var heads=['Technician','Logs','Hours','Completed','Issues','Parts','Other'];
+    var ncol=6, colW=62, nameW=CW-ncol*colW, rowH=16;
     // header
     fc([241,241,244]);doc.rect(M,y,CW,rowH,'F');
     T(heads[0],M+7,y+11,8.2,'bold',INK);
-    for(var h=1;h<6;h++){T(heads[h],M+nameW+(h-1)*colW+colW-7,y+11,8.2,'bold',INK,'right');}
+    for(var h=1;h<=ncol;h++){T(heads[h],M+nameW+(h-1)*colW+colW-7,y+11,8.2,'bold',INK,'right');}
     y+=rowH;
+    var TL=0,TH=0;
     techs.forEach(function(t,i){
       ensure(rowH+2);
       if(i%2===1){fc([249,249,251]);doc.rect(M,y,CW,rowH,'F');}
-      T(trunc(t.tech,26),M+7,y+11,8.5,'normal',INK);
-      var vals=[t.done,t.issue,t.parts,t.other,t.total];
-      for(var k=0;k<5;k++){T(String(vals[k]),M+nameW+k*colW+colW-7,y+11,8.5,k===4?'bold':'normal',k===4?INK:SUB,'right');}
+      T(trunc(t.tech,24),M+7,y+11,8.5,'normal',INK);
+      var hrs=Math.round((t.hours||0)*10)/10; TL+=(t.total||0); TH+=(t.hours||0);
+      var vals=[t.total,hrs,t.done,t.issue,t.parts,t.other];
+      for(var k=0;k<ncol;k++){var em=(k<2);T(String(vals[k]),M+nameW+k*colW+colW-7,y+11,8.5,em?'bold':'normal',em?INK:SUB,'right');}
       y+=rowH;
     });
+    ensure(rowH+2);
+    dc(HAIR);doc.setLineWidth(.7);doc.line(M,y,W-M,y);
+    T('Total \u00b7 '+techs.length+' techs',M+7,y+12,8.2,'bold',INK);
+    var tvals=[TL,Math.round(TH*10)/10];
+    for(var k2=0;k2<2;k2++){T(String(tvals[k2]),M+nameW+k2*colW+colW-7,y+12,8.2,'bold',INK,'right');}
+    y+=rowH+2;
     dc(HAIR);doc.setLineWidth(.7);doc.line(M,y,W-M,y);y+=14;
   }
 
