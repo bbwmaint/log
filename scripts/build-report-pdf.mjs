@@ -14,6 +14,11 @@ export function reportSummaryLines(R){
   } else { L.push('No machine downtime recorded. \u2713'); }
   if(R.totalCO>0){ L.push('Changeovers: '+R.coEvents.length+' totalling '+R.totalCO+' min'+(R.coTypes.length?' ('+R.coTypes.join(', ')+')':'')+'.'); }
   else { L.push('No changeovers this shift.'); }
+  var _uco=R.upcomingCOs||[];
+  if(_uco.length){
+    var _ut=[]; _uco.forEach(function(c){var t=c.type.replace(' CO','').replace(' Required',''); if(_ut.indexOf(t)<0)_ut.push(t);});
+    L.push('Next shift: '+_uco.length+' upcoming changeover'+(_uco.length===1?'':'s')+' ('+_ut.join(', ')+').');
+  }
   if(R.issues.length){ L.push(''+R.issues.length+' open issue'+(R.issues.length===1?'':'s')+' handed to next shift'+(R.issues.length?': '+R.issues.slice(0,3).map(function(e){var iss=(R.tmap&&R.tmap[e.issue])?R.tmap[e.issue]:e.issue;return (e.assetName||'?')+(iss?' ('+iss+')':'');}).join('; ')+(R.issues.length>3?'…':''):'')+'.'); }
   else { L.push('Clean handover \u2014 no pending issues. \u2713'); }
   if(R.parts.length){ L.push(R.parts.length+' part'+(R.parts.length===1?'':'s')+' awaiting order.'); }
@@ -112,6 +117,10 @@ export function buildReportPDF(R){
     doc.setFillColor(240,253,244); doc.roundedRect(M,y,W-2*M,26,6,6,'F');
     doc.setTextColor(22,163,74); doc.setFont(RF,'bold'); doc.setFontSize(10);
     doc.text('No pending issues - clean handover', M+14, y+17); y+=38; }
+  // Upcoming changeovers — next shift (from the production schedule)
+  var _uco=R.upcomingCOs||[];
+  if(_uco.length){ sectTitle('Upcoming Changeovers - Next Shift',[245,158,11],_uco.length);
+    tbl('Changeovers',[245,158,11],['Type','Change','When'],_uco.map(function(co){return [pdfSafe(co.type),pdfSafe(co.from?(co.to?co.from+' -> '+co.to:co.from):'-'),pdfSafe(co.atLabel||'')];})); }
   sectTitle('Work Completed',[22,163,74],R.done.length);
   if(R.done.length) tbl('Completed',[22,163,74],['Asset','Issue / Description','Time','By'],R.done.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),e.who||''];}));
   else { doc.setTextColor(150,150,150); doc.setFont(RF,'italic'); doc.setFontSize(9); doc.text('None this shift.',M,y+4); y+=18; }

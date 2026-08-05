@@ -137,6 +137,64 @@ async function fetchEntries(date, shift) {
   return await r.json();
 }
 
+/* ── upcoming changeovers (next shift) — read the production schedule ──────── */
+/** ms to add to a UTC instant so its Toronto wall-clock reads as if it were UTC. */
+function tzOffsetMs(instant) {
+  const p = new Intl.DateTimeFormat('en-US', {
+    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  }).formatToParts(instant).reduce((a, x) => (a[x.type] = x.value, a), {});
+  const asIfUTC = Date.UTC(+p.year, +p.month - 1, +p.day, (+p.hour) % 24, +p.minute, +p.second);
+  return asIfUTC - instant.getTime();
+}
+/** A Toronto wall-clock time (date string + hour) as an absolute UTC Date. */
+function torontoWallToUTC(ds, hour, minute = 0) {
+  const [y, mo, d] = ds.split('-').map(Number);
+  const guess = Date.UTC(y, mo - 1, d, hour, minute, 0);
+  return new Date(guess - tzOffsetMs(new Date(guess)));
+}
+/** Window for the shift AFTER the reported one: starts at the reported shift's end, 24h ahead. */
+export function nextShiftWindow(target) {
+  const winStart = target.shift === 'Day'
+    ? torontoWallToUTC(target.date, 19, 0)              // Day 07–19 → next is Night from 19:00
+    : torontoWallToUTC(addDays(target.date, 1), 7, 0);  // Night 19–07 → next is Day from 07:00 next day
+  return { winStart, winEnd: new Date(winStart.getTime() + 24 * 3600000) };
+}
+function coLabel(d) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+}
+/**
+ * Same predecessor-based detection as the app's fixed getUpcomingChangeovers:
+ * compare each run to its TRUE predecessor, then keep changeovers whose
+ * switch-time falls in the window — so the switch out of the product running
+ * at shift change (which started before the window) is not lost.
+ */
+export function upcomingChangeovers(runs, winStart, winEnd) {
+  const rs = runs.filter(r => r.startDt && !isNaN(r.startDt.getTime())).slice()
+    .sort((a, b) => a.startDt - b.startDt);
+  const cos = [];
+  for (let i = 1; i < rs.length; i++) {
+    const p = rs[i - 1], c = rs[i];
+    if (c.startDt < winStart || c.startDt > winEnd) continue;
+    if (p.canSize !== c.canSize)   cos.push({ type: 'Can Format CO', from: p.canSize, to: c.canSize, at: c.startDt, atLabel: coLabel(c.startDt) });
+    if (p.pkgFormat !== c.pkgFormat) cos.push({ type: 'Pkg Format CO', from: p.pkgFormat, to: c.pkgFormat, at: c.startDt, atLabel: coLabel(c.startDt) });
+    if (c.cleaning && c.cleaning !== 'None' && c.cleaning !== 'FLUSH') cos.push({ type: 'CIP Required', from: c.cleaning, to: '', at: c.startDt, atLabel: coLabel(c.startDt) });
+  }
+  return cos;
+}
+async function fetchUpcomingCOs(target) {
+  const { winStart, winEnd } = nextShiftWindow(target);
+  const r = await sb('bbw_schedule?id=eq.prod&select=data');
+  if (!r.ok) throw new Error(`schedule fetch ${r.status}`);
+  const rows = await r.json();
+  const data = rows[0] && rows[0].data;
+  if (!Array.isArray(data)) return [];
+  const runs = data.map(x => ({ product: x.product, canSize: x.canSize, pkgFormat: x.pkgFormat,
+    startDt: x.start ? new Date(x.start) : null, cleaning: x.cleaning }));
+  return upcomingChangeovers(runs, winStart, winEnd);
+}
+
 /* ── report ───────────────────────────────────────────────────────────────── */
 /** Shape rows exactly like the app's computeShiftReport() so the PDF matches. */
 export function buildR(date, shift, rows) {
@@ -167,6 +225,7 @@ export function emailBody(R, pdfUrl) {
   const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const lines = reportSummaryLines(R);
   const notes = [...new Set(R.se.map(e => e.shiftNote).filter(Boolean))];
+  const cos = R.upcomingCOs || [];
   const block = (title, list, fmt) => list.length
     ? `<h3 style="font:600 14px system-ui;color:#1e1f22;margin:18px 0 6px">${title} (${list.length})</h3>`
     + `<ul style="font:400 13.5px/1.55 system-ui;color:#333;margin:0;padding-left:20px">`
@@ -179,6 +238,7 @@ export function emailBody(R, pdfUrl) {
 <div style="background:#f6f7f9;border-left:3px solid #c4a04a;padding:12px 14px;border-radius:4px">
 <ul style="margin:0;padding-left:18px;font:400 13.5px/1.6 system-ui">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul></div>
 ${block('Pending issues — next shift must action', R.issues, x => `${x.assetName || '?'}${x.issue ? ` (${x.issue})` : ''}${x.desc ? ` — ${x.desc}` : ''}${x.who ? ` [${x.who}]` : ''}`)}
+${cos.length ? block('Upcoming changeovers — next shift', cos, co => `${co.type}${co.from ? (co.to ? `: ${co.from} → ${co.to}` : `: ${co.from}`) : ''}${co.atLabel ? ` — ${co.atLabel}` : ''}`) : ''}
 ${block('Ongoing', R.ongoing, x => `${x.assetName || '?'} — ${x.desc || ''}${x.who ? ` [${x.who}]` : ''}`)}
 ${block('Completed', R.done, x => `${x.assetName || '?'} — ${x.desc || ''}${x.who ? ` [${x.who}]` : ''}`)}
 ${block('Parts to order', R.parts, x => `${x.partName || x.assetName} x${x.partQty}${x.who ? ` [${x.who}]` : ''}`)}
@@ -188,8 +248,14 @@ ${pdfUrl ? `<p style="margin:20px 0 6px"><a href="${pdfUrl}" style="display:inli
 <p style="font:400 12px system-ui;color:#9aa0a8">This is an automated message — please do not reply to this email.<br>— Brunswick Bierworks Maintenance</p>
 </div>`;
 
+  const coText = cos.length
+    ? '\n\nUPCOMING CHANGEOVERS — NEXT SHIFT:\n' + cos.map(co =>
+        '  • ' + co.type + (co.from ? (co.to ? `: ${co.from} -> ${co.to}` : `: ${co.from}`) : '') + (co.atLabel ? ` (${co.atLabel})` : '')).join('\n')
+    : '';
+
   const text = `${R.shift} Shift Report — ${R.date}\nTechnicians: ${R.techs.join(', ') || '—'}\n\n`
     + lines.map(l => '  • ' + l).join('\n')
+    + coText
     + (pdfUrl ? `\n\nFull PDF report:\n${pdfUrl}` : '')
     + `\n\nMore detail in the app: ${APP_URL}`
     + `\n\nThis is an automated message — please do not reply to this email.\n— Brunswick Bierworks Maintenance`;
@@ -255,6 +321,11 @@ async function main() {
     }
     const R = buildR(target.date, target.shift, rows);
     console.log(`Entries: ${R.se.length}`);
+
+    try {
+      R.upcomingCOs = (SB_URL && SB_KEY) ? await fetchUpcomingCOs(target) : [];
+      console.log(`Upcoming changeovers (next shift): ${R.upcomingCOs.length}`);
+    } catch (e) { R.upcomingCOs = []; console.warn('Upcoming changeovers unavailable:', e.message); }
 
     let pdf = null; const fname = reportFileName(R);
     try { pdf = buildReportPDF(R); console.log(`PDF: ${fname} (${pdf.length} bytes)`); }
