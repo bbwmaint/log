@@ -5083,7 +5083,7 @@ function renderDashOverlay(month){
     H+='<button onclick="dashboardXLSX()" class="btn-ghost" style="flex:1;padding:12px;font-size:13px">Excel</button>';
     H+='</div>';
     // Panels with canvases
-    H+=dashPanel('Downtime by Asset \u2014 machine-down only','<div style="height:'+Math.max(160,D.downtimeByAsset.slice(0,10).length*30+40)+'px"><canvas id="ch-dt"></canvas></div>'+(D.downtimeByAsset.length?'':'<div style="color:var(--text-3);font-size:12px">No machine-down events logged this month.</div>'));
+    H+=dashPanel('Downtime by Asset \u2014 machine-down + running slow','<div style="height:'+Math.max(160,D.downtimeByAsset.slice(0,10).length*30+40)+'px"><canvas id="ch-dt"></canvas></div>'+(D.downtimeByAsset.length?'':'<div style="color:var(--text-3);font-size:12px">No machine-down events logged this month.</div>'));
     H+=dashPanel('Workload by Technician','<div style="height:'+Math.max(160,D.workloadByTech.length*30+40)+'px"><canvas id="ch-tech"></canvas></div>');
     H+=dashPanel('Changeovers by Type','<div style="height:200px"><canvas id="ch-co"></canvas></div>'+(D.coCount?'':'<div style="color:var(--text-3);font-size:12px">No changeovers logged this month.</div>'));
     var recHtml='';
@@ -5130,22 +5130,38 @@ function drawDashCharts(D){
   if(gly)DASH_CHARTS.gly=new Chart(document.getElementById('ch-gly'),{type:'line',data:{labels:labels,datasets:[{label:'Glycol %',data:gly.data,borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.12)',fill:true,spanGaps:true,tension:.3,pointRadius:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:noLeg,scales:{y:{grid:grid(),ticks:{color:TX},suggestedMin:0,suggestedMax:100},x:{grid:{display:false},ticks:{color:TX,font:{size:9},maxRotation:0,autoSkip:true}}}}});
 }
 
-/* ===== Weekly Stats (Sun–Sat) — admin dashboard parallel to the monthly one ===== */
+/* ===== Rotation Stats (4-day A-B/C-D blocks, anchored Aug 5 2026) — admin dashboard parallel to the monthly one ===== */
 var WEEK_CHARTS={};
 var WEEK_ANCHOR=null;   // a Date inside the displayed week
 var WEEK_DATA=null;
 
+// 4-day shift rotation. Block 0 = Aug 5-8 2026 (A-B). Even block = A-B, odd = C-D.
+// A/C = Morning (Day shift 07-19); B/D = Night (19-07). Anchor is a fixed local midnight.
+var ROT_LEN=4;
+var ROT_ANCHOR=new Date(2026,7,5);   // Aug 5 2026 (month is 0-based)
+function rotBlockIndex(d){
+  var a0=new Date(ROT_ANCHOR.getFullYear(),ROT_ANCHOR.getMonth(),ROT_ANCHOR.getDate());
+  var dd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  var days=Math.round((dd-a0)/86400000);            // whole-day diff (DST-safe via round)
+  return Math.floor(days/ROT_LEN);
+}
+function rotName(idx){ return ((((idx%2)+2)%2)===0)?'A\u2013B':'C\u2013D'; }         // Aug 5 block = A-B
+function rotCrew(idx){ return ((((idx%2)+2)%2)===0)?{day:'A',night:'B'}:{day:'C',night:'D'}; }
 function weekBounds(anchor){
-  var d=new Date(anchor.getFullYear(),anchor.getMonth(),anchor.getDate());
-  var sd=new Date(d); sd.setDate(d.getDate()-d.getDay());     // Sunday
-  var ed=new Date(sd); ed.setDate(sd.getDate()+6);            // Saturday
-  var ps=new Date(sd); ps.setDate(sd.getDate()-7);            // prev-week Sunday (for WoW)
-  return {start:localDateStr(sd),end:localDateStr(ed),prevStart:localDateStr(ps),prevEnd:localDateStr(new Date(sd.getTime()-86400000)),sd:sd,ed:ed};
+  var idx=rotBlockIndex(anchor);
+  var a0=new Date(ROT_ANCHOR.getFullYear(),ROT_ANCHOR.getMonth(),ROT_ANCHOR.getDate());
+  var sd=new Date(a0); sd.setDate(a0.getDate()+idx*ROT_LEN);        // block start
+  var ed=new Date(sd); ed.setDate(sd.getDate()+ROT_LEN-1);         // block end (start+3)
+  var ps=new Date(sd); ps.setDate(sd.getDate()-ROT_LEN);           // previous block start
+  return {start:localDateStr(sd),end:localDateStr(ed),prevStart:localDateStr(ps),prevEnd:localDateStr(new Date(sd.getTime()-86400000)),sd:sd,ed:ed,idx:idx};
 }
 function weekLabel(b){
   var o={month:'short',day:'numeric'};
   return b.sd.toLocaleDateString('en-CA',o)+' \u2013 '+b.ed.toLocaleDateString('en-CA',o)+', '+b.ed.getFullYear();
 }
+// Labour time logged on an entry, from start/end (HH:MM). Handles night wrap + missing times.
+function hhmmToMin(t){ if(!t) return null; var m=(''+t).match(/^(\d{1,2}):(\d{2})/); if(!m) return null; var h=+m[1],mi=+m[2]; if(h>23||mi>59) return null; return h*60+mi; }
+function entryLaborHrs(e){ var s=hhmmToMin(e.start_time!=null?e.start_time:e.start), en=hhmmToMin(e.end_time!=null?e.end_time:e.end); if(s==null||en==null) return 0; var d=en-s; if(d<0) d+=1440; if(d<=0||d>1440) return 0; return d/60; }
 function inRange(ds,a,z){ return ds>=a&&ds<=z; }
 
 function loadWeekData(b){
@@ -5164,14 +5180,14 @@ function weekStats(data,start,end){
   function isIssue(t){return t==='issue'||t==='pending';}
   var entries=(data.entries||[]).filter(function(e){return inRange(e.date,start,end);});
   // Downtime by asset (true machine-down only) + per-event capture for notes
-  var dtMap={},totalDT=0,dtEvents=0,dtRows=[];
-  entries.forEach(function(e){var dt=parseFloat(e.downtime_hrs)||0;var md=(e.machine_down==='yes'||e.machine_down==='partial');if(md&&dt>0){var k=dashAssetKey(e);dtMap[k]=(dtMap[k]||0)+dt;totalDT+=dt;dtEvents++;dtRows.push({asset:k,hrs:Math.round(dt*100)/100,who:e.who||'\u2014',desc:(e.description||e.issue||'').trim(),date:e.date,shift:e.shift||''});}});
+  var dtMap={},totalDT=0,dtEvents=0,dtRows=[],downHrs=0,downEvents=0,slowHrs=0,slowEvents=0;
+  entries.forEach(function(e){var dt=parseFloat(e.downtime_hrs)||0;var md=(e.machine_down==='yes'||e.machine_down==='partial');if(md&&dt>0){var k=dashAssetKey(e);dtMap[k]=(dtMap[k]||0)+dt;totalDT+=dt;dtEvents++;dtRows.push({asset:k,hrs:Math.round(dt*100)/100,who:e.who||'\u2014',desc:(e.description||e.issue||'').trim(),date:e.date,shift:e.shift||''});if(e.machine_down==='yes'){downHrs+=dt;downEvents++;}else if(e.machine_down==='partial'){slowHrs+=dt;slowEvents++;}}});
   var downtimeByAsset=Object.keys(dtMap).map(function(k){return {asset:k,hrs:Math.round(dtMap[k]*100)/100};}).sort(function(a,b){return b.hrs-a.hrs;});
   var topDowntime=dtRows.sort(function(a,b){return b.hrs-a.hrs;}).slice(0,5);
-  // Workload by tech
+  // Workload by tech (+ hours logged from entry start/end)
   var techMap={};
-  entries.forEach(function(e){var w=e.who||'\u2014';techMap[w]=techMap[w]||{tech:w,done:0,issue:0,parts:0,other:0,total:0};var t=e.type;if(isDone(t))techMap[w].done++;else if(isIssue(t))techMap[w].issue++;else if(t==='part'||t==='parts')techMap[w].parts++;else techMap[w].other++;techMap[w].total++;});
-  var workloadByTech=Object.keys(techMap).map(function(k){return techMap[k];}).sort(function(a,b){return b.total-a.total;});
+  entries.forEach(function(e){var w=e.who||'\u2014';techMap[w]=techMap[w]||{tech:w,done:0,issue:0,parts:0,other:0,total:0,hours:0};var t=e.type;if(isDone(t))techMap[w].done++;else if(isIssue(t))techMap[w].issue++;else if(t==='part'||t==='parts')techMap[w].parts++;else techMap[w].other++;techMap[w].total++;techMap[w].hours+=entryLaborHrs(e);});
+  var workloadByTech=Object.keys(techMap).map(function(k){var o=techMap[k];o.hours=Math.round(o.hours*10)/10;return o;}).sort(function(a,b){return b.total-a.total;});
   // Changeovers
   var coTotal=0,coCount=0,coTypeMap={};
   entries.forEach(function(e){var co=parseFloat(e.co_mins)||0;if(co>0){coTotal+=co;coCount++;var ty=(e.co_type||'other');coTypeMap[ty]=(coTypeMap[ty]||0)+co;}});
@@ -5228,6 +5244,7 @@ function weekStats(data,start,end){
   return {
     tasks:entries.length,
     downtimeHrs:Math.round(totalDT*10)/10, dtEvents:dtEvents,
+    downHrs:Math.round(downHrs*10)/10, downEvents:downEvents, slowHrs:Math.round(slowHrs*10)/10, slowEvents:slowEvents,
     coCount:coCount, coMins:coTotal, changeoverByType:changeoverByType,
     issuesLogged:issuesLogged, pendingNow:pendingNow, recurringCount:recurring.length, recurring:recurring,
     techs:workloadByTech.length, workloadByTech:workloadByTech,
@@ -5247,17 +5264,17 @@ function openWeekDashboard(){
   ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column';
   ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
     '<button onclick="closeWeekDashboard()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+T('navback')+'</button>'+
-    '<div style="font-size:15px;font-weight:700;color:var(--text)">Weekly Stats</div>'+
+    '<div style="font-size:15px;font-weight:700;color:var(--text)">Rotation Stats</div>'+
     '<div style="margin-left:auto;display:flex;align-items:center;gap:4px">'+
     '<button onclick="weekShift(-1)" style="background:var(--surface-2);border:1px solid var(--border);color:#fff;width:32px;height:32px;border-radius:8px;font-size:17px;cursor:pointer">\u2039</button>'+
-    '<button onclick="weekToday()" style="background:var(--surface-2);border:1px solid var(--border);color:#60a5fa;font-size:11px;font-weight:600;cursor:pointer;padding:0 10px;height:32px;border-radius:8px">This week</button>'+
+    '<button onclick="weekToday()" style="background:var(--surface-2);border:1px solid var(--border);color:#60a5fa;font-size:11px;font-weight:600;cursor:pointer;padding:0 10px;height:32px;border-radius:8px">This block</button>'+
     '<button onclick="weekShift(1)" style="background:var(--surface-2);border:1px solid var(--border);color:#fff;width:32px;height:32px;border-radius:8px;font-size:17px;cursor:pointer">\u203A</button>'+
     '</div></div><div id="week-body" style="flex:1;overflow-y:auto;padding:14px 14px 90px"></div>';
   document.body.appendChild(ov);
   renderWeekOverlay();
 }
 function closeWeekDashboard(){Object.keys(WEEK_CHARTS).forEach(function(k){try{WEEK_CHARTS[k].destroy();}catch(e){}});WEEK_CHARTS={};var ov=document.getElementById('week-overlay');if(ov)ov.remove();}
-function weekShift(delta){var d=new Date(WEEK_ANCHOR);d.setDate(d.getDate()+delta*7);WEEK_ANCHOR=d;renderWeekOverlay();}
+function weekShift(delta){var d=new Date(WEEK_ANCHOR);d.setDate(d.getDate()+delta*ROT_LEN);WEEK_ANCHOR=d;renderWeekOverlay();}
 function weekToday(){WEEK_ANCHOR=new Date();renderWeekOverlay();}
 
 // arrow badge — goodDown: true=lower is better, false=higher is better, null=neutral
@@ -5291,17 +5308,24 @@ function renderWeekOverlay(){
     var C=weekStats(data,b.start,b.end);
     var P=weekStats(data,b.prevStart,b.prevEnd);
     WEEK_DATA={C:C,P:P,bounds:b};
-    var H='<div style="font-size:12px;color:var(--text-3);margin-bottom:12px">'+weekLabel(b)+' \u00b7 Sun\u2013Sat \u00b7 '+C.tasks+' entries</div>';
-    // 3 headline tiles
-    H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px">';
-    H+=wkBig('Downtime',C.downtimeHrs+'h',C.dtEvents+' events',wkDelta(C.downtimeHrs,P.downtimeHrs,true),'#f87171');
+    var _cr=rotCrew(b.idx);
+    var H='<div style="font-size:12px;color:var(--text-3);margin-bottom:8px">'+weekLabel(b)+' \u00b7 Shift '+rotName(b.idx)+' \u00b7 '+C.tasks+' entries</div>';
+    H+='<div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">'+
+       '<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-size:11px;color:var(--text-2)"><span style="width:16px;height:16px;border-radius:4px;background:#60a5fa;color:#0a0a0b;font-size:9px;font-weight:800;display:inline-flex;align-items:center;justify-content:center">'+_cr.day+'</span>Morning \u00b7 Day 07\u201319</span>'+
+       '<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-size:11px;color:var(--text-2)"><span style="width:16px;height:16px;border-radius:4px;background:#7c6bf0;color:#0a0a0b;font-size:9px;font-weight:800;display:inline-flex;align-items:center;justify-content:center">'+_cr.night+'</span>Night \u00b7 19\u201307</span>'+
+       '</div>';
+    // headline tiles \u2014 downtime split (machine-down vs running slow), never combined
+    H+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin-bottom:12px">';
+    H+=wkBig('Machine down',C.downHrs+'h',C.downEvents+' events',wkDelta(C.downHrs,P.downHrs,true),'#f87171');
+    H+=wkBig('Running slow \u00b7 partial',C.slowHrs+'h',C.slowEvents+' events',wkDelta(C.slowHrs,P.slowHrs,true),'#fbbf24');
     H+=wkBig('PM completion',(C.pmPct==null?'\u2014':C.pmPct+'%'),(C.pmDue?C.pmDone+'/'+C.pmDue+' due':'none due'),wkDelta(C.pmPct,P.pmPct,false),(C.pmPct!=null&&C.pmPct>=90?'#34d399':(C.pmPct!=null&&C.pmPct<70?'#f87171':'var(--text)')));
     H+=wkBig('Requests',C.reqReceived,C.reqClosed+' closed',wkDelta(C.reqReceived,P.reqReceived,null),'#60a5fa');
     H+='</div>';
     // slim strip
-    H+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:16px">';
+    H+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,140px));gap:7px;margin-bottom:16px">';
     H+=wkStrip('Tasks',C.tasks,wkDelta(C.tasks,P.tasks,false));
-    H+=wkStrip('Machine-down',C.dtEvents,wkDelta(C.dtEvents,P.dtEvents,true));
+    H+=wkStrip('Machine-down',C.downEvents,wkDelta(C.downEvents,P.downEvents,true));
+    H+=wkStrip('Running slow',C.slowEvents,wkDelta(C.slowEvents,P.slowEvents,true));
     H+=wkStrip('Changeovers',C.coCount,wkDelta(C.coCount,P.coCount,null));
     H+=wkStrip('Issues',C.issuesLogged,wkDelta(C.issuesLogged,P.issuesLogged,true));
     H+=wkStrip('Recurring',C.recurringCount,wkDelta(C.recurringCount,P.recurringCount,true));
@@ -5309,6 +5333,24 @@ function renderWeekOverlay(){
     H+=wkStrip('Reqs closed',C.reqClosed,wkDelta(C.reqClosed,P.reqClosed,false));
     H+=wkStrip('Avg resolve',(C.avgResHrs==null?'\u2014':(C.avgResHrs<48?(Math.round(C.avgResHrs*10)/10)+'h':(Math.round(C.avgResHrs/24*10)/10)+'d')),wkDelta(C.avgResHrs,P.avgResHrs,true));
     H+='</div>';
+    // By technician \u2014 logs (entry count) + hours logged (from entry start/end)
+    (function(){
+      var wt=C.workloadByTech||[], maxH=wt.reduce(function(m,x){return Math.max(m,x.hours||0);},0)||1, totLogs=0, totHrs=0;
+      var cols='1.6fr 54px 62px';
+      var tbH='<div style="display:grid;grid-template-columns:'+cols+';gap:8px;padding:2px 4px 8px"><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;font-weight:700">Technician</div><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;text-align:right">Logs</div><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;text-align:right">Hours</div></div>';
+      if(!wt.length){ tbH+='<div style="color:var(--text-3);font-size:12px;padding:4px">No entries this block.</div>'; }
+      wt.forEach(function(x){ totLogs+=x.total; totHrs+=(x.hours||0);
+        var ini=(x.tech||'\u2014').split(/\s+/).map(function(p){return p.charAt(0);}).join('').slice(0,2).toUpperCase();
+        var pct=Math.round((x.hours||0)/maxH*100);
+        tbH+='<div style="display:grid;grid-template-columns:'+cols+';gap:8px;align-items:center;padding:9px 4px;border-top:1px solid var(--border)">'+
+          '<div style="display:flex;align-items:center;gap:9px;min-width:0"><span style="flex:none;width:26px;height:26px;border-radius:50%;background:var(--surface-3);color:var(--text);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">'+rqEsc(ini)+'</span><span style="min-width:0;flex:1"><span style="display:block;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+rqEsc(x.tech)+'</span><span style="display:block;height:4px;margin-top:4px;background:var(--surface-3);border-radius:99px;overflow:hidden"><span style="display:block;height:100%;width:'+pct+'%;background:#60a5fa;border-radius:99px"></span></span></span></div>'+
+          '<div style="font-size:15px;font-weight:800;color:var(--text);text-align:right" class="tnum">'+x.total+'</div>'+
+          '<div style="font-size:15px;font-weight:800;color:#60a5fa;text-align:right" class="tnum">'+(Math.round((x.hours||0)*10)/10)+'</div>'+
+          '</div>';
+      });
+      if(wt.length){ tbH+='<div style="display:grid;grid-template-columns:'+cols+';gap:8px;padding:10px 4px 2px;border-top:1px solid var(--border-2);margin-top:2px"><div style="font-size:11px;color:var(--text-2);font-weight:600">Total \u00b7 '+wt.length+' techs</div><div style="font-size:13px;font-weight:800;color:var(--text);text-align:right" class="tnum">'+totLogs+'</div><div style="font-size:13px;font-weight:800;color:var(--text);text-align:right" class="tnum">'+(Math.round(totHrs*10)/10)+'</div></div>'; }
+      H+=dashPanel('By technician \u2014 logs & hours',tbH);
+    })();
     // export
     // Production (from Schedule tab data)
     var effC=(typeof schedEffColor==='function')?schedEffColor:function(){return 'var(--text)';};
@@ -5320,7 +5362,7 @@ function renderWeekOverlay(){
       '<div style="background:var(--surface-2);border-radius:9px;padding:10px 8px;text-align:center"><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em">Day / Night hL</div><div style="font-size:15px;font-weight:800;color:#9b9ba3;margin-top:3px" class="tnum">'+hlNum(C.dHL)+' / '+hlNum(C.nHL)+'</div></div>'+
       '</div>';
     if(C.volHL>0)prodInner+='<div style="height:130px"><canvas id="wk-vol"></canvas></div>';
-    else prodInner+='<div style="color:var(--text-3);font-size:12px">No production logged for this week. Add hL on the Schedule tab.</div>';
+    else prodInner+='<div style="color:var(--text-3);font-size:12px">No production logged for this block. Add hL on the Schedule tab.</div>';
     H+=dashPanel('Production',prodInner);
     H+='<div style="display:flex;gap:9px;margin-bottom:16px"><button onclick="weekPDF()" class="btn-primary" style="flex:1;padding:11px;font-size:13px">PDF</button><button onclick="weekXLSX()" class="btn-ghost" style="flex:1;padding:11px;font-size:13px">Excel</button></div>';
     // Day vs Night panel
@@ -5330,15 +5372,15 @@ function renderWeekOverlay(){
       '</div>';
     H+=dashPanel('Day vs Night',dnH);
     // Downtime by asset
-    H+=dashPanel('Downtime by Asset \u2014 machine-down only','<div style="height:'+Math.max(140,C.downtimeByAsset.slice(0,10).length*28+40)+'px"><canvas id="wk-dt"></canvas></div>'+(C.downtimeByAsset.length?'':'<div style="color:var(--text-3);font-size:12px">No machine-down events this week.</div>'));
+    H+=dashPanel('Downtime by Asset \u2014 machine-down + running slow','<div style="height:'+Math.max(140,C.downtimeByAsset.slice(0,10).length*28+40)+'px"><canvas id="wk-dt"></canvas></div>'+(C.downtimeByAsset.length?'':'<div style="color:var(--text-3);font-size:12px">No machine-down events this block.</div>'));
     // Workload by tech
-    H+=dashPanel('Top Loggers & Work by Type','<div style="height:'+Math.max(140,C.workloadByTech.length*28+40)+'px"><canvas id="wk-tech"></canvas></div>'+(C.workloadByTech.length?'':'<div style="color:var(--text-3);font-size:12px">No entries this week.</div>'));
+    H+=dashPanel('Top Loggers & Work by Type','<div style="height:'+Math.max(140,C.workloadByTech.length*28+40)+'px"><canvas id="wk-tech"></canvas></div>'+(C.workloadByTech.length?'':'<div style="color:var(--text-3);font-size:12px">No entries this block.</div>'));
     // Requests by department
-    H+=dashPanel('Requests by Department','<div style="height:'+Math.max(120,C.byDept.slice(0,8).length*28+40)+'px"><canvas id="wk-dept"></canvas></div>'+(C.byDept.length?'':'<div style="color:var(--text-3);font-size:12px">No requests raised this week.</div>'));
+    H+=dashPanel('Requests by Department','<div style="height:'+Math.max(120,C.byDept.slice(0,8).length*28+40)+'px"><canvas id="wk-dept"></canvas></div>'+(C.byDept.length?'':'<div style="color:var(--text-3);font-size:12px">No requests raised this block.</div>'));
     // recurring list
     if(C.recurring.length){
       var recHtml='<div>'+C.recurring.slice(0,8).map(function(r){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text-2)">'+rqEsc(r.asset)+'</span><span style="color:#f87171;font-weight:700">'+r.count+'\u00d7</span></div>';}).join('')+'</div>';
-      H+=dashPanel('Recurring Issues (2+ this week)',recHtml);
+      H+=dashPanel('Recurring Issues (2+ this block)',recHtml);
     }
     body.innerHTML=H;
     drawWeekCharts(C);
@@ -5367,11 +5409,14 @@ function drawWeekCharts(C){
 }
 
 function weekXLSX(){
-  if(!WEEK_DATA){alert('Open a week first');return;}
+  if(!WEEK_DATA){alert('Open a block first');return;}
   var C=WEEK_DATA.C,b=WEEK_DATA.bounds;
   var wb=XLSX.utils.book_new();
-  var sum=[['BBW Weekly Stats'],[weekLabel(b)+' (Sun\u2013Sat)'],[],
-    ['Tasks logged',C.tasks],['Downtime (h)',C.downtimeHrs],['Machine-down events',C.dtEvents],
+  var sum=[['BBW Rotation Stats'],[weekLabel(b)+' (Shift '+rotName(b.idx)+')'],[],
+    ['Tasks logged',C.tasks],
+    ['Machine down (h)',C.downHrs],['Machine-down events',C.downEvents],
+    ['Running slow / partial (h)',C.slowHrs],['Running slow events',C.slowEvents],
+    ['Downtime total (h)',C.downtimeHrs],['Downtime events (all)',C.dtEvents],
     ['PM completion %',C.pmPct==null?'n/a':C.pmPct],['PMs due',C.pmDue],['PMs done',C.pmDone],
     ['Changeovers',C.coCount],['Changeover minutes',C.coMins],
     ['Issues logged',C.issuesLogged],['Recurring assets',C.recurringCount],['Active technicians',C.techs],
@@ -5381,9 +5426,9 @@ function weekXLSX(){
     ['Night tasks',C.dayNight.Night.tasks],['Night downtime (h)',C.dayNight.Night.dt]];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Summary');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Asset','Downtime (h)']].concat(C.downtimeByAsset.map(function(x){return [x.asset,x.hrs];}))),'Downtime by Asset');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Technician','Completed','Issues','Parts','Other','Total']].concat(C.workloadByTech.map(function(x){return [x.tech,x.done,x.issue,x.parts,x.other,x.total];}))),'By Technician');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Technician','Logs','Hours','Completed','Issues','Parts','Other']].concat(C.workloadByTech.map(function(x){return [x.tech,x.total,x.hours,x.done,x.issue,x.parts,x.other];}))),'By Technician');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Department','Requests']].concat(C.byDept.map(function(x){return [x.dept,x.count];}))),'Requests by Dept');
-  XLSX.writeFile(wb,'BBW_Weekly_'+b.start+'.xlsx');
+  XLSX.writeFile(wb,'BBW_Rotation_'+b.start+'.xlsx');
 }
 
 // ── Monthly production volume, hL ──────────────────────────────────────────────
@@ -5665,7 +5710,7 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
   // ---- Downtime by Asset (native hbars) ----
   section('Downtime by Asset');
   var dt=(C.downtimeByAsset||[]).slice(0,8);
-  if(!dt.length){T('No machine-down events this week.',M,y+2,9.5,'normal',SUB);y+=18;}
+  if(!dt.length){T('No machine-down events this block.',M,y+2,9.5,'normal',SUB);y+=18;}
   else{
     var labW=168,barX=M+labW,barMax=CW-labW-46,mx=Math.max.apply(null,dt.map(function(x){return x.hrs;}).concat([0.1]));
     dt.forEach(function(x){
@@ -5706,7 +5751,7 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
   // ---- Work by Technician (table) ----
   section('Work by Technician');
   var techs=(C.workloadByTech||[]).slice(0,12);
-  if(!techs.length){T('No entries this week.',M,y+2,9.5,'normal',SUB);y+=18;}
+  if(!techs.length){T('No entries this block.',M,y+2,9.5,'normal',SUB);y+=18;}
   else{
     var heads=['Technician','Completed','Issues','Parts','Other','Total'];
     var nameW=CW-5*70, colW=70, rowH=16;
@@ -5729,7 +5774,7 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
   // ---- Requests by Department (native hbars) ----
   section('Requests by Department');
   var dp=(C.byDept||[]).slice(0,8);
-  if(!dp.length){T('No requests raised this week.',M,y+2,9.5,'normal',SUB);y+=18;}
+  if(!dp.length){T('No requests raised this block.',M,y+2,9.5,'normal',SUB);y+=18;}
   else{
     var lW=168,bX=M+lW,bMax=CW-lW-40,mxd=Math.max.apply(null,dp.map(function(x){return x.count;}).concat([1]));
     dp.forEach(function(x){
@@ -5745,7 +5790,7 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
 
   // ---- Recurring issues ----
   if(C.recurring&&C.recurring.length){
-    section('Recurring Issues (2+ this week)');
+    section('Recurring Issues (2+ this block)');
     C.recurring.slice(0,10).forEach(function(r){
       ensure(15);
       T(trunc(r.asset,44),M+4,y+9,9,'normal',INK);
@@ -5768,8 +5813,8 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
 
 // Weekly wrapper
 function weekPDF(){
-  if(!WEEK_DATA){alert('Open a week first');return;}
-  reportPDF(WEEK_DATA.C, WEEK_DATA.bounds, 'WEEKLY MAINTENANCE REPORT', weekLabel(WEEK_DATA.bounds)+'   \u00b7   Sun\u2013Sat', 'BBW_Weekly_'+WEEK_DATA.bounds.start);
+  if(!WEEK_DATA){alert('Open a block first');return;}
+  reportPDF(WEEK_DATA.C, WEEK_DATA.bounds, 'ROTATION MAINTENANCE REPORT', weekLabel(WEEK_DATA.bounds)+'   \u00b7   Shift '+rotName(WEEK_DATA.bounds.idx), 'BBW_Rotation_'+WEEK_DATA.bounds.start);
 }
 
 // Generic range loader (worklog/utils for the range; requests/WOs filtered client-side by weekStats)
