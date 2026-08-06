@@ -203,7 +203,10 @@ export function buildR(date, shift, rows) {
     issue: r.issue || '', desc: r.description || '', start: r.start_time || '', end: r.end_time || '',
     dt: +r.downtime_hrs || 0, machineDown: r.machine_down || '', coMins: +r.co_mins || 0,
     coType: r.co_type || '', partName: r.part_name || '', partQty: r.part_qty || '1',
-    shiftNote: r.shift_note || '', loggedAt: r.logged_at, photo: r.photo || '', photos: []
+    shiftNote: r.shift_note || '', loggedAt: r.logged_at, photo: r.photo || '',
+    // Parse the full photos array (same as the app); a log can hold several. Was hardcoded [],
+    // so the report only ever showed the single legacy `photo`.
+    photos: (() => { try { const a = JSON.parse(r.photos || '[]'); return (Array.isArray(a) && a.length) ? a : (r.photo ? [r.photo] : []); } catch { return r.photo ? [r.photo] : []; } })()
   })).sort((a, b) => String(a.loggedAt || '').localeCompare(String(b.loggedAt || '')));
 
   const dtEvents = se.filter(e => (e.machineDown === 'yes' || e.machineDown === 'partial') && e.dt > 0);
