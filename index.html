@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-06 \u00b7 asset-bucket+photos+translate';
+var APP_BUILD='2026-08-06c \u00b7 faster-search';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3463,8 +3463,17 @@ function voiceParseExtras(text){
 }
 
 // ── My Log search ──
-var _logSearch='';
-function logSearch(v){ _logSearch=v; renderLog(); var i=gid('log-search'); if(i){ i.focus(); try{i.setSelectionRange(v.length,v.length);}catch(e){} } }
+var _logSearch='', _logSearchTimer=null;
+function logSearch(v){
+  _logSearch=v;                                   // capture immediately so nothing is lost
+  if(_logSearchTimer)clearTimeout(_logSearchTimer);
+  // Re-render once the user pauses, not on every keystroke. The live input keeps the typed
+  // text during the pause; after render we restore focus + caret exactly as before.
+  _logSearchTimer=setTimeout(function(){
+    renderLog();
+    var i=gid('log-search'); if(i){ i.focus(); try{i.setSelectionRange(_logSearch.length,_logSearch.length);}catch(e){} }
+  },200);
+}
 
 // RENDER
 
@@ -4157,9 +4166,15 @@ function showAssetDetail(assetName){
     var m=(typeof ASSET_MONTH!=='undefined'&&ASSET_MONTH)?ASSET_MONTH:new Date();
     var y=m.getFullYear(), mo=m.getMonth();
     var from=pmISO(new Date(y,mo,1)), to=pmISO(new Date(y,mo+1,0));
-    // Pull the whole month by date (paginated past the 1000-row cap) and bucket client-side,
-    // so the detail always matches the ranking exactly.
-    var q='bbw_worklog?select=*&date=gte.'+from+'&date=lte.'+to+'&order=date.desc';
+    // Fetch ONLY this bucket's rows so the drill-in stays light. Blank asset_name is saved as
+    // NULL and rolls up to "General" in the ranking, so that bucket also matches null; every
+    // other bucket is an exact asset. (Pulling the whole month with select=* dragged in every
+    // inline photo and froze the app.)
+    var q='bbw_worklog?select=*&date=gte.'+from+'&date=lte.'+to+
+          (assetName==='General'
+            ? '&or=(asset_name.is.null,asset_name.eq.General)'
+            : '&asset_name=eq.'+encodeURIComponent(assetName))+
+          '&order=date.desc';
     sbFetchAll(q).then(function(rows){
       if(!Array.isArray(rows))return;
       var full=rows.map(wlRowToEntry).filter(inBucket);
