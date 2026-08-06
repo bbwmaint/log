@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-04d \u00b7 dt-mins+partner';
+var APP_BUILD='2026-08-06 \u00b7 asset-bucket+photos+translate';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4147,17 +4147,22 @@ function showAssetDetail(assetName){
   // Render whatever is already cached, then pull the full month for this asset.
   // An earlier version synthesised placeholder rows from the stats cache, which
   // produced blank cards with live Edit/Delete buttons pointing at nothing.
-  var local=allE.filter(function(e){return e.assetName===assetName;});
+  // Bucket key must match the ranking: blank asset_name is grouped under "General".
+  // Querying asset_name=eq.<name> dropped every blank-asset row, so "General" (and any
+  // bucket holding uncategorised logs) showed a fraction of its real logs.
+  var inBucket=function(e){return (e.assetName||'General')===assetName;};
+  var local=allE.filter(inBucket);
   paintAssetDetail(assetName, local);
   try{
     var m=(typeof ASSET_MONTH!=='undefined'&&ASSET_MONTH)?ASSET_MONTH:new Date();
     var y=m.getFullYear(), mo=m.getMonth();
     var from=pmISO(new Date(y,mo,1)), to=pmISO(new Date(y,mo+1,0));
-    var q='bbw_worklog?select=*&asset_name=eq.'+encodeURIComponent(assetName)+
-          '&date=gte.'+from+'&date=lte.'+to+'&order=date.desc';
+    // Pull the whole month by date (paginated past the 1000-row cap) and bucket client-side,
+    // so the detail always matches the ranking exactly.
+    var q='bbw_worklog?select=*&date=gte.'+from+'&date=lte.'+to+'&order=date.desc';
     sbFetchAll(q).then(function(rows){
       if(!Array.isArray(rows))return;
-      var full=rows.map(wlRowToEntry);
+      var full=rows.map(wlRowToEntry).filter(inBucket);
       // prefer local copies (they may hold unsynced edits)
       var byId={}; local.forEach(function(e){ if(e.sbId!=null)byId[e.sbId]=e; });
       var merged=full.map(function(e){ return byId[e.sbId]||e; });
