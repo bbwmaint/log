@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-06h \u00b7 debounce-all-search';
+var APP_BUILD='2026-08-06j \u00b7 lighter-photos';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1763,11 +1763,11 @@ function handlePhoto(input){
     r.onload=function(ev){
       var img=new Image();
       img.onload=function(){
-        var max=1024,w=img.width,h=img.height;
+        var max=900,w=img.width,h=img.height;
         if(w>max||h>max){var sc=Math.min(max/w,max/h);w=Math.round(w*sc);h=Math.round(h*sc);}
         var cv=document.createElement('canvas');cv.width=w;cv.height=h;
         cv.getContext('2d').drawImage(img,0,0,w,h);
-        var data; try{ data=cv.toDataURL('image/jpeg',0.7); }catch(e){ data=ev.target.result; }
+        var data; try{ data=cv.toDataURL('image/jpeg',0.6); }catch(e){ data=ev.target.result; }
         photos.push(data); pending--; renderPhotoThumbs();
       };
       img.onerror=function(){ photos.push(ev.target.result); pending--; renderPhotoThumbs(); };
@@ -4613,6 +4613,18 @@ function utDrawChart(pts,m,unit){
     fmt:function(v){ return (typeof utFmt==='function')?utFmt(v):(Math.round(v*100)/100).toLocaleString(); }
   });
 }
+// Enter/Return in a utility reading jumps to the next field (next column, then next row).
+// Works with a hardware keyboard (desktop) and any software keyboard that sends Enter.
+function utilKey(ev, el){
+  if(ev.key==='Enter'||ev.keyCode===13){
+    ev.preventDefault();
+    var pane=document.getElementById('pane-util'); if(!pane)return;
+    var ins=Array.prototype.slice.call(pane.querySelectorAll('input'));
+    var i=ins.indexOf(el);
+    if(i>=0 && i+1<ins.length){ var n=ins[i+1]; n.focus(); try{n.select&&n.select();}catch(e){} }
+    else { try{el.blur();}catch(e){} }
+  }
+}
 function renderUtil(){
   var el=gid('pane-util');
   var today=utilLogs.find(function(r){return r.date===utilDay();});
@@ -4627,13 +4639,13 @@ function renderUtil(){
       // oninput: strip anything that isn\'t a valid partial number
       return '<div style="min-width:0">'+
         '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</div>'+
-        '<input type="text" inputmode="text" id="'+id+'" value="'+v+'" placeholder="'+placeholder+'" autocomplete="off" autocorrect="off" spellcheck="false" '+
+        '<input type="text" inputmode="decimal" id="'+id+'" value="'+v+'" placeholder="'+placeholder+'" autocomplete="off" autocorrect="off" spellcheck="false" onkeydown="utilKey(event,this)" '+
         'oninput="this.value=this.value.replace(/[^0-9.\\-]/g,\'\').replace(/(\\-.*?)\\-/g,\'$1\').replace(/(\\..*?)\\./g,\'$1\')" '+
         'style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 12px;font-size:15px;color:#fff;outline:none;font-family:ui-monospace,SFMono-Regular,monospace"></div>';
     }
     return '<div style="min-width:0">'+
       '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</div>'+
-      '<input type="number" inputmode="decimal" id="'+id+'" value="'+v+'" placeholder="'+placeholder+'" '+
+      '<input type="number" inputmode="decimal" id="'+id+'" value="'+v+'" placeholder="'+placeholder+'" onkeydown="utilKey(event,this)" '+
       'style="width:100%;box-sizing:border-box;-webkit-appearance:none;-moz-appearance:textfield;appearance:none;margin:0;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 12px;font-size:15px;color:#fff;outline:none;font-family:ui-monospace,SFMono-Regular,monospace"></div>';
   }
 
@@ -4646,7 +4658,7 @@ function renderUtil(){
       '<div style="font-size:12px;color:var(--text-2);margin-bottom:4px">'+label+'</div>'+
       '<div style="display:flex;align-items:center;gap:8px">'+
       '<input type="number" inputmode="decimal" id="'+id+'" value="'+v+'" placeholder="0" min="0" max="'+max+'" step="0.5" '+
-      'oninput="updateLevel(this)" data-max="'+max+'" '+
+      'oninput="updateLevel(this)" onkeydown="utilKey(event,this)" data-max="'+max+'" '+
       'style="width:70px;box-sizing:border-box;-webkit-appearance:none;-moz-appearance:textfield;appearance:none;margin:0;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:9px;font-size:14px;color:#fff;outline:none;font-family:ui-monospace,SFMono-Regular,monospace;flex-shrink:0"><div style="flex:1">'+
       '<div style="height:8px;background:var(--surface-3);border-radius:4px;overflow:hidden">'+
       '<div id="lvl-'+id+'" style="height:100%;background:'+bc+';border-radius:4px;width:'+pct+'%;transition:width .3s,background .3s"></div>'+
