@@ -595,7 +595,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
   <!-- BOTTOM TABS (phone primary nav) -->
   <div id="btabs">
     <button id="bt-home" onclick="showTab('home')" aria-label="Home"><span class="bt-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.6 12 3.5l9 7.1"/><path d="M5.4 9.6V20h13.2V9.6"/></svg></span><span class="bt-lb">Home</span></button>
-    <button id="bt-log" onclick="showTab('log')" aria-label="My log"><span class="bt-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M9.5 8h5M9.5 12h5M9.5 16h3"/></svg></span><span class="bt-lb">My log</span></button>
+    <button id="bt-log" onclick="showTab('shift')" aria-label="This Shift"><span class="bt-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M9.5 8h5M9.5 12h5M9.5 16h3"/></svg></span><span class="bt-lb">This Shift</span></button>
     <button id="bt-requests" onclick="showTab('requests')" aria-label="Requests"><span class="bt-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 8l9 6 9-6"/></svg><span id="bt-badge" style="display:none">0</span></span><span class="bt-lb">Requests</span></button>
     <button id="bt-cmms" onclick="showTab('cmms')" aria-label="PMs"><span class="bt-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg></span><span class="bt-lb">PMs</span></button>
     <button id="bt-more" onclick="toggleNav()" aria-label="More"><span class="bt-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></span><span class="bt-lb">More</span></button>
@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-06c \u00b7 faster-search';
+var APP_BUILD='2026-08-06g \u00b7 this-shift-tab';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3762,7 +3762,9 @@ function renderLog(){
 }
 
 function renderShift(){
+  var _scope=(window._shiftScope==='mine')?'mine':'all';
   var cur=entries.filter(function(e){return e.date===shiftAnchor()&&e.shift===(isDay()?'Day':'Night');});
+  if(_scope==='mine')cur=cur.filter(function(e){return e.who===user;});
   var dt=cur.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).reduce(function(a,e){return a+(e.dt||0);},0);
   var dtMin=Math.round(dt*60);
   var el=gid('pane-shift');
@@ -3775,8 +3777,13 @@ function renderShift(){
   stats+='</div>';
   var handoff=handoffSummary();
   var statusBtn='<button onclick="openStatusBoard()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:10px;font-size:12.5px;font-weight:700;color:var(--text-2);cursor:pointer;margin-bottom:12px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>'+(lang==='uk'?'\u0421\u0442\u0430\u0442\u0443\u0441 \u043c\u0430\u0448\u0438\u043d':'Machine status board')+'</button>';
-  el.innerHTML=handoff+stats+statusBtn+(cur.length?cur.slice().reverse().map(function(e){return card(e,e.who===user);}).join(''):'<div style="text-align:center;padding:30px;color:var(--text-3)">'+T('No entries this shift yet')+'</div>');
+  var seg='<div style="display:flex;margin-bottom:12px"><div style="display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px">'+
+    '<button onclick="setShiftScope(\'all\')" style="padding:7px 20px;border:none;border-radius:8px;background:'+(_scope==='all'?'var(--surface-3)':'transparent')+';color:'+(_scope==='all'?'#fff':'var(--text-2)')+';font-size:13px;font-weight:'+(_scope==='all'?'700':'600')+';cursor:pointer">'+T('All')+'</button>'+
+    '<button onclick="setShiftScope(\'mine\')" style="padding:7px 20px;border:none;border-radius:8px;background:'+(_scope==='mine'?'var(--surface-3)':'transparent')+';color:'+(_scope==='mine'?'#fff':'var(--text-2)')+';font-size:13px;font-weight:'+(_scope==='mine'?'700':'600')+';cursor:pointer">'+T('Mine')+'</button>'+
+    '</div></div>';
+  el.innerHTML=handoff+seg+stats+statusBtn+(cur.length?cur.slice().reverse().map(function(e){return card(e,e.who===user);}).join(''):'<div style="text-align:center;padding:30px;color:var(--text-3)">'+(_scope==='mine'?T('You have no entries this shift yet'):T('No entries this shift yet'))+'</div>');
 }
+function setShiftScope(s){ window._shiftScope=(s==='mine')?'mine':'all'; try{renderShift();}catch(e){} }
 
 function renderPrev(){
   var el=gid('pane-prev');
@@ -4194,7 +4201,7 @@ function paintAssetDetail(assetName, logs){
   var body=assetDetailBody(assetName, logs, totalDT, totalCO);
   var pane=gid('asset-detail-pane');
   if(isDesktop()&&pane){
-    pane.innerHTML='<div style="padding:18px 20px"><div style="font-size:18px;font-weight:800;color:#fff">'+assetName+'</div><div style="font-size:11px;color:var(--text-3);margin-bottom:14px">'+logs.length+' total logs</div>'+body+'</div>';
+    pane.innerHTML='<div style="padding:18px 20px 120px"><div style="font-size:18px;font-weight:800;color:#fff">'+assetName+'</div><div style="font-size:11px;color:var(--text-3);margin-bottom:14px">'+logs.length+' total logs</div>'+body+'</div>';
     try{Array.prototype.forEach.call(document.querySelectorAll('#pane-assets .asset-card'),function(c){c.classList.toggle('md-sel',decodeURIComponent(c.getAttribute('data-asset'))===assetName);});}catch(e){}
     return;
   }
@@ -4202,7 +4209,7 @@ function paintAssetDetail(assetName, logs){
   H+='<div style="position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:calc(14px + env(safe-area-inset-top)) 16px 14px;display:flex;align-items:center;gap:12px;z-index:10">';
   H+='<button onclick="closeAssetDetail()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+T('navback')+'</button>';
   H+='<div style="flex:1"><div style="font-size:16px;font-weight:700;color:#fff">'+assetName+'</div><div style="font-size:11px;color:var(--text-3)">'+logs.length+' total logs</div></div></div>';
-  H+='<div style="padding:14px 16px">'+body+'</div></div>';
+  H+='<div style="padding:14px 16px calc(120px + env(safe-area-inset-bottom))">'+body+'</div></div>';
   document.body.insertAdjacentHTML('beforeend', H);
 }
 
@@ -4957,18 +4964,35 @@ function logPMByIdx(idx){
   },100);
 }
 
+// Estimated duration for a PM when it's one-tap completed. Prefer the PM's own hours
+// estimate; when blank, fall back to 30 min for Brewing/B1 PMs, else 15 min.
+function pmEstHours(pm){
+  var h=parseFloat(pm&&pm.hours);
+  if(h>0) return h;
+  var s=(((pm&&pm.asset)||'')+' '+((pm&&pm.desc)||'')+' '+((pm&&pm.code)||'')).toLowerCase();
+  var brewing=/brew|mash|lauter|kettle|whirlpool|malt|grain|liquor|spent grain|\bb1\b/.test(s);
+  return brewing?0.5:0.25;
+}
+// Subtract minutes from an "HH:MM" clock string, wrapping across midnight.
+function hhmmMinus(hhmm, mins){
+  var p=(''+(hhmm||'')).split(':'); if(p.length<2) return hhmm;
+  var t=(parseInt(p[0],10)*60+parseInt(p[1],10)-mins);
+  t=((t%1440)+1440)%1440;
+  return ('0'+Math.floor(t/60)).slice(-2)+':'+('0'+(t%60)).slice(-2);
+}
 // One-tap PM completion — logs a Done entry immediately, no form. The pencil on the
 // card still opens the full sheet (logPMByIdx) when a tech wants to add time/notes.
 function quickPM(idx){
   var pm=PMS[idx];if(!pm)return;
   var found=ASSETS.find(function(a){return a.n===pm.asset||(pm.asset&&a.n.indexOf(pm.asset)>=0);});
+  var _end=ntime(), _start=hhmmMinus(_end, Math.round(pmEstHours(pm)*60));
   var entry={
     id:Date.now(),
     date:entryAnchor(null), shift:(isDay()?'Day':'Night'),
     type:'pm', priority:'',
     assetName:(found?found.n:(pm.asset||'')), assetCode:(found?found.c:''),
     issue:'', desc:pm.desc+' ('+pm.code+')',
-    start:'', end:'', dt:0, machineDown:'', coMins:0, coType:'',
+    start:_start, end:_end, dt:0, machineDown:'', coMins:0, coType:'',
     partName:'', partQty:'', photos:[], photo:null,
     who:user, loggedAt:new Date().toISOString(),
     shiftNote:(gid('snote')?gid('snote').value:'')
@@ -5204,10 +5228,18 @@ function weekStats(data,start,end){
   entries.forEach(function(e){var dt=parseFloat(e.downtime_hrs)||0;var md=(e.machine_down==='yes'||e.machine_down==='partial');if(md&&dt>0){var k=dashAssetKey(e);dtMap[k]=(dtMap[k]||0)+dt;totalDT+=dt;dtEvents++;dtRows.push({asset:k,hrs:Math.round(dt*100)/100,who:e.who||'\u2014',desc:(e.description||e.issue||'').trim(),date:e.date,shift:e.shift||''});if(e.machine_down==='yes'){downHrs+=dt;downEvents++;}else if(e.machine_down==='partial'){slowHrs+=dt;slowEvents++;}}});
   var downtimeByAsset=Object.keys(dtMap).map(function(k){return {asset:k,hrs:Math.round(dtMap[k]*100)/100};}).sort(function(a,b){return b.hrs-a.hrs;});
   var topDowntime=dtRows.sort(function(a,b){return b.hrs-a.hrs;}).slice(0,5);
-  // Workload by tech (+ hours logged from entry start/end)
+  // Workload by tech (+ hours logged from entry start/end, split PM vs Log)
   var techMap={};
-  entries.forEach(function(e){var w=e.who||'\u2014';techMap[w]=techMap[w]||{tech:w,done:0,issue:0,parts:0,other:0,total:0,hours:0};var t=e.type;if(isDone(t))techMap[w].done++;else if(isIssue(t))techMap[w].issue++;else if(t==='part'||t==='parts')techMap[w].parts++;else techMap[w].other++;techMap[w].total++;techMap[w].hours+=entryLaborHrs(e);});
-  var workloadByTech=Object.keys(techMap).map(function(k){var o=techMap[k];o.hours=Math.round(o.hours*10)/10;return o;}).sort(function(a,b){return b.total-a.total;});
+  entries.forEach(function(e){var w=e.who||'\u2014';techMap[w]=techMap[w]||{tech:w,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};var t=e.type;if(isDone(t))techMap[w].done++;else if(isIssue(t))techMap[w].issue++;else if(t==='part'||t==='parts')techMap[w].parts++;else techMap[w].other++;techMap[w].total++;var lh=entryLaborHrs(e);techMap[w].hours+=lh;if(t==='pm')techMap[w].pmHours+=lh;else techMap[w].logHours+=lh;});
+  // Requests closed in-range — counted (not hours), attributed to whoever closed them
+  (typeof REQUESTS!=='undefined'?REQUESTS:[]).forEach(function(r){
+    if(!r||r.status!=='done'||!r.closed_by||!r.closed_at)return;
+    if(!inRange((''+r.closed_at).slice(0,10),start,end))return;
+    var w=r.closed_by;
+    techMap[w]=techMap[w]||{tech:w,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};
+    techMap[w].reqClosed++;
+  });
+  var workloadByTech=Object.keys(techMap).map(function(k){var o=techMap[k];o.hours=Math.round(o.hours*10)/10;o.pmHours=Math.round(o.pmHours*10)/10;o.logHours=Math.round(o.logHours*10)/10;o.reqClosed=o.reqClosed||0;return o;}).sort(function(a,b){return b.total-a.total;});
   // Changeovers
   var coTotal=0,coCount=0,coTypeMap={};
   entries.forEach(function(e){var co=parseFloat(e.co_mins)||0;if(co>0){coTotal+=co;coCount++;var ty=(e.co_type||'other');coTypeMap[ty]=(coTypeMap[ty]||0)+co;}});
@@ -5355,21 +5387,30 @@ function renderWeekOverlay(){
     H+='</div>';
     // By technician \u2014 logs (entry count) + hours logged (from entry start/end)
     (function(){
-      var wt=C.workloadByTech||[], maxH=wt.reduce(function(m,x){return Math.max(m,x.hours||0);},0)||1, totLogs=0, totHrs=0;
-      var cols='1.6fr 54px 62px';
-      var tbH='<div style="display:grid;grid-template-columns:'+cols+';gap:8px;padding:2px 4px 8px"><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;font-weight:700">Technician</div><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;text-align:right">Logs</div><div style="font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;text-align:right">Hours</div></div>';
+      var wt=(C.workloadByTech||[]).slice().sort(function(a,b){return (b.hours||0)-(a.hours||0);});
+      var prevH={}; ((P&&P.workloadByTech)||[]).forEach(function(x){prevH[x.tech]=x.hours||0;});
+      var GREEN='#34d399',BLUE='#60a5fa',AMBER='#fbbf24', totHrs=0, totReq=0;
+      var chip=function(c,l){return '<span style="font-size:11px;color:var(--text-2);font-weight:600;display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:3px;background:'+c+'"></span>'+l+'</span>';};
+      var tbH='<div style="display:flex;gap:14px;margin:0 4px 12px">'+chip(GREEN,'PM hours')+chip(BLUE,'Log hours')+chip(AMBER,'Requests')+'</div>';
       if(!wt.length){ tbH+='<div style="color:var(--text-3);font-size:12px;padding:4px">No entries this block.</div>'; }
-      wt.forEach(function(x){ totLogs+=x.total; totHrs+=(x.hours||0);
+      wt.forEach(function(x){
+        var pm=x.pmHours||0, log=x.logHours||0, tot=pm+log, req=x.reqClosed||0, bt=tot||1;
+        totHrs+=tot; totReq+=req;
         var ini=(x.tech||'\u2014').split(/\s+/).map(function(p){return p.charAt(0);}).join('').slice(0,2).toUpperCase();
-        var pct=Math.round((x.hours||0)/maxH*100);
-        tbH+='<div style="display:grid;grid-template-columns:'+cols+';gap:8px;align-items:center;padding:9px 4px;border-top:1px solid var(--border)">'+
-          '<div style="display:flex;align-items:center;gap:9px;min-width:0"><span style="flex:none;width:26px;height:26px;border-radius:50%;background:var(--surface-3);color:var(--text);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">'+rqEsc(ini)+'</span><span style="min-width:0;flex:1"><span style="display:block;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+rqEsc(x.tech)+'</span><span style="display:block;height:4px;margin-top:4px;background:var(--surface-3);border-radius:99px;overflow:hidden"><span style="display:block;height:100%;width:'+pct+'%;background:#60a5fa;border-radius:99px"></span></span></span></div>'+
-          '<div style="font-size:15px;font-weight:800;color:var(--text);text-align:right" class="tnum">'+x.total+'</div>'+
-          '<div style="font-size:15px;font-weight:800;color:#60a5fa;text-align:right" class="tnum">'+(Math.round((x.hours||0)*10)/10)+'</div>'+
+        var d=Math.round((tot-(prevH[x.tech]||0))*10)/10;
+        var tr=(d>0?'<div style="font-size:10px;font-weight:700;color:'+GREEN+'">\u25b2 '+d+'h</div>':(d<0?'<div style="font-size:10px;font-weight:700;color:#f87171">\u25bc '+Math.abs(d)+'h</div>':'<div style="font-size:10px;color:var(--text-3)">\u2014</div>'));
+        tbH+='<div style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-top:1px solid var(--border)">'+
+          '<span style="flex:none;width:28px;height:28px;border-radius:50%;background:var(--surface-3);color:var(--text-2);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">'+rqEsc(ini)+'</span>'+
+          '<div style="flex:1;min-width:0">'+
+            '<div style="font-size:13px;font-weight:700;color:#fff">'+rqEsc(x.tech)+'</div>'+
+            '<div style="height:9px;border-radius:6px;overflow:hidden;display:flex;background:var(--surface-3);margin:5px 0 4px"><span style="height:100%;width:'+(pm/bt*100)+'%;background:'+GREEN+'"></span><span style="height:100%;width:'+(log/bt*100)+'%;background:'+BLUE+'"></span></div>'+
+            '<div style="font-size:10.5px;color:var(--text-3)">PM '+(Math.round(pm*10)/10)+' \u00b7 Log '+(Math.round(log*10)/10)+' \u00b7 <span style="color:'+AMBER+';font-weight:700">'+req+' req</span></div>'+
+          '</div>'+
+          '<div style="text-align:right;flex:none;min-width:52px"><div style="font-size:15px;font-weight:800;color:#fff" class="tnum">'+(Math.round(tot*10)/10)+'<span style="font-size:10px;color:var(--text-3)">h</span></div>'+tr+'</div>'+
           '</div>';
       });
-      if(wt.length){ tbH+='<div style="display:grid;grid-template-columns:'+cols+';gap:8px;padding:10px 4px 2px;border-top:1px solid var(--border-2);margin-top:2px"><div style="font-size:11px;color:var(--text-2);font-weight:600">Total \u00b7 '+wt.length+' techs</div><div style="font-size:13px;font-weight:800;color:var(--text);text-align:right" class="tnum">'+totLogs+'</div><div style="font-size:13px;font-weight:800;color:var(--text);text-align:right" class="tnum">'+(Math.round(totHrs*10)/10)+'</div></div>'; }
-      H+=dashPanel('By technician \u2014 logs & hours',tbH);
+      if(wt.length){ tbH+='<div style="display:flex;justify-content:space-between;padding:10px 4px 2px;border-top:1px solid var(--border-2);margin-top:2px;font-size:11px;color:var(--text-2)"><span>Team total</span><b style="color:#fff">'+(Math.round(totHrs*10)/10)+'h \u00b7 '+totReq+' requests closed</b></div>'; }
+      H+=dashPanel('By technician \u2014 hours & requests',tbH);
     })();
     // export
     // Production (from Schedule tab data)
@@ -7068,6 +7109,46 @@ function statsLoad(cb){
     .catch(function(){ STATS.loading=false; cb&&cb(null); });
 }
 
+// Monthly team hours by category (PM/Log hours + requests closed) for the Home tab.
+// Uses a slim, photo-free month fetch so Home stays fast; fills async into a placeholder.
+function fillHomeTechHours(){
+  var el=gid('home-techhours'); if(!el) return;
+  var now=new Date(), y=now.getFullYear(), mo=now.getMonth();
+  var from=pmISO(new Date(y,mo,1)), to=pmISO(new Date(y,mo+1,0));
+  var q='bbw_worklog?select=date,type,who,start_time,end_time&date=gte.'+from+'&date=lte.'+to;
+  sbFetchAll(q).then(function(rows){
+    if(!Array.isArray(rows)) rows=[];
+    function lab(s,e){var a=hhmmToMin(s),b=hhmmToMin(e);if(a==null||b==null)return 0;var d=b-a;if(d<0)d+=1440;if(d<=0||d>1440)return 0;return d/60;}
+    var tm={};
+    rows.forEach(function(r){var w=r.who||'\u2014';tm[w]=tm[w]||{tech:w,pm:0,log:0,req:0};var lh=lab(r.start_time,r.end_time);if(r.type==='pm')tm[w].pm+=lh;else tm[w].log+=lh;});
+    (typeof REQUESTS!=='undefined'?REQUESTS:[]).forEach(function(r){if(!r||r.status!=='done'||!r.closed_by||!r.closed_at)return;var d=(''+r.closed_at).slice(0,10);if(d<from||d>to)return;var w=r.closed_by;tm[w]=tm[w]||{tech:w,pm:0,log:0,req:0};tm[w].req++;});
+    var list=Object.keys(tm).map(function(k){return tm[k];}).sort(function(a,b){return (b.pm+b.log)-(a.pm+a.log);});
+    if(!list.length){ el.innerHTML=''; return; }
+    var GREEN='#34d399',BLUE='#60a5fa',AMBER='#fbbf24', totPM=0,totLog=0,totReq=0;
+    list.forEach(function(x){totPM+=x.pm;totLog+=x.log;totReq+=x.req;});
+    var tile=function(c,v,l){return '<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:11px 8px;text-align:center"><div style="font-size:19px;font-weight:800;color:'+c+'">'+v+'</div><div style="font-size:9.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">'+l+'</div></div>';};
+    var chip=function(c,l){return '<span style="font-size:11px;color:var(--text-2);font-weight:600;display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:3px;background:'+c+'"></span>'+l+'</span>';};
+    var monthName=new Date(y,mo,1).toLocaleString('en-US',{month:'long'})+' '+y;
+    var H='<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 14px 12px;margin-bottom:14px">'+
+      '<div style="font-size:15px;font-weight:700;color:#fff">This month \u2014 team hours &amp; requests</div>'+
+      '<div style="font-size:12px;color:var(--text-3);margin:2px 0 12px">'+monthName+' \u00b7 all technicians</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">'+tile(GREEN,(Math.round(totPM*10)/10)+'h','PM hours')+tile(BLUE,(Math.round(totLog*10)/10)+'h','Log hours')+tile(AMBER,totReq,'Requests')+'</div>'+
+      '<div style="display:flex;gap:14px;margin:0 4px 12px">'+chip(GREEN,'PM hours')+chip(BLUE,'Log hours')+chip(AMBER,'Requests')+'</div>';
+    list.forEach(function(x){
+      var tot=x.pm+x.log, bt=tot||1, ini=(x.tech||'\u2014').split(/\s+/).map(function(p){return p.charAt(0);}).join('').slice(0,2).toUpperCase();
+      H+='<div style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-top:1px solid var(--border)">'+
+        '<span style="flex:none;width:28px;height:28px;border-radius:50%;background:var(--surface-3);color:var(--text-2);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">'+rqEsc(ini)+'</span>'+
+        '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:#fff">'+rqEsc(x.tech)+'</div>'+
+        '<div style="height:9px;border-radius:6px;overflow:hidden;display:flex;background:var(--surface-3);margin:5px 0 4px"><span style="height:100%;width:'+(x.pm/bt*100)+'%;background:'+GREEN+'"></span><span style="height:100%;width:'+(x.log/bt*100)+'%;background:'+BLUE+'"></span></div>'+
+        '<div style="font-size:10.5px;color:var(--text-3)">PM '+(Math.round(x.pm*10)/10)+' \u00b7 Log '+(Math.round(x.log*10)/10)+' \u00b7 <span style="color:'+AMBER+';font-weight:700">'+x.req+' req</span></div></div>'+
+        '<div style="text-align:right;flex:none;min-width:48px"><div style="font-size:15px;font-weight:800;color:#fff" class="tnum">'+(Math.round(tot*10)/10)+'<span style="font-size:10px;color:var(--text-3)">h</span></div></div>'+
+        '</div>';
+    });
+    H+='<div style="display:flex;justify-content:space-between;padding:10px 4px 2px;border-top:1px solid var(--border-2);margin-top:2px;font-size:11px;color:var(--text-2)"><span>Month total</span><b style="color:#fff">'+(Math.round((totPM+totLog)*10)/10)+'h \u00b7 '+totReq+' requests \u00b7 '+list.length+' techs</b></div>';
+    H+='</div>';
+    el.innerHTML=H;
+  }).catch(function(){});
+}
 function renderHome(){
   var el=gid('pane-home'); if(!el)return;
   if(typeof user==='undefined'||!user){ el.innerHTML=''; return; }
@@ -7386,11 +7467,12 @@ function renderHome(){
        hT('this month','\u0446\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f')+'</div>'+rows+'</div>';
   H+='</div>';
 
+  H+='<div id="home-techhours"></div>';
   H+='<div onclick="forceUpdateApp()" style="text-align:center;font-size:9.5px;color:var(--text-3);'+
      'font-family:ui-monospace,monospace;padding:16px 0 6px;cursor:pointer">build '+APP_BUILD+'</div>';
   H+='</div>';   // close .hm-wrap
   el.innerHTML=H;
-  // Grow the bars to fill whatever height the stretched card gives us; a fixed
+  try{fillHomeTechHours();}catch(e){}
   // plot height under an equal-height row just leaves dead white space.
   try{
     var wv=gid('wlv-wrap');
@@ -7499,7 +7581,8 @@ function homeSyncTabs(name){
   ['home','log','requests','cmms','more'].forEach(function(t){
     var el=gid('bt-'+t); if(el)el.classList.remove('bt-on');
   });
-  var on=gid('bt-'+name); if(on)on.classList.add('bt-on');
+  var _bmap={shift:'log'}; var _key=_bmap[name]||name;
+  var on=gid('bt-'+_key); if(on)on.classList.add('bt-on');
 }
 
 // Legacy entry point: every place that used to refresh the log's PM panel now
@@ -9500,23 +9583,6 @@ function renderMore(){
   }
   H+='<button onclick="openForkliftMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Forklift Inspection</button>';
   H+='<button onclick="openMaintReqMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Maintenance Request</button>';
-  // Push notification enable button
-  var pushSupported=('serviceWorker' in navigator)&&('PushManager' in window);
-  var pushOn=false; try{pushOn=localStorage.getItem('bbw_push_on')==='1';}catch(e){}
-  // iOS Safari only allows push when the app is installed to the Home Screen
-  var isIOS=/iP(hone|ad|od)/.test(navigator.userAgent);
-  var isStandalone=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches);
-  if(pushSupported){
-    if(isIOS&&!isStandalone){
-      H+='<div style="width:100%;padding:12px 14px;margin-bottom:14px;border-radius:12px;border:1px solid #f59e0b;background:rgba(245,158,11,.12);color:#fbbf24;font-size:12.5px;line-height:1.5;box-sizing:border-box"><b>'+T('To get request alerts on iPhone')+':</b><br>'+T('Tap the Share button, then "Add to Home Screen", open the app from your Home Screen, then come back here to turn on push.')+'</div>';
-    } else if(!pushOn){
-      H+='<button onclick="enableTruePush()" style="width:100%;padding:12px;margin-bottom:14px;border-radius:12px;border:1px solid #3b82f6;background:rgba(59,130,246,.12);color:#60a5fa;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">'+T('Turn on push (get requests when app is closed)')+'</button>';
-    } else {
-      H+='<div style="width:100%;padding:11px 14px;margin-bottom:8px;border-radius:12px;border:1px solid #16a34a;background:rgba(22,163,74,.12);color:#4ade80;font-size:13.5px;font-weight:700;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px">'+T('Push is ON for this device')+'</div>';
-      H+='<button onclick="disableTruePush()" style="width:100%;padding:9px;margin-bottom:14px;border-radius:10px;border:1px solid var(--border-2);background:transparent;color:var(--text-2);font-size:12.5px;font-weight:600;cursor:pointer">'+T('Turn off push on this device')+'</button>';
-    }
-  }
-  H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin:-4px 2px 16px">'+T('Android & desktop: just tap the button above. iPhone: add the app to your Home Screen first, then open it from there. If the button does nothing, your phone or work profile may block notifications \u2014 you\'ll still see alerts when the app is open.')+'</div>';
 
   // ── PMs now live in the dedicated CMMS tab; hidden here ──
   if(false){
@@ -9632,38 +9698,6 @@ function renderMore(){
     H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-bottom:8px">Supervisor page: <b>'+flBaseURL()+'?fldash</b></div>';
     H+='<button onclick="flDashChangePin(true)" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:10px">Change forklift-supervisor PIN</button>';
     H+='<button onclick="flDashEditNotifyEmail()" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:16px">Set forklift request email</button>';
-    H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Auto-Send (EmailJS)</div>';
-    H+='<div style="background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.3);border-radius:9px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#4ade80;line-height:1.5">Auto-send is built in \u2014 every device sends automatically, no setup needed.</div>';
-    H+='<button onclick="testEJS(this)" style="width:100%;padding:12px;background:var(--surface-2);color:#fff;border:1px solid var(--border);border-radius:10px;font-size:13.5px;font-weight:600;cursor:pointer">Test Send Now</button>';
-    H+='<div style="border-top:1px solid var(--border);margin:16px 0 12px"></div>';
-    H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:2px">Test Panel (Praful only)</div>';
-    H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-bottom:10px">Fires a real test through the full path \u2014 email + in-app toast/badge + push. Test records are tagged [TEST] and can be cleared below.</div>';
-    H+='<button onclick="testFireRequest(this)" style="width:100%;padding:12px;background:rgba(37,99,235,.15);color:#60a5fa;border:1px solid rgba(37,99,235,.35);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:8px">Send test maintenance request</button>';
-    H+='<button onclick="testFireForklift(this)" style="width:100%;padding:12px;background:rgba(217,119,6,.15);color:#f59e0b;border:1px solid rgba(217,119,6,.35);border-radius:10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:8px">Send test forklift issue</button>';
-    H+='<button onclick="testClearAll(this)" style="width:100%;padding:10px;background:transparent;color:var(--text-2);border:1px solid var(--border-2);border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer">Clear all [TEST] records</button>';
-    H+='</div>';
-
-    // Changeover Assets Manager
-    H+='<div style="background:rgba(22,163,74,.10);border:1.5px solid rgba(22,163,74,.16);border-radius:12px;padding:16px;margin-bottom:12px">';
-    H+='<div style="font-size:12px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Changeover Assets</div>';
-    H+='<p style="font-size:13px;color:var(--text-2);margin-bottom:10px">Assets that typically have changeover time. Add them here and they will be highlighted when logging.</p>';
-    var coAssets=JSON.parse(localStorage.getItem('bbw_co_assets')||'[]');
-    H+='<div id="co-asset-list" style="margin-bottom:10px">';
-    if(!coAssets.length){
-      H+='<div style="color:var(--text-3);font-size:13px;font-style:italic">No changeover assets defined yet</div>';
-    }else{
-      coAssets.forEach(function(a,i){
-        H+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:7px;margin-bottom:6px">';
-        H+='<span style="color:#fff;font-size:14px">'+a+'</span>';
-        H+='<button onclick="removeCOAsset('+i+')" style="background:rgba(220,38,38,.2);border:none;color:#ef4444;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer">Remove</button>';
-        H+='</div>';
-      });
-    }
-    H+='</div>';
-    H+='<div style="display:flex;gap:8px">';
-    H+='<input type="text" id="co-asset-input" placeholder="Asset name e.g. FILLER" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;color:#fff;outline:none">';
-    H+='<button onclick="addCOAsset()" style="padding:10px 16px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Add</button>';
-    H+='</div>';
     H+='</div>';
   }
 
