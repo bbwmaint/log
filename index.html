@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-06j \u00b7 lighter-photos';
+var APP_BUILD='2026-08-07a \u00b7 cmms-wo-light';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6579,7 +6579,7 @@ function renderWOModule(){
        ['open','assigned','in_progress','completed','all'].map(function(s){return '<option value="'+s+'"'+(WO_FILTER.status===s?' selected':'')+'>'+(s==='all'?'All statuses':WO_STATUS[s].label)+'</option>';}).join('')+'</select>';
     H+='<select onchange="WO_FILTER.assignee=this.value;renderWOList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px"><option value="">All techs</option>'+assignees.map(function(a){return '<option'+(WO_FILTER.assignee===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select>';
     H+='</div><div class="md-split"><div class="md-list"><div id="wo-list"></div></div><div class="md-detail" id="wo-detail-pane"><div class="md-empty">Select a work order to see details</div></div></div>';
-    host.innerHTML=H;
+    host.innerHTML='<div style="--bg:#eef0f3;--surface:#ffffff;--surface-2:#f7f9fc;--surface-3:#eef0f3;--border:#e6e7eb;--border-2:#d7d9de;--text:#1f2430;--text-2:#42474f;--text-3:#9aa0aa;color:var(--text)">'+H+'</div>';
     renderWOList();
   }).catch(function(e){host.innerHTML='<div style="padding:18px;color:#f87171;font-size:13px">'+e.message+'. Run the bbw_wos SQL, then reopen.</div>';});
 }
@@ -6608,7 +6608,7 @@ function renderWOList(){
     host.innerHTML='<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">'+list.length+' work order'+(list.length>1?'s':'')+'</div>'+list.map(function(w){
       var st=WO_STATUS[w.status]||WO_STATUS.open; var overdue=w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today); var c=pmTypeColor(w.wo_type);
       return '<div data-woid="'+w.id+'" onclick="woSelect('+w.id+')" style="background:var(--surface);border:1px solid var(--border);border-left:3px solid '+c+';border-radius:10px;padding:11px 13px;margin-bottom:8px;cursor:pointer">'+
-        '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:13.5px;font-weight:700;color:#fff;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(w.description||'(no description)')+'</span><span style="background:'+st.col+'22;color:'+st.col+';font-size:9px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap">'+st.label+'</span></div>'+
+        '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:13.5px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(w.description||'(no description)')+'</span><span style="background:'+st.col+'22;color:'+st.col+';font-size:9px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap">'+st.label+'</span></div>'+
         '<div style="font-size:11.5px;color:var(--text-3);margin-top:4px;display:flex;gap:6px"><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(w.asset||'')+(w.asset_code?' \u00b7 '+w.asset_code:'')+(w.assignee?' \u00b7 '+w.assignee:'')+'</span><span'+(overdue?' style="color:#f87171;font-weight:700"':'')+'>'+(overdue?'Overdue':(w.due_date||''))+'</span></div>'+
         '</div>';
     }).join('');
