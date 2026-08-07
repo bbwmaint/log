@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-06g \u00b7 this-shift-tab';
+var APP_BUILD='2026-08-06h \u00b7 debounce-all-search';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1917,7 +1917,7 @@ function renderReports(){
   el.innerHTML=H;
   repBuildList('');
 }
-function repFilter(v){ repBuildList(v); }
+function repFilter(v){ debRender('rep', function(){ repBuildList(v); }); }
 function repBuildList(filter){
   var lower=(filter||'').toLowerCase(), el=gid('rep-list'), html='';
   Object.keys(GROUPS).forEach(function(grp){
@@ -3464,6 +3464,12 @@ function voiceParseExtras(text){
 
 // ── My Log search ──
 var _logSearch='', _logSearchTimer=null;
+// Shared debouncer for live-search re-renders (keyed so boxes don't clash).
+var _debTimers={};
+function debRender(key, fn){
+  if(_debTimers[key])clearTimeout(_debTimers[key]);
+  _debTimers[key]=setTimeout(function(){ try{fn();}catch(e){} }, 200);
+}
 function logSearch(v){
   _logSearch=v;                                   // capture immediately so nothing is lost
   if(_logSearchTimer)clearTimeout(_logSearchTimer);
@@ -6237,7 +6243,7 @@ function renderPMModule(){
   var assignees=Array.from(new Set(CMMS_PMS.map(function(p){return p.assignee;}).filter(Boolean))).sort();
   var H='';
   H+='<div style="display:flex;gap:8px;margin-bottom:10px">';
-  H+='<input id="pm-search" value="'+CMMS_FILTER.q.replace(/"/g,'&quot;')+'" oninput="CMMS_FILTER.q=this.value;cmmsRenderPMList()" placeholder="Search code, asset, description\u2026" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;color:var(--text);font-size:14px;outline:none">';
+  H+='<input id="pm-search" value="'+CMMS_FILTER.q.replace(/"/g,'&quot;')+'" oninput="CMMS_FILTER.q=this.value;debRender(\'cmms\',cmmsRenderPMList)" placeholder="Search code, asset, description\u2026" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;color:var(--text);font-size:14px;outline:none">';
   H+='<button onclick="openPMForm()" class="btn-primary" style="padding:10px 14px;font-size:14px;white-space:nowrap">+ PM</button>';
   H+='</div>';
   function sel(id,label,opts,val){var o='<option value="">'+label+'</option>'+opts.map(function(x){return '<option value="'+x+'"'+(x===val?' selected':'')+'>'+x+'</option>';}).join('');return '<select onchange="CMMS_FILTER.'+id+'=this.value;cmmsRenderPMList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px;color-scheme:dark">'+o+'</select>';}
@@ -9288,7 +9294,7 @@ function renderInventory(){
   H+='<div style="position:sticky;top:0;background:var(--bg);padding-bottom:10px;z-index:3">';
   H+=seg;
   H+='<div style="display:flex;gap:8px;margin-bottom:8px">';
-  H+='<input id="inv-search" value="'+escHtml(INV_SEARCH)+'" oninput="INV_SEARCH=this.value;invDrawBody()" placeholder="Search item, part #, make, supplier\u2026" style="flex:1;padding:11px 13px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px">';
+  H+='<input id="inv-search" value="'+escHtml(INV_SEARCH)+'" oninput="INV_SEARCH=this.value;debRender(\'inv\',invDrawBody)" placeholder="Search item, part #, make, supplier\u2026" style="flex:1;padding:11px 13px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px">';
   H+='<button onclick="invToggleLow()" style="padding:0 14px;border-radius:10px;border:1px solid '+(INV_LOWONLY?'#ef4444':'var(--border)')+';background:'+(INV_LOWONLY?'rgba(239,68,68,.15)':'var(--surface-2)')+';color:'+(INV_LOWONLY?'#ef4444':'var(--text-2)')+';font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap">Low stock</button>';
   H+='</div>';
   H+='</div>';
