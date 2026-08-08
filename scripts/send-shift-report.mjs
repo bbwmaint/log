@@ -203,7 +203,10 @@ export function buildR(date, shift, rows) {
     issue: r.issue || '', desc: r.description || '', start: r.start_time || '', end: r.end_time || '',
     dt: +r.downtime_hrs || 0, machineDown: r.machine_down || '', coMins: +r.co_mins || 0,
     coType: r.co_type || '', partName: r.part_name || '', partQty: r.part_qty || '1',
-    shiftNote: r.shift_note || '', loggedAt: r.logged_at, photo: r.photo || '', photos: []
+    shiftNote: r.shift_note || '', loggedAt: r.logged_at, photo: r.photo || '',
+    // Parse the full photos array (same as the app); a log can hold several. Was hardcoded [],
+    // so the report only ever showed the single legacy `photo`.
+    photos: (() => { try { const a = JSON.parse(r.photos || '[]'); return (Array.isArray(a) && a.length) ? a : (r.photo ? [r.photo] : []); } catch { return r.photo ? [r.photo] : []; } })()
   })).sort((a, b) => String(a.loggedAt || '').localeCompare(String(b.loggedAt || '')));
 
   const dtEvents = se.filter(e => (e.machineDown === 'yes' || e.machineDown === 'partial') && e.dt > 0);
@@ -219,6 +222,39 @@ export function buildR(date, shift, rows) {
     issues:  se.filter(e => ['issue', 'pending'].includes(e.type)),
     parts:   se.filter(e => ['part', 'parts'].includes(e.type))
   };
+}
+
+/* ── auto-translate Ukrainian → English (reports only; keyless MyMemory, same as the app) ──
+   The log in Supabase keeps the original Ukrainian; only the generated report is translated. */
+const MM_DE = process.env.REPORT_TO || 'bbw-reports@brunswickbierworks.com'; // lifts MyMemory's rate limit
+function hasCyrillic(t) { return !!t && /[\u0400-\u04FF]/.test(t); }
+async function translateText(text) {
+  if (!hasCyrillic(text)) return text;
+  const url = 'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) +
+              '&langpair=uk|en&de=' + encodeURIComponent(MM_DE);
+  try {
+    const r = await fetch(url);
+    const j = await r.json();
+    const t = j && j.responseData && j.responseData.translatedText;
+    if (!t || /MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(t)) return text; // rate-limited → keep original
+    return t;
+  } catch { return text; }
+}
+/** Build R.tmap + set R.translated, and translate desc/issue in place so the email is covered too. */
+async function translateReport(R) {
+  const uniq = {};
+  R.se.forEach(e => { [e.issue, e.desc].forEach(t => { if (hasCyrillic(t)) uniq[t] = 1; }); });
+  const keys = Object.keys(uniq);
+  if (!keys.length) { R.tmap = {}; R.translated = false; return R; }
+  for (const k of keys) uniq[k] = await translateText(k); // sequential = gentle on the free API
+  R.tmap = uniq;
+  R.translated = true;
+  // se entries are shared by done/ongoing/issues/parts, so this covers the PDF and the email.
+  R.se.forEach(e => {
+    if (e.issue && uniq[e.issue]) e.issue = uniq[e.issue];
+    if (e.desc  && uniq[e.desc])  e.desc  = uniq[e.desc];
+  });
+  return R;
 }
 
 export function emailBody(R, pdfUrl) {
@@ -321,6 +357,11 @@ async function main() {
     }
     const R = buildR(target.date, target.shift, rows);
     console.log(`Entries: ${R.se.length}`);
+
+    try {
+      await translateReport(R);
+      if (R.translated) console.log(`Translated ${Object.keys(R.tmap).length} Ukrainian note(s) → English for the report.`);
+    } catch (e) { R.tmap = R.tmap || {}; R.translated = false; console.warn('Translation skipped:', e.message); }
 
     try {
       R.upcomingCOs = (SB_URL && SB_KEY) ? await fetchUpcomingCOs(target) : [];
