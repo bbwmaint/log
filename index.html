@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-07c \u00b7 pm-hours-from-wos';
+var APP_BUILD='2026-08-07d \u00b7 cmms-wo-fiix-card';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6624,20 +6624,26 @@ function renderWOList(){
   }
   host.innerHTML='<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">'+list.length+' work order'+(list.length>1?'s':'')+'</div>'+list.map(function(w){
     var st=WO_STATUS[w.status]||WO_STATUS.open;
-    var pc={Highest:'#f87171',High:'#fb923c',Medium:'#fbbf24',Low:'#9b9ba3'}[w.priority]||'var(--text-3)';
+    var pc={Highest:'#ef4444',High:'#ef4444',Medium:'#f59e0b',Low:'#10b981'}[w.priority]||'var(--text-3)';
+    var tc=(typeof pmTypeColor==='function'&&w.wo_type)?pmTypeColor(w.wo_type):'#3b82f6';
     var overdue=w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);
-    var H='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:9px">';
-    H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">';
-    H+='<div style="min-width:0"><div style="font-size:11px;color:var(--text-3);font-family:monospace">'+(w.wo_code||'')+(w.pm_code?' \u00b7 '+w.pm_code:' \u00b7 manual')+'</div>';
-    H+='<div style="font-size:14px;font-weight:700;color:var(--text);margin:2px 0;line-height:1.3">'+(w.description||'(no description)')+'</div>';
-    H+='<div style="font-size:12px;color:var(--text-2)">'+(w.asset||'')+(w.asset_code?' \u00b7 '+w.asset_code:'')+'</div></div>';
-    H+='<span style="background:'+st.col+'22;color:'+st.col+';font-size:10px;font-weight:800;padding:4px 9px;border-radius:999px;white-space:nowrap;border:1px solid '+st.col+'55">'+st.label+'</span>';
+    var ini=(w.assignee||'').split(/\s+/).map(function(p){return p.charAt(0);}).join('').slice(0,2).toUpperCase();
+    var H='<div style="position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 14px 12px 16px;margin-bottom:11px;overflow:hidden">';
+    H+='<div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:'+tc+'"></div>';
+    H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+    H+='<span style="font-size:11px;font-weight:800;color:var(--text-3)">'+(w.wo_code||'')+(w.pm_code?' \u00b7 '+w.pm_code:'')+'</span>';
+    H+=(w.wo_type?'<span style="font-size:11px;font-weight:700;color:#fff;background:'+tc+';padding:4px 11px;border-radius:5px">'+rqEsc(w.wo_type)+'</span>':'');
     H+='</div>';
-    H+='<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:9px;font-size:11.5px;color:var(--text-3)">';
-    if(w.priority)H+='<span style="color:'+pc+';font-weight:700">'+w.priority+'</span>';
-    if(w.assignee)H+='<span>\u00b7 '+w.assignee+'</span>';
-    if(w.hours_est)H+='<span>\u00b7 '+w.hours_est+'h est</span>';
-    H+='<span style="margin-left:auto'+(overdue?';color:#f87171;font-weight:700':'')+'">'+(overdue?'Overdue ':'Due ')+(w.due_date||'\u2014')+'</span>';
+    H+='<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;line-height:1.3">'+rqEsc(w.description||'(no description)')+'</div>';
+    H+='<div style="font-size:12.5px;color:#3b82f6;font-weight:600;margin-bottom:10px">'+rqEsc(w.asset||'')+(w.asset_code?' \u00b7 '+rqEsc(w.asset_code):'')+'</div>';
+    H+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+    if(w.priority)H+='<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid '+pc+'55;color:'+pc+';display:inline-flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:'+pc+'"></span>'+w.priority+'</span>';
+    H+='<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid '+st.col+'55;color:'+st.col+';display:inline-flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:'+st.col+'"></span>'+st.label+'</span>';
+    H+='<span style="margin-left:auto;display:flex;gap:6px;align-items:center">';
+    if(overdue)H+='<span style="color:#ef4444;font-weight:700;font-size:11px">Overdue</span>';
+    else if(w.due_date)H+='<span style="font-size:11px;color:var(--text-3)">Due '+w.due_date+'</span>';
+    if(w.assignee)H+='<span style="width:22px;height:22px;border-radius:50%;background:var(--surface-3);color:var(--text-2);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center">'+rqEsc(ini)+'</span><span style="font-size:12px;color:var(--text-2);font-weight:600">'+rqEsc(w.assignee)+'</span>';
+    H+='</span>';
     H+='</div>';
     H+='<div style="display:flex;gap:7px;margin-top:11px;padding-top:10px;border-top:1px solid var(--border)">';
     if(w.status==='open')H+='<button onclick="openWOAssign('+w.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Assign</button>';
