@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-07d \u00b7 cmms-wo-fiix-card';
+var APP_BUILD='2026-08-07e \u00b7 temp-negative-toggle';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4613,6 +4613,14 @@ function utDrawChart(pts,m,unit){
     fmt:function(v){ return (typeof utFmt==='function')?utFmt(v):(Math.round(v*100)/100).toLocaleString(); }
   });
 }
+// Toggle the sign of a reading — iOS number pads have no minus key.
+function utilSign(id){
+  var el=document.getElementById(id); if(!el) return;
+  var v=(el.value||'').trim();
+  el.value = (v.charAt(0)==='-') ? v.slice(1) : ('-'+v);
+  try{ el.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+  el.focus();
+}
 // Enter/Return in a utility reading jumps to the next field (next column, then next row).
 // Works with a hardware keyboard (desktop) and any software keyboard that sends Enter.
 function utilKey(ev, el){
@@ -4639,9 +4647,10 @@ function renderUtil(){
       // oninput: strip anything that isn\'t a valid partial number
       return '<div style="min-width:0">'+
         '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</div>'+
+        '<div style="display:flex;gap:6px;align-items:stretch">'+
         '<input type="text" inputmode="decimal" id="'+id+'" value="'+v+'" placeholder="'+placeholder+'" autocomplete="off" autocorrect="off" spellcheck="false" onkeydown="utilKey(event,this)" '+
         'oninput="this.value=this.value.replace(/[^0-9.\\-]/g,\'\').replace(/(\\-.*?)\\-/g,\'$1\').replace(/(\\..*?)\\./g,\'$1\')" '+
-        'style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 12px;font-size:15px;color:#fff;outline:none;font-family:ui-monospace,SFMono-Regular,monospace"></div>';
+        'style="flex:1;min-width:0;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 12px;font-size:15px;color:#fff;outline:none;font-family:ui-monospace,SFMono-Regular,monospace"><button type="button" onclick="utilSign(\''+id+'\')" aria-label="Toggle negative" style="flex:none;width:46px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:9px;color:var(--text);font-size:18px;font-weight:700;cursor:pointer">\u00b1</button></div></div>';
     }
     return '<div style="min-width:0">'+
       '<div style="font-size:11.5px;color:var(--text-2);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</div>'+
