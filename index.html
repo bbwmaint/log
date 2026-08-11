@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-07e \u00b7 temp-negative-toggle';
+var APP_BUILD='2026-08-07f \u00b7 partner-hours';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -5265,7 +5265,7 @@ function weekStats(data,start,end){
   var topDowntime=dtRows.sort(function(a,b){return b.hrs-a.hrs;}).slice(0,5);
   // Workload by tech (+ hours logged from entry start/end, split PM vs Log)
   var techMap={};
-  entries.forEach(function(e){var w=e.who||'\u2014';techMap[w]=techMap[w]||{tech:w,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};var t=e.type;if(isDone(t))techMap[w].done++;else if(isIssue(t))techMap[w].issue++;else if(t==='part'||t==='parts')techMap[w].parts++;else techMap[w].other++;techMap[w].total++;var lh=entryLaborHrs(e);techMap[w].hours+=lh;if(t==='pm')techMap[w].pmHours+=lh;else techMap[w].logHours+=lh;});
+  entries.forEach(function(e){var w=e.who||'\u2014';techMap[w]=techMap[w]||{tech:w,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};var t=e.type;if(isDone(t))techMap[w].done++;else if(isIssue(t))techMap[w].issue++;else if(t==='part'||t==='parts')techMap[w].parts++;else techMap[w].other++;techMap[w].total++;var lh=entryLaborHrs(e);techMap[w].hours+=lh;if(t==='pm')techMap[w].pmHours+=lh;else techMap[w].logHours+=lh;if(e.withWho){var p=e.withWho;techMap[p]=techMap[p]||{tech:p,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};techMap[p].hours+=lh;if(t==='pm')techMap[p].pmHours+=lh;else techMap[p].logHours+=lh;}});
   // Requests closed in-range — counted (not hours), attributed to whoever closed them
   (typeof REQUESTS!=='undefined'?REQUESTS:[]).forEach(function(r){
     if(!r||r.status!=='done'||!r.closed_by||!r.closed_at)return;
@@ -7161,13 +7161,13 @@ function fillHomeTechHours(){
   var el=gid('home-techhours'); if(!el) return;
   var now=new Date(), y=now.getFullYear(), mo=now.getMonth();
   var from=pmISO(new Date(y,mo,1)), to=pmISO(new Date(y,mo+1,0));
-  var q='bbw_worklog?select=date,type,who,start_time,end_time,description&date=gte.'+from+'&date=lte.'+to;
+  var q='bbw_worklog?select=date,type,who,with_who,start_time,end_time,description&date=gte.'+from+'&date=lte.'+to;
   var qw='bbw_wos?select=completed_by,completed_at,hours_est,hours_spent&status=eq.completed&completed_at=gte.'+from+'&completed_at=lte.'+to+'T23:59:59';
   Promise.all([sbFetchAll(q), sbFetchAll(qw).catch(function(){return [];})]).then(function(res){
     var rows=Array.isArray(res[0])?res[0]:[], wos=Array.isArray(res[1])?res[1]:[];
     function lab(s,e){var a=hhmmToMin(s),b=hhmmToMin(e);if(a==null||b==null)return 0;var d=b-a;if(d<0)d+=1440;if(d<=0||d>1440)return 0;return d/60;}
     var tm={};
-    rows.forEach(function(r){var w=r.who||'\u2014';tm[w]=tm[w]||{tech:w,pm:0,log:0,req:0};var lh=lab(r.start_time,r.end_time);if(r.type==='pm'){if(!/^PM\s/.test(r.description||''))tm[w].pm+=lh;}else tm[w].log+=lh;});
+    rows.forEach(function(r){var lh=lab(r.start_time,r.end_time);var bucket=(r.type==='pm')?(/^PM\s/.test(r.description||'')?null:'pm'):'log';if(!bucket)return;[r.who||'\u2014',r.with_who].forEach(function(name){if(!name)return;tm[name]=tm[name]||{tech:name,pm:0,log:0,req:0};tm[name][bucket]+=lh;});});
     // PM hours come from completed work orders (authoritative: hours + who + when, incl. historical).
     wos.forEach(function(o){var w2=o.completed_by;if(!w2)return;tm[w2]=tm[w2]||{tech:w2,pm:0,log:0,req:0};var h=parseFloat(o.hours_spent);if(!(h>0))h=parseFloat(o.hours_est);if(!(h>0))h=0.25;tm[w2].pm+=h;});
     (typeof REQUESTS!=='undefined'?REQUESTS:[]).forEach(function(r){if(!r||r.status!=='done'||!r.closed_by||!r.closed_at)return;var d=(''+r.closed_at).slice(0,10);if(d<from||d>to)return;var w=r.closed_by;tm[w]=tm[w]||{tech:w,pm:0,log:0,req:0};tm[w].req++;});
