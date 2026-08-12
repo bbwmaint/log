@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-07j \u00b7 tech-log-drilldown';
+var APP_BUILD='2026-08-07k \u00b7 completion-fields+dt-guard';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1748,7 +1748,10 @@ function calcDT(){
   var hrs=(diff/60).toFixed(2);
   // Working time is only downtime when the machine is actually down/partial.
   if(md!=='yes'&&md!=='partial'){ var _a=gid('dt-auto'); if(_a)_a.style.display='none'; return; }
-  gid('f-dt').value=diff;                 // this field is in minutes
+  var _dtf=gid('f-dt');
+  // New entry: auto-track start/end. Editing an existing entry: never overwrite the stored
+  // downtime (this was silently changing logged times when a partial/downtime log was edited).
+  if(_dtf && ((typeof editId==='undefined'||!editId) || (''+_dtf.value).trim()==='')) _dtf.value=diff;
   var el=gid('dt-auto');
   el.textContent='Auto: '+diff+' min'+(diff>=60?(' ('+Math.floor(diff/60)+'h '+(diff%60)+'m)'):'');
   el.style.display='block';
@@ -2605,10 +2608,11 @@ function requestDetailBody(r){
       H+='<div style="margin-top:16px"><label style="font-size:11px;font-weight:700;color:#c8a24b;text-transform:uppercase;letter-spacing:.04em">Assign to</label><select onchange="reqAssign('+r.id+',this.value)" style="width:100%;box-sizing:border-box;margin-top:5px;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px">'+aOpts+'</select></div>';
     }
     H+='<button onclick="emailRequestIssue('+r.id+',this)" style="width:100%;margin-top:16px;background:transparent;border:1px solid #2563eb;color:#60a5fa;font-size:13.5px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer">Email this issue (PDF)</button>';
+    if(r.status!=='done')H+='<div style="margin-top:14px"><label style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em">Minutes worked</label><input id="req-mins" type="number" min="0" step="5" placeholder="0" style="width:100%;box-sizing:border-box;margin-top:5px;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px"></div>';
     H+='<div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">';
     if(r.status==='new')H+='<button onclick="reqSetStatus('+r.id+',\'in_progress\');closeRequestDetail()" style="'+rqBtn('#3b82f6')+'">'+T('req_start')+'</button>';
     if(r.status!=='done'&&r.status!=='parts_ordered')H+='<button onclick="reqSetStatus('+r.id+',\'parts_ordered\');closeRequestDetail()" style="'+rqBtn('#a855f7')+'">'+(T('req_parts')||'Parts ordered')+'</button>';
-    if(r.status!=='done')H+='<button onclick="reqSetStatus('+r.id+',\'done\');closeRequestDetail()" style="'+rqBtn('#16a34a')+'">'+T('req_markdone')+'</button>';
+    if(r.status!=='done')H+='<button onclick="reqDone('+r.id+')" style="'+rqBtn('#16a34a')+'">'+T('req_markdone')+'</button>';
     H+='<button onclick="reqAddNote('+r.id+');closeRequestDetail()" style="'+rqBtn('#52525b')+'">'+T('req_addnote')+'</button>';
     H+='</div>';
   }
@@ -2961,12 +2965,13 @@ function drawRequests(){try{updateReqTabCount();}catch(e){}
   updateReqBadge();
   try{homeSyncBadge(); if(gid('pane-home'))renderHome();}catch(e){}
 }
-function reqSetStatus(id,status){
+function reqDone(id){ var m=gid('req-mins'); var mins=m?m.value:''; reqSetStatus(id,'done',mins); closeRequestDetail(); }
+function reqSetStatus(id,status,mins){
   var r=REQUESTS.filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
   var patch={status:status};
   if(status==='done'){ patch.closed_by=user; patch.closed_at=new Date().toISOString(); }
   sbFetch('bbw_requests?id=eq.'+id,{method:'PATCH',body:JSON.stringify(patch)})
-    .then(function(){ try{notifyRequester(r,'status',status,user);}catch(e){} if(status==='done')logFromRequest(r); REQUESTS=[]; return loadRequests(); })
+    .then(function(){ try{notifyRequester(r,'status',status,user);}catch(e){} if(status==='done')logFromRequest(r,mins); REQUESTS=[]; return loadRequests(); })
     .then(function(){ drawRequests(); try{if(gid('req-detail-pane')&&isDesktop()&&REQUESTS.filter(function(x){return ''+x.id===''+id;})[0])openRequest(id);}catch(e){} })
     .catch(function(e){ alert('Update failed: '+e.message); });
 }
@@ -2994,8 +2999,9 @@ function reqAssign(id,name){
     .then(function(){ drawRequests(); try{if(gid('req-detail-pane')&&isDesktop())openRequest(id);}catch(e){} })
     .catch(function(e){ alert('Assign failed: '+e.message); });
 }
-function logFromRequest(r){
+function logFromRequest(r, mins){
   var now=new Date();
+  var _m=parseFloat(mins); var _end=ntime(), _start=(_m>0)?hhmmMinus(_end,Math.round(_m)):'';
   var ph=[]; try{ph=JSON.parse(r.photos||'[]');}catch(x){}
   var urls=ph.map(function(p){return SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(p);});
   var ctx='Reported by '+(r.reporter||'?')+' ('+(r.department||'')+')'+(r.contact?' \u2022 '+r.contact:'');
@@ -3003,7 +3009,7 @@ function logFromRequest(r){
     type:'completed', priority:'info',
     assetName:r.asset_name||r.department||'General', assetCode:r.asset_code||'',
     issue:(r.work||'Work request'), desc:ctx,
-    start:'', end:'', dt:0, machineDown:'', coMins:0, coType:'', partName:'', partQty:'1',
+    start:_start, end:(_m>0)?_end:'', dt:0, machineDown:'', coMins:0, coType:'', partName:'', partQty:'1',
     photos:urls, photo:(urls[0]||null),
     who:user, loggedAt:now.toISOString(), shiftNote:'' };
   entries.push(e); allE.push(e); try{syncEntry(e);}catch(x){} save();
@@ -7797,7 +7803,7 @@ function _showPMDetail(ctx){
     H+='<div style="font-size:12.5px;color:var(--text-3);margin-bottom:8px">'+T('pm_nocompletions')+'</div>';
   }
   H+='</div>';
-  if(w){ H+='<div style="position:sticky;bottom:0;background:var(--surface);padding:12px 18px 18px;border-top:1px solid var(--border)"><button onclick="var m=document.getElementById(\'pmtask-modal\');if(m)m.remove();quickCompleteWO('+w.id+')" style="width:100%;background:#16a34a;border:none;color:#fff;font-size:14px;font-weight:700;padding:13px;border-radius:10px;cursor:pointer">\u2713 '+T('pm_done')+'</button></div>'; }
+  if(w){ H+='<div style="position:sticky;bottom:0;background:var(--surface);padding:12px 18px 18px;border-top:1px solid var(--border)"><button onclick="var m=document.getElementById(\'pmtask-modal\');if(m)m.remove();openWOComplete('+w.id+')" style="width:100%;background:#16a34a;border:none;color:#fff;font-size:14px;font-weight:700;padding:13px;border-radius:10px;cursor:pointer">\u2713 '+T('pm_done')+'</button></div>'; }
   H+='</div></div>';
   document.body.insertAdjacentHTML('beforeend',H);
 }
