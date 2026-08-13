@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-07l \u00b7 edit-panel-ontop';
+var APP_BUILD='2026-08-13a \u00b7 complete-modal-ontop';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6827,7 +6827,7 @@ function openWOComplete(id){
   var w=WOS.filter(function(x){return x.id===id;})[0]; if(!w)return;
   closeWOComplete();
   var inp='width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px;box-sizing:border-box';
-  var H='<div id="wo-complete-modal" onclick="if(event.target===this)closeWOComplete()" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:320;display:flex;align-items:flex-end;justify-content:center">';
+  var H='<div id="wo-complete-modal" onclick="if(event.target===this)closeWOComplete()" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:900;display:flex;align-items:flex-end;justify-content:center">';
   H+='<div style="background:var(--bg);width:100%;max-width:600px;border-radius:18px 18px 0 0;border-top:1px solid var(--border);padding:18px 16px 26px;max-height:90vh;overflow-y:auto">';
   H+='<div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:3px">'+T('wo_complete_title')+'</div>';
   H+='<div style="font-size:13px;color:var(--text-2);margin-bottom:14px">'+rqEsc(w.description||'')+' \u00b7 '+rqEsc(w.asset||'')+'</div>';
