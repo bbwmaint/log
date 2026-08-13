@@ -16,10 +16,24 @@ const KEY = process.env.SB_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3Mi
 const TABLES = ['bbw_worklog', 'bbw_util_log', 'bbw_pm_overrides', 'bbw_schedule'];
 const PAGE = 1000;
 
+async function columnsExceptPhotos(table) {
+  // Read one row to learn the column names, then drop the base64 photo columns.
+  const res = await fetch(`${SB}/rest/v1/${table}?select=*`, {
+    headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, Range: '0-0' },
+  });
+  const one = (await res.json())[0];
+  return one ? Object.keys(one).filter(k => k !== 'photos' && k !== 'photo').join(',') : '*';
+}
+
 async function fetchAll(table) {
+  // bbw_worklog stores base64 photos inline; SELECT * on them exceeds Supabase's statement
+  // timeout (error 57014), which was killing the daily backup. Back up every column EXCEPT
+  // the photos (which still live in Supabase). Columns are discovered live so a schema
+  // change won't break this.
+  const select = (table === 'bbw_worklog') ? await columnsExceptPhotos(table) : '*';
   let rows = [], from = 0;
   for (;;) {
-    const res = await fetch(`${SB}/rest/v1/${table}?select=*`, {
+    const res = await fetch(`${SB}/rest/v1/${table}?select=${select}`, {
       headers: {
         apikey: KEY,
         Authorization: `Bearer ${KEY}`,
@@ -43,13 +57,18 @@ let total = 0;
 
 for (const t of TABLES) {
   const rows = await fetchAll(t);
+  if (t === 'bbw_worklog') {
+    // Drop inline base64 photos from the snapshot. They made the file ~34 MB and were
+    // bloating the git repo daily, which is what broke the push. Photos still live in Supabase.
+    for (const r of rows) { delete r.photos; delete r.photo; }
+  }
   snapshot.tables[t] = rows;
   total += rows.length;
   console.log(`  ${t}: ${rows.length} rows`);
 }
 
 mkdirSync('backups', { recursive: true });
-const json = JSON.stringify(snapshot, null, 2);
+const json = JSON.stringify(snapshot); // minified — was pretty-printed, which inflated size ~35%
 writeFileSync(`backups/bbw-backup-${date}.json`, json);
 writeFileSync('backups/latest.json', json); // always-current copy for quick restore
 console.log(`Backup ${date} complete — ${total} rows across ${TABLES.length} tables.`);
