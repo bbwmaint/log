@@ -606,7 +606,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
 
 </div>
 
-<div id="sheet-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:flex-end;justify-content:center">
+<div id="sheet-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:800;align-items:flex-end;justify-content:center">
 <div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;padding:20px 16px 40px">
   <div style="width:36px;height:4px;background:var(--border-2);border-radius:2px;margin:0 auto 18px"></div>
   <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:16px" id="sheet-title">Log Work</div>
@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-07k \u00b7 completion-fields+dt-guard';
+var APP_BUILD='2026-08-07l \u00b7 edit-panel-ontop';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6385,7 +6385,7 @@ function openPMForm(id){
   var assetList=(typeof ASSETS!=='undefined'?ASSETS:[]).map(function(a){return '<option value="'+a.n+'|'+a.c+'"'+(a.n===p.asset?' selected':'')+'>'+a.n+' ('+a.c+')</option>';}).join('');
   function fld(label,inner){return '<div style="margin-bottom:11px"><div style="font-size:11px;color:var(--text-2);margin-bottom:4px">'+label+'</div>'+inner+'</div>';}
   var ist='width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px;color:var(--text);font-size:14px;outline:none;box-sizing:border-box;color-scheme:dark';
-  var H='<div id="pm-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:700;display:flex;align-items:flex-end;justify-content:center">';
+  var H='<div id="pm-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:800;display:flex;align-items:flex-end;justify-content:center">';
   H+='<div style="background:var(--bg);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;padding:18px 18px 28px;border:1px solid var(--border)">';
   H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:17px;font-weight:700;color:var(--text)">'+(id?'Edit PM':'New PM')+'</div><button onclick="closePMForm()" class="btn-ghost" style="padding:6px 12px;font-size:13px">Close</button></div>';
   H+=fld('Code',  '<input id="pf-code" value="'+(p.code||'').replace(/"/g,'&quot;')+'" placeholder="e.g. SM301" style="'+ist+'">');
@@ -7953,7 +7953,7 @@ function openWOForm(id){
   var assetList=(typeof ASSETS!=='undefined'?ASSETS:[]).map(function(a){return '<option value="'+a.n+'|'+a.c+'"'+(a.n===w.asset?' selected':'')+'>'+a.n+' ('+a.c+')</option>';}).join('');
   var ist='width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px;color:var(--text);font-size:14px;outline:none;box-sizing:border-box;color-scheme:dark';
   function fld(label,inner){return '<div style="margin-bottom:11px"><div style="font-size:11px;color:var(--text-2);margin-bottom:4px">'+label+'</div>'+inner+'</div>';}
-  var H='<div id="wo-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:700;display:flex;align-items:flex-end;justify-content:center">';
+  var H='<div id="wo-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:800;display:flex;align-items:flex-end;justify-content:center">';
   H+='<div style="background:var(--bg);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;padding:18px 18px 28px;border:1px solid var(--border)">';
   H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:17px;font-weight:700;color:var(--text)">'+(id?'Edit work order':'New work order')+'</div><button onclick="closeWOForm()" class="btn-ghost" style="padding:6px 12px;font-size:13px">Close</button></div>';
   H+=fld('Description','<textarea id="wf-desc" rows="2" style="'+ist+';resize:vertical">'+(w.description||'')+'</textarea>');
