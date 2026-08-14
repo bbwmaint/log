@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-13a \u00b7 complete-modal-ontop';
+var APP_BUILD='2026-08-13b \u00b7 partial-dt-fix';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1748,13 +1748,17 @@ function calcDT(){
   var hrs=(diff/60).toFixed(2);
   // Working time is only downtime when the machine is actually down/partial.
   if(md!=='yes'&&md!=='partial'){ var _a=gid('dt-auto'); if(_a)_a.style.display='none'; return; }
-  var _dtf=gid('f-dt');
-  // New entry: auto-track start/end. Editing an existing entry: never overwrite the stored
-  // downtime (this was silently changing logged times when a partial/downtime log was edited).
-  if(_dtf && ((typeof editId==='undefined'||!editId) || (''+_dtf.value).trim()==='')) _dtf.value=diff;
-  var el=gid('dt-auto');
-  el.textContent='Auto: '+diff+' min'+(diff>=60?(' ('+Math.floor(diff/60)+'h '+(diff%60)+'m)'):'');
-  el.style.display='block';
+  var _dtf=gid('f-dt'), el=gid('dt-auto');
+  if(md==='yes'){
+    // Full breakdown: downtime = the whole work window. Auto-fill on a new entry; never
+    // overwrite a stored value when editing.
+    if(_dtf && ((typeof editId==='undefined'||!editId) || (''+_dtf.value).trim()==='')) _dtf.value=diff;
+    if(el){ el.textContent='Auto: '+diff+' min'+(diff>=60?(' ('+Math.floor(diff/60)+'h '+(diff%60)+'m)'):''); el.style.display='block'; }
+  } else {
+    // Partial: the machine was down only PART of the work window, so the tech enters the
+    // actual down-minutes. Never auto-fill/overwrite it — that was turning 20 min into 60.
+    if(el){ el.textContent='Work window '+diff+' min — enter the minutes the machine was down'; el.style.display='block'; }
+  }
 }
 
 function handlePhoto(input){
