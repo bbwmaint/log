@@ -16,34 +16,45 @@ const KEY = process.env.SB_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3Mi
 const TABLES = ['bbw_worklog', 'bbw_util_log', 'bbw_pm_overrides', 'bbw_schedule'];
 const PAGE = 1000;
 
+// Fetch with retry. Supabase occasionally returns a transient gateway error as PLAIN TEXT
+// ("upstream connect error … delayed connect error: 111"), which is not JSON and was crashing
+// the daily backup. Retry a few times with backoff; never JSON.parse a non-OK / non-JSON body.
+async function sbGet(url, range) {
+  let lastErr;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(30000),
+        headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, Range: range },
+      });
+      const text = await res.text();
+      if (res.status !== 200 && res.status !== 206) throw new Error(`HTTP ${res.status}: ${text.slice(0, 160)}`);
+      try { return JSON.parse(text); }
+      catch { throw new Error(`non-JSON response: ${text.slice(0, 160)}`); }
+    } catch (e) {
+      lastErr = e;
+      console.log(`  retry ${attempt}/4 after: ${String(e.message).slice(0, 120)}`);
+      if (attempt < 4) await new Promise(r => setTimeout(r, 2000 * attempt));
+    }
+  }
+  throw lastErr;
+}
+
 async function columnsExceptPhotos(table) {
   // Read one row to learn the column names, then drop the base64 photo columns.
-  const res = await fetch(`${SB}/rest/v1/${table}?select=*`, {
-    headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, Range: '0-0' },
-  });
-  const one = (await res.json())[0];
+  const rows = await sbGet(`${SB}/rest/v1/${table}?select=*`, '0-0');
+  const one = rows[0];
   return one ? Object.keys(one).filter(k => k !== 'photos' && k !== 'photo').join(',') : '*';
 }
 
 async function fetchAll(table) {
   // bbw_worklog stores base64 photos inline; SELECT * on them exceeds Supabase's statement
-  // timeout (error 57014), which was killing the daily backup. Back up every column EXCEPT
-  // the photos (which still live in Supabase). Columns are discovered live so a schema
-  // change won't break this.
+  // timeout (error 57014). Back up every column EXCEPT the photos (which still live in
+  // Supabase). Columns are discovered live so a schema change won't break this.
   const select = (table === 'bbw_worklog') ? await columnsExceptPhotos(table) : '*';
   let rows = [], from = 0;
   for (;;) {
-    const res = await fetch(`${SB}/rest/v1/${table}?select=${select}`, {
-      headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${KEY}`,
-        Range: `${from}-${from + PAGE - 1}`,
-      },
-    });
-    if (res.status !== 200 && res.status !== 206) {
-      throw new Error(`${table}: HTTP ${res.status} — ${await res.text()}`);
-    }
-    const batch = await res.json();
+    const batch = await sbGet(`${SB}/rest/v1/${table}?select=${select}`, `${from}-${from + PAGE - 1}`);
     rows = rows.concat(batch);
     if (batch.length < PAGE) break; // last page reached
     from += PAGE;
