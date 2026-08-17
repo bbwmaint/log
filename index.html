@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-13b \u00b7 partial-dt-fix';
+var APP_BUILD='2026-08-13c \u00b7 pm-engine-techbranch';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6058,6 +6058,19 @@ function pmAdvance(parsed, done){
 }
 function pmNextDueISO(freq, from){ var p=pmParseFreq(freq); var d=pmNextFrom(p, from||new Date()); return d?pmISO(d):null; }
 function pmAdvanceISO(freq, doneISO){ var p=pmParseFreq(freq); var d=pmAdvance(p, doneISO?new Date(doneISO+'T00:00:00'):new Date()); return d?pmISO(d):null; }
+// Schedule-driven "is this group PM due today?" (for assignee==='Technicians'). Catches next_due
+// up to today and fires ONLY when an occurrence lands exactly on today (a Friday check never fires
+// on Wednesday); missed occurrences collapse into today (today-only, no overdue pileup).
+// Unit-tested offline against daily / weekly / biweekly / monthly patterns.
+function techPMDue(freq, nextDueISO, todayISO){
+  var parsed=pmParseFreq(freq);
+  if(!parsed||!nextDueISO) return {due:false, nextDue:nextDueISO||null};
+  var next=new Date(nextDueISO+'T00:00:00'), td=new Date(todayISO+'T00:00:00'), guard=0;
+  while(pmDateOnly(next)<td && guard++<1000){ var n=pmAdvance(parsed,next); if(!n||pmDateOnly(n)<=pmDateOnly(next)) break; next=n; }
+  var nISO=pmISO(pmDateOnly(next));
+  if(nISO===todayISO){ var after=pmAdvance(parsed, td); return {due:true, dueDate:todayISO, nextDue: after?pmISO(pmDateOnly(after)):null}; }
+  return {due:false, nextDue:nISO};
+}
 
 
 // ═══════════════ CMMS (admin only) ═══════════════
@@ -6497,12 +6510,13 @@ function generateWOs(){
     // Index completed work by EVERY identifier a work order might carry. Older rows
     // may lack pm_code, and some were closed without a completed_at timestamp, so
     // fall back through the other date fields rather than treating them as never done.
-    var openByPm={}, doneByPm={};
+    var openByPm={}, doneByPm={}, madeToday={};
     function mark(map,key,val){ if(!key)return; if(val===true){map[key]=true;return;} if(!map[key]||val>map[key])map[key]=val; }
     WOS.forEach(function(w){
       if(!w)return;
       var keys=[w.pm_code,w.pm_id].filter(Boolean);
       if(!keys.length)return;
+      if((''+(w.due_date||'')).slice(0,10)===today){ keys.forEach(function(k){mark(madeToday,k,true);}); }
       if(w.status!=='completed'){ keys.forEach(function(k){mark(openByPm,k,true);}); return; }
       var d=w.completed_at||w.updated_at||w.due_date||'';
       d=(''+d).slice(0,10);
@@ -6512,6 +6526,18 @@ function generateWOs(){
     var made=[];
     CMMS_PMS.forEach(function(p){
       if(!p.active)return;
+      // ── Group PMs (assignee 'Technicians' = everyone): SCHEDULE-driven, today-only,
+      //    regardless of completion. Fires only when an occurrence lands on today; if a WO
+      //    was already made for this PM today it isn't duplicated, and old uncompleted ones
+      //    never block today's (no overdue pileup). techPMDue is stateless — it catches
+      //    next_due up to today itself, so nothing needs persisting here. ──
+      if(p.assignee==='Technicians'){
+        if((p.code&&madeToday[p.code])||(p.id&&madeToday[p.id]))return;
+        var td=techPMDue(p.freq, p.next_due||today, today);
+        if(!td||!td.due)return;
+        made.push({pm_id:p.id,pm_code:p.code,asset:p.asset,asset_code:p.asset_code,description:p.description,priority:p.priority,wo_type:p.pm_type,assignee:p.assignee,status:'open',due_date:today,hours_est:p.hours});
+        return;
+      }
       var lastDone=null;
       [p.code,p.id].forEach(function(k){ if(k&&doneByPm[k]&&(!lastDone||doneByPm[k]>lastDone))lastDone=doneByPm[k]; });
       if(p.last_done&&(!lastDone||p.last_done>lastDone))lastDone=(''+p.last_done).slice(0,10);
