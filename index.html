@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-13c \u00b7 pm-engine-techbranch';
+var APP_BUILD='2026-08-19a \u00b7 workload-dash';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6073,6 +6073,400 @@ function techPMDue(freq, nextDueISO, todayISO){
 }
 
 
+
+/* ===== Technician Workload feature (injected) ===== */
+/* =====================================================================
+   TECHNICIAN WORKLOAD  (editors only)  — APP_BUILD adds: workload-dash
+   Utilization = logged productive hours / scheduled availability.
+   A capacity measure, NOT a job-performance rating. Read-only (no writes).
+   Built on: weekBounds/rotName (rotation window), techSchedule (staffing),
+   loadReportData + entryLaborHrs (labour), and a notes classifier that
+   backfills maintenance category + failure mode from existing free text.
+   ===================================================================== */
+
+/* ---- name hygiene: schedule strings carry nbsp / stray spaces ---- */
+function wlName(n){ return (n==null?'':(''+n)).replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim(); }
+
+/* ---- classifier: derive {category, failure} from a raw worklog row ----
+   Transparent + deterministic. Every drill-in shows the note behind the tag. */
+function wlText(e){ return ((e.description||'')+' '+(e.issue||'')).toLowerCase(); }
+function classifyCategory(e){
+  var t=wlText(e), ty=e.type;
+  var pmCode=/\bsm\d{2,4}\b/.test(t);
+  var inspect=/\binspection\b|\binspect\b|morning check|checks:|check for|\bcalibrat/.test(t);
+  var pmWord=/\bpm\b|weekly pm|monthly pm|lubricat|grease bearing/.test(t);
+  if(ty==='pm') return inspect?'Inspection':'Preventive';
+  if(pmCode||pmWord) return inspect?'Inspection':'Preventive';
+  if(inspect) return 'Inspection';
+  if(e.machine_down==='yes') return 'Breakdown';
+  if(e.machine_down==='partial') return 'Partial stop';
+  if(ty==='parts'||ty==='part') return 'Parts';
+  var raw=(''+((e.description||'')+(e.issue||''))).trim();
+  if(raw.length<8 || /^reported by/i.test(raw)) return 'Other';
+  return 'Corrective';
+}
+var WL_FAILS=[
+  ['Jam / blockage',/jam|lodged|stuck|blocked|blockage|clog|pieces of|caught|\u0437\u0430\u0441\u0442\u0440\u044f|\u0437\u0430\u0431\u0438/],
+  ['Sensor / detection',/sensor|photo\s?eye|proximity|not seeing|detect|encoder|\u0434\u0430\u0442\u0447\u0438\u043a/],
+  ['Motor / drive',/motor|tripp|\btrip\b|overload|drive fault|\bvfd\b|inverter|\u0434\u0432\u0438\u0433\u0443\u043d/],
+  ['Leak',/leak|leaking|drip|seal fail|gasket|\u0442\u0435\u0447/],
+  ['Misalignment / adjust',/loose|misalign|realign|out of position|adjust|alignment|\bgap\b|\u0432\u0438\u0440\u0456\u0432\u043d|\u043d\u0430\u043b\u0430\u0448\u0442/],
+  ['Belt / conveyor',/\bbelt\b|\bchain\b|conveyor slip|slipping|slack|tension/],
+  ['Collision / damage',/\bhit\b|collision|crash|damaged|bad pallet|\bbroke\b|crack|\u043f\u043e\u043b\u0430\u043c/],
+  ['Pneumatic / valve',/valve|pneumatic|air stuck|\u043a\u043b\u0430\u043f\u0430\u043d/],
+  ['Wear / replace',/\bwear\b|worn|bearing|replaced|replace|\u0437\u043d\u043e\u0441/]
+];
+function classifyFailure(e){
+  var t=wlText(e);
+  for(var i=0;i<WL_FAILS.length;i++){ if(WL_FAILS[i][1].test(t)) return WL_FAILS[i][0]; }
+  return 'Other';
+}
+/* category -> which of the 4 dashboard buckets it counts toward */
+function catBucket(cat){
+  if(cat==='Preventive') return 'pm';
+  if(cat==='Inspection') return 'inspection';
+  if(cat==='Breakdown') return 'breakdown';
+  if(cat==='Partial stop') return 'partial';
+  return 'corrective'; /* Corrective / Parts / Other */
+}
+
+/* ---- scheduled availability from the tech staffing schedule for [start..end] ----
+   Each name present in a day/night crew = 12 scheduled hours for that shift. */
+function rotationScheduled(start,end){
+  var TS=(typeof techSchedule!=='undefined'&&techSchedule)?techSchedule:{};
+  var byTech={}, order=[];
+  var cur=new Date(start+'T00:00:00'), endD=new Date(end+'T00:00:00');
+  while(cur<=endD){
+    var ds=localDateStr(cur), sc=TS[ds]||{};
+    ['day','night'].forEach(function(shiftKey){
+      var s=sc[shiftKey]; if(!s) return;
+      (''+s).split('/').forEach(function(nm){
+        nm=wlName(nm); if(!nm) return;
+        if(byTech[nm]==null){ byTech[nm]=0; order.push(nm); }
+        byTech[nm]+=12;
+      });
+    });
+    cur.setDate(cur.getDate()+1);
+  }
+  return { byTech:byTech, techs:order };
+}
+
+/* ---- per-tech workload over the rotation window ---- */
+function workloadCompute(entries, start, end, sched){
+  function inR(ds){ return ds>=start && ds<=end; }
+  var rows=entries.filter(function(e){ return e.date && inR(e.date); });
+  var map={}, timedRows=0;
+  function ensure(name){
+    name=wlName(name);
+    if(!map[name]) map[name]={ tech:name, logged:0, pm:0, inspection:0, breakdown:0, partial:0, corrective:0,
+      wos:0, assets:{}, fails:{}, entries:[], sched:(sched.byTech[name]||0) };
+    return map[name];
+  }
+  /* seed every scheduled tech so 0-log techs still appear */
+  sched.techs.forEach(function(n){ ensure(n); });
+
+  rows.forEach(function(e){
+    var lh=entryLaborHrs(e);
+    if(lh>0) timedRows++;
+    var cat=classifyCategory(e);
+    var bucket=catBucket(cat);
+    var akey=(typeof dashAssetKey==='function')?dashAssetKey(e):((e.asset_name||'General'));
+    /* credit primary + partner (handle both with_who and withWho) */
+    var partner=wlName(e.with_who||e.withWho||'');
+    var people=[wlName(e.who||'\u2014')];
+    if(partner) people.push(partner);
+    people.forEach(function(nm){
+      var o=ensure(nm);
+      o.logged+=lh; o[bucket]+=lh; o.wos++;
+      o.assets[akey]=(o.assets[akey]||0)+lh;
+      if(cat==='Breakdown'||cat==='Partial stop'||cat==='Corrective'){
+        var f=classifyFailure(e); o.fails[f]=(o.fails[f]||0)+1;
+      }
+      o.entries.push({ date:e.date, asset:akey, cat:cat, fail:(cat==='Preventive'||cat==='Inspection')?null:classifyFailure(e),
+        hrs:Math.round(lh*100)/100, note:((e.description||e.issue||'')+'').replace(/\s+/g,' ').trim(),
+        down:e.machine_down||'', shift:e.shift||'', wo:e.type||'' });
+    });
+  });
+
+  var list=Object.keys(map).map(function(k){
+    var o=map[k];
+    ['logged','pm','inspection','breakdown','partial','corrective'].forEach(function(f){ o[f]=Math.round(o[f]*10)/10; });
+    o.util=(o.sched>0)?Math.round(o.logged/o.sched*100):null;
+    o.status=(o.util==null)?'—':(o.util>WL_TH.heavy?'Heavy':(o.util<WL_TH.low?'Low':'Normal'));
+    o.assetList=Object.keys(o.assets).map(function(a){return {asset:a,hrs:Math.round(o.assets[a]*10)/10};}).sort(function(a,b){return b.hrs-a.hrs;});
+    o.failList=Object.keys(o.fails).map(function(a){return {fail:a,n:o.fails[a]};}).sort(function(a,b){return b.n-a.n;});
+    o.entries.sort(function(a,b){return (a.date<b.date)?1:-1;});
+    return o;
+  });
+  /* scheduled first (by utilization desc), then unscheduled loggers */
+  list.sort(function(a,b){
+    var as=a.sched>0?1:0, bs=b.sched>0?1:0;
+    if(as!==bs) return bs-as;
+    return (b.util||0)-(a.util||0) || b.logged-a.logged;
+  });
+  var totSched=list.reduce(function(s,o){return s+o.sched;},0);
+  var totLog=list.reduce(function(s,o){return s+o.logged;},0);
+  var totWO=list.reduce(function(s,o){return s+o.wos;},0);
+  var schedTechs=list.filter(function(o){return o.sched>0;}).length;
+  return { list:list, totSched:totSched, totLog:Math.round(totLog*10)/10,
+    meanUtil:(totSched>0?Math.round(totLog/totSched*100):null), totWO:totWO, schedTechs:schedTechs,
+    rowsTotal:rows.length, rowsTimed:timedRows,
+    coverage:(rows.length?Math.round(timedRows/rows.length*100):null) };
+}
+
+/* configurable thresholds */
+var WL_TH={ low:65, heavy:90 };
+
+/* ---- overlay lifecycle ---- */
+var WL_ANCHOR=null, WL_DATA=null;
+function openWorkloadDashboard(){
+  if(EDITORS.indexOf(user)<0){ alert('Reports are restricted to maintenance management.'); return; }
+  if(!WL_ANCHOR) WL_ANCHOR=new Date();
+  var ov=document.getElementById('wl-overlay'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='wl-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column';
+  ov.innerHTML=
+    '<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
+      '<button onclick="closeWorkloadDashboard()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'+
+      '<div style="font-size:15px;font-weight:700;color:var(--text)">Technician Workload</div>'+
+      '<div style="margin-left:auto;display:flex;align-items:center;gap:4px">'+
+        '<button onclick="workloadShift(-1)" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:15px">\u2039</button>'+
+        '<button onclick="workloadShift(1)" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:15px">\u203a</button>'+
+        '<button onclick="workloadPDF()" class="btn-primary" style="padding:8px 14px;font-size:13px;margin-left:4px">PDF</button>'+
+      '</div>'+
+    '</div>'+
+    '<div id="wl-body" style="flex:1;overflow-y:auto;padding:16px;max-width:1180px;margin:0 auto;width:100%;box-sizing:border-box"></div>';
+  document.body.appendChild(ov);
+  renderWorkloadOverlay();
+}
+function closeWorkloadDashboard(){ var ov=document.getElementById('wl-overlay'); if(ov) ov.remove(); }
+function workloadShift(delta){ var d=new Date(WL_ANCHOR); d.setDate(d.getDate()+delta*ROT_LEN); WL_ANCHOR=d; renderWorkloadOverlay(); }
+
+function wlEsc(s){ return (typeof rqEsc==='function')?rqEsc(s):(''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function wlUtilColor(p){ return p==null?'var(--text-3)':(p>WL_TH.heavy?'#c2410c':(p<WL_TH.low?'#4f46e5':'#16a34a')); }
+function wlStatusPill(st){
+  if(st==='Heavy') return '<span style="font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:999px;text-transform:uppercase;background:#fff7ed;color:#c2410c">Heavy</span>';
+  if(st==='Low') return '<span style="font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:999px;text-transform:uppercase;background:#eef2ff;color:#4f46e5">Low</span>';
+  if(st==='Normal') return '<span style="font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:999px;text-transform:uppercase;background:#ecfdf5;color:#047857">Normal</span>';
+  return '<span style="color:var(--text-3);font-size:11px">\u2014</span>';
+}
+function wlTile(label,val,sub,color){
+  return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:15px 16px">'+
+    '<div style="font-size:11px;color:var(--text-2);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:9px">'+label+'</div>'+
+    '<div style="font-size:27px;font-weight:800;letter-spacing:-.02em;line-height:1;color:'+(color||'var(--text)')+'" class="tnum">'+val+'</div>'+
+    '<div style="font-size:11px;color:var(--text-3);margin-top:6px">'+(sub||'')+'</div></div>';
+}
+
+function renderWorkloadOverlay(){
+  var body=document.getElementById('wl-body'); if(!body) return;
+  var b=weekBounds(WL_ANCHOR);
+  body.innerHTML='<div style="text-align:center;color:var(--text-3);padding:40px;font-size:14px">Loading '+weekLabel(b)+'\u2026</div>';
+  loadReportData(b.start,b.end).then(function(data){
+    var sched=rotationScheduled(b.start,b.end);
+    var S=workloadCompute(data.entries||[], b.start, b.end, sched);
+    WL_DATA={ S:S, bounds:b };
+    var H='<div style="font-size:12px;color:var(--text-3);margin-bottom:2px">'+weekLabel(b)+' \u00b7 Shift '+rotName(b.idx)+'</div>';
+    H+='<div style="font-size:11.5px;color:var(--text-3);margin-bottom:14px">Utilization = <b style="color:var(--text-2)">logged task-hours \u00f7 scheduled hours</b>. Techs log discrete tasks, not every minute on shift, so this reads well below 100% even for a full shift \u2014 use it to compare capture across techs and rotations, not as an absolute \u201cbusy\u201d figure. Not a rating of job quality. Categories are auto-classified from log notes.</div>';
+    /* KPI tiles */
+    H+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">';
+    H+=wlTile('Scheduled hours', S.totSched, S.schedTechs+' techs \u00b7 12h shifts');
+    H+=wlTile('Logged hours', S.totLog, 'PM \u00b7 corrective \u00b7 insp', '#2563eb');
+    H+=wlTile('Mean utilization', (S.meanUtil==null?'\u2014':S.meanUtil+'%'), 'across scheduled techs', wlUtilColor(S.meanUtil));
+    H+=wlTile('Log entries', S.rowsTotal, 'this rotation');
+    H+='</div>';
+    /* coverage caveat — untimed entries contribute 0 logged hours */
+    if(S.coverage!=null && S.coverage<95){
+      H+='<div style="display:flex;gap:10px;align-items:flex-start;background:#fffbeb;border:1px solid #f0d99a;border-left:3px solid #c8a04a;border-radius:10px;padding:11px 13px;margin-bottom:12px">'+
+         '<span style="color:#b45309;font-weight:800;flex:none">!</span>'+
+         '<div style="font-size:11.5px;color:var(--text-2)"><b style="color:var(--text)">'+S.rowsTimed+' of '+S.rowsTotal+' entries are time-stamped ('+S.coverage+'%).</b> Only timed entries count toward logged hours, so utilization understates real effort where techs logged work without start/end times.</div></div>';
+    }
+    /* thresholds */
+    H+='<div style="font-size:11px;color:var(--text-3);margin-bottom:14px">Workload status (configurable): <b style="color:var(--text-2)">Low &lt; '+WL_TH.low+'%</b> \u00b7 <b style="color:var(--text-2)">Normal '+WL_TH.low+'\u2013'+WL_TH.heavy+'%</b> \u00b7 <b style="color:var(--text-2)">Heavy &gt; '+WL_TH.heavy+'%</b></div>';
+    /* table */
+    H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px 6px 4px;overflow-x:auto">';
+    H+='<table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:720px">';
+    H+='<thead><tr style="text-align:right;color:var(--text-3)">'+
+       '<th style="text-align:left;padding:10px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Technician</th>'+
+       '<th style="padding:10px;font-size:10px;text-transform:uppercase;font-weight:700">Sched</th>'+
+       '<th style="padding:10px;font-size:10px;text-transform:uppercase;font-weight:700">Logged</th>'+
+       '<th style="text-align:left;padding:10px;font-size:10px;text-transform:uppercase;font-weight:700">Utilization</th>'+
+       '<th style="text-align:left;padding:10px;font-size:10px;text-transform:uppercase;font-weight:700">Status</th>'+
+       '<th style="padding:10px;font-size:10px;text-transform:uppercase;font-weight:700">PM</th>'+
+       '<th style="padding:10px;font-size:10px;text-transform:uppercase;font-weight:700">Corr</th>'+
+       '<th style="padding:10px;font-size:10px;text-transform:uppercase;font-weight:700">Bkdn</th>'+
+       '<th style="padding:10px;font-size:10px;text-transform:uppercase;font-weight:700">Insp</th>'+
+       '<th style="padding:10px;font-size:10px;text-transform:uppercase;font-weight:700">Logs</th></tr></thead><tbody>';
+    S.list.forEach(function(o){
+      var col=wlUtilColor(o.util);
+      var barW=(o.util==null)?0:Math.min(100,o.util);
+      var unsched=(o.sched<=0);
+      H+='<tr onclick="openWorkloadTech(\''+wlEsc(o.tech).replace(/\'/g,"")+'\')" style="cursor:pointer;text-align:right;border-top:1px solid var(--surface-3)">'+
+        '<td style="text-align:left;padding:11px 10px;font-weight:650;color:var(--text)">'+wlEsc(o.tech)+(unsched?' <span style="font-size:9.5px;color:#b45309;font-weight:700">\u00b7 unscheduled</span>':'')+'</td>'+
+        '<td style="padding:11px 10px">'+(o.sched||'\u2014')+'</td>'+
+        '<td style="padding:11px 10px">'+o.logged.toFixed(1)+'</td>'+
+        '<td style="text-align:left;padding:11px 10px;white-space:nowrap">'+
+          '<span style="display:inline-block;width:88px;height:7px;border-radius:4px;background:var(--surface-3);overflow:hidden;vertical-align:middle;margin-right:9px"><i style="display:block;height:100%;width:'+barW+'%;background:'+col+'"></i></span>'+
+          '<span style="font-weight:700;color:'+col+'">'+(o.util==null?'\u2014':o.util+'%')+'</span></td>'+
+        '<td style="text-align:left;padding:11px 10px">'+wlStatusPill(o.status)+'</td>'+
+        '<td style="padding:11px 10px">'+(o.pm||0)+'</td>'+
+        '<td style="padding:11px 10px">'+(o.corrective||0)+'</td>'+
+        '<td style="padding:11px 10px">'+(o.breakdown||0)+'</td>'+
+        '<td style="padding:11px 10px">'+(o.inspection||0)+'</td>'+
+        '<td style="padding:11px 10px;font-weight:700">'+o.wos+'</td></tr>';
+    });
+    H+='</tbody></table></div>';
+    H+='<div style="font-size:11px;color:var(--text-3);margin-top:10px">Tap a technician for their assets, work orders and failure-mode breakdown. \u201cCorr\u201d = corrective/reactive; \u201cBkdn\u201d = machine-down; \u201cPartial\u201d folded into corrective totals is shown in detail.</div>';
+    body.innerHTML=H;
+  }).catch(function(err){ body.innerHTML='<div style="color:var(--bad);padding:30px">Could not load: '+wlEsc(err&&err.message||err)+'</div>'; });
+}
+
+/* ---- per-tech detail ---- */
+function openWorkloadTech(name){
+  if(!WL_DATA) return;
+  var o=null, L=WL_DATA.S.list; for(var i=0;i<L.length;i++){ if(wlName(L[i].tech)===wlName(name)){ o=L[i]; break; } }
+  if(!o) return;
+  var b=WL_DATA.bounds;
+  var ov=document.getElementById('wl-detail'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='wl-detail';
+  ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:520;display:flex;flex-direction:column';
+  var col=wlUtilColor(o.util);
+  var H='<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
+    '<button onclick="document.getElementById(\'wl-detail\').remove()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back</button>'+
+    '<div><div style="font-size:15px;font-weight:700;color:var(--text)">'+wlEsc(o.tech)+'</div>'+
+    '<div style="font-size:11px;color:var(--text-3)">'+weekLabel(b)+' \u00b7 Shift '+rotName(b.idx)+'</div></div></div>'+
+    '<div style="flex:1;overflow-y:auto;padding:16px;max-width:1180px;margin:0 auto;width:100%;box-sizing:border-box">';
+  /* tiles */
+  H+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px">';
+  H+=wlTile('Logged hours', o.logged.toFixed(1), 'of '+(o.sched||'\u2014')+' scheduled', '#2563eb');
+  H+=wlTile('Utilization', (o.util==null?'\u2014':o.util+'%'), o.status, col);
+  H+=wlTile('Completed logs', o.wos, o.breakdown+'h breakdown');
+  H+=wlTile('Assets touched', o.assetList.length, 'this rotation');
+  H+='</div>';
+  /* category split */
+  var cats=[['Preventive (PM)',o.pm,'#7c6bf0'],['Corrective',o.corrective,'#2563eb'],['Breakdown',o.breakdown,'#dc2626'],['Partial stop',o.partial,'#d97706'],['Inspection',o.inspection,'#c8a24b']];
+  var ctot=cats.reduce(function(s,c){return s+c[1];},0)||1;
+  var seg=cats.map(function(c){return c[1]>0?'<i style="height:100%;width:'+(c[1]/ctot*100)+'%;background:'+c[2]+'"></i>':'';}).join('');
+  H+='<div style="display:grid;grid-template-columns:1fr;gap:14px">';
+  H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:16px 18px">'+
+     '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:12px">Maintenance category split \u00b7 auto-classified</div>'+
+     '<div style="display:flex;height:10px;border-radius:6px;overflow:hidden;margin-bottom:12px">'+seg+'</div>';
+  cats.forEach(function(c){ if(c[1]<=0) return;
+    H+='<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--surface-3);font-size:12.5px">'+
+      '<span style="width:10px;height:10px;border-radius:3px;background:'+c[2]+'"></span><span style="flex:1">'+c[0]+'</span>'+
+      '<b class="tnum">'+c[1].toFixed(1)+'h</b><span style="color:var(--text-3);width:44px;text-align:right">'+Math.round(c[1]/ctot*100)+'%</span></div>';
+  });
+  H+='</div>';
+  /* assets */
+  H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:16px 18px">'+
+     '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:12px">Where the time went \u2014 by asset</div>';
+  var amax=o.assetList.length?o.assetList[0].hrs:1;
+  o.assetList.slice(0,12).forEach(function(a){
+    H+='<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--surface-3);font-size:12.5px">'+
+      '<span style="flex:1">'+wlEsc(a.asset)+'</span>'+
+      '<span style="display:inline-block;width:120px;height:7px;border-radius:4px;background:var(--surface-3);overflow:hidden"><i style="display:block;height:100%;width:'+(a.hrs/amax*100)+'%;background:#2563eb"></i></span>'+
+      '<b class="tnum" style="min-width:44px;text-align:right">'+a.hrs.toFixed(1)+'h</b></div>';
+  });
+  H+='</div>';
+  /* failure modes */
+  if(o.failList.length){
+    H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:16px 18px">'+
+       '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:10px">Recurring failure modes \u00b7 from notes</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
+    o.failList.forEach(function(f){ H+='<span style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:650;border:1px solid var(--border-2);color:var(--text-2)">'+wlEsc(f.fail)+' <b style="color:var(--text)">\u00d7'+f.n+'</b></span>'; });
+    H+='</div></div>';
+  }
+  /* work log table */
+  H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:6px 6px 4px;overflow-x:auto">'+
+     '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);padding:12px 12px 8px">Work log</div>'+
+     '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px">'+
+     '<thead><tr style="text-align:left;color:var(--text-3)">'+
+     '<th style="padding:8px 10px;font-size:10px;text-transform:uppercase;font-weight:700">Date</th>'+
+     '<th style="padding:8px 10px;font-size:10px;text-transform:uppercase;font-weight:700">Asset</th>'+
+     '<th style="padding:8px 10px;font-size:10px;text-transform:uppercase;font-weight:700">Category</th>'+
+     '<th style="padding:8px 10px;font-size:10px;text-transform:uppercase;font-weight:700">Failure</th>'+
+     '<th style="text-align:right;padding:8px 10px;font-size:10px;text-transform:uppercase;font-weight:700">Hrs</th></tr></thead><tbody>';
+  o.entries.slice(0,40).forEach(function(en){
+    H+='<tr style="border-top:1px solid var(--surface-3)">'+
+      '<td style="padding:9px 10px;white-space:nowrap">'+wlEsc(en.date)+'</td>'+
+      '<td style="padding:9px 10px">'+wlEsc(en.asset)+'</td>'+
+      '<td style="padding:9px 10px">'+wlEsc(en.cat)+'</td>'+
+      '<td style="padding:9px 10px;color:var(--text-2)">'+wlEsc(en.fail||'\u2014')+'</td>'+
+      '<td style="text-align:right;padding:9px 10px" class="tnum">'+en.hrs.toFixed(1)+'</td></tr>';
+  });
+  H+='</tbody></table></div>';
+  H+='</div></div>';
+  ov.innerHTML=H;
+  document.body.appendChild(ov);
+}
+
+/* ---- PDF export (mirrors the report style: thin bar, logo, gold sections, footer) ---- */
+function workloadPDF(){
+  if(!WL_DATA){ alert('Open a rotation first'); return; }
+  var S=WL_DATA.S, b=WL_DATA.bounds;
+  var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; var doc=new JS({unit:'pt',format:'letter'});
+  try{ if(typeof pdfUnicode==='function') pdfUnicode(doc); }catch(e){}
+  var RF='helvetica';
+  try{ if(typeof DEJAVU_REG!=='undefined'){ doc.addFileToVFS('DejaVu.ttf',DEJAVU_REG); doc.addFont('DejaVu.ttf','DejaVu','normal'); doc.addFileToVFS('DejaVu-Bold.ttf',DEJAVU_BOLD); doc.addFont('DejaVu-Bold.ttf','DejaVu','bold'); RF='DejaVu'; } }catch(e){}
+  var W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight(), M=40, y=46;
+  var GOLD=[200,162,75], INK=[20,20,22], GREY=[120,120,130];
+  doc.setFillColor(INK[0],INK[1],INK[2]); doc.rect(0,0,W,6,'F');
+  if(window.__logoDark){ try{ var _lh=24,_lw=_lh*((window.__logoW||1996)/(window.__logoH||881)); doc.addImage(window.__logoDark,'PNG',M,y-18,_lw,_lh); }catch(e){} }
+  doc.setTextColor(INK[0],INK[1],INK[2]); doc.setFont(RF,'bold'); doc.setFontSize(17);
+  doc.text('TECHNICIAN WORKLOAD REPORT', W-M, y, {align:'right'});
+  doc.setFont(RF,'normal'); doc.setFontSize(10); doc.setTextColor(GREY[0],GREY[1],GREY[2]);
+  doc.text(weekLabel(b)+'   \u00b7   Shift '+rotName(b.idx), W-M, y+15, {align:'right'});
+  y+=34; doc.setDrawColor(GOLD[0],GOLD[1],GOLD[2]); doc.setLineWidth(1.4); doc.line(M,y,W-M,y); y+=22;
+  /* KPI row */
+  function tile(x,w,label,val,sub,color){
+    doc.setDrawColor(226,226,232); doc.setLineWidth(1); doc.roundedRect(x,y,w,58,6,6,'S');
+    doc.setFont(RF,'normal'); doc.setFontSize(8); doc.setTextColor(138,138,146); doc.text((''+label).toUpperCase(),x+12,y+16);
+    doc.setFont(RF,'bold'); doc.setFontSize(17); doc.setTextColor(color[0],color[1],color[2]); doc.text(''+val,x+12,y+37);
+    doc.setFont(RF,'normal'); doc.setFontSize(8.5); doc.setTextColor(154,154,162); doc.text(''+sub,x+12,y+50);
+  }
+  var gap=12, tw=(W-2*M-3*gap)/4;
+  tile(M+0*(tw+gap),tw,'Scheduled',S.totSched+' h','\u200b'+S.schedTechs+' technicians',INK);
+  tile(M+1*(tw+gap),tw,'Logged',S.totLog+' h','PM + corrective + insp',[37,99,235]);
+  tile(M+2*(tw+gap),tw,'Mean Utilization',(S.meanUtil==null?'\u2014':S.meanUtil+'%'),'of scheduled availability',(S.meanUtil==null?INK:(S.meanUtil>WL_TH.heavy?[194,65,12]:(S.meanUtil<WL_TH.low?[79,70,229]:[22,163,74]))));
+  tile(M+3*(tw+gap),tw,'Completed logs',S.totWO,'this rotation',INK);
+  y+=58+22;
+  /* section */
+  function section(t){ doc.setFillColor(GOLD[0],GOLD[1],GOLD[2]); doc.rect(M,y-11,4,15,'F'); doc.setFont(RF,'bold'); doc.setFontSize(14); doc.setTextColor(INK[0],INK[1],INK[2]); doc.text(t,M+11,y); y+=16; }
+  section('Workload by Technician');
+  /* table header */
+  var cols=[['Technician',0,'l'],['Sched',250,'r'],['Logged',310,'r'],['Util %',372,'r'],['Status',420,'l'],['PM',500,'r'],['Corr',540,'r'],['Bkdn',582,'r'],['Insp',624,'r'],['Logs',W-2*M-4,'r']];
+  doc.setFont(RF,'bold'); doc.setFontSize(8); doc.setTextColor(138,138,146);
+  cols.forEach(function(c){ doc.text(c[0].toUpperCase(), M+c[1], y, {align:c[2]==='r'?'right':'left'}); });
+  y+=6; doc.setDrawColor(226,226,232); doc.setLineWidth(1.2); doc.line(M,y,W-M,y); y+=13;
+  doc.setFont(RF,'normal'); doc.setFontSize(9.5);
+  S.list.forEach(function(o){
+    if(y>H-52){ doc.addPage(); y=52; }
+    var uc=(o.util==null)?GREY:(o.util>WL_TH.heavy?[194,65,12]:(o.util<WL_TH.low?[79,70,229]:[22,163,74]));
+    doc.setTextColor(INK[0],INK[1],INK[2]); doc.text(''+o.tech, M+cols[0][1], y);
+    doc.text(''+(o.sched||'-'), M+cols[1][1], y, {align:'right'});
+    doc.text(o.logged.toFixed(1), M+cols[2][1], y, {align:'right'});
+    doc.setTextColor(uc[0],uc[1],uc[2]); doc.setFont(RF,'bold'); doc.text((o.util==null?'-':o.util+'%'), M+cols[3][1], y, {align:'right'}); doc.setFont(RF,'normal');
+    doc.setTextColor(INK[0],INK[1],INK[2]); doc.text((o.status||'-'), M+cols[4][1], y);
+    doc.text(''+(o.pm||0), M+cols[5][1], y, {align:'right'});
+    doc.text(''+(o.corrective||0), M+cols[6][1], y, {align:'right'});
+    doc.text(''+(o.breakdown||0), M+cols[7][1], y, {align:'right'});
+    doc.text(''+(o.inspection||0), M+cols[8][1], y, {align:'right'});
+    doc.text(''+o.wos, M+cols[9][1], y, {align:'right'});
+    y+=8; doc.setDrawColor(240,240,242); doc.setLineWidth(.7); doc.line(M,y,W-M,y); y+=13;
+  });
+  y+=8; if(y>H-70){ doc.addPage(); y=52; }
+  section('Notes');
+  doc.setFont(RF,'normal'); doc.setFontSize(9.5); doc.setTextColor(75,75,82);
+  var note='Utilization is logged productive hours divided by scheduled availability (12h per rostered shift). It measures capacity use, not job performance. Maintenance categories are auto-classified from log notes; a small share may be Other/uncategorised.';
+  doc.text(doc.splitTextToSize(note, W-2*M), M, y);
+  /* footer */
+  doc.setFontSize(8.5); doc.setTextColor(154,154,162); doc.setDrawColor(230,230,234); doc.setLineWidth(.8);
+  doc.line(M,H-40,W-M,H-40);
+  doc.text('Brunswick Bierworks \u2014 Maintenance', M, H-26);
+  doc.text('Generated '+new Date().toLocaleDateString('en-CA',{year:'numeric',month:'short',day:'numeric'}), W-M, H-26, {align:'right'});
+  doc.save('BBW_Workload_'+b.start+'.pdf');
+}
+
+/* ===== end Technician Workload ===== */
+
 // ═══════════════ CMMS (admin only) ═══════════════
 var CMMS_PMS=[]; var CMMS_SUB='pms'; var CMMS_LOADED=false;
 var CMMS_FILTER={q:'',type:'',assignee:'',status:'active'};
@@ -9713,7 +10107,8 @@ function renderMore(){
   H+='<div onclick="dangerTap()" style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace;cursor:default;user-select:none">build '+BUILD+'</div>';
   if(EDITORS.indexOf(user)>=0){
     H+='<button onclick="openDashboard()" class="btn-primary" style="width:100%;padding:15px;font-size:15px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">'+T('Maintenance Dashboard')+'</button>';
-    H+='<button onclick="openWeekDashboard()" class="btn-ghost" style="width:100%;padding:14px;font-size:14px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:8px">Weekly stats</button>';
+    H+='<button onclick="openWeekDashboard()" class="btn-ghost" style="width:100%;padding:14px;font-size:14px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">Weekly stats</button>';
+    H+='<button onclick="openWorkloadDashboard()" class="btn-ghost" style="width:100%;padding:14px;font-size:14px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:8px">Technician Workload</button>';
   }
   H+='<button onclick="openForkliftMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Forklift Inspection</button>';
   H+='<button onclick="openMaintReqMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Maintenance Request</button>';
