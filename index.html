@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-19b \u00b7 wo-dedup-fix';
+var APP_BUILD='2026-08-19c \u00b7 log-edit-fix';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1611,13 +1611,13 @@ function openSheet(id){
   }catch(e){}
   gid('sheet-title').textContent=id?'Edit Entry':'Log Work';
   if(id){
-    var e=entries.find(function(x){return x.id===id;})||allE.find(function(x){return x.id===id;});
+    var e=entries.find(function(x){return x.id===id;})||allE.find(function(x){return x.id===id;})||CARD_REG[id];
     if(e){
       setType(e.type); if(e.priority)setPrio(e.priority);
       if(e.assetCode)selA2(e.assetCode,e.assetName);
       else if(e.assetName){selA={c:'',n:e.assetName};gid('asearch').value=e.assetName;}
       if(gid('f-issue'))gid('f-issue').value=e.issue||''; gid('f-desc').value=e.desc||''; gid('f-start').value=e.start||''; gid('f-end').value=e.end||''; gid('f-dt').value=dtHrsToMins(e.dt);
-      if(gid('f-withwho'))gid('f-withwho').value=e.withWho||'';
+      if(gid('f-withwho')){var _ww2=gid('f-withwho'); if(e.withWho&&!Array.prototype.some.call(_ww2.options,function(o){return o.value===e.withWho;}))_ww2.insertAdjacentHTML('beforeend','<option value="'+escHtml(e.withWho)+'">'+escHtml(e.withWho)+'</option>'); _ww2.value=e.withWho||'';}
       if(isEditor()){ if(gid('f-date'))gid('f-date').value=e.date||''; if(gid('f-shift'))gid('f-shift').value=(e.shift==='Day'||e.shift==='Night')?e.shift:''; }
       try{updateShiftPreview();}catch(_){}
       if(e.partName){gid('f-pname').value=e.partName;gid('f-pqty').value=e.partQty||1;}
@@ -1828,7 +1828,7 @@ function submitEntry(){
     })(),type:ctype,priority:cprio,assetName:(selA?selA.n:(gid('asearch')?gid('asearch').value.trim():'')),assetCode:(selA?selA.c:''),issue:gid('f-issue')?gid('f-issue').value.trim():'',desc:gid('f-desc').value.trim(),start:gid('f-start').value,end:gid('f-end').value,withWho:(gid('f-withwho')?gid('f-withwho').value:''),dt:((gid('f-machinedown')&&(gid('f-machinedown').value==='yes'||gid('f-machinedown').value==='partial'))?dtMinsToHrs(gid('f-dt').value):0),machineDown:gid('f-machinedown')?gid('f-machinedown').value:'',coMins:parseInt(gid('f-co')?gid('f-co').value:0)||0,coType:gid('f-cotype')?gid('f-cotype').value:'',partName:gid('f-pname').value.trim(),partQty:gid('f-pqty').value||'1',photos:photos.slice(),photo:(photos[0]||null),who:(user===ADMIN&&gid('f-assignedto')&&gid('f-assignedto').value)?gid('f-assignedto').value:user,loggedAt:new Date().toISOString(),shiftNote:gid('snote').value};
   if(editId){
     // Find the original BEFORE overwriting, so we keep its Supabase link.
-    var orig=allE.find(function(x){return x.id===editId;})||entries.find(function(x){return x.id===editId;});
+    var orig=allE.find(function(x){return x.id===editId;})||entries.find(function(x){return x.id===editId;})||CARD_REG[editId];
     if(orig){
       entry.sbId=orig.sbId;            // keep the Supabase row reference
       entry.synced=orig.synced;
@@ -3300,8 +3300,9 @@ function loadUtilFromSB(){
 
 var _pendingDel=null;
 function delEntry(id){
-  var entry=allE.find(function(e){return e.id===id;})||entries.find(function(e){return e.id===id;});
+  var entry=allE.find(function(e){return e.id===id;})||entries.find(function(e){return e.id===id;})||CARD_REG[id];
   if(!entry){return;}
+  try{ if(CARD_REG[id])delete CARD_REG[id]; Array.prototype.forEach.call(document.querySelectorAll('.lc[data-id="'+id+'"]'),function(n){n.remove();}); }catch(_dn){}
   var sbId=entry.sbId||null;
   function isTarget(e){ return sbId ? (e.sbId===sbId) : (e.id===id && !e.sbId); }
   // Capture what we remove so the delete can be undone within a few seconds.
@@ -3621,7 +3622,10 @@ function dataChanged(kind){
 }
 function renderAll(){renderLog();renderShift();checkUBanner();try{dataChanged();}catch(e){}}
 
+var CARD_REG={};
+function wlDateShort(d){ if(!d)return ''; var x=new Date(d+'T00:00:00'); return isNaN(x)?d:x.toLocaleDateString('en-CA',{month:'short',day:'numeric'}); }
 function card(e,mine){
+  try{ CARD_REG[e.id]=e; }catch(_cr){}
   var labels={assigned:T('assigned')||'Assigned',completed:T('completed')||'Completed',
     ongoing:T('ongoing')||'Ongoing',parts:T('parts')||'Parts',pending:T('pending')||'Pending',
     done:T('completed')||'Completed',pm:T('completed')||'Completed',followup_done:T('completed')||'Completed',
@@ -3643,6 +3647,7 @@ function card(e,mine){
   if(e.desc)html+='<div style="font-size:13.5px;color:var(--text-2);line-height:1.55;white-space:pre-wrap">'+e.desc+'</div>';
   if(e.partName&&e.type==='part')html+='<div style="font-size:13px;color:var(--text-2);margin-top:4px">Part: '+e.partName+' \u00d7'+e.partQty+'</div>';
   html+='<div class="tnum" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:11px;font-size:11.5px;color:var(--text-3)">';
+  if(e.date)html+='<span style="font-weight:600;color:var(--text-2)">'+wlDateShort(e.date)+'</span>';
   if(time)html+='<span>'+time+'</span>';
   if((e.priority==='urgent'||e.priority==='high'))html+='<span style="color:var(--bad);font-weight:700;letter-spacing:.04em">'+e.priority.toUpperCase()+'</span>';
   if(e.dt>0&&(e.machineDown==='yes'||e.machineDown==='partial'))html+='<span style="color:var(--bad)">'+dtLabel(e.dt)+' DT</span>';
@@ -6670,9 +6675,14 @@ function doGenerateWOs(btn){
   }).catch(function(e){if(btn){btn.disabled=false;btn.innerHTML='Generate due WOs';}alert('Generate failed: '+e.message);});
 }
 function woFilter(){
+  var _today=pmISO(new Date());
   return WOS.filter(function(w){
     if(WO_FILTER.status!=='all'&&w.status!==WO_FILTER.status)return false;
     if(WO_FILTER.assignee&&w.assignee!==WO_FILTER.assignee)return false;
+    // Group ('Technicians') PMs are schedule-driven and today-only: a daily/scheduled
+    // group check that wasn't done on its day is moot, so hide stale past-due OPEN ones
+    // instead of letting them pile up. Data is untouched; completed history still shows.
+    if(w.assignee==='Technicians'&&w.status!=='completed'&&w.due_date&&(''+w.due_date).slice(0,10)<_today&&WO_FILTER.status!=='all')return false;
     return true;
   });
 }
