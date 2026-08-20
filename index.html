@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-20a \u00b7 workload+pareto+actionplans';
+var APP_BUILD='2026-08-20b \u00b7 downtime-by-day';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6281,7 +6281,7 @@ function _metricLabel(m){ return m==='downtime'?'Total downtime':(m==='failures'
 function _metricUnit(m){ return m==='downtime'?'h':(m==='failures'?'':'h'); }
 function openMachinePareto(){
   if(EDITORS.indexOf(user)<0){alert('Reports are restricted to maintenance management.');return;}
-  var right='<button onclick="openActionPlans()" class="btn-ghost" style="padding:8px 12px;font-size:12px">Action plans</button>';
+  var right='<button onclick="openDowntimeByDay()" class="btn-ghost" style="padding:8px 12px;font-size:12px">By day</button><button onclick="openActionPlans()" class="btn-ghost" style="padding:8px 12px;font-size:12px">Action plans</button>';
   _analOverlay('pareto-overlay','Machine Pareto',right,'pareto-body'); renderPareto();
 }
 function paretoSetMetric(m){ PARETO_METRIC=m; renderPareto(); }
@@ -6338,8 +6338,53 @@ function paretoDrill(i){
     o.failList.forEach(function(f,ix){ var c=cols[ix%cols.length]; seg+='<i style="height:100%;width:'+(f.n/ft*100)+'%;background:'+c+'"></i>'; rows+='<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--surface-3);font-size:12.5px"><span style="width:10px;height:10px;border-radius:3px;background:'+c+'"></span><span style="flex:1">'+_analEsc(f.fail)+'</span><b class="tnum">\u00d7'+f.n+'</b><span style="color:var(--text-3);width:44px;text-align:right">'+Math.round(f.n/ft*100)+'%</span></div>'; });
     H+=_analCard(_analH3('Recurring failure modes')+'<div style="display:flex;height:10px;border-radius:6px;overflow:hidden;margin-bottom:12px">'+seg+'</div>'+rows); }
   var recRows=''; o.records.slice(0,40).forEach(function(r){ recRows+='<tr style="border-top:1px solid var(--surface-3)"><td style="padding:9px 8px;white-space:nowrap">'+_analEsc(r.date)+'</td><td style="padding:9px 8px">'+_analEsc(r.cat)+'</td><td style="padding:9px 8px;color:var(--text-2)">'+_analEsc(r.fail)+'</td><td style="text-align:right;padding:9px 8px">'+(r.dt>0?r.dt.toFixed(2)+'h':'\u2014')+'</td><td style="padding:9px 8px">'+_analEsc(r.who||'')+'</td></tr>'; });
+  var _dn=o.records.filter(function(r){return r.down==='yes'||r.down==='partial';});
+  if(_dn.length){ var dnRows=''; var _nf=0,_np=0;
+    _dn.forEach(function(r){ var full=r.down==='yes'; if(full)_nf++; else _np++;
+      dnRows+='<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--surface-3)">'+
+        '<span style="flex:none;font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase;background:'+(full?'#fef2f2':'#fffbeb')+';color:'+(full?'#b91c1c':'#b45309')+'">'+(full?'Breakdown':'Partial')+'</span>'+
+        '<div style="flex:1;min-width:0"><div style="font-size:12.5px;color:var(--text)"><b>'+_analEsc(r.date)+'</b> \u00b7 '+(r.dt>0?r.dt.toFixed(2)+'h':'no DT logged')+(r.who?' \u00b7 '+_analEsc(r.who):'')+((r.fail&&r.fail!=='Other')?' \u00b7 '+_analEsc(r.fail):'')+'</div>'+
+        (r.note?'<div style="font-size:11.5px;color:var(--text-2);margin-top:3px;line-height:1.35">'+_analEsc(r.note.slice(0,200))+(r.note.length>200?'\u2026':'')+'</div>':'')+'</div></div>'; });
+    H+=_analCard('<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'+_analH3('Downtime & partial-stop events')+'<span style="font-size:11px;color:var(--text-3)">'+_nf+' breakdown \u00b7 '+_np+' partial</span></div>'+dnRows);
+  }
   H+=_analCard(_analH3('Underlying records \u00b7 '+o.records.length+' total')+'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:520px"><thead><tr style="text-align:left;color:var(--text-3)"><th style="padding:0 8px 8px;font-size:10px;text-transform:uppercase;font-weight:700">Date</th><th style="padding:0 8px 8px;font-size:10px;text-transform:uppercase;font-weight:700">Category</th><th style="padding:0 8px 8px;font-size:10px;text-transform:uppercase;font-weight:700">Failure</th><th style="text-align:right;padding:0 8px 8px;font-size:10px;text-transform:uppercase;font-weight:700">DT</th><th style="padding:0 8px 8px;font-size:10px;text-transform:uppercase;font-weight:700">Tech</th></tr></thead><tbody>'+recRows+'</tbody></table></div>','6px 6px 4px');
   document.getElementById('pareto-detail-body').innerHTML=H;
+}
+
+/* ---------- Downtime by Day (pick any date, see that day's DT) ---------- */
+var DT_DAY=null;
+function openDowntimeByDay(dateStr){
+  if(EDITORS.indexOf(user)<0){alert('Reports are restricted to maintenance management.');return;}
+  DT_DAY=dateStr||DT_DAY||localDateStr(new Date());
+  var right='<button onclick="dtDayShift(-1)" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:15px">\u2039</button>'+
+    '<input type="date" value="'+DT_DAY+'" onchange="dtDaySet(this.value)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 8px;font-size:12.5px">'+
+    '<button onclick="dtDayShift(1)" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:15px">\u203a</button>';
+  _analOverlay('dtday-overlay','Downtime by Day',right,'dtday-body'); renderDowntimeByDay();
+}
+function dtDaySet(v){ if(v){ DT_DAY=v; renderDowntimeByDay(); } }
+function dtDayShift(d){ var x=new Date(DT_DAY+'T00:00:00'); x.setDate(x.getDate()+d); DT_DAY=localDateStr(x); var inp=document.querySelector('#dtday-overlay input[type=date]'); if(inp)inp.value=DT_DAY; renderDowntimeByDay(); }
+function renderDowntimeByDay(){
+  var body=document.getElementById('dtday-body'); if(!body)return;
+  body.innerHTML='<div style="text-align:center;color:var(--text-3);padding:40px;font-size:14px">Loading\u2026</div>';
+  loadReportData(DT_DAY,DT_DAY).then(function(data){
+    var downs=(data.entries||[]).filter(function(e){return e.machine_down==='yes'||e.machine_down==='partial';});
+    var byAsset={}, order=[], totDT=0, nFull=0, nPart=0;
+    downs.forEach(function(e){ var k=_analAssetKey(e), dt=parseFloat(e.downtime_hrs)||0; if(!byAsset[k]){byAsset[k]={asset:k,dt:0,events:[]};order.push(k);} byAsset[k].dt+=dt; byAsset[k].events.push(e); totDT+=dt; if(e.machine_down==='yes')nFull++; else nPart++; });
+    var assets=order.map(function(k){return byAsset[k];}).sort(function(a,b){return b.dt-a.dt;});
+    var dLabel; try{ dLabel=new Date(DT_DAY+'T00:00:00').toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric',year:'numeric'}); }catch(e){ dLabel=DT_DAY; }
+    var H='<div style="font-size:12px;color:var(--text-3);margin-bottom:12px">'+dLabel+'</div>';
+    H+=_analKpis([_analTile('Total downtime',(Math.round(totDT*100)/100)+'h','on this day','#dc2626'),_analTile('Breakdowns',nFull,'full machine-down'),_analTile('Partial stops',nPart,'reduced/partial','#d97706'),_analTile('Assets affected',assets.length,'with downtime')]);
+    if(!downs.length){ H+=_analCard('<div style="text-align:center;color:var(--text-3);padding:22px;font-size:13px">No downtime or partial-stop events logged on this day.</div>'); body.innerHTML=H; return; }
+    assets.forEach(function(a){ var evRows='';
+      a.events.sort(function(x,y){return (''+(x.start_time||'')).localeCompare(''+(y.start_time||''));});
+      a.events.forEach(function(e){ var full=e.machine_down==='yes', dt=parseFloat(e.downtime_hrs)||0, tm=(e.start_time&&e.end_time)?(e.start_time+'\u2013'+e.end_time):(e.start_time||''), note=((e.description||e.issue||'')+'').replace(/\s+/g,' ').trim();
+        evRows+='<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--surface-3)">'+
+          '<span style="flex:none;font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase;background:'+(full?'#fef2f2':'#fffbeb')+';color:'+(full?'#b91c1c':'#b45309')+'">'+(full?'Breakdown':'Partial')+'</span>'+
+          '<div style="flex:1;min-width:0"><div style="font-size:12.5px;color:var(--text)">'+(tm?'<span style="color:var(--text-3)">'+_analEsc(tm)+'</span> \u00b7 ':'')+'<b style="color:'+(full?'#dc2626':'#d97706')+'">'+(dt>0?dt.toFixed(2)+'h':'no DT')+'</b>'+(e.who?' \u00b7 '+_analEsc(e.who):'')+(e.shift?' \u00b7 '+_analEsc(e.shift):'')+'</div>'+
+          (note?'<div style="font-size:11.5px;color:var(--text-2);margin-top:3px;line-height:1.35">'+_analEsc(note.slice(0,220))+(note.length>220?'\u2026':'')+'</div>':'')+'</div></div>'; });
+      H+=_analCard('<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:14px;font-weight:750">'+_analEsc(a.asset)+'</div><div style="font-size:13px;font-weight:800;color:#dc2626" class="tnum">'+(Math.round(a.dt*100)/100)+'h</div></div>'+evRows); });
+    body.innerHTML=H;
+  }).catch(function(err){ body.innerHTML='<div style="color:var(--bad);padding:30px">Could not load: '+_analEsc(err&&err.message||err)+'</div>'; });
 }
 
 /* =====================================================================
@@ -10143,6 +10188,7 @@ function renderMore(){
     H+='<button onclick="openMachinePareto()" class="btn-ghost" style="padding:13px 8px;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;text-align:center">Machine Pareto</button>';
     H+='<button onclick="openActionPlans()" class="btn-ghost" style="padding:13px 8px;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;text-align:center">Action Plans</button>';
     H+='</div>';
+    H+='<button onclick="openDowntimeByDay()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:7px">Downtime by Day</button>';
   }
   H+='<button onclick="openForkliftMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Forklift Inspection</button>';
   H+='<button onclick="openMaintReqMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Maintenance Request</button>';
