@@ -880,7 +880,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-19c \u00b7 log-edit-fix';
+var APP_BUILD='2026-08-19d \u00b7 techlog-id-fix';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7262,7 +7262,7 @@ function renderTechLog(){
   var now=new Date(), y=now.getFullYear(), mo=now.getMonth();
   var from=(scope==='month')?pmISO(new Date(y,mo,1)):'2000-01-01';
   var to=pmISO(new Date(y,mo+1,0));
-  var cols='date,type,who,with_who,asset_name,asset_code,issue,description,start_time,end_time,downtime_hrs,machine_down,co_mins,co_type,part_name,part_qty,shift,logged_at,priority';
+  var cols='id,date,type,who,with_who,asset_name,asset_code,issue,description,start_time,end_time,downtime_hrs,machine_down,co_mins,co_type,part_name,part_qty,shift,logged_at,priority';
   var q='bbw_worklog?select='+cols+'&date=gte.'+from+'&date=lte.'+to+'&or=(who.eq.'+encodeURIComponent(tech)+',with_who.eq.'+encodeURIComponent(tech)+')&order=logged_at.'+sort;
   sbFetchAll(q).then(function(rows){
     if(!Array.isArray(rows))rows=[];
