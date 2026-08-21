@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-20d \u00b7 partner-fix';
+var APP_BUILD='2026-08-20e \u00b7 workload-pdf-landscape';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6233,7 +6233,7 @@ function openWorkloadTech2(name){
 function _wkLabel(b){ var o={month:'short',day:'numeric'}; try{return b.sd.toLocaleDateString('en-CA',o)+' \u2013 '+b.ed.toLocaleDateString('en-CA',o)+', '+b.ed.getFullYear();}catch(e){return b.start+' \u2013 '+b.end;} }
 function workloadPDF2(){
   if(!WL_DATA2){alert('Open a rotation first');return;} var S=WL_DATA2.S,b=WL_DATA2.bounds;
-  var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; var doc=new JS({unit:'pt',format:'letter'});
+  var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; var doc=new JS({unit:'pt',format:'letter',orientation:'landscape'});
   var RF='helvetica'; try{ if(typeof DEJAVU_REG!=='undefined'){doc.addFileToVFS('DejaVu.ttf',DEJAVU_REG);doc.addFont('DejaVu.ttf','DejaVu','normal');doc.addFileToVFS('DejaVu-Bold.ttf',DEJAVU_BOLD);doc.addFont('DejaVu-Bold.ttf','DejaVu','bold');RF='DejaVu';} }catch(e){}
   var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=40,y=46,GOLD=[200,162,75],INK=[20,20,22],GREY=[120,120,130];
   doc.setFillColor(INK[0],INK[1],INK[2]);doc.rect(0,0,W,6,'F');
@@ -6247,7 +6247,7 @@ function workloadPDF2(){
   y+=58+22;
   function section(t){doc.setFillColor(GOLD[0],GOLD[1],GOLD[2]);doc.rect(M,y-11,4,15,'F');doc.setFont(RF,'bold');doc.setFontSize(14);doc.setTextColor(INK[0],INK[1],INK[2]);doc.text(t,M+11,y);y+=16;}
   section('Workload by Technician');
-  var cols=[['Technician',0,'l'],['Sched',250,'r'],['Logged',310,'r'],['Util %',372,'r'],['Status',420,'l'],['PM',498,'r'],['Corr',536,'r'],['Bkdn',576,'r'],['Insp',616,'r'],['Req',650,'r'],['Logs',W-2*M-4,'r']];
+  var cols=[['Technician',0,'l'],['Sched',240,'r'],['Logged',300,'r'],['Util %',360,'r'],['Status',400,'l'],['PM',500,'r'],['Corr',542,'r'],['Bkdn',584,'r'],['Insp',626,'r'],['Req',668,'r'],['Logs',710,'r']];
   doc.setFont(RF,'bold');doc.setFontSize(8);doc.setTextColor(138,138,146);cols.forEach(function(c){doc.text(c[0].toUpperCase(),M+c[1],y,{align:c[2]==='r'?'right':'left'});});
   y+=6;doc.setDrawColor(226,226,232);doc.setLineWidth(1.2);doc.line(M,y,W-M,y);y+=13;doc.setFont(RF,'normal');doc.setFontSize(9);
   S.list.forEach(function(o){ if(y>H-52){doc.addPage();y=52;} var uc=(o.util==null)?GREY:(o.util>WL_TH.heavy?[194,65,12]:(o.util<WL_TH.low?[79,70,229]:[22,163,74]));
