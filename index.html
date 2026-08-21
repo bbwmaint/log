@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-20b \u00b7 downtime-by-day';
+var APP_BUILD='2026-08-20c \u00b7 edit-refresh';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1872,6 +1872,9 @@ function submitEntry(){
       try{syncEntry(entry);}catch(_e){console.warn('sync threw',_e);}
     }
   }else{entries.push(entry);allE.push(entry);try{syncEntry(entry);}catch(_e){console.warn('sync threw',_e);}}
+  // On edit, refresh every visible copy of this card in place (person-log modal, asset modal, log pane)
+  // so the change shows immediately instead of leaving stale text behind.
+  if(_wasEdit){ try{ var _rn=document.querySelectorAll('.lc[data-id="'+entry.id+'"]'); if(_rn.length){ var _rm=(entry.who===user); Array.prototype.forEach.call(_rn,function(n){ try{ n.outerHTML=card(entry,_rm); }catch(_c){} }); } }catch(_e){} }
   save();
   try{reconcileGroupPMsFromLogs();}catch(_r){}
   closeSheet();renderAll();checkUBanner();
