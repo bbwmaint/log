@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-20c \u00b7 edit-refresh';
+var APP_BUILD='2026-08-20d \u00b7 partner-fix';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3146,7 +3146,7 @@ function syncEntry(e){
     asset_name:e.assetName||null,asset_code:e.assetCode||null,
     issue:e.issue||null,description:e.desc||null,start_time:e.start||null,end_time:e.end||null,
     downtime_hrs:e.dt||0,part_name:e.partName||null,part_qty:e.partQty||null,
-    who:e.who||null,shift_note:e.shiftNote||null,
+    who:e.who||null,with_who:e.withWho||null,shift_note:e.shiftNote||null,
     machine_down:e.machineDown||null,
     co_mins:e.coMins||0,co_type:e.coType||null,photos:JSON.stringify(e.photos||[]),photo:(e.photos&&e.photos[0])||e.photo||null,
     logged_at:e.loggedAt||new Date().toISOString()
@@ -5289,7 +5289,7 @@ function weekStats(data,start,end){
   var topDowntime=dtRows.sort(function(a,b){return b.hrs-a.hrs;}).slice(0,5);
   // Workload by tech (+ hours logged from entry start/end, split PM vs Log)
   var techMap={};
-  entries.forEach(function(e){var w=e.who||'\u2014';techMap[w]=techMap[w]||{tech:w,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};var t=e.type;if(isDone(t))techMap[w].done++;else if(isIssue(t))techMap[w].issue++;else if(t==='part'||t==='parts')techMap[w].parts++;else techMap[w].other++;techMap[w].total++;var lh=entryLaborHrs(e);techMap[w].hours+=lh;if(t==='pm')techMap[w].pmHours+=lh;else techMap[w].logHours+=lh;if(e.withWho){var p=e.withWho;techMap[p]=techMap[p]||{tech:p,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};techMap[p].hours+=lh;if(t==='pm')techMap[p].pmHours+=lh;else techMap[p].logHours+=lh;}});
+  entries.forEach(function(e){var w=e.who||'\u2014';techMap[w]=techMap[w]||{tech:w,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};var t=e.type;if(isDone(t))techMap[w].done++;else if(isIssue(t))techMap[w].issue++;else if(t==='part'||t==='parts')techMap[w].parts++;else techMap[w].other++;techMap[w].total++;var lh=entryLaborHrs(e);techMap[w].hours+=lh;if(t==='pm')techMap[w].pmHours+=lh;else techMap[w].logHours+=lh;var _pp=e.withWho||e.with_who;if(_pp){var p=_pp;techMap[p]=techMap[p]||{tech:p,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};techMap[p].hours+=lh;if(t==='pm')techMap[p].pmHours+=lh;else techMap[p].logHours+=lh;}});
   // Requests closed in-range — counted (not hours), attributed to whoever closed them
   (typeof REQUESTS!=='undefined'?REQUESTS:[]).forEach(function(r){
     if(!r||r.status!=='done'||!r.closed_by||!r.closed_at)return;
