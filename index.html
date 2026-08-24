@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-20g \u00b7 sched-apply-fix';
+var APP_BUILD='2026-08-20h \u00b7 month-nav+date-contrast';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -5461,11 +5461,11 @@ function renderWeekOverlay(){
         tbH+='<div style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-top:1px solid var(--border)">'+
           '<span style="flex:none;width:28px;height:28px;border-radius:50%;background:var(--surface-3);color:var(--text-2);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">'+rqEsc(ini)+'</span>'+
           '<div style="flex:1;min-width:0">'+
-            '<div style="font-size:13px;font-weight:700;color:#fff">'+rqEsc(x.tech)+'</div>'+
+            '<div style="font-size:13px;font-weight:700;color:var(--text)">'+rqEsc(x.tech)+'</div>'+
             '<div style="height:9px;border-radius:6px;overflow:hidden;display:flex;background:var(--surface-3);margin:5px 0 4px"><span style="height:100%;width:'+(pm/bt*100)+'%;background:'+GREEN+'"></span><span style="height:100%;width:'+(log/bt*100)+'%;background:'+BLUE+'"></span></div>'+
             '<div style="font-size:10.5px;color:var(--text-3)">PM '+(Math.round(pm*10)/10)+' \u00b7 Log '+(Math.round(log*10)/10)+' \u00b7 <span style="color:'+AMBER+';font-weight:700">'+req+' req</span></div>'+
           '</div>'+
-          '<div style="text-align:right;flex:none;min-width:52px"><div style="font-size:15px;font-weight:800;color:#fff" class="tnum">'+(Math.round(tot*10)/10)+'<span style="font-size:10px;color:var(--text-3)">h</span></div>'+tr+'</div>'+
+          '<div style="text-align:right;flex:none;min-width:52px"><div style="font-size:15px;font-weight:800;color:var(--text)" class="tnum">'+(Math.round(tot*10)/10)+'<span style="font-size:10px;color:var(--text-3)">h</span></div>'+tr+'</div>'+
           '</div>';
       });
       if(wt.length){ tbH+='<div style="display:flex;justify-content:space-between;padding:10px 4px 2px;border-top:1px solid var(--border-2);margin-top:2px;font-size:11px;color:var(--text-2)"><span>Team total</span><b style="color:#fff">'+(Math.round(totHrs*10)/10)+'h \u00b7 '+totReq+' requests closed</b></div>'; }
@@ -7720,9 +7720,11 @@ function renderTechLog(){
     body.innerHTML=entries.length?('<div style="font-size:11px;color:#9aa0aa;margin-bottom:10px">'+entries.length+' log'+(entries.length!==1?'s':'')+'</div>'+entries.map(function(e){return card(e,false);}).join('')):'<div style="text-align:center;padding:40px;color:#9aa0aa">No logs'+(scope==='month'?' this month':'')+'.</div>';
   }).catch(function(){ var body=gid('techlog-body'); if(body)body.innerHTML='<div style="padding:20px;color:#f87171">Could not load logs.</div>'; });
 }
+var HOME_HH_OFFSET=0; // months back from the current month for the team-hours widget
+function homeHoursShift(d){ HOME_HH_OFFSET=Math.min(0,(HOME_HH_OFFSET||0)+d); try{fillHomeTechHours();}catch(e){} }
 function fillHomeTechHours(){
   var el=gid('home-techhours'); if(!el) return;
-  var now=new Date(), y=now.getFullYear(), mo=now.getMonth();
+  var _off=(HOME_HH_OFFSET||0), now=new Date(), _base=new Date(now.getFullYear(),now.getMonth()+_off,1), y=_base.getFullYear(), mo=_base.getMonth();
   var from=pmISO(new Date(y,mo,1)), to=pmISO(new Date(y,mo+1,0));
   var q='bbw_worklog?select=date,type,who,with_who,start_time,end_time,description&date=gte.'+from+'&date=lte.'+to;
   var qw='bbw_wos?select=completed_by,completed_at,hours_est,hours_spent&status=eq.completed&completed_at=gte.'+from+'&completed_at=lte.'+to+'T23:59:59';
@@ -7743,8 +7745,10 @@ function fillHomeTechHours(){
     var tile=function(c,v,l){return '<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:11px 8px;text-align:center"><div style="font-size:19px;font-weight:800;color:'+c+'">'+v+'</div><div style="font-size:9.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">'+l+'</div></div>';};
     var chip=function(c,l){return '<span style="font-size:11px;color:var(--text-2);font-weight:600;display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:3px;background:'+c+'"></span>'+l+'</span>';};
     var monthName=new Date(y,mo,1).toLocaleString('en-US',{month:'long'})+' '+y;
+    var _nb='width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);font-size:15px;cursor:pointer;line-height:1';
     var H='<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 14px 12px;margin-bottom:14px">'+
-      '<div style="font-size:15px;font-weight:700;color:#fff">This month \u2014 team hours &amp; requests</div>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div style="font-size:15px;font-weight:700;color:var(--text)">Team hours &amp; requests</div>'+
+      '<div style="display:flex;gap:6px"><button onclick="homeHoursShift(-1)" style="'+_nb+'">\u2039</button><button onclick="homeHoursShift(1)" style="'+_nb+(_off>=0?';opacity:.4':'')+'">\u203a</button></div></div>'+
       '<div style="font-size:12px;color:var(--text-3);margin:2px 0 12px">'+monthName+' \u00b7 all technicians</div>'+
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">'+tile(GREEN,(Math.round(totPM*10)/10)+'h','PM hours')+tile(BLUE,(Math.round(totLog*10)/10)+'h','Log hours')+tile(AMBER,(Math.round(totReq*10)/10)+'h','Request hrs')+'</div>'+
       '<div style="display:flex;gap:14px;margin:0 4px 12px">'+chip(GREEN,'PM hours')+chip(BLUE,'Log hours')+chip(AMBER,'Request hrs')+'</div>';
@@ -7758,7 +7762,7 @@ function fillHomeTechHours(){
         '<div style="text-align:right;flex:none;min-width:48px"><div style="font-size:15px;font-weight:800;color:#fff" class="tnum">'+(Math.round(tot*10)/10)+'<span style="font-size:10px;color:var(--text-3)">h</span></div></div>'+
         '</div>';
     });
-    H+='<div style="display:flex;justify-content:space-between;padding:10px 4px 2px;border-top:1px solid var(--border-2);margin-top:2px;font-size:11px;color:var(--text-2)"><span>Month total</span><b style="color:#fff">'+(Math.round((totPM+totLog+totReq)*10)/10)+'h \u00b7 '+(Math.round(totReq*10)/10)+'h requests \u00b7 '+list.length+' techs</b></div>';
+    H+='<div style="display:flex;justify-content:space-between;padding:10px 4px 2px;border-top:1px solid var(--border-2);margin-top:2px;font-size:11px;color:var(--text-2)"><span>Month total</span><b style="color:var(--text)">'+(Math.round((totPM+totLog+totReq)*10)/10)+'h \u00b7 '+(Math.round(totReq*10)/10)+'h requests \u00b7 '+list.length+' techs</b></div>';
     H+='</div>';
     el.innerHTML=H;
   }).catch(function(){});
@@ -11517,8 +11521,8 @@ function openDayEditor(ds){
     H+='<div style="border-top:1px solid var(--border);padding-top:14px"><div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">'+schT('Apply to a date range')+'</div>';
     H+='<div style="font-size:11px;color:var(--text-3);margin-bottom:9px">'+schT('Uses the picks above \u2014 e.g. set a weekly rotation, or mark a week-long vacation in one go.')+'</div>';
     H+='<div style="display:flex;gap:8px;margin-bottom:9px">';
-    H+='<input type="date" id="se-rng-start" value="'+ds+'" style="flex:1;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:9px;font-size:13px;color:#fff;outline:none;color-scheme:dark">';
-    H+='<input type="date" id="se-rng-end" value="'+ds+'" style="flex:1;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:9px;font-size:13px;color:#fff;outline:none;color-scheme:dark">';
+    H+='<input type="date" id="se-rng-start" value="'+ds+'" style="flex:1;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:9px;font-size:13px;color:var(--text);outline:none;color-scheme:light">';
+    H+='<input type="date" id="se-rng-end" value="'+ds+'" style="flex:1;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:9px;font-size:13px;color:var(--text);outline:none;color-scheme:light">';
     H+='</div><div style="display:flex;flex-wrap:wrap;gap:7px">';
     H+='<button onclick="schedApplyRange(\'shifts\')" style="flex:1;min-width:108px;padding:10px;background:#2563eb;border:1px solid #2563eb;color:#fff;font-size:12.5px;font-weight:700;border-radius:9px;cursor:pointer">'+schT('Apply this day')+'</button>';
     H+='<button onclick="schedApplyRange(\'vac\')" style="flex:1;min-width:108px;padding:10px;background:rgba(232,121,249,.14);border:1px solid rgba(232,121,249,.4);color:#e879f9;font-size:12.5px;font-weight:600;border-radius:9px;cursor:pointer">'+schT('Add vacation')+'</button>';
