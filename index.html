@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-20f \u00b7 sched-hours+pdf-logo';
+var APP_BUILD='2026-08-20g \u00b7 sched-apply-fix';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -11520,7 +11520,7 @@ function openDayEditor(ds){
     H+='<input type="date" id="se-rng-start" value="'+ds+'" style="flex:1;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:9px;font-size:13px;color:#fff;outline:none;color-scheme:dark">';
     H+='<input type="date" id="se-rng-end" value="'+ds+'" style="flex:1;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:9px;font-size:13px;color:#fff;outline:none;color-scheme:dark">';
     H+='</div><div style="display:flex;flex-wrap:wrap;gap:7px">';
-    H+='<button onclick="schedApplyRange(\'shifts\')" style="flex:1;min-width:108px;padding:10px;background:var(--surface-2);border:1px solid var(--border-2);color:#fff;font-size:12.5px;font-weight:600;border-radius:9px;cursor:pointer">'+schT('Apply shifts')+'</button>';
+    H+='<button onclick="schedApplyRange(\'shifts\')" style="flex:1;min-width:108px;padding:10px;background:#2563eb;border:1px solid #2563eb;color:#fff;font-size:12.5px;font-weight:700;border-radius:9px;cursor:pointer">'+schT('Apply this day')+'</button>';
     H+='<button onclick="schedApplyRange(\'vac\')" style="flex:1;min-width:108px;padding:10px;background:rgba(232,121,249,.14);border:1px solid rgba(232,121,249,.4);color:#e879f9;font-size:12.5px;font-weight:600;border-radius:9px;cursor:pointer">'+schT('Add vacation')+'</button>';
     H+='<button onclick="schedApplyRange(\'clearvac\')" style="flex:1;min-width:108px;padding:10px;background:transparent;border:1px solid var(--border-2);color:var(--text-2);font-size:12.5px;font-weight:600;border-radius:9px;cursor:pointer">'+schT('Clear vacation')+'</button>';
     H+='<button onclick="schedApplyRange(\'sick\')" style="flex:1;min-width:108px;padding:10px;background:rgba(74,222,128,.14);border:1px solid rgba(74,222,128,.4);color:#4ade80;font-size:12.5px;font-weight:600;border-radius:9px;cursor:pointer">'+schT('Add sick leave')+'</button>';
@@ -11562,7 +11562,11 @@ function schedApplyRange(mode){
   var count=0,guard=0; var SC=curSched();
   while(cur<=end&&guard<400){
     var k=localDateStr(cur); var o=SC[k]||{};
-    if(mode==='shifts'){ o.day=schedJoin(schedEdit.day); o.night=schedJoin(schedEdit.night); }
+    if(mode==='shifts'){ o.day=schedJoin(schedEdit.day); o.night=schedJoin(schedEdit.night);
+      /* also carry over vacation/sick/holiday set in the editor, additively (don't wipe existing) */
+      if(schedEdit.vac&&schedEdit.vac.length){ var _av=(o.vac||[]).slice(); schedEdit.vac.forEach(function(n){if(_av.indexOf(n)<0)_av.push(n);}); o.vac=_av; }
+      if(schedEdit.sick&&schedEdit.sick.length){ var _as=(o.sick||[]).slice(); schedEdit.sick.forEach(function(n){if(_as.indexOf(n)<0)_as.push(n);}); o.sick=_as; }
+      var _ah=(schedEdit.holiday||'').trim(); if(_ah)o.holiday=_ah; }
     else if(mode==='vac'){ var v=(o.vac||[]).slice(); schedEdit.vac.forEach(function(n){ if(v.indexOf(n)<0)v.push(n); }); o.vac=v; }
     else if(mode==='clearvac'){ if(schedEdit.vac.length){ o.vac=(o.vac||[]).filter(function(n){return schedEdit.vac.indexOf(n)<0;}); } else { o.vac=[]; } }
     else if(mode==='sick'){ var sk=(o.sick||[]).slice(); schedEdit.sick.forEach(function(n){ if(sk.indexOf(n)<0)sk.push(n); }); o.sick=sk; }
