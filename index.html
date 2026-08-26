@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-20h \u00b7 month-nav+date-contrast';
+var APP_BUILD='2026-08-20j \u00b7 roster-filters';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6698,7 +6698,7 @@ function renderPMModule(){
   }
   window.__pmEmptyTries=0;
   var types=Array.from(new Set(CMMS_PMS.map(function(p){return p.pm_type;}).filter(Boolean))).sort();
-  var assignees=Array.from(new Set(CMMS_PMS.map(function(p){return p.assignee;}).filter(Boolean))).sort();
+  var assignees=Array.from(new Set(CMMS_PMS.map(function(p){return canonName(p.assignee);}).filter(Boolean).concat(typeof TECHS!=='undefined'?TECHS:[]))).sort();
   var H='';
   H+='<div style="display:flex;gap:8px;margin-bottom:10px">';
   H+='<input id="pm-search" value="'+CMMS_FILTER.q.replace(/"/g,'&quot;')+'" oninput="CMMS_FILTER.q=this.value;debRender(\'cmms\',cmmsRenderPMList)" placeholder="Search code, asset, description\u2026" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;color:var(--text);font-size:14px;outline:none">';
@@ -6724,7 +6724,7 @@ function pmFilter(){
     if(f.status==='active'&&p.active===false)return false;
     if(f.status==='paused'&&p.active!==false)return false;
     if(f.type&&p.pm_type!==f.type)return false;
-    if(f.assignee&&p.assignee!==f.assignee)return false;
+    if(f.assignee&&!sameTech(p.assignee,f.assignee))return false;
     if(q){var hay=((p.code||'')+' '+(p.asset||'')+' '+(p.asset_code||'')+' '+(p.description||'')+' '+(p.freq||'')).toLowerCase();if(hay.indexOf(q)<0)return false;}
     return true;
   }).sort(pmSortFn);
@@ -6750,11 +6750,19 @@ function pmSortFn(a,b){
   var da=a.next_due||'9999-99-99', db=b.next_due||'9999-99-99';
   return da.localeCompare(db) || byName();
 }
+// A PM's stored next_due can go stale if it was completed outside the WO "Complete" flow
+// (e.g. logged as free text). Compute the effective next due from completion history so the
+// chip agrees with the work-order engine instead of showing a phantom "Overdue".
+var _PM_DONE_IDX=null;
+function pmBuildDoneIdx(){ var idx={}; (typeof WOS!=='undefined'&&WOS?WOS:[]).forEach(function(w){ if(!w||w.status!=='completed')return; var d=(''+(w.completed_at||w.updated_at||w.due_date||'')).slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return; [w.pm_code,w.pm_id].forEach(function(k){ if(!k)return; if(!idx[k]||d>idx[k])idx[k]=d; }); }); _PM_DONE_IDX=idx; return idx; }
+function pmLastDone(p){ var idx=_PM_DONE_IDX||pmBuildDoneIdx(); var ld=null; [p.code,p.id].forEach(function(k){ if(k&&idx[k]&&(!ld||idx[k]>ld))ld=idx[k]; }); if(p.last_done){ var pl=(''+p.last_done).slice(0,10); if(!ld||pl>ld)ld=pl; } return ld; }
+function pmEffectiveNextDue(p){ var ld=pmLastDone(p); if(!ld)return p.next_due||null; if(p.freq){ var eff=pmAdvanceISO(p.freq,ld); return eff||(p.next_due||null); } if(p.next_due&&p.next_due>ld)return p.next_due; return null; }
 function pmDueChip(p){
-  if(!p.next_due)return '';
-  var today=pmISO(new Date()); var overdue=pmIsOverdue(p.next_due,today); var soon=p.next_due===today;
+  var nd=pmEffectiveNextDue(p);
+  if(!nd)return '';
+  var today=pmISO(new Date()); var overdue=pmIsOverdue(nd,today); var soon=nd===today;
   var col=overdue?'#f87171':(soon?'#fbbf24':'var(--text-3)');
-  var lbl=overdue?'Overdue '+p.next_due:(soon?'Due today':'Due '+p.next_due);
+  var lbl=overdue?'Overdue '+nd:(soon?'Due today':'Due '+nd);
   return '<span style="color:'+col+';font-size:11px;font-weight:600">'+lbl+'</span>';
 }
 function cmmsRenderPMList(){
@@ -6766,6 +6774,7 @@ function cmmsRenderPMList(){
   }
 }
 function cmmsRenderPMListInner(host){
+  try{pmBuildDoneIdx();}catch(_e){}
   var list=pmFilter();
   if(!list.length){host.innerHTML='<div style="color:var(--text-3);text-align:center;padding:30px;font-size:13px">No PMs match.</div>';return;}
   host.innerHTML='<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">'+list.length+' PM'+(list.length>1?'s':'')+'</div>'+list.map(function(p){
@@ -7051,7 +7060,7 @@ function renderWOModule(){
   host.innerHTML='<div style="text-align:center;color:var(--text-3);padding:24px;font-size:13px">Loading work orders\u2026</div>';
   generateWOs().then(function(){return loadWOs(true);}).then(function(){
     try{reconcileGroupPMsFromLogs();}catch(_r){}
-    var assignees=Array.from(new Set(WOS.map(function(w){return w.assignee;}).filter(Boolean))).sort();
+    var assignees=Array.from(new Set(WOS.map(function(w){return canonName(w.assignee);}).filter(Boolean).concat(typeof TECHS!=='undefined'?TECHS:[]))).sort();
     var H='';
     H+='<div style="display:flex;gap:8px;margin-bottom:11px">';
     H+='<button onclick="doGenerateWOs(this)" class="btn-primary" style="flex:1;padding:11px;font-size:13px">Generate due WOs</button>';
@@ -7080,7 +7089,7 @@ function woFilter(){
   var _today=pmISO(new Date());
   return WOS.filter(function(w){
     if(WO_FILTER.status!=='all'&&w.status!==WO_FILTER.status)return false;
-    if(WO_FILTER.assignee&&w.assignee!==WO_FILTER.assignee)return false;
+    if(WO_FILTER.assignee&&!sameTech(w.assignee,WO_FILTER.assignee))return false;
     // Group ('Technicians') PMs are schedule-driven and today-only: a daily/scheduled
     // group check that wasn't done on its day is moot, so hide stale past-due OPEN ones
     // instead of letting them pile up. Data is untouched; completed history still shows.
