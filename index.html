@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='2026-08-20k \u00b7 clicklogs+drag';
+var APP_BUILD='BBW CMMS build v101';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -5935,7 +5935,7 @@ function reportPDF(C,b,titleText,subtitle,fileTag){
     doc.setPage(p);
     dc(HAIR);doc.setLineWidth(.6);doc.line(M,H-42,W-M,H-42);
     T('Brunswick Bierworks \u2014 Maintenance',M,H-30,8,'normal',SUB);
-    T('Generated '+gen+'   \u00b7   build '+(typeof APP_BUILD!=='undefined'?APP_BUILD:'?')+'   \u00b7   Page '+p+' of '+pages,W-M,H-30,8,'normal',SUB,'right');
+    T('Generated '+gen+'   \u00b7   '+(typeof APP_BUILD!=='undefined'?APP_BUILD:'?')+'   \u00b7   Page '+p+' of '+pages,W-M,H-30,8,'normal',SUB,'right');
   }
   doc.save((fileTag||'BBW_Report')+'.pdf');
 }
@@ -7725,8 +7725,32 @@ function renderTechLog(){
     if(!Array.isArray(rows))rows=[];
     var entries=rows.map(wlRowToEntry);
     entries.sort(function(a,b){var av=''+(a.loggedAt||a.date||''),bv=''+(b.loggedAt||b.date||'');return sort==='asc'?av.localeCompare(bv):bv.localeCompare(av);});
+    // Flag likely duplicate rows so inflated hours are easy to spot and clean up.
+    // Signature = same date + start + end + description (+ asset), ignoring status —
+    // the classic dup is one 'pending' and one 'completed' copy of the same span.
+    var _sigCnt={};
+    function _dupSig(e){
+      var d=(e.date||''), s=(e.start||''), en=(e.end||''),
+          ds=(''+(e.desc||'')).trim().toLowerCase(),
+          as=(''+(e.assetName||'')).trim().toLowerCase();
+      if(!ds && !s && !en) return '';            // too little to judge -> don't flag
+      return d+'|'+s+'|'+en+'|'+ds+'|'+as;
+    }
+    entries.forEach(function(e){ var k=_dupSig(e); if(k)_sigCnt[k]=(_sigCnt[k]||0)+1; });
+    var _dupN=0; entries.forEach(function(e){ var k=_dupSig(e); if(k&&_sigCnt[k]>1)_dupN++; });
     var body=gid('techlog-body'); if(!body)return;
-    body.innerHTML=entries.length?('<div style="font-size:11px;color:#9aa0aa;margin-bottom:10px">'+entries.length+' log'+(entries.length!==1?'s':'')+'</div>'+entries.map(function(e){return card(e,false);}).join('')):'<div style="text-align:center;padding:40px;color:#9aa0aa">No logs'+(scope==='month'?' this month':'')+'.</div>';
+    var _hdr='<div style="font-size:11px;color:#9aa0aa;margin-bottom:10px">'+entries.length+' log'+(entries.length!==1?'s':'')+
+             (_dupN?' \u00b7 <span style="color:#b45309;font-weight:700">'+_dupN+' possible duplicate'+(_dupN!==1?'s':'')+'</span>':'')+'</div>';
+    body.innerHTML=entries.length?(_hdr+entries.map(function(e){
+        var k=_dupSig(e), isDup=(k&&_sigCnt[k]>1), c=card(e,false);
+        if(!isDup) return c;
+        return '<div style="display:flex;align-items:stretch;gap:7px">'+
+                 '<div style="flex:1;min-width:0">'+c+'</div>'+
+                 '<div style="flex:0 0 auto;display:flex;align-items:flex-start;padding-top:2px">'+
+                   '<div title="Same date, time and description as another entry \u2014 likely a duplicate" style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;font-weight:800;letter-spacing:.09em;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:7px;padding:9px 4px">DUPLICATE ENTRY</div>'+
+                 '</div>'+
+               '</div>';
+      }).join('')):'<div style="text-align:center;padding:40px;color:#9aa0aa">No logs'+(scope==='month'?' this month':'')+'.</div>';
   }).catch(function(){ var body=gid('techlog-body'); if(body)body.innerHTML='<div style="padding:20px;color:#f87171">Could not load logs.</div>'; });
 }
 var HOME_HH_OFFSET=0; // months back from the current month for the team-hours widget
@@ -8096,7 +8120,7 @@ function renderHome(){
 
   H+='<div id="home-techhours"></div>';
   H+='<div onclick="forceUpdateApp()" style="text-align:center;font-size:9.5px;color:var(--text-3);'+
-     'font-family:ui-monospace,monospace;padding:16px 0 6px;cursor:pointer">build '+APP_BUILD+'</div>';
+     'font-family:ui-monospace,monospace;padding:16px 0 6px;cursor:pointer">'+APP_BUILD+'</div>';
   H+='</div>';   // close .hm-wrap
   el.innerHTML=H;
   try{fillHomeTechHours();}catch(e){}
@@ -10203,7 +10227,7 @@ function renderMore(){
   var isAdmin=user===ADMIN;
   var month=new Date().getMonth();
   var H='';
-  H+='<div onclick="dangerTap()" style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace;cursor:default;user-select:none">build '+BUILD+'</div>';
+  H+='<div onclick="dangerTap()" style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace;cursor:default;user-select:none">'+BUILD+'</div>';
   if(EDITORS.indexOf(user)>=0){
     H+='<button onclick="openDashboard()" class="btn-primary" style="width:100%;padding:15px;font-size:15px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">'+T('Maintenance Dashboard')+'</button>';
     H+='<button onclick="openWeekDashboard()" class="btn-ghost" style="width:100%;padding:14px;font-size:14px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:8px">Weekly stats</button>';
@@ -10483,10 +10507,23 @@ function clearAll(){
   renderAll();
 }
 
+// Technicians credited on a shift: the primary logger (who) AND any "worked with"
+// partner (withWho), so adding a second tech to a log surfaces them in the report.
+// Names are canonicalised (Akshaylal -> Akshay) so the same person isn't listed twice.
+function reportTechs(list){
+  var seen={}, out=[];
+  (list||[]).forEach(function(e){
+    [e.who, e.withWho].forEach(function(n){
+      if(!n)return; var c=canonName(n);
+      if(!seen[c]){ seen[c]=1; out.push(c); }
+    });
+  });
+  return out;
+}
 function buildReport(){
   var cur=allE.filter(function(e){return e.date===shiftAnchor()&&e.shift===(isDay()?'Day':'Night');});
   cur.sort(function(a,b){return (a.loggedAt||'').localeCompare(b.loggedAt||'');});
-  var techs=[...new Set(cur.map(function(e){return e.who;}))].filter(Boolean);
+  var techs=reportTechs(cur);
   var dt=cur.reduce(function(a,e){return a+(e.dt||0);},0).toFixed(1);
   var note=gid('snote')?gid('snote').value:'';
   var SEP='='.repeat(50); var DIV='-'.repeat(30);
@@ -10560,7 +10597,7 @@ function generateAndSendReport(){
 function computeShiftReport(date,shift){
   var se=allE.filter(function(e){return e.date===date&&e.shift===shift;});
   se.sort(function(a,b){return (a.loggedAt||'').localeCompare(b.loggedAt||'');});
-  var techs=[...new Set(se.map(function(e){return e.who;}))].filter(Boolean);
+  var techs=reportTechs(se);
   var dtEvents=se.filter(function(e){return (e.machineDown==='yes'||e.machineDown==='partial')&&(e.dt||0)>0;});
   var totalDT=dtEvents.reduce(function(a,e){return a+(e.dt||0);},0);
   var coEvents=se.filter(function(e){return (e.coMins||0)>0;});
@@ -10788,7 +10825,7 @@ function buildReportPDF(R){
   var pages=doc.internal.getNumberOfPages();
   for(var p=1;p<=pages;p++){ doc.setPage(p);
     doc.setTextColor(160,160,160); doc.setFont(RF,'normal'); doc.setFontSize(8);
-    doc.text('Generated '+new Date().toLocaleString('en-CA')+'  \u00b7  build '+(typeof APP_BUILD!=='undefined'?APP_BUILD:'?')+(R.translated?'  \u00b7  Ukrainian entries auto-translated':''),M,doc.internal.pageSize.getHeight()-18);
+    doc.text('Generated '+new Date().toLocaleString('en-CA')+'  \u00b7  '+(typeof APP_BUILD!=='undefined'?APP_BUILD:'?')+(R.translated?'  \u00b7  Ukrainian entries auto-translated':''),M,doc.internal.pageSize.getHeight()-18);
     doc.text('Page '+p+' of '+pages,W-M,doc.internal.pageSize.getHeight()-18,{align:'right'});
   }
   return doc.output('blob');
@@ -11139,7 +11176,7 @@ if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
     navigator.serviceWorker.register('sw.js')
       .then(function(reg){
-        console.log('SW registered, build '+APP_BUILD);
+        console.log('SW registered, '+APP_BUILD);
         try{ reg.update(); }catch(e){}
         setInterval(function(){ try{ reg.update(); }catch(e){} }, 60*60*1000);
         reg.addEventListener('updatefound', function(){
