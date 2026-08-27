@@ -199,7 +199,7 @@ async function fetchUpcomingCOs(target) {
 /** Shape rows exactly like the app's computeShiftReport() so the PDF matches. */
 export function buildR(date, shift, rows) {
   const se = rows.map(r => ({
-    type: r.type, who: r.who || '', assetName: r.asset_name || '', assetCode: r.asset_code || '',
+    type: r.type, who: r.who || '', withWho: r.with_who || '', assetName: r.asset_name || '', assetCode: r.asset_code || '',
     issue: r.issue || '', desc: r.description || '', start: r.start_time || '', end: r.end_time || '',
     dt: +r.downtime_hrs || 0, machineDown: r.machine_down || '', coMins: +r.co_mins || 0,
     coType: r.co_type || '', partName: r.part_name || '', partQty: r.part_qty || '1',
@@ -213,7 +213,15 @@ export function buildR(date, shift, rows) {
   const coEvents = se.filter(e => e.coMins > 0);
   return {
     date, shift, se,
-    techs: [...new Set(se.map(e => e.who))].filter(Boolean),
+    // Credit the primary logger AND any "worked with" partner, canonicalised
+    // (Akshaylal -> Akshay) so the same person isn't listed twice — matches the app.
+    techs: (() => {
+      const NAME_ALIAS = { 'Akshaylal': 'Akshay' };
+      const canon = n => { n = String(n == null ? '' : n).replace(/\u00a0/g, ' ').trim(); return NAME_ALIAS[n] || n; };
+      const seen = {}, out = [];
+      se.forEach(e => [e.who, e.withWho].forEach(n => { if (!n) return; const c = canon(n); if (!seen[c]) { seen[c] = 1; out.push(c); } }));
+      return out;
+    })(),
     dtEvents, totalDT: dtEvents.reduce((a, e) => a + e.dt, 0),
     coEvents, totalCO: coEvents.reduce((a, e) => a + e.coMins, 0),
     coTypes: [...new Set(coEvents.map(e => e.coType).filter(Boolean))],
