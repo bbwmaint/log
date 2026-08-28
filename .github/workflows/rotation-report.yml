@@ -1,0 +1,60 @@
+name: BBW rotation report
+
+# Runs after each rotation. Like the shift report, scheduling is driven from
+# Supabase pg_cron (which triggers this workflow via the API); you can also run
+# it by hand from the Actions tab. Leave start/end blank to use the last
+# ROTATION_DAYS days (default 14) ending on today's Toronto date.
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: 'Rotation start (YYYY-MM-DD) — blank = end minus ROTATION_DAYS'
+        required: false
+      end:
+        description: 'Rotation end (YYYY-MM-DD) — blank = today (Toronto)'
+        required: false
+      days:
+        description: 'Rotation length in days (overrides ROTATION_DAYS)'
+        required: false
+      dry_run:
+        description: 'Print the email instead of sending it'
+        type: boolean
+        default: false
+      force:
+        description: 'Send again even if this window was already sent'
+        type: boolean
+        default: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install PDF libraries
+        run: npm install --no-audit --no-fund
+      - name: Send rotation report
+        env:
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
+          EMAILJS_PUBLIC_KEY:  ${{ secrets.EMAILJS_PUBLIC_KEY }}
+          EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
+          EMAILJS_SERVICE:     ${{ vars.EMAILJS_SERVICE  || 'service_q7rtzse' }}
+          EMAILJS_TEMPLATE:    ${{ vars.EMAILJS_TEMPLATE || 'template_i01whhv' }}
+          # Editors ONLY. Set repo variable ROTATION_TO to a comma-separated list,
+          # e.g. "praful@brunswickbierworks.com,lahcen@brunswickbierworks.com".
+          # There is deliberately NO fallback to the maintenance inbox.
+          ROTATION_TO:         ${{ vars.ROTATION_TO }}
+          ROTATION_DAYS:       ${{ vars.ROTATION_DAYS || '4' }}
+          # 4-day A-B/C-D rotation, same anchor as the app's Rotation Stats tab.
+          ROTATION_ANCHOR:     ${{ vars.ROTATION_ANCHOR || '2026-08-05' }}
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.start }}" ]; then ARGS="$ARGS --start ${{ github.event.inputs.start }}"; fi
+          if [ -n "${{ github.event.inputs.end }}" ];   then ARGS="$ARGS --end ${{ github.event.inputs.end }}"; fi
+          if [ -n "${{ github.event.inputs.days }}" ];  then ARGS="$ARGS --days ${{ github.event.inputs.days }}"; fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ "${{ github.event.inputs.force }}"   = "true" ]; then ARGS="$ARGS --force"; fi
+          node scripts/rotation-report.mjs $ARGS
