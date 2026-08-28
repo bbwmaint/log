@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v101';
+var APP_BUILD='BBW CMMS build v102';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7766,11 +7766,11 @@ function fillHomeTechHours(){
     function lab(s,e){var a=hhmmToMin(s),b=hhmmToMin(e);if(a==null||b==null)return 0;var d=b-a;if(d<0)d+=1440;if(d<=0||d>1440)return 0;return d/60;}
     var tm={}; var REQ_HRS=0.5; // each closed maintenance request counts as 30 min of work
     function _ensure(n){ tm[n]=tm[n]||{tech:n,pm:0,log:0,req:0}; return tm[n]; }
-    rows.forEach(function(r){var lh=lab(r.start_time,r.end_time);var bucket=(r.type==='pm')?(/^PM\s/.test(r.description||'')?null:'pm'):'log';if(!bucket)return;if(bucket==='log'&&/^Reported by/i.test(r.description||''))return; /* request-derived log: counted as request hours below, not Log */ [r.who||'\u2014',r.with_who].forEach(function(name){if(!name)return;_ensure(name)[bucket]+=lh;});});
+    rows.forEach(function(r){var lh=lab(r.start_time,r.end_time);var bucket=(r.type==='pm')?(/^PM\s/.test(r.description||'')?null:'pm'):'log';if(!bucket)return;if(bucket==='log'&&/^Reported by/i.test(r.description||''))return; /* request-derived log: counted as request hours below, not Log */ [r.who||'\u2014',r.with_who].forEach(function(name){if(!name)return;_ensure(canonName(name))[bucket]+=lh;});});
     // PM hours come from completed work orders (authoritative: hours + who + when, incl. historical).
-    wos.forEach(function(o){var w2=o.completed_by;if(!w2)return;var h=parseFloat(o.hours_spent);if(!(h>0))h=parseFloat(o.hours_est);if(!(h>0))h=0.25;_ensure(w2).pm+=h;});
+    wos.forEach(function(o){var w2=o.completed_by;if(!w2)return;var h=parseFloat(o.hours_spent);if(!(h>0))h=parseFloat(o.hours_est);if(!(h>0))h=0.25;_ensure(canonName(w2)).pm+=h;});
     // Each closed request = 30 min credited to whoever closed it, folded into hours (not a bare count).
-    (typeof REQUESTS!=='undefined'?REQUESTS:[]).forEach(function(r){if(!r||r.status!=='done'||!r.closed_by||!r.closed_at)return;var d=(''+r.closed_at).slice(0,10);if(d<from||d>to)return;_ensure(r.closed_by).req+=REQ_HRS;});
+    (typeof REQUESTS!=='undefined'?REQUESTS:[]).forEach(function(r){if(!r||r.status!=='done'||!r.closed_by||!r.closed_at)return;var d=(''+r.closed_at).slice(0,10);if(d<from||d>to)return;_ensure(canonName(r.closed_by)).req+=REQ_HRS;});
     var list=Object.keys(tm).map(function(k){return tm[k];}).sort(function(a,b){return (b.pm+b.log+b.req)-(a.pm+a.log+a.req);});
     if(!list.length){ el.innerHTML=''; return; }
     var GREEN='#34d399',BLUE='#60a5fa',AMBER='#fbbf24', totPM=0,totLog=0,totReq=0;
