@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v106';
+var APP_BUILD='BBW CMMS build v107';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7763,7 +7763,7 @@ function renderTechLog(){
 var _homeDrill=null;
 function closeHomeDrill(){ var m=gid('homedrill-modal'); if(m&&m.parentNode)m.parentNode.removeChild(m); }
 function homeOpenPart(f){ try{ closeHomeDrill(); showTab('inventory'); if(f&&typeof invOpenFolder==='function')invOpenFolder(f); }catch(e){} }
-function homeDrill(kind,key){ _homeDrill={kind:kind,key:key||'',tab:(kind==='month'?'done':'')}; renderHomeDrill(); }
+function homeDrill(kind,key){ _homeDrill={kind:kind,key:key||'',tab:(kind==='month'?'done':(kind==='due'?'all':''))}; renderHomeDrill(); }
 function homeDrillTab(t){ if(_homeDrill){ _homeDrill.tab=t; renderHomeDrill(); } }
 function _hdMonthName(k){ try{ var p=(''+k).split('-'); return new Date(+p[0],+p[1]-1,1).toLocaleDateString('en-CA',{month:'long',year:'numeric'}); }catch(e){ return k; } }
 function _hdOnTime(w){ try{ return pmCompletedOnTime(w.due_date,(''+(w.completed_at||'')).slice(0,10)); }catch(e){ return true; } }
@@ -7825,16 +7825,19 @@ function renderHomeDrill(){
     var duel=[]; try{ duel=(typeof mwDue==='function')?(mwDue()||[]):[]; }catch(e){ duel=[]; }
     var tISO=pmISO(new Date());
     duel=duel.slice().sort(function(a,b){return (''+(a.due_date||'')).localeCompare(''+(b.due_date||''));});
-    var ovN=duel.filter(function(w){try{return pmIsOverdue(w.due_date,tISO);}catch(e){return false;}}).length;
-    title='Tasks due'; sub=duel.length+' due \u00b7 '+ovN+' overdue';
-    body=duel.length?duel.map(function(w){
+    var over=duel.filter(function(w){try{return pmIsOverdue(w.due_date,tISO);}catch(e){return false;}});
+    title='Tasks due'; sub=duel.length+' due \u00b7 '+over.length+' overdue';
+    var sgd=function(t,lbl){ var on=(tab===t); return '<div onclick="homeDrillTab(\''+t+'\')" style="flex:1;text-align:center;font-size:12px;font-weight:700;padding:7px;border-radius:8px;cursor:pointer;'+(on?'background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.06)':'color:var(--text-3)')+'">'+lbl+'</div>'; };
+    seg='<div style="display:flex;gap:4px;background:var(--surface-2);border-radius:10px;padding:3px;margin:12px 0 2px">'+sgd('all','All due '+duel.length)+sgd('overdue','Overdue '+over.length)+'</div>';
+    var listw=(tab==='overdue')?over:duel;
+    body=listw.length?listw.map(function(w){
       var od=false; try{od=pmIsOverdue(w.due_date,tISO);}catch(e){}
       var asset=rqEsc(w.asset||w.asset_code||'\u2014');
       var desc=rqEsc((typeof pmDescFor==='function'&&pmDescFor(w))||w.description||w.pm_code||'');
       var who=rqEsc(w.assignee||'');
       var chip='<span style="font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:20px;letter-spacing:.03em;'+(od?'background:rgba(220,38,38,.13);color:#dc2626':'background:rgba(217,119,6,.14);color:#c88a12')+'">'+(od?'OVERDUE':'DUE')+'</span>';
       return '<div onclick="try{closeHomeDrill();openPMTask('+(+w.id||0)+');}catch(e){}" style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+desc+'</div><div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+(who?' \u00b7 '+who:'')+'</div></div><div style="flex:none;text-align:right">'+chip+'<div style="font-size:10.5px;color:var(--text-3);margin-top:4px">'+(''+(w.due_date||'')).slice(0,10)+'</div></div></div>';
-    }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">Nothing due.</div>';
+    }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">'+(tab==='overdue'?'Nothing overdue.':'Nothing due.')+'</div>';
   } else if(kind==='requests'){
     var rq=((typeof REQUESTS!=='undefined'&&REQUESTS)?REQUESTS:[]).filter(function(x){return x&&x.status!=='done';});
     rq=rq.slice().sort(function(a,b){return (''+(b.created_at||'')).localeCompare(''+(a.created_at||''));});
