@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v104';
+var APP_BUILD='BBW CMMS build v105';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7685,12 +7685,12 @@ function statsLoad(cb){
   STATS.loading=true;
   var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-12);
   var from=pmISO(d);
-  var base='bbw_worklog?select=date,downtime_hrs,machine_down,type,asset_name&date=gte.'+from+'&order=date.asc';
+  var base='bbw_worklog?select=id,date,downtime_hrs,machine_down,type,asset_name&date=gte.'+from+'&order=date.asc';
   sbFetchAll(base).then(function(rows){
       STATS.loading=false;
       STATS.key=key; STATS.at=Date.now();
       STATS.rows=rows.map(function(r){
-        return { date:r.date||'', dt:(parseFloat(r.downtime_hrs)||0),
+        return { id:r.id, date:r.date||'', dt:(parseFloat(r.downtime_hrs)||0),
                  md:(r.machine_down==='yes'||r.machine_down==='partial'),
                  type:r.type||'', asset:r.asset_name||'General' };
       });
@@ -7817,7 +7817,8 @@ function renderHomeDrill(){
     title='Downtime \u00b7 '+_hdMonthName(mo); sub=(Math.round(tot*10)/10)+'h across '+ev.length+' event'+(ev.length!==1?'s':'');
     body=ev.length?ev.map(function(r){
       var asset=rqEsc(r.asset||'\u2014'), hrs=(Math.round((r.dt||0)*10)/10), dtx=(''+(r.date||'')).slice(0,10);
-      return '<div style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+'</div><div style="font-size:11px;color:var(--text-3)">'+dtx+'</div></div><div style="flex:none;font-size:14px;font-weight:800;color:#dc2626">'+hrs+'h</div></div>';
+      var hasId=(r.id!=null&&r.id!==''); var op=hasId?(' onclick="try{closeHomeDrill();openLogById('+(+r.id||0)+');}catch(e){}"'):'';
+      return '<div'+op+' style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border)'+(hasId?';cursor:pointer':'')+'"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+'</div><div style="font-size:11px;color:var(--text-3)">'+dtx+'</div></div><div style="flex:none;font-size:14px;font-weight:800;color:#dc2626">'+hrs+'h</div></div>';
     }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">No downtime logged this month.</div>';
   }
   host.innerHTML='<div onclick="if(event.target===this)closeHomeDrill()" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:660;display:flex;align-items:flex-end;justify-content:center">'+
