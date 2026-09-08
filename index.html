@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v105';
+var APP_BUILD='BBW CMMS build v106';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7762,6 +7762,7 @@ function renderTechLog(){
 //    Reads the in-memory WOS / STATS so the list always matches what's charted.
 var _homeDrill=null;
 function closeHomeDrill(){ var m=gid('homedrill-modal'); if(m&&m.parentNode)m.parentNode.removeChild(m); }
+function homeOpenPart(f){ try{ closeHomeDrill(); showTab('inventory'); if(f&&typeof invOpenFolder==='function')invOpenFolder(f); }catch(e){} }
 function homeDrill(kind,key){ _homeDrill={kind:kind,key:key||'',tab:(kind==='month'?'done':'')}; renderHomeDrill(); }
 function homeDrillTab(t){ if(_homeDrill){ _homeDrill.tab=t; renderHomeDrill(); } }
 function _hdMonthName(k){ try{ var p=(''+k).split('-'); return new Date(+p[0],+p[1]-1,1).toLocaleDateString('en-CA',{month:'long',year:'numeric'}); }catch(e){ return k; } }
@@ -7820,6 +7821,41 @@ function renderHomeDrill(){
       var hasId=(r.id!=null&&r.id!==''); var op=hasId?(' onclick="try{closeHomeDrill();openLogById('+(+r.id||0)+');}catch(e){}"'):'';
       return '<div'+op+' style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border)'+(hasId?';cursor:pointer':'')+'"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+'</div><div style="font-size:11px;color:var(--text-3)">'+dtx+'</div></div><div style="flex:none;font-size:14px;font-weight:800;color:#dc2626">'+hrs+'h</div></div>';
     }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">No downtime logged this month.</div>';
+  } else if(kind==='due'){
+    var duel=[]; try{ duel=(typeof mwDue==='function')?(mwDue()||[]):[]; }catch(e){ duel=[]; }
+    var tISO=pmISO(new Date());
+    duel=duel.slice().sort(function(a,b){return (''+(a.due_date||'')).localeCompare(''+(b.due_date||''));});
+    var ovN=duel.filter(function(w){try{return pmIsOverdue(w.due_date,tISO);}catch(e){return false;}}).length;
+    title='Tasks due'; sub=duel.length+' due \u00b7 '+ovN+' overdue';
+    body=duel.length?duel.map(function(w){
+      var od=false; try{od=pmIsOverdue(w.due_date,tISO);}catch(e){}
+      var asset=rqEsc(w.asset||w.asset_code||'\u2014');
+      var desc=rqEsc((typeof pmDescFor==='function'&&pmDescFor(w))||w.description||w.pm_code||'');
+      var who=rqEsc(w.assignee||'');
+      var chip='<span style="font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:20px;letter-spacing:.03em;'+(od?'background:rgba(220,38,38,.13);color:#dc2626':'background:rgba(217,119,6,.14);color:#c88a12')+'">'+(od?'OVERDUE':'DUE')+'</span>';
+      return '<div onclick="try{closeHomeDrill();openPMTask('+(+w.id||0)+');}catch(e){}" style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+desc+'</div><div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+(who?' \u00b7 '+who:'')+'</div></div><div style="flex:none;text-align:right">'+chip+'<div style="font-size:10.5px;color:var(--text-3);margin-top:4px">'+(''+(w.due_date||'')).slice(0,10)+'</div></div></div>';
+    }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">Nothing due.</div>';
+  } else if(kind==='requests'){
+    var rq=((typeof REQUESTS!=='undefined'&&REQUESTS)?REQUESTS:[]).filter(function(x){return x&&x.status!=='done';});
+    rq=rq.slice().sort(function(a,b){return (''+(b.created_at||'')).localeCompare(''+(a.created_at||''));});
+    var todayS=pmISO(new Date()); var nt=rq.filter(function(x){return (''+(x.created_at||'')).slice(0,10)===todayS;}).length;
+    title='Open requests'; sub=rq.length+' open \u00b7 '+nt+' new today';
+    body=rq.length?rq.map(function(x){
+      var asset=rqEsc(x.asset_name||x.asset||'\u2014');
+      var txt=rqEsc(x.issue||x.description||'\u2014');
+      var pr=x.priority?('<span style="font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:20px;background:var(--surface-2);color:var(--text-2)">'+rqEsc((''+x.priority).toUpperCase())+'</span>'):'';
+      return '<div onclick="try{closeHomeDrill();openRequest('+(+x.id||0)+');}catch(e){}" style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+txt+'</div><div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+'</div></div><div style="flex:none;text-align:right">'+pr+'<div style="font-size:10.5px;color:var(--text-3);margin-top:4px">'+(''+(x.created_at||'')).slice(0,10)+'</div></div></div>';
+    }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">No open requests.</div>';
+  } else if(kind==='parts'){
+    var low=((typeof INV!=='undefined'&&INV)?INV:[]).filter(function(i){try{return invIsLow(i);}catch(e){return false;}});
+    low=low.slice().sort(function(a,b){return (parseFloat(a.qty)||0)-(parseFloat(b.qty)||0);});
+    title='Parts below min'; sub=low.length+' below minimum';
+    body=low.length?low.map(function(i){
+      var nm=rqEsc(i.name||i.part||'\u2014'); var loc=rqEsc(i.location||i.folder||'');
+      var q=(parseFloat(i.qty)||0), m=(parseFloat(i.min_qty)||0);
+      var fold=(''+(i.folder||'')).replace(/['"\\<>]/g,'');
+      return '<div onclick="homeOpenPart(\''+fold+'\')" style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+nm+'</div><div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+loc+'</div></div><div style="flex:none;text-align:right"><span style="font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:20px;background:rgba(220,38,38,.13);color:#dc2626">'+q+' / '+m+'</span></div></div>';
+    }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">Everything stocked.</div>';
   }
   host.innerHTML='<div onclick="if(event.target===this)closeHomeDrill()" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:660;display:flex;align-items:flex-end;justify-content:center">'+
     '<div style="background:var(--surface);width:100%;max-width:640px;border-top-left-radius:20px;border-top-right-radius:20px;box-shadow:0 -8px 30px rgba(16,16,24,.18);max-height:86vh;display:flex;flex-direction:column">'+
@@ -7999,7 +8035,7 @@ function renderHome(){
   if(overdue.length){
     var names=overdue.slice(0,2).map(function(w){return rqEsc(pmDescFor(w)||w.pm_code||'');}).join(' \u00b7 ');
     if(overdue.length>2)names+=' \u00b7 +'+(overdue.length-2);
-    H+='<div onclick="showTab(\'cmms\')" style="display:flex;align-items:center;gap:11px;'+
+    H+='<div onclick="homeDrill(\'due\')" style="display:flex;align-items:center;gap:11px;'+
        'background:rgba(220,38,38,.10);border:1px solid rgba(220,38,38,.28);border-radius:12px;'+
        'padding:10px 13px;margin-bottom:11px;cursor:pointer">'+
        '<span style="color:var(--bad);display:flex;flex-shrink:0">'+homeIco(I_ALERT,17,1.9)+'</span>'+
@@ -8022,17 +8058,17 @@ function renderHome(){
         'var(--text-3)',"homeDrill('compliance')");
   H+=kpi(hT('Tasks due','\u0417\u0430\u0432\u0434\u0430\u043d\u043d\u044f'),I_CLOCK,'#16a34a',due.length,
         overdue.length?(overdue.length+' '+hT('overdue','\u043f\u0440\u043e\u0441\u0442\u0440\u043e\u0447\u0435\u043d\u043e')):hT('on track','\u0432 \u043d\u043e\u0440\u043c\u0456'),
-        overdue.length?'var(--bad)':'var(--text-3)',"showTab('cmms')");
+        overdue.length?'var(--bad)':'var(--text-3)',"homeDrill('due')");
   H+=kpi(hT('Open requests','\u0417\u0430\u044f\u0432\u043a\u0438'),I_MAIL,'#d97706',openReq,
         newReq?(newReq+' '+hT('new today','\u043d\u043e\u0432\u0438\u0445')):hT('open','\u0432\u0456\u0434\u043a\u0440\u0438\u0442\u043e'),
-        'var(--text-3)',"showTab('requests')");
+        'var(--text-3)',"homeDrill('requests')");
   H+=kpi(hT('Downtime','\u041f\u0440\u043e\u0441\u0442\u0456\u0439'),I_ALERT,'#dc2626',dtMonth+'h',
         hT('this month','\u0446\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f'),'var(--text-3)',"homeDrill('downtime')");
   var lowN=0;
   try{ lowN=(typeof INV!=='undefined'?INV:[]).filter(function(i){return invIsLow(i);}).length; }catch(e){}
   H+='<div class="hm-kpi5">'+kpi(hT('Parts below min','\u0417\u0430\u043f\u0447\u0430\u0441\u0442\u0438\u043d\u0438'),I_PKG,'#8b5cf6',lowN,
         lowN?hT('reorder needed','\u043f\u043e\u0442\u0440\u0456\u0431\u043d\u043e \u0437\u0430\u043c\u043e\u0432\u0438\u0442\u0438'):hT('stocked','\u0432 \u043d\u0430\u044f\u0432\u043d\u043e\u0441\u0442\u0456'),
-        lowN?'var(--bad)':'var(--text-3)',"showTab('inventory')")+'</div>';
+        lowN?'var(--bad)':'var(--text-3)',"homeDrill('parts')")+'</div>';
   H+='</div>';
   H+='<div class="hm-row2">';
   H+='<div>';   // column 1: chart
