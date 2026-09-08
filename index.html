@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v102';
+var APP_BUILD='BBW CMMS build v104';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4556,6 +4556,10 @@ function trendChart(host, pts, opts){
       ht.addEventListener('touchstart',function(e){if(e.touches[0])showB(e.touches[0].clientX);},{passive:true});
       ht.addEventListener('touchmove',function(e){if(e.touches[0]){showB(e.touches[0].clientX);e.preventDefault();}},{passive:false});
       ht.addEventListener('touchend',function(){tp.style.opacity='0';},{passive:true});
+      if(typeof opts.onBar==='function'){
+        ht.style.cursor='pointer';
+        ht.addEventListener('click',function(e){ var rr=sv.getBoundingClientRect(); var px=((e.clientX||0)-rr.left)*(W/rr.width); var bi=Math.max(0,Math.min(n-1,Math.floor((px-PL)/slot))); try{opts.onBar(bi);}catch(_){} });
+      }
     }
     return;
   }
@@ -7753,6 +7757,78 @@ function renderTechLog(){
       }).join('')):'<div style="text-align:center;padding:40px;color:#9aa0aa">No logs'+(scope==='month'?' this month':'')+'.</div>';
   }).catch(function(){ var body=gid('techlog-body'); if(body)body.innerHTML='<div style="padding:20px;color:#f87171">Could not load logs.</div>'; });
 }
+// ── Home drill-through: tap a completions bar, or the PM-compliance / Downtime
+//    tiles, to see the exact work orders (or downtime events) behind the number.
+//    Reads the in-memory WOS / STATS so the list always matches what's charted.
+var _homeDrill=null;
+function closeHomeDrill(){ var m=gid('homedrill-modal'); if(m&&m.parentNode)m.parentNode.removeChild(m); }
+function homeDrill(kind,key){ _homeDrill={kind:kind,key:key||'',tab:(kind==='month'?'done':'')}; renderHomeDrill(); }
+function homeDrillTab(t){ if(_homeDrill){ _homeDrill.tab=t; renderHomeDrill(); } }
+function _hdMonthName(k){ try{ var p=(''+k).split('-'); return new Date(+p[0],+p[1]-1,1).toLocaleDateString('en-CA',{month:'long',year:'numeric'}); }catch(e){ return k; } }
+function _hdOnTime(w){ try{ return pmCompletedOnTime(w.due_date,(''+(w.completed_at||'')).slice(0,10)); }catch(e){ return true; } }
+function _hdWORows(rows,showChip,dueField){
+  if(!rows.length) return '<div style="text-align:center;padding:36px;color:var(--text-3)">Nothing here.</div>';
+  return rows.map(function(w){
+    var asset=rqEsc(w.asset||w.asset_code||'\u2014');
+    var desc=rqEsc((typeof pmDescFor==='function'&&pmDescFor(w))||w.description||w.pm_code||'');
+    var by=rqEsc(w.completed_by||w.assignee||'');
+    var code=rqEsc(w.wo_code||('WO#'+w.id));
+    var dt=(''+((dueField?w.due_date:w.completed_at)||'')).slice(0,10);
+    var chip='';
+    if(showChip){ var ot=_hdOnTime(w); chip='<span style="font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:20px;letter-spacing:.03em;'+(ot?'background:rgba(34,160,107,.12);color:#22a06b':'background:rgba(200,138,18,.14);color:#c88a12')+'">'+(ot?'ON TIME':'LATE')+'</span>'; }
+    var ini=(''+(w.asset||'?')).replace(/[^A-Za-z0-9]/g,'').slice(0,2).toUpperCase()||'\u2014';
+    return '<div onclick="try{closeHomeDrill();openWOForm('+(+w.id||0)+');}catch(e){}" style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border);cursor:pointer">'+
+      '<span style="flex:none;width:30px;height:30px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--text-2)">'+ini+'</span>'+
+      '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+' \u2014 '+desc+'</div>'+
+      '<div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(by?by+' \u00b7 ':'')+code+'</div></div>'+
+      '<div style="flex:none;text-align:right">'+chip+'<div style="font-size:10.5px;color:var(--text-3);margin-top:4px">'+dt+'</div></div>'+
+    '</div>';
+  }).join('');
+}
+function renderHomeDrill(){
+  if(!_homeDrill) return;
+  var host=gid('homedrill-modal');
+  if(!host){ host=document.createElement('div'); host.id='homedrill-modal'; document.body.appendChild(host); }
+  var kind=_homeDrill.kind, key=_homeDrill.key, tab=_homeDrill.tab;
+  var WA=(typeof WOS!=='undefined'&&WOS)?WOS:[];
+  var title='',sub='',seg='',body='';
+  if(kind==='month'){
+    var done=WA.filter(function(w){return w&&w.status==='completed'&&(''+(w.completed_at||'')).slice(0,7)===key;});
+    var due=WA.filter(function(w){return w&&(''+(w.due_date||'')).slice(0,7)===key;});
+    var onT=done.filter(_hdOnTime).length, pct=done.length?Math.round(onT/done.length*100):0;
+    title=_hdMonthName(key)+' \u00b7 Completed PMs';
+    sub=done.length+' completed \u00b7 '+onT+' on time ('+pct+'%) \u00b7 '+due.length+' were due';
+    var sg=function(t,lbl){ var on=(tab===t); return '<div onclick="homeDrillTab(\''+t+'\')" style="flex:1;text-align:center;font-size:12px;font-weight:700;padding:7px;border-radius:8px;cursor:pointer;'+(on?'background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.06)':'color:var(--text-3)')+'">'+lbl+'</div>'; };
+    seg='<div style="display:flex;gap:4px;background:var(--surface-2);border-radius:10px;padding:3px;margin:12px 0 2px">'+sg('done','Completed '+done.length)+sg('due','Due / plan '+due.length)+'</div>';
+    body=(tab==='due')?_hdWORows(due,false,true):_hdWORows(done,true,false);
+  } else if(kind==='compliance'){
+    var cut=new Date(); cut.setDate(cut.getDate()-30); var cutISO=pmISO(cut);
+    var d2=WA.filter(function(w){return w&&w.status==='completed'&&(''+(w.completed_at||'')).slice(0,10)>=cutISO;});
+    d2.sort(function(a,b){return (''+b.completed_at).localeCompare(''+a.completed_at);});
+    var o2=d2.filter(_hdOnTime).length, p2=d2.length?Math.round(o2/d2.length*100):0;
+    title='Completed \u00b7 last 30 days'; sub=d2.length+' completed \u00b7 '+o2+' on time ('+p2+'%)';
+    body=_hdWORows(d2,true,false);
+  } else if(kind==='downtime'){
+    var mo=pmISO(new Date()).slice(0,7);
+    var src=(typeof STATS!=='undefined'&&STATS&&STATS.rows)?STATS.rows:[];
+    var ev=src.filter(function(r){return r&&(''+(r.date||'')).slice(0,7)===mo&&r.md&&(r.dt||0)>0;});
+    ev.sort(function(a,b){return (b.dt||0)-(a.dt||0);});
+    var tot=ev.reduce(function(a,r){return a+(r.dt||0);},0);
+    title='Downtime \u00b7 '+_hdMonthName(mo); sub=(Math.round(tot*10)/10)+'h across '+ev.length+' event'+(ev.length!==1?'s':'');
+    body=ev.length?ev.map(function(r){
+      var asset=rqEsc(r.asset||'\u2014'), hrs=(Math.round((r.dt||0)*10)/10), dtx=(''+(r.date||'')).slice(0,10);
+      return '<div style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+'</div><div style="font-size:11px;color:var(--text-3)">'+dtx+'</div></div><div style="flex:none;font-size:14px;font-weight:800;color:#dc2626">'+hrs+'h</div></div>';
+    }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">No downtime logged this month.</div>';
+  }
+  host.innerHTML='<div onclick="if(event.target===this)closeHomeDrill()" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:660;display:flex;align-items:flex-end;justify-content:center">'+
+    '<div style="background:var(--surface);width:100%;max-width:640px;border-top-left-radius:20px;border-top-right-radius:20px;box-shadow:0 -8px 30px rgba(16,16,24,.18);max-height:86vh;display:flex;flex-direction:column">'+
+      '<div style="width:38px;height:4px;border-radius:3px;background:var(--border);margin:9px auto 4px"></div>'+
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:6px 18px 0"><div style="min-width:0"><div style="font-size:17px;font-weight:800;color:var(--text)">'+rqEsc(title)+'</div><div style="font-size:12.5px;color:var(--text-3);margin-top:3px">'+rqEsc(sub)+'</div></div>'+
+      '<button onclick="closeHomeDrill()" style="background:none;border:none;font-size:24px;color:var(--text-3);cursor:pointer;line-height:1;padding:0 2px;flex:none">\u00d7</button></div>'+
+      '<div style="padding:0 18px">'+seg+'</div>'+
+      '<div style="padding:2px 18px 20px;overflow-y:auto">'+body+'</div>'+
+    '</div></div>';
+}
 var HOME_HH_OFFSET=0; // months back from the current month for the team-hours widget
 function homeHoursShift(d){ HOME_HH_OFFSET=Math.min(0,(HOME_HH_OFFSET||0)+d); try{fillHomeTechHours();}catch(e){} }
 function fillHomeTechHours(){
@@ -7849,12 +7925,16 @@ function renderHome(){
     var mo=today.slice(0,7);
     // Machine downtime only - matches the Assets ranking and the shift reports.
     E.forEach(function(e){ if((''+(e.date||'')).slice(0,7)===mo && e.md){ dtMonth+=(e.dt||0); } });
-    var DONE={completed:1,done:1,pm:1,followup_done:1};
+    // Completions = actual completed PM work orders (bucketed by completed_at), the
+    // same basis as the PM-compliance tile. Plan = work orders due (by due_date).
+    // Both now come from WOS, so the "vs plan" badge compares like with like instead
+    // of counting every finished worklog row against a work-order plan.
     var dmap={}, pmap={};
-    E.forEach(function(e){ if(!DONE[e.type])return;
-      var k=(''+(e.date||'')).slice(0,7); if(k)dmap[k]=(dmap[k]||0)+1; });
     (typeof WOS!=='undefined'?WOS:[]).forEach(function(w){
-      var k=(''+(w.due_date||'')).slice(0,7); if(k)pmap[k]=(pmap[k]||0)+1; });
+      if(!w)return;
+      if(w.status==='completed'){ var c=(''+(w.completed_at||'')).slice(0,7); if(c)dmap[c]=(dmap[c]||0)+1; }
+      var k=(''+(w.due_date||'')).slice(0,7); if(k)pmap[k]=(pmap[k]||0)+1;
+    });
     for(var i=11;i>=0;i--){
       var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-i);
       var k=pmISO(d).slice(0,7);
@@ -7938,7 +8018,7 @@ function renderHome(){
         (comp==null?'\u2013':comp+'%'),
         (comp==null?hT('no data yet','\u043d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445')
                    :(compN+' '+hT('completed \u00b7 30d','\u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043e \u00b7 30\u0434'))),
-        'var(--text-3)');
+        'var(--text-3)',"homeDrill('compliance')");
   H+=kpi(hT('Tasks due','\u0417\u0430\u0432\u0434\u0430\u043d\u043d\u044f'),I_CLOCK,'#16a34a',due.length,
         overdue.length?(overdue.length+' '+hT('overdue','\u043f\u0440\u043e\u0441\u0442\u0440\u043e\u0447\u0435\u043d\u043e')):hT('on track','\u0432 \u043d\u043e\u0440\u043c\u0456'),
         overdue.length?'var(--bad)':'var(--text-3)',"showTab('cmms')");
@@ -7946,7 +8026,7 @@ function renderHome(){
         newReq?(newReq+' '+hT('new today','\u043d\u043e\u0432\u0438\u0445')):hT('open','\u0432\u0456\u0434\u043a\u0440\u0438\u0442\u043e'),
         'var(--text-3)',"showTab('requests')");
   H+=kpi(hT('Downtime','\u041f\u0440\u043e\u0441\u0442\u0456\u0439'),I_ALERT,'#dc2626',dtMonth+'h',
-        hT('this month','\u0446\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f'),'var(--text-3)');
+        hT('this month','\u0446\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f'),'var(--text-3)',"homeDrill('downtime')");
   var lowN=0;
   try{ lowN=(typeof INV!=='undefined'?INV:[]).filter(function(i){return invIsLow(i);}).length; }catch(e){}
   H+='<div class="hm-kpi5">'+kpi(hT('Parts below min','\u0417\u0430\u043f\u0447\u0430\u0441\u0442\u0438\u043d\u0438'),I_PKG,'#8b5cf6',lowN,
@@ -8202,7 +8282,8 @@ function renderHome(){
           h:ch, color:'#7c6bf0', padL:34, mode:'bars', minZero:true,
           partialLast:true,
           plan:hasPlan?planS:null, planLabel:'plan',
-          fmt:function(v){ return String(Math.round(v)); }
+          fmt:function(v){ return String(Math.round(v)); },
+          onBar:function(i){ try{ homeDrill('month', pmISO(months[i]).slice(0,7)); }catch(e){} }
         });
       };
       draw();
