@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v107';
+var APP_BUILD='BBW CMMS build v108';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7859,6 +7859,30 @@ function renderHomeDrill(){
       var fold=(''+(i.folder||'')).replace(/['"\\<>]/g,'');
       return '<div onclick="homeOpenPart(\''+fold+'\')" style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+nm+'</div><div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+loc+'</div></div><div style="flex:none;text-align:right"><span style="font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:20px;background:rgba(220,38,38,.13);color:#dc2626">'+q+' / '+m+'</span></div></div>';
     }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">Everything stocked.</div>';
+  } else if(kind==='week'){
+    var wparts=(''+key).split('|'); var wa=wparts[0]||'', wz=wparts[1]||'';
+    var wsrc=(typeof STATS!=='undefined'&&STATS&&STATS.rows)?STATS.rows:[];
+    var lg=wsrc.filter(function(r){ var d=(''+(r.date||'')).slice(0,10); return d>=wa&&d<=wz; });
+    lg=lg.slice().sort(function(x,y){return (''+y.date).localeCompare(''+x.date);});
+    title='Work log \u00b7 week'; sub=wa+' \u2192 '+wz+' \u00b7 '+lg.length+' log'+(lg.length!==1?'s':'');
+    body=lg.length?lg.map(function(r){
+      var asset=rqEsc(r.asset||'\u2014'); var ty=rqEsc(r.type||''); var dtx=(''+(r.date||'')).slice(0,10);
+      var hasId=(r.id!=null&&r.id!==''); var op=hasId?(' onclick="try{closeHomeDrill();openLogById('+(+r.id||0)+');}catch(e){}"'):'';
+      return '<div'+op+' style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border)'+(hasId?';cursor:pointer':'')+'"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+'</div><div style="font-size:11px;color:var(--text-3)">'+dtx+(ty?' \u00b7 '+ty:'')+'</div></div></div>';
+    }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">No logs this week.</div>';
+  } else if(kind==='dtasset'){
+    var dasset=''; try{dasset=decodeURIComponent(key);}catch(e){dasset=key;}
+    var dmo=pmISO(new Date()).slice(0,7);
+    var dsrc=(typeof STATS!=='undefined'&&STATS&&STATS.rows)?STATS.rows:[];
+    var dev=dsrc.filter(function(r){return r&&(''+(r.date||'')).slice(0,7)===dmo&&r.md&&(r.dt||0)>0&&(r.asset||'')===dasset;});
+    dev.sort(function(x,y){return (y.dt||0)-(x.dt||0);});
+    var dtot=dev.reduce(function(s,r){return s+(r.dt||0);},0);
+    title='Downtime \u00b7 '+dasset; sub=(Math.round(dtot*10)/10)+'h across '+dev.length+' event'+(dev.length!==1?'s':'');
+    body=dev.length?dev.map(function(r){
+      var dtx=(''+(r.date||'')).slice(0,10); var hrs=(Math.round((r.dt||0)*10)/10);
+      var hasId=(r.id!=null&&r.id!==''); var op=hasId?(' onclick="try{closeHomeDrill();openLogById('+(+r.id||0)+');}catch(e){}"'):'';
+      return '<div'+op+' style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border)'+(hasId?';cursor:pointer':'')+'"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text)">'+dtx+'</div></div><div style="flex:none;font-size:14px;font-weight:800;color:#dc2626">'+hrs+'h</div></div>';
+    }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">No downtime for this asset this month.</div>';
   }
   host.innerHTML='<div onclick="if(event.target===this)closeHomeDrill()" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:660;display:flex;align-items:flex-end;justify-content:center">'+
     '<div style="background:var(--surface);width:100%;max-width:640px;border-top-left-radius:20px;border-top-right-radius:20px;box-shadow:0 -8px 30px rgba(16,16,24,.18);max-height:86vh;display:flex;flex-direction:column">'+
@@ -8146,7 +8170,7 @@ function renderHome(){
   H+='</div>';   // close .hm-row2
 
   // ── desktop-only lower row: work log volume + downtime by asset
-  var wk=[],iss=[],lbl=[];
+  var wk=[],iss=[],lbl=[],rng=[];
   try{
     // Month-scale rows: allE holds only ~3 days, which left every earlier week at zero.
     var E2=(typeof STATS!=='undefined'&&STATS&&STATS.rows)?STATS.rows.map(function(r){
@@ -8160,6 +8184,7 @@ function renderHome(){
         if(DONE2[e.type])dn++; else if(typeof isIssueType==='function'&&isIssueType(e))ip++; });
       wk.push(dn); iss.push(ip);
       lbl.push('W'+Math.ceil(((e0-new Date(e0.getFullYear(),0,1))/86400000+new Date(e0.getFullYear(),0,1).getDay()+1)/7));
+      rng.push([a,z]);
     }
   }catch(e){}
   var dtA={};
@@ -8193,9 +8218,9 @@ function renderHome(){
     var hD=Math.round(v/top*PLOT), hI=Math.round(iss[i]/top*PLOT);
     var tip=lbl[i]+' \u00b7 '+v+' '+hT('completed','\u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043e')+
             (iss[i]?(' \u00b7 '+iss[i]+' '+hT('issues','\u043f\u0440\u043e\u0431\u043b\u0435\u043c')):'');
-    bars+='<div class="wlv-col" data-tip="'+rqEsc(tip)+'" '+
+    bars+='<div class="wlv-col" data-tip="'+rqEsc(tip)+'" onclick="homeDrill(\'week\',\''+(rng[i]?(rng[i][0]+'|'+rng[i][1]):'')+'\')" '+
       'style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;'+
-      'cursor:default;position:relative">'+
+      'cursor:pointer;position:relative">'+
       '<div style="width:100%;max-width:30px;display:flex;flex-direction:column;justify-content:flex-end;height:'+PLOT+'px">'+
         '<div style="height:'+hD+'px;background:#4e9c81;border-radius:3px 3px 0 0"></div>'+
         '<div style="height:'+hI+'px;background:rgba(220,38,38,.35);border-radius:0 0 3px 3px"></div>'+
@@ -8220,7 +8245,7 @@ function renderHome(){
   var rows='';
   dtList.forEach(function(r,i){
     var pctw=dtMax?Math.round(r[1]/dtMax*100):0;
-    rows+='<div style="display:flex;align-items:center;gap:12px;padding:11px 0'+
+    rows+='<div onclick="homeDrill(\'dtasset\',\''+encodeURIComponent(r[0])+'\')" style="display:flex;align-items:center;gap:12px;padding:11px 0;cursor:pointer'+
       (i?';border-top:1px solid var(--border)':'')+'">'+
       '<span style="flex:0 0 190px;font-size:13.5px;font-weight:650;color:var(--text);white-space:nowrap;'+
       'overflow:hidden;text-overflow:ellipsis">'+rqEsc(r[0])+'</span>'+
