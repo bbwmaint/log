@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v121';
+var APP_BUILD='BBW CMMS build v122';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6483,7 +6483,7 @@ function apDelete(id){
 /* ===== end Admin Analytics ===== */
 
 // ═══════════════ CMMS (admin only) ═══════════════
-var CMMS_PMS=[]; var CMMS_SUB='pms'; var CMMS_LOADED=false;
+var CMMS_PMS=[]; var CMMS_SUB='wos'; var CMMS_LOADED=false;
 var CMMS_FILTER={q:'',type:'',assignee:'',status:'active'};
 var CMMS_SORT='due';   // due | code | name | asset | tech | priority | freq
 
@@ -6674,7 +6674,7 @@ function renderCMMS(){
 function cmmsSub(s){CMMS_SUB=s;renderCMMSView();}
 function renderCMMSView(){
   var el=gid('pane-cmms'); if(!el)return;
-  var subs=[['pms','PMs'],['wos','Work Orders'],['compliance','Compliance'],['calendar','Calendar']];
+  var subs=[['wos','Work Orders'],['pms','PMs'],['compliance','Compliance'],['calendar','Calendar']];
   var nav='<div style="display:flex;gap:7px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">'+subs.map(function(s){
     var on=CMMS_SUB===s[0];
     return '<button onclick="cmmsSub(\''+s[0]+'\')" style="padding:8px 15px;border-radius:999px;border:1px solid '+(on?'#fff':'var(--border)')+';background:'+(on?'#fff':'transparent')+';color:'+(on?'#000':'var(--text-2)')+';font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;flex-shrink:0">'+s[1]+'</button>';
@@ -7845,10 +7845,10 @@ function renderHomeDrill(){
     var todayS=pmISO(new Date()); var nt=rq.filter(function(x){return (''+(x.created_at||'')).slice(0,10)===todayS;}).length;
     title='Open requests'; sub=rq.length+' open \u00b7 '+nt+' new today';
     body=rq.length?rq.map(function(x){
-      var asset=rqEsc(x.asset_name||x.asset||'\u2014');
-      var txt=rqEsc(x.message||x.text||x.description||x.note||x.issue||'\u2014');
+      var title2=rqEsc(x.asset_name||x.department||'Request');
+      var byline=rqEsc('By '+(x.reporter||'\u2014')+(x.area?(' \u00b7 '+x.area):''));
       var pr=x.priority?('<span style="font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:20px;background:var(--surface-2);color:var(--text-2)">'+rqEsc((''+x.priority).toUpperCase())+'</span>'):'';
-      return '<div onclick="try{closeHomeDrill();openRequest('+(+x.id||0)+');}catch(e){}" style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+txt+'</div><div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+'</div></div><div style="flex:none;text-align:right">'+pr+'<div style="font-size:10.5px;color:var(--text-3);margin-top:4px">'+(''+(x.created_at||'')).slice(0,10)+'</div></div></div>';
+      return '<div onclick="try{closeHomeDrill();openRequest('+(+x.id||0)+');}catch(e){}" style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+title2+'</div><div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+byline+'</div></div><div style="flex:none;text-align:right">'+pr+'<div style="font-size:10.5px;color:var(--text-3);margin-top:4px">'+(''+(x.created_at||'')).slice(0,10)+'</div></div></div>';
     }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">No open requests.</div>';
   } else if(kind==='parts'){
     var low=((typeof INV!=='undefined'&&INV)?INV:[]).filter(function(i){try{return invIsLow(i);}catch(e){return false;}});
@@ -12242,7 +12242,7 @@ try{window.openLogById=openLogById;}catch(_e){}
   function wide(){ return window.matchMedia && window.matchMedia('(min-width:1000px)').matches; }
   function cardOf(el){ if(!el||el.nodeType!==1||el.__dd)return null; var cs; try{cs=getComputedStyle(el);}catch(e){return null;} if(cs.position!=='fixed')return null; var r=el.getBoundingClientRect(); if(r.width<window.innerWidth*0.9||r.height<window.innerHeight*0.85)return null; var c=null; for(var i=0;i<el.children.length;i++){var ch=el.children[i]; if(ch.nodeType===1&&ch.tagName!=='SCRIPT'){c=ch;break;}} return c; }
   function findOverlay(node){ if(!node||node.nodeType!==1)return null; var c=cardOf(node); if(c)return{el:node,card:c}; for(var i=0;i<node.children.length;i++){ var cc=cardOf(node.children[i]); if(cc)return{el:node.children[i],card:cc}; } return null; }
-  function dock(el,card){ el.__dd=1; el.setAttribute('data-ddock','1'); var S=function(n,k,v){n.style.setProperty(k,v,'important');};
+  function dock(el,card){ try{ var _ex=document.querySelectorAll('[data-ddock]'); for(var _q=0;_q<_ex.length;_q++){ var _o=_ex[_q]; if(_o!==el){ var _t=_o; while(_t.parentNode&&_t.parentNode!==document.body)_t=_t.parentNode; if(_t.parentNode)_t.parentNode.removeChild(_t); } } }catch(_e){} el.__dd=1; el.setAttribute('data-ddock','1'); var S=function(n,k,v){n.style.setProperty(k,v,'important');};
     S(el,'left','auto');S(el,'right','0');S(el,'top','0');S(el,'bottom','0');S(el,'width','min(480px,42vw)');S(el,'background','transparent');S(el,'align-items','stretch');S(el,'justify-content','flex-end');S(el,'padding','0');
     S(card,'width','100%');S(card,'max-width','none');S(card,'height','100%');S(card,'max-height','none');S(card,'border-radius','0');S(card,'box-shadow','-10px 0 34px rgba(0,0,0,.14)');S(card,'overflow','auto'); }
   function anyOpen(){ var os=document.querySelectorAll('[data-ddock]'); for(var i=0;i<os.length;i++){ if(os[i].isConnected){ try{ if(getComputedStyle(os[i]).display!=='none') return true; }catch(e){ return true; } } } return false; }
