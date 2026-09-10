@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v118';
+var APP_BUILD='BBW CMMS build v119';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -12236,5 +12236,20 @@ try{window.openLogById=openLogById;}catch(_e){}
 
 
 <style id="bbw-desk-refine">@media(min-width:1000px){html[data-theme='light']{--bg:#f5f5f7;--surface:#ffffff;--surface-2:#f5f5f7;--surface-3:#ececf0;--border:#e6e6ea;--border-2:#d9d9de;--text:#1d1d1f;--text-2:#6e6e73;--text-3:#86868b;--accent:#0071e3}}</style>
+
+<script id="bbw-desk-dock">
+(function(){
+  function wide(){ return window.matchMedia && window.matchMedia('(min-width:1000px)').matches; }
+  function cardOf(el){ if(!el||el.__dd)return null; var cs; try{cs=getComputedStyle(el);}catch(e){return null;} if(cs.position!=='fixed')return null; var r=el.getBoundingClientRect(); if(r.width<window.innerWidth*0.9||r.height<window.innerHeight*0.85)return null; var c=null; for(var i=0;i<el.children.length;i++){var ch=el.children[i]; if(ch.nodeType===1&&ch.tagName!=='SCRIPT'){c=ch;break;}} return c; }
+  function findOverlay(node){ if(!node||node.nodeType!==1)return null; var c=cardOf(node); if(c)return{el:node,card:c}; var els=node.querySelectorAll?node.querySelectorAll('*'):[]; for(var i=0;i<els.length;i++){var cc=cardOf(els[i]); if(cc)return{el:els[i],card:cc};} return null; }
+  function dock(el,card){ el.__dd=1; var S=function(n,k,v){n.style.setProperty(k,v,'important');};
+    S(el,'left','auto');S(el,'right','0');S(el,'top','0');S(el,'bottom','0');S(el,'width','min(480px,42vw)');S(el,'background','transparent');S(el,'align-items','stretch');S(el,'justify-content','flex-end');S(el,'padding','0');
+    S(card,'width','100%');S(card,'max-width','none');S(card,'height','100%');S(card,'max-height','none');S(card,'border-radius','0');S(card,'box-shadow','-10px 0 34px rgba(0,0,0,.14)');S(card,'overflow','auto'); }
+  function scan(nodes){ if(!wide())return; (nodes||document.body.childNodes).forEach&&Array.prototype.forEach.call(nodes||document.body.childNodes,function(n){ var o=findOverlay(n); if(o)dock(o.el,o.card); }); }
+  var mo=new MutationObserver(function(ms){ if(!wide())return; ms.forEach(function(m){ scan(m.addedNodes); }); });
+  function start(){ try{ mo.observe(document.body,{childList:true}); scan(document.body.childNodes); }catch(e){} }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start); else start();
+})();
+</script>
 </body>
 </html>
