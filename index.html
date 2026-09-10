@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v120';
+var APP_BUILD='BBW CMMS build v121';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7846,7 +7846,7 @@ function renderHomeDrill(){
     title='Open requests'; sub=rq.length+' open \u00b7 '+nt+' new today';
     body=rq.length?rq.map(function(x){
       var asset=rqEsc(x.asset_name||x.asset||'\u2014');
-      var txt=rqEsc(x.issue||x.description||'\u2014');
+      var txt=rqEsc(x.message||x.text||x.description||x.note||x.issue||'\u2014');
       var pr=x.priority?('<span style="font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:20px;background:var(--surface-2);color:var(--text-2)">'+rqEsc((''+x.priority).toUpperCase())+'</span>'):'';
       return '<div onclick="try{closeHomeDrill();openRequest('+(+x.id||0)+');}catch(e){}" style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+txt+'</div><div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+'</div></div><div style="flex:none;text-align:right">'+pr+'<div style="font-size:10.5px;color:var(--text-3);margin-top:4px">'+(''+(x.created_at||'')).slice(0,10)+'</div></div></div>';
     }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">No open requests.</div>';
@@ -12235,19 +12235,21 @@ try{window.openLogById=openLogById;}catch(_e){}
 </script>
 
 
-<style id="bbw-desk-refine">@media(min-width:1000px){html[data-theme='light']{--bg:#f5f5f7;--surface:#ffffff;--surface-2:#f5f5f7;--surface-3:#ececf0;--border:#e6e6ea;--border-2:#d9d9de;--text:#1d1d1f;--text-2:#6e6e73;--text-3:#86868b;--accent:#0071e3}}@media(min-width:1000px){ #pane-home .hm-kpis{gap:10px!important} #pane-home .hm-kpis>div{padding:16px 18px 14px!important} #pane-home .hm-kpis .hm-lbl{color:var(--text-3)!important;text-transform:uppercase;letter-spacing:.02em} #pane-home .hm-kpis .hm-lbl + span{display:none!important} #pane-home .hm-kpis .hm-val{font-size:32px!important;margin-top:2px}}</style>
+<style id="bbw-desk-refine">@media(min-width:1000px){html[data-theme='light']{--bg:#f5f5f7;--surface:#ffffff;--surface-2:#f5f5f7;--surface-3:#ececf0;--border:#e6e6ea;--border-2:#d9d9de;--text:#1d1d1f;--text-2:#6e6e73;--text-3:#86868b;--accent:#0071e3}}@media(min-width:1000px){ #pane-home .hm-kpis{gap:10px!important} #pane-home .hm-kpis>div{padding:16px 18px 14px!important} #pane-home .hm-kpis .hm-lbl{color:var(--text-3)!important;text-transform:uppercase;letter-spacing:.02em} #pane-home .hm-kpis .hm-lbl + span{display:none!important} #pane-home .hm-kpis .hm-val{font-size:32px!important;margin-top:2px}}@media(min-width:1000px){body.dd-open #content{padding-right:min(480px,42vw)!important}}</style>
 
 <script id="bbw-desk-dock">
 (function(){
   function wide(){ return window.matchMedia && window.matchMedia('(min-width:1000px)').matches; }
-  function cardOf(el){ if(!el||el.__dd)return null; var cs; try{cs=getComputedStyle(el);}catch(e){return null;} if(cs.position!=='fixed')return null; var r=el.getBoundingClientRect(); if(r.width<window.innerWidth*0.9||r.height<window.innerHeight*0.85)return null; var c=null; for(var i=0;i<el.children.length;i++){var ch=el.children[i]; if(ch.nodeType===1&&ch.tagName!=='SCRIPT'){c=ch;break;}} return c; }
-  function findOverlay(node){ if(!node||node.nodeType!==1)return null; var c=cardOf(node); if(c)return{el:node,card:c}; var els=node.querySelectorAll?node.querySelectorAll('*'):[]; for(var i=0;i<els.length;i++){var cc=cardOf(els[i]); if(cc)return{el:els[i],card:cc};} return null; }
-  function dock(el,card){ el.__dd=1; var S=function(n,k,v){n.style.setProperty(k,v,'important');};
+  function cardOf(el){ if(!el||el.nodeType!==1||el.__dd)return null; var cs; try{cs=getComputedStyle(el);}catch(e){return null;} if(cs.position!=='fixed')return null; var r=el.getBoundingClientRect(); if(r.width<window.innerWidth*0.9||r.height<window.innerHeight*0.85)return null; var c=null; for(var i=0;i<el.children.length;i++){var ch=el.children[i]; if(ch.nodeType===1&&ch.tagName!=='SCRIPT'){c=ch;break;}} return c; }
+  function findOverlay(node){ if(!node||node.nodeType!==1)return null; var c=cardOf(node); if(c)return{el:node,card:c}; for(var i=0;i<node.children.length;i++){ var cc=cardOf(node.children[i]); if(cc)return{el:node.children[i],card:cc}; } return null; }
+  function dock(el,card){ el.__dd=1; el.setAttribute('data-ddock','1'); var S=function(n,k,v){n.style.setProperty(k,v,'important');};
     S(el,'left','auto');S(el,'right','0');S(el,'top','0');S(el,'bottom','0');S(el,'width','min(480px,42vw)');S(el,'background','transparent');S(el,'align-items','stretch');S(el,'justify-content','flex-end');S(el,'padding','0');
     S(card,'width','100%');S(card,'max-width','none');S(card,'height','100%');S(card,'max-height','none');S(card,'border-radius','0');S(card,'box-shadow','-10px 0 34px rgba(0,0,0,.14)');S(card,'overflow','auto'); }
-  function scan(nodes){ if(!wide())return; (nodes||document.body.childNodes).forEach&&Array.prototype.forEach.call(nodes||document.body.childNodes,function(n){ var o=findOverlay(n); if(o)dock(o.el,o.card); }); }
-  var mo=new MutationObserver(function(ms){ if(!wide())return; ms.forEach(function(m){ scan(m.addedNodes); }); });
-  function start(){ try{ mo.observe(document.body,{childList:true}); scan(document.body.childNodes); }catch(e){} }
+  function anyOpen(){ var os=document.querySelectorAll('[data-ddock]'); for(var i=0;i<os.length;i++){ if(os[i].isConnected){ try{ if(getComputedStyle(os[i]).display!=='none') return true; }catch(e){ return true; } } } return false; }
+  function reflow(){ try{ document.body.classList.toggle('dd-open', wide() && anyOpen()); }catch(e){} }
+  function process(nodes){ if(!wide())return; Array.prototype.forEach.call(nodes,function(n){ var o=findOverlay(n); if(o)dock(o.el,o.card); }); }
+  var mo=new MutationObserver(function(ms){ if(wide()){ for(var i=0;i<ms.length;i++) process(ms[i].addedNodes); } reflow(); });
+  function start(){ try{ mo.observe(document.body,{childList:true,subtree:true}); process(document.body.childNodes); reflow(); }catch(e){} }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start); else start();
 })();
 </script>
