@@ -1228,6 +1228,8 @@ function updateReqBadge(){
     sp.style.cssText='display:inline-flex;align-items:center;justify-content:center;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:999px;min-width:16px;height:16px;padding:0 4px;margin-left:5px;vertical-align:middle;line-height:1';
     btn.appendChild(sp);
   }
+  // CMMS overdue count as a matching red pill (kept in sync with the same calls)
+  try{ var cb=document.getElementById('tab-cmms'); if(cb){ var ob=cb.querySelector('.req-badge'); if(ob)ob.remove(); var tISO=pmISO(new Date()); var ov=(typeof mwDue==='function'?(mwDue()||[]):[]).filter(function(w){return pmIsOverdue(w.due_date,tISO);}).length; if(ov>0){ var s2=document.createElement('span'); s2.className='req-badge'; s2.textContent=ov; s2.style.cssText='display:inline-flex;align-items:center;justify-content:center;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:999px;min-width:16px;height:16px;padding:0 4px;margin-left:5px;vertical-align:middle;line-height:1'; cb.appendChild(s2); } } }catch(e){}
 }
 
 function showReqToast(req){
