@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v124';
+var APP_BUILD='BBW CMMS build v125';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -954,6 +954,30 @@ var TRANS = {
 function gid(id){return document.getElementById(id);}
 function td(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function utilDay(){var n=new Date();if(n.getHours()<7){n=new Date(n.getTime()-86400000);}return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
+// Weekly QA readings (glycol pH / purity) run on a Mon 08:00 -> Mon 08:00 cycle.
+// utilWeekAnchor = the latest Monday 08:00 at or before now (the current cycle start).
+function utilWeekAnchor(){
+  var n=new Date();
+  var a=new Date(n.getFullYear(),n.getMonth(),n.getDate(),8,0,0,0); // today 08:00
+  while(a.getDay()!==1 || a>n){ a.setDate(a.getDate()-1); a.setHours(8,0,0,0); }
+  return a;
+}
+// Last value logged for a weekly field within the current cycle, so it shows all week
+// and clears once Monday 08:00 rolls the cycle over (a fresh reading is then prompted).
+function utilWeeklyCarry(id){
+  try{
+    var logs=(typeof utilLogs!=='undefined'?utilLogs:[])||[];
+    var a=utilWeekAnchor();
+    var anchorDay=a.getFullYear()+'-'+String(a.getMonth()+1).padStart(2,'0')+'-'+String(a.getDate()).padStart(2,'0');
+    var best=null;
+    logs.forEach(function(r){
+      if(!r||r[id]==null||r[id]==='')return;
+      var d=(''+(r.date||'')).slice(0,10); if(d<anchorDay)return;   // before this cycle -> ignore
+      if(!best||d>best.date)best={date:d,v:r[id]};
+    });
+    return best?best.v:'';
+  }catch(e){ return ''; }
+}
 function isDay(){var h=new Date().getHours();return h>=7&&h<19;}
 function shiftForMins(mins){return (mins>=420&&mins<1140)?'Day':'Night';} // 07:00-18:59 = Day, else Night
 function updateShiftPreview(){
@@ -4288,7 +4312,8 @@ var UT_METERS=[
   {k:'stack', n:'Stack Temp',          u:'\u00B0C',  c:'#ef4444', cum:false, perHL:false},
   {k:'chproc',n:'Chiller Process Temp',u:'\u00B0C',  c:'#a78bfa', cum:false, perHL:false},
   {k:'warmcell',n:'Warmcell Temp',     u:'\u00B0C',  c:'#818cf8', cum:false, perHL:false},
-  {k:'ch_purity',n:'Glycol Purity',    u:'%',        c:'#4ade80', cum:false, perHL:false}
+  {k:'ch_purity',n:'Glycol Purity',    u:'%',        c:'#4ade80', cum:false, perHL:false},
+  {k:'ch_ph',   n:'Glycol pH',         u:'pH',       c:'#38bdf8', cum:false, perHL:false}
 ];
 var UT_STATE={meter:'gas', days:30, perHL:false};
 function utMeter(k){ return UT_METERS.filter(function(m){return m.k===k;})[0]||UT_METERS[0]; }
@@ -4671,7 +4696,9 @@ function renderUtil(){
     '<div style="background:rgba(217,119,6,.15);border:1px solid rgba(217,119,6,.3);border-radius:10px;padding:10px 12px;font-size:13px;color:#fbbf24;margin-bottom:14px">'+utT('No readings logged today yet')+'</div>';
 
   function fieldRow(id, label, placeholder, allowNeg){
-    var v=today&&today[id]!=null?today[id]:'';
+    var v=today&&today[id]!=null&&today[id]!==''?today[id]:'';
+    // Weekly QA fields carry the current week's reading forward; blank after Mon 08:00.
+    if(v===''&&(id==='ch_ph'||id==='ch_purity')){ var _wv=utilWeeklyCarry(id); if(_wv!=null&&_wv!=='')v=_wv; }
     if(allowNeg){
       // type=text with no inputmode = full keyboard on iOS (has minus key).
       // oninput: strip anything that isn\'t a valid partial number
@@ -4747,8 +4774,8 @@ function renderUtil(){
     fieldRow('chproc',utT('Process Temp (°C)'),'0.0',true)+
     fieldRow('warmcell',utT('Warmcell Temp (°C)'),'0.0',true)+
     fieldRowLevel('ch_glycol',utT('Glycol Level (%)'),'0.0',100,'%')+
-    fieldRow('ch_ph','pH','0.0')+
-    fieldRow('ch_purity',utT('Purity (%)'),'0.0');
+    fieldRow('ch_ph','pH \u00b7 '+utT('weekly'),'0.0')+
+    fieldRow('ch_purity',utT('Purity (%)')+' \u00b7 '+utT('weekly'),'0.0');
 
   var H='<div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:12px">'+
     '<div style="font-size:13px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">'+utT('Daily Utility Readings')+'</div>'+
@@ -8210,10 +8237,19 @@ function renderHome(){
   var dtA={};
   try{
     var mo2=today.slice(0,7);
-    ((typeof allE!=='undefined'&&allE)?allE:[]).forEach(function(e){
+    // Match the DOWNTIME tile: machine-down hours from full history (statRows).
+    // allE only holds ~3 days, which left this card empty while the tile showed 2.3h.
+    var DTSRC=(typeof statRows!=='undefined'&&statRows)?statRows.map(function(e){
+                return {date:e.date,dt:e.dt,md:e.md,asset:e.asset};})
+              :(((typeof allE!=='undefined'&&allE)?allE:[]).map(function(e){
+                return {date:e.date,dt:parseFloat(e.dt)||0,
+                        md:(e.machineDown==='yes'||e.machineDown==='partial'),
+                        asset:e.assetName||e.asset||'\u2014'};}));
+    DTSRC.forEach(function(e){
+      if(!e.md)return;
       var v=parseFloat(e.dt); if(isNaN(v)||v<=0)return;
       if((''+(e.date||'')).slice(0,7)!==mo2)return;
-      var k=e.assetName||e.asset||'\u2014'; dtA[k]=(dtA[k]||0)+v; });
+      var k=e.asset||'\u2014'; dtA[k]=(dtA[k]||0)+v; });
   }catch(e){}
   var dtList=Object.keys(dtA).map(function(k){return [k,dtA[k]];})
               .sort(function(a,b){return b[1]-a[1];}).slice(0,5);
@@ -8242,7 +8278,7 @@ function renderHome(){
       'style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;'+
       'cursor:pointer;position:relative">'+
       '<div style="width:100%;max-width:30px;display:flex;flex-direction:column;justify-content:flex-end;height:'+PLOT+'px">'+
-        '<div style="height:'+hD+'px;background:var(--text);border-radius:3px 3px 0 0"></div>'+
+        '<div style="height:'+hD+'px;background:#60a5fa;border-radius:3px 3px 0 0"></div>'+
         '<div style="height:'+hI+'px;background:rgba(220,38,38,.35);border-radius:0 0 3px 3px"></div>'+
       '</div>'+
       '<span style="font-size:10px;color:var(--text-3);font-weight:500">'+lbl[i]+'</span></div>';
@@ -8364,7 +8400,7 @@ function renderHome(){
         // three points invents an S-curve that isn't in the data, and the current
         // month always looks like a collapse because it is only part-way through.
         trendChart(cc, doneS.map(function(v,i){return {d:mlabels[i], l:mlabels[i], v:v};}), {
-          h:ch, color:'var(--text)', padL:34, mode:'bars', minZero:true,
+          h:ch, color:'#34d399', padL:34, mode:'bars', minZero:true,
           partialLast:true,
           plan:hasPlan?planS:null, planLabel:'plan',
           fmt:function(v){ return String(Math.round(v)); },
