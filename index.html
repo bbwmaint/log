@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v128';
+var APP_BUILD='BBW CMMS build v129';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -5092,6 +5092,25 @@ function pmEstHours(pm){
   var brewing=/brew|mash|lauter|kettle|whirlpool|malt|grain|liquor|spent grain|\bb1\b/.test(s);
   return brewing?0.5:0.25;
 }
+// Effective completion time (hours) for a work order's Time column: logged time if
+// recorded, else the PM's stored estimate, else autofill — 30 min for Brewing/B1 work,
+// 15 min otherwise (matches pmEstHours). woTimeIsLogged distinguishes real vs estimate.
+function woTimeHrs(w){
+  if(!w) return 0.25;
+  var s=parseFloat(w.hours_spent); if(s>0) return s;
+  var e=parseFloat(w.hours_est); if(e>0) return e;
+  var str=(((w.asset||'')+' '+(w.description||'')+' '+(w.pm_code||''))).toLowerCase();
+  return /brew|mash|lauter|kettle|whirlpool|malt|grain|liquor|spent grain|\bb1\b/.test(str)?0.5:0.25;
+}
+function woTimeIsLogged(w){ return !!(w&&parseFloat(w.hours_spent)>0); }
+// Human duration from hours: "15m", "45m", "1h", "1h 30m".
+function fmtDurHrs(h){
+  var m=Math.round((parseFloat(h)||0)*60);
+  if(m<=0) return '\u2014';
+  if(m<60) return m+'m';
+  var hh=Math.floor(m/60), mm=m%60;
+  return hh+'h'+(mm?' '+mm+'m':'');
+}
 // PM code embedded in a quick-PM log's description, e.g. "... (SM292)".
 function pmCodeFrom(desc){ var m=(''+(desc||'')).match(/\(([A-Za-z]{1,4}\d+)\)\s*$/); return m?m[1]:''; }
 // Estimated hours for a PM by its code (from the PM list), else 0 if unknown.
@@ -7186,9 +7205,10 @@ function renderWOList(){
         '<td style="padding:11px 12px;font-size:12.5px;color:var(--text-2);font-weight:600;white-space:nowrap">'+rqEsc(w.assignee||'')+'</td>'+
         '<td style="padding:11px 12px;font-size:12px;color:var(--text-2);white-space:nowrap">'+stCell+'</td>'+
         '<td style="padding:11px 12px;white-space:nowrap">'+(w.wo_type?'<span style="font-size:11px;font-weight:700;color:#fff;background:'+tc+';padding:3px 10px;border-radius:5px">'+rqEsc(w.wo_type)+'</span>':'')+'</td>'+
+        '<td class="tnum" style="padding:11px 12px;font-size:12px;font-weight:600;white-space:nowrap;text-align:right;color:'+(woTimeIsLogged(w)?'var(--text-2)':'var(--text-3)')+'">'+(woTimeIsLogged(w)?'':'~')+fmtDurHrs(woTimeHrs(w))+'</td>'+
         '</tr>';
     }).join('');
-    var head=['Code','Description','Priority','Asset','Assigned','Status','Type'].map(function(hh){return '<th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);padding:10px 12px;border-bottom:1px solid var(--border)">'+hh+'</th>';}).join('');
+    var head=['Code','Description','Priority','Asset','Assigned','Status','Type','Time'].map(function(hh){return '<th style="text-align:'+(hh==='Time'?'right':'left')+';font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);padding:10px 12px;border-bottom:1px solid var(--border)">'+hh+'</th>';}).join('');
     host.innerHTML='<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">'+list.length+' work order'+(list.length>1?'s':'')+'</div>'+
       '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--surface-2)">'+head+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
     return;
@@ -7212,7 +7232,7 @@ function renderWOList(){
     H+='<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid '+st.col+'55;color:'+st.col+';display:inline-flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:'+st.col+'"></span>'+st.label+'</span>';
     H+='<span style="margin-left:auto;display:flex;gap:6px;align-items:center">';
     if(overdue)H+='<span style="color:#ef4444;font-weight:700;font-size:11px">Overdue</span>';
-    else if(w.due_date)H+='<span style="font-size:11px;color:var(--text-3)">Due '+w.due_date+'</span>';
+    else if(w.due_date)H+='<span style="font-size:11px;color:var(--text-3)">Due '+w.due_date+' \u00b7 ~'+fmtDurHrs(woTimeHrs(w))+'</span>';
     if(w.assignee)H+='<span style="width:22px;height:22px;border-radius:50%;background:var(--surface-3);color:var(--text-2);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center">'+rqEsc(ini)+'</span><span style="font-size:12px;color:var(--text-2);font-weight:600">'+rqEsc(w.assignee)+'</span>';
     H+='</span>';
     H+='</div>';
@@ -7225,7 +7245,7 @@ function renderWOList(){
     H+='<button onclick="openWOForm('+w.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Edit</button>';
     H+='<button onclick="deleteWO('+w.id+')" class="btn-ghost" style="width:42px;height:31px;font-size:12px;color:var(--bad)">\u2715</button>';
     H+='</div>';
-    if(w.status==='completed'&&w.completed_by)H+='<div style="font-size:10.5px;color:var(--text-3);margin-top:7px">Completed by '+w.completed_by+(w.completed_at?' \u00b7 '+w.completed_at.slice(0,10):'')+'</div>';
+    if(w.status==='completed'&&w.completed_by)H+='<div style="font-size:10.5px;color:var(--text-3);margin-top:7px">Completed by '+w.completed_by+(w.completed_at?' \u00b7 '+w.completed_at.slice(0,10):'')+' \u00b7 '+(woTimeIsLogged(w)?'':'~')+fmtDurHrs(woTimeHrs(w))+'</div>';
     H+='</div>';
     return H;
   }).join('');
