@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v135';
+var APP_BUILD='BBW CMMS build v136';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3742,7 +3742,7 @@ function renderLog(){
     if(!isDueToday2(pm))return false;
     // Only show PMs assigned to this user
     var assignee=getAssignee(pm);
-    if(assignee&&assignee!==user&&assignee!=='Unassigned')return false;
+    if(assignee&&assignee!==user&&assignee!=='Unassigned'&&assignee!=='Technicians')return false;
     // Check not already logged by anyone today
     var alreadyDone=allE.some(function(e){
       return (e.type==='pm'||e.type==='completed')&&e.desc&&e.desc.indexOf(pm.code)>=0&&(e.date===today||e.date===shiftAnchor());
@@ -6983,7 +6983,7 @@ function deletePM(id){
 // ═══════════════ CMMS — Work Orders ═══════════════
 var WOS=[]; var WOS_LOADED=false;
 var WO_UNCONFIRMED={};   // id -> patch applied locally, awaiting server confirmation
-var WO_FILTER={status:'open',assignee:''};
+var WO_FILTER={status:'due',assignee:''};
 
 function dedupWOs(list){
   // Collapse duplicate work orders that predate the concurrency guard: one WO per
@@ -7091,7 +7091,20 @@ function generateWOs(){
   return WO_GEN_PROMISE;
 }
 
-var WO_STATUS={open:{label:'Open',col:'#9b9ba3'},assigned:{label:'Assigned',col:'#60a5fa'},in_progress:{label:'In Progress',col:'#fbbf24'},completed:{label:'Completed',col:'#34d399'}};
+var WO_STATUS={open:{label:'Open',col:'#9b9ba3'},unassigned:{label:'Unassigned',col:'#9ca3af'},assigned:{label:'Assigned',col:'#60a5fa'},in_progress:{label:'In Progress',col:'#fbbf24'},parts_ordered:{label:'Parts Ordered',col:'#a855f7'},completed:{label:'Completed',col:'#34d399'},closed_incomplete:{label:'Closed \u00b7 Incomplete',col:'#ef4444'}};
+// A "real tech" is a named person, not the shared "Technicians" pool or Unassigned.
+function woRealTech(a){ return !!(a&&a!=='Technicians'&&a!=='Unassigned'&&(''+a).trim()!==''); }
+// Effective (display) status: open/assigned/in_progress derive to Assigned (real tech) or
+// Unassigned (pool / none). Stored data is untouched — this is display-only.
+function woEffStatus(w){
+  var s=(w&&w.status)||'open';
+  if(s==='completed')return {k:'completed',label:'Closed \u00b7 Complete',col:'#16a34a'};
+  if(s==='closed_incomplete'||s==='cancelled')return {k:'closed_incomplete',label:'Closed \u00b7 Incomplete',col:'#ef4444'};
+  if(s==='parts_ordered')return {k:'parts_ordered',label:'Parts Ordered',col:'#a855f7'};
+  return woRealTech(w&&w.assignee)?{k:'assigned',label:'Assigned',col:'#2563eb'}:{k:'unassigned',label:'Unassigned',col:'#9ca3af'};
+}
+var WO_FILTER_OPTS=[['due','Due'],['overdue','Overdue'],['unassigned','Unassigned'],['assigned','Assigned'],['parts_ordered','Parts Ordered'],['completed','Closed \u00b7 Complete'],['closed_incomplete','Closed \u00b7 Incomplete'],['all','All']];
+function woFilterLabel(k){ for(var i=0;i<WO_FILTER_OPTS.length;i++){if(WO_FILTER_OPTS[i][0]===k)return WO_FILTER_OPTS[i][1];} return k; }
 
 function woDetailBody(w){
   var st=WO_STATUS[w.status]||WO_STATUS.open;
@@ -7156,7 +7169,7 @@ function renderWOModule(){
     H+='<button onclick="resetCMMSSchedule()" class="btn-ghost" style="width:100%;padding:10px;font-size:12.5px;margin-bottom:11px;color:#f87171;border-color:rgba(248,113,113,.4)">\u21bb Reset schedule — start fresh from today</button>';
     H+='<div style="display:flex;gap:7px;margin-bottom:12px">';
     H+='<select onchange="WO_FILTER.status=this.value;renderWOList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px">'+
-       ['open','assigned','in_progress','completed','all'].map(function(s){return '<option value="'+s+'"'+(WO_FILTER.status===s?' selected':'')+'>'+(s==='all'?'All statuses':WO_STATUS[s].label)+'</option>';}).join('')+'</select>';
+       ['due','overdue','unassigned','assigned','parts_ordered','completed','closed_incomplete','all'].map(function(s){return '<option value="'+s+'"'+(WO_FILTER.status===s?' selected':'')+'>'+woFilterLabel(s)+'</option>';}).join('')+'</select>';
     H+='<select onchange="WO_FILTER.assignee=this.value;renderWOList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px"><option value="">All techs</option>'+assignees.map(function(a){return '<option'+(WO_FILTER.assignee===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select>';
     H+='</div><div id="wo-list"></div><div id="wo-detail-pane"></div>';
     host.innerHTML='<div style="--bg:#eef0f3;--surface:#ffffff;--surface-2:#f7f9fc;--surface-3:#eef0f3;--border:#e6e7eb;--border-2:#d7d9de;--text:#1f2430;--text-2:#42474f;--text-3:#9aa0aa;color:var(--text)">'+H+'</div>';
@@ -7174,29 +7187,40 @@ function doGenerateWOs(btn){
 }
 function woFilter(){
   var _today=pmISO(new Date());
+  var _cut=pmISO(new Date(Date.now()-14*86400000));
   return WOS.filter(function(w){
-    if(WO_FILTER.status!=='all'&&w.status!==WO_FILTER.status)return false;
     if(WO_FILTER.assignee&&!sameTech(w.assignee,WO_FILTER.assignee))return false;
-    // Group ('Technicians') PMs are schedule-driven and today-only: a daily/scheduled
-    // group check that wasn't done on its day is moot, so hide stale past-due OPEN ones
-    // instead of letting them pile up. Data is untouched; completed history still shows.
-    if(w.assignee==='Technicians'&&w.status!=='completed'&&w.due_date&&(''+w.due_date).slice(0,10)<_today&&WO_FILTER.status!=='all')return false;
+    var eff=woEffStatus(w).k;
+    var openWO=(eff!=='completed'&&eff!=='closed_incomplete');
+    var dd=(''+(w.due_date||'')).slice(0,10);
+    var f=WO_FILTER.status;
+    if(f==='due'){ if(!(openWO&&dd&&dd<=_today))return false; }
+    else if(f==='overdue'){ if(!(openWO&&dd&&dd<_today))return false; }
+    else if(f!=='all'){ if(eff!==f)return false; }
+    // Missed pool ('Technicians') PMs stay visible for 14 days so a missed daily is caught
+    // and cleared; older ones drop out of the live views (still reachable under "All").
+    if(w.assignee==='Technicians'&&openWO&&dd&&dd<_cut&&f!=='all')return false;
     return true;
   });
 }
 function renderWOList(){
   var host=gid('wo-list'); if(!host)return;
   var list=woFilter().sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');});
-  if(!list.length){host.innerHTML='<div style="color:var(--text-3);text-align:center;padding:30px;font-size:13px">No work orders'+(WO_FILTER.status!=='all'?' ('+ (WO_STATUS[WO_FILTER.status]?WO_STATUS[WO_FILTER.status].label.toLowerCase():WO_FILTER.status) +')':'')+'.</div>';return;}
+  if(!list.length){host.innerHTML='<div style="color:var(--text-3);text-align:center;padding:30px;font-size:13px">No work orders'+(WO_FILTER.status!=='all'?' ('+woFilterLabel(WO_FILTER.status).toLowerCase()+')':'')+'.</div>';return;}
   var today=pmISO(new Date());
   if(isDesktop()){
     var pcMap={Highest:'#ef4444',High:'#ef4444',Medium:'#f59e0b',Low:'#10b981'};
     var rows=list.map(function(w){
-      var st=WO_STATUS[w.status]||WO_STATUS.open;
-      var overdue=w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);
+      var eff=woEffStatus(w);
+      var openWO=(eff.k!=='completed'&&eff.k!=='closed_incomplete');
+      var dd=(''+(w.due_date||'')).slice(0,10);
+      var overdue=openWO&&dd&&pmIsOverdue(w.due_date,today);
+      var actual=(w.completed_at?(''+w.completed_at).slice(0,10):'');
       var tc=(typeof pmTypeColor==='function'&&w.wo_type)?pmTypeColor(w.wo_type):'#3b82f6';
       var pc=pcMap[w.priority]||'var(--text-3)';
-      var stCell=overdue?'<span style="color:#ef4444;font-weight:700">Overdue</span>':'<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:'+st.col+'"></span>'+st.label+'</span>';
+      var stCell='<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:'+eff.col+'"></span>'+eff.label+'</span>';
+      var sugCell=dd?('<span style="'+(overdue?'color:#ef4444;font-weight:700':'color:var(--text-2)')+'">'+dd+(overdue?' \u26a0':'')+'</span>'):'<span style="color:var(--text-3)">\u2014</span>';
+      var actCell=actual?('<span style="color:var(--text-2)">'+actual+'</span>'):'<span style="color:var(--text-3)">\u2014</span>';
       return '<tr onclick="woSelect('+w.id+')" style="cursor:pointer;border-top:1px solid var(--border)" onmouseover="this.style.background=\'var(--surface-2)\'" onmouseout="this.style.background=\'\'">'+
         '<td style="padding:11px 12px;font-size:12px;font-weight:700;color:var(--text-3);white-space:nowrap" class="tnum">'+rqEsc(w.wo_code||'')+'</td>'+
         '<td style="padding:11px 12px;font-size:13px;font-weight:600;color:var(--text)">'+rqEsc(w.description||'(no description)')+'</td>'+
@@ -7204,20 +7228,22 @@ function renderWOList(){
         '<td'+(w.asset?' onclick="event.stopPropagation();woAsset('+w.id+')"':'')+' style="padding:11px 12px;font-size:12.5px;color:#3b82f6;font-weight:600;white-space:nowrap'+(w.asset?';cursor:pointer':'')+'">'+rqEsc(w.asset||'')+(w.asset_code?' \u00b7 '+rqEsc(w.asset_code):'')+'</td>'+
         '<td style="padding:11px 12px;font-size:12.5px;color:var(--text-2);font-weight:600;white-space:nowrap">'+rqEsc(w.assignee||'')+'</td>'+
         '<td style="padding:11px 12px;font-size:12px;color:var(--text-2);white-space:nowrap">'+stCell+'</td>'+
+        '<td style="padding:11px 12px;font-size:12px;white-space:nowrap" class="tnum">'+sugCell+'</td>'+
+        '<td style="padding:11px 12px;font-size:12px;white-space:nowrap" class="tnum">'+actCell+'</td>'+
         '<td style="padding:11px 12px;white-space:nowrap">'+(w.wo_type?'<span style="font-size:11px;font-weight:700;color:#fff;background:'+tc+';padding:3px 10px;border-radius:5px">'+rqEsc(w.wo_type)+'</span>':'')+'</td>'+
         '<td class="tnum" style="padding:11px 12px;font-size:12px;font-weight:600;white-space:nowrap;text-align:right;color:'+(woTimeIsLogged(w)?'var(--text-2)':'var(--text-3)')+'">'+(woTimeIsLogged(w)?'':'~')+fmtDurHrs(woTimeHrs(w))+'</td>'+
         '</tr>';
     }).join('');
-    var head=['Code','Description','Priority','Asset','Assigned','Status','Type','Time'].map(function(hh){return '<th style="text-align:'+(hh==='Time'?'right':'left')+';font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);padding:10px 12px;border-bottom:1px solid var(--border)">'+hh+'</th>';}).join('');
+    var head=['Code','Description','Priority','Asset','Assigned','Status','Suggested','Actual','Type','Time'].map(function(hh){return '<th style="text-align:'+(hh==='Time'?'right':'left')+';font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);padding:10px 12px;border-bottom:1px solid var(--border)">'+hh+'</th>';}).join('');
     host.innerHTML='<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">'+list.length+' work order'+(list.length>1?'s':'')+'</div>'+
       '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--surface-2)">'+head+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
     return;
   }
   host.innerHTML='<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">'+list.length+' work order'+(list.length>1?'s':'')+'</div>'+list.map(function(w){
-    var st=WO_STATUS[w.status]||WO_STATUS.open;
+    var st=woEffStatus(w);
     var pc={Highest:'#ef4444',High:'#ef4444',Medium:'#f59e0b',Low:'#10b981'}[w.priority]||'var(--text-3)';
     var tc=(typeof pmTypeColor==='function'&&w.wo_type)?pmTypeColor(w.wo_type):'#3b82f6';
-    var overdue=w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);
+    var overdue=(st.k!=='completed'&&st.k!=='closed_incomplete')&&w.due_date&&pmIsOverdue(w.due_date,today);
     var ini=(w.assignee||'').split(/\s+/).map(function(p){return p.charAt(0);}).join('').slice(0,2).toUpperCase();
     var H='<div style="position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 14px 12px 16px;margin-bottom:11px;overflow:hidden">';
     H+='<div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:'+tc+'"></div>';
@@ -7561,7 +7587,7 @@ function drawDashboard(el){
   var onTime=judged.filter(function(w){return w.status==='completed'&&pmCompletedOnTime(w.due_date,w.completed_at);}).length;
   var pct=judged.length?Math.round(onTime/judged.length*100):null;
   var teamView=(user===ADMIN);
-  var dueToday=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today&&(teamView||sameTech(w.assignee,user));});
+  var dueToday=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today&&(teamView||sameTech(w.assignee,user)||w.assignee==='Technicians');});
   var techMap={}; wos.forEach(function(w){if(w.status==='completed')return;var t=w.assignee||'Unassigned';techMap[t]=techMap[t]||{t:t,n:0,od:0};techMap[t].n++;if(w.due_date&&pmIsOverdue(w.due_date,today))techMap[t].od++;});
   var techs=Object.keys(techMap).map(function(k){return techMap[k];}).sort(function(a,b){return b.n-a.n;}).slice(0,6);
   var maxN=techs.reduce(function(m,x){return Math.max(m,x.n);},1);
