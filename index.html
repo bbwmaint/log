@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v133';
+var APP_BUILD='BBW CMMS build v134';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1671,9 +1671,9 @@ function openSheet(id){
       }
     }else{fgAt.style.display='none';}
   }
-  var ov=gid('sheet-overlay');ov.style.display='flex';
+  var ov=gid('sheet-overlay');ov.style.display='flex'; try{ if(window.__bbwDock)window.__bbwDock(ov); }catch(_e){}
 }
-function closeSheet(){gid('sheet-overlay').style.display='none';editId=null;}
+function closeSheet(){gid('sheet-overlay').style.display='none';editId=null; try{ if(window.__bbwReflow)window.__bbwReflow(); }catch(_e){}}
 
 function updateLevel(inp){
   var max=parseFloat(inp.getAttribute('data-max'))||28;
@@ -12351,6 +12351,11 @@ try{window.openLogById=openLogById;}catch(_e){}
   function process(nodes){ if(!wide())return; Array.prototype.forEach.call(nodes,function(n){ var o=findOverlay(n); if(o)dock(o.el,o.card); }); }
   var mo=new MutationObserver(function(ms){ if(wide()){ for(var i=0;i<ms.length;i++) process(ms[i].addedNodes); } reflow(); });
   function start(){ try{ mo.observe(document.body,{childList:true,subtree:true}); process(document.body.childNodes); reflow(); }catch(e){} }
+  /* Static overlays (e.g. the log sheet) are shown via display, not added to the DOM,
+     so the MutationObserver never sees them. openSheet/closeSheet call these hooks to
+     dock them as a right-side panel on desktop and refresh the content padding on close. */
+  window.__bbwDock=function(el){ if(!el||!wide())return; if(el.__dd){ el.style.setProperty('z-index',(++_dz),'important'); } else { var card=cardOf(el); if(card)dock(el,card); } reflow(); };
+  window.__bbwReflow=function(){ try{ reflow(); }catch(e){} };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start); else start();
 })();
 </script>
