@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v132';
+var APP_BUILD='BBW CMMS build v133';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7502,7 +7502,8 @@ function renderDashboard(){
   if(typeof loadRequests==='function')jobs.push(loadRequests());
   Promise.all(jobs).then(function(){drawDashboard(el);}).catch(function(){drawDashboard(el);});
 }
-function closeDashDrill(){var m=gid('dash-drill');if(m)m.remove();}
+function closeDashDrillForce(){var m=gid('dash-drill');if(m)m.remove();}
+function closeDashDrill(){ if(deskWide())return; closeDashDrillForce(); }
 function dashDrill(kind,arg){
   var today=pmISO(new Date()); var teamView=(user===ADMIN);
   var reqs=(typeof REQUESTS!=='undefined'?REQUESTS:[])||[]; var wos=(typeof WOS!=='undefined'?WOS:[])||[];
@@ -7512,9 +7513,9 @@ function dashDrill(kind,arg){
   else if(kind==='ontime'){ var ym=today.slice(0,7); title='Scheduled this month'; rows=wos.filter(function(w){return (w.due_date||'').slice(0,7)===ym;}).map(function(w){var done=w.status==='completed'; var ot=done&&pmCompletedOnTime(w.due_date,w.completed_at); return {t:w.description,s:(w.asset||'')+' \u00b7 due '+w.due_date,badge:done?(ot?'On time':'Late'):'Open',badcol:done?(ot?'#10b981':'#ef4444'):'#9b9ba3',click:'openWOComplete('+w.id+')'};}); }
   else if(kind==='tech'){ title='Open work \u00b7 '+(arg||''); rows=wos.filter(function(w){return w.status!=='completed'&&((arg==='Unassigned')?!w.assignee:sameTech(w.assignee,arg));}).sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');}).map(function(w){return {t:w.description,s:(w.asset||'')+(w.due_date?' \u00b7 due '+w.due_date:''),click:'openWOComplete('+w.id+')',bad:w.due_date&&pmIsOverdue(w.due_date,today)};}); }
   else { title='PMs due today'; var dueAll=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today;}); rows=(teamView?dueAll:dueAll.filter(function(w){return sameTech(w.assignee,user);})).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:''),click:'openWOComplete('+w.id+')',bad:pmIsOverdue(w.due_date,today)};}); }
-  var H='<div id="dash-drill" onclick="if(event.target===this)closeDashDrill()" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:760;display:flex;align-items:center;justify-content:center;padding:20px">';
+  var H='<div id="dash-drill" onclick="if(event.target===this)closeDashDrillForce()" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:760;display:flex;align-items:center;justify-content:center;padding:20px">';
   H+='<div style="background:var(--bg);border:1px solid var(--border);border-radius:15px;width:100%;max-width:470px;max-height:84vh;display:flex;flex-direction:column;overflow:hidden">';
-  H+='<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border)"><div style="font-size:16px;font-weight:800;color:#fff">'+title+'<span style="font-size:13px;color:var(--text-3);font-weight:600"> \u00b7 '+rows.length+'</span></div><button onclick="closeDashDrill()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:31px;height:31px;border-radius:8px;cursor:pointer;font-size:15px">\u2715</button></div>';
+  H+='<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border)"><div style="font-size:16px;font-weight:800;color:#fff">'+title+'<span style="font-size:13px;color:var(--text-3);font-weight:600"> \u00b7 '+rows.length+'</span></div><button onclick="closeDashDrillForce()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:31px;height:31px;border-radius:8px;cursor:pointer;font-size:15px">\u2715</button></div>';
   H+='<div style="overflow-y:auto;padding:12px 14px">';
   if(!rows.length)H+='<div style="text-align:center;color:var(--text-3);padding:34px;font-size:13px">Nothing here right now.</div>';
   rows.forEach(function(r){ H+='<div onclick="closeDashDrill();'+(r.click||'')+'" style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;background:var(--surface);margin-bottom:8px;cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600;color:#fff">'+rqEsc(r.t||'')+'</div><div style="font-size:11.5px;color:'+(r.bad?'#f87171':'var(--text-3)')+';margin-top:2px">'+rqEsc(r.s||'')+'</div></div>'+(r.badge?'<span style="font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;background:'+(r.badcol||'#9b9ba3')+'22;color:'+(r.badcol||'#9b9ba3')+'">'+r.badge+'</span>':'')+'</div>'; });
@@ -7846,8 +7847,13 @@ function renderTechLog(){
 //    tiles, to see the exact work orders (or downtime events) behind the number.
 //    Reads the in-memory WOS / STATS so the list always matches what's charted.
 var _homeDrill=null;
-function closeHomeDrill(){ var m=gid('homedrill-modal'); if(m&&m.parentNode)m.parentNode.removeChild(m); }
-function homeOpenPart(f){ try{ closeHomeDrill(); showTab('inventory'); if(f&&typeof invOpenFolder==='function')invOpenFolder(f); }catch(e){} }
+function deskWide(){ return !!(window.matchMedia && window.matchMedia('(min-width:1000px)').matches); }
+function closeHomeDrillForce(){ var m=gid('homedrill-modal'); if(m&&m.parentNode)m.parentNode.removeChild(m); }
+// On desktop the drill docks as a side panel and edits stack on top of it, so a row
+// click must NOT close it (only the X/backdrop force-close). On mobile the edit replaces
+// the panel, so we close it as before.
+function closeHomeDrill(){ if(deskWide())return; closeHomeDrillForce(); }
+function homeOpenPart(f){ try{ closeHomeDrillForce(); showTab('inventory'); if(f&&typeof invOpenFolder==='function')invOpenFolder(f); }catch(e){} }
 function homeDrill(kind,key){ _homeDrill={kind:kind,key:key||'',tab:(kind==='month'?'done':(kind==='due'?'all':''))}; renderHomeDrill(); }
 function homeDrillTab(t){ if(_homeDrill){ _homeDrill.tab=t; renderHomeDrill(); } }
 function _hdMonthName(k){ try{ var p=(''+k).split('-'); return new Date(+p[0],+p[1]-1,1).toLocaleDateString('en-CA',{month:'long',year:'numeric'}); }catch(e){ return k; } }
@@ -7986,11 +7992,11 @@ function renderHomeDrill(){
       return '<div'+op+' style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border)'+(hasId?';cursor:pointer':'')+'"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+d+'</div><div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(who?who:'')+(tm?(' \u00b7 '+tm):'')+'</div></div>'+right+'</div>';
     }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">Nothing here this shift.</div>';
   }
-  host.innerHTML='<div onclick="if(event.target===this)closeHomeDrill()" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:660;display:flex;align-items:flex-end;justify-content:center">'+
+  host.innerHTML='<div onclick="if(event.target===this)closeHomeDrillForce()" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:660;display:flex;align-items:flex-end;justify-content:center">'+
     '<div style="background:var(--surface);width:100%;max-width:640px;border-top-left-radius:20px;border-top-right-radius:20px;box-shadow:0 -8px 30px rgba(16,16,24,.18);max-height:86vh;display:flex;flex-direction:column">'+
       '<div style="width:38px;height:4px;border-radius:3px;background:var(--border);margin:9px auto 4px"></div>'+
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:6px 18px 0"><div style="min-width:0"><div style="font-size:17px;font-weight:800;color:var(--text)">'+rqEsc(title)+'</div><div style="font-size:12.5px;color:var(--text-3);margin-top:3px">'+rqEsc(sub)+'</div></div>'+
-      '<button onclick="closeHomeDrill()" style="background:none;border:none;font-size:24px;color:var(--text-3);cursor:pointer;line-height:1;padding:0 2px;flex:none">\u00d7</button></div>'+
+      '<button onclick="closeHomeDrillForce()" style="background:none;border:none;font-size:24px;color:var(--text-3);cursor:pointer;line-height:1;padding:0 2px;flex:none">\u00d7</button></div>'+
       '<div style="padding:0 18px">'+seg+'</div>'+
       '<div style="padding:2px 18px 20px;overflow-y:auto">'+body+'</div>'+
     '</div></div>';
