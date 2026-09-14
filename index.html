@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v130';
+var APP_BUILD='BBW CMMS build v131';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -12328,11 +12328,11 @@ try{window.openLogById=openLogById;}catch(_e){}
 </script>
 
 
-<style id="bbw-desk-refine">@media(min-width:1000px){html[data-theme='light']{--bg:#f5f5f7;--surface:#ffffff;--surface-2:#f5f5f7;--surface-3:#ececf0;--border:#dcdce2;--border-2:#cbcbd3;--text:#1d1d1f;--text-2:#6e6e73;--text-3:#86868b;--accent:#0071e3}}@media(min-width:1000px){ #pane-home .hm-kpis{gap:10px!important} #pane-home .hm-kpis>div{padding:16px 18px 14px!important} #pane-home .hm-kpis .hm-lbl{color:var(--text-3)!important;text-transform:uppercase;letter-spacing:.02em} #pane-home .hm-kpis .hm-lbl + span{display:none!important} #pane-home .hm-kpis .hm-val{font-size:32px!important;margin-top:2px}}@media(min-width:1000px){body.dd-open #content{padding-right:min(480px,42vw)!important}}@media(min-width:1000px){#pane-home div[style*="box-shadow"],#pane-dash div[style*="box-shadow"]{border:1px solid var(--border)}}</style>
+<style id="bbw-desk-refine">@media(min-width:1000px){html[data-theme='light']{--bg:#f5f5f7;--surface:#ffffff;--surface-2:#f5f5f7;--surface-3:#ececf0;--border:#dcdce2;--border-2:#cbcbd3;--text:#1d1d1f;--text-2:#6e6e73;--text-3:#86868b;--accent:#0071e3}}@media(min-width:1000px){ #pane-home .hm-kpis{gap:10px!important} #pane-home .hm-kpis>div{padding:16px 18px 14px!important} #pane-home .hm-kpis .hm-lbl{color:var(--text-3)!important;text-transform:uppercase;letter-spacing:.02em} #pane-home .hm-kpis .hm-lbl + span{display:none!important} #pane-home .hm-kpis .hm-val{font-size:32px!important;margin-top:2px}}@media(min-width:1000px){#pane-home div[style*="box-shadow"],#pane-dash div[style*="box-shadow"]{border:1px solid var(--border)}}</style>
 
 <script id="bbw-desk-dock">
 (function(){
-  function wide(){ return window.matchMedia && window.matchMedia('(min-width:1000px)').matches; }
+  function wide(){ return false; } /* docking disabled (v131): More tools & overlays open full-page on desktop, not as a right-side panel */
   function cardOf(el){ if(!el||el.nodeType!==1||el.__dd)return null; var cs; try{cs=getComputedStyle(el);}catch(e){return null;} if(cs.position!=='fixed')return null; var r=el.getBoundingClientRect(); if(r.width<window.innerWidth*0.9||r.height<window.innerHeight*0.85)return null; var c=null; for(var i=0;i<el.children.length;i++){var ch=el.children[i]; if(ch.nodeType===1&&ch.tagName!=='SCRIPT'){c=ch;break;}} return c; }
   function findOverlay(node){ if(!node||node.nodeType!==1)return null; var c=cardOf(node); if(c)return{el:node,card:c}; for(var i=0;i<node.children.length;i++){ var cc=cardOf(node.children[i]); if(cc)return{el:node.children[i],card:cc}; } return null; }
   function dock(el,card){ try{ var _ex=document.querySelectorAll('[data-ddock]'); for(var _q=0;_q<_ex.length;_q++){ var _o=_ex[_q]; if(_o!==el){ var _t=_o; while(_t.parentNode&&_t.parentNode!==document.body)_t=_t.parentNode; if(_t.parentNode)_t.parentNode.removeChild(_t); } } }catch(_e){} el.__dd=1; el.setAttribute('data-ddock','1'); var S=function(n,k,v){n.style.setProperty(k,v,'important');};
