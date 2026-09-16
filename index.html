@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v136';
+var APP_BUILD='BBW CMMS build v137';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7105,6 +7105,8 @@ function woEffStatus(w){
 }
 var WO_FILTER_OPTS=[['due','Due'],['overdue','Overdue'],['unassigned','Unassigned'],['assigned','Assigned'],['parts_ordered','Parts Ordered'],['completed','Closed \u00b7 Complete'],['closed_incomplete','Closed \u00b7 Incomplete'],['all','All']];
 function woFilterLabel(k){ for(var i=0;i<WO_FILTER_OPTS.length;i++){if(WO_FILTER_OPTS[i][0]===k)return WO_FILTER_OPTS[i][1];} return k; }
+// A closed WO (done or incomplete) is no longer "due". cancelled kept for legacy rows.
+function woIsClosed(w){ var s=w&&w.status; return s==='completed'||s==='closed_incomplete'||s==='cancelled'; }
 
 function woDetailBody(w){
   var st=WO_STATUS[w.status]||WO_STATUS.open;
@@ -7127,8 +7129,8 @@ function woDetailBody(w){
   if(w.status==='open')H+='<button onclick="openWOAssign('+w.id+')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Assign</button>';
   if(w.status==='assigned')H+='<button onclick="woStatus('+w.id+',\'in_progress\')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Start</button>';
   if(w.status==='in_progress')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Pause</button>';
-  if(w.status!=='completed')H+='<button onclick="openWOComplete('+w.id+')" class="btn-primary" style="flex:1;min-width:96px;height:40px;font-size:13px">Complete</button>';
-  if(w.status==='completed')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Reopen</button>';
+  if(!woIsClosed(w))H+='<button onclick="openWOComplete('+w.id+')" class="btn-primary" style="flex:1;min-width:96px;height:40px;font-size:13px">Complete</button>';
+  if(woIsClosed(w))H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Reopen</button>';
   H+='<button onclick="openWOForm('+w.id+')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Edit</button>';
   H+='<button onclick="deleteWO('+w.id+')" class="btn-ghost" style="width:48px;height:40px;font-size:14px;color:var(--bad)">\u2715</button>';
   H+='</div>';
@@ -7266,8 +7268,8 @@ function renderWOList(){
     if(w.status==='open')H+='<button onclick="openWOAssign('+w.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Assign</button>';
     if(w.status==='assigned')H+='<button onclick="woStatus('+w.id+',\'in_progress\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Start</button>';
     if(w.status==='in_progress')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Pause</button>';
-    if(w.status!=='completed')H+='<button onclick="openWOComplete('+w.id+')" class="btn-primary" style="flex:1;height:31px;font-size:12px">Complete</button>';
-    if(w.status==='completed')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Reopen</button>';
+    if(!woIsClosed(w))H+='<button onclick="openWOComplete('+w.id+')" class="btn-primary" style="flex:1;height:31px;font-size:12px">Complete</button>';
+    if(woIsClosed(w))H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Reopen</button>';
     H+='<button onclick="openWOForm('+w.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Edit</button>';
     H+='<button onclick="deleteWO('+w.id+')" class="btn-ghost" style="width:42px;height:31px;font-size:12px;color:var(--bad)">\u2715</button>';
     H+='</div>';
@@ -7401,7 +7403,12 @@ function completeWO(id, extras){
   var w=WOS.filter(function(x){return x.id===id;})[0]; if(!w)return;
   var today=pmISO(new Date());
   var noteParts=[]; if(extras.parts)noteParts.push('Parts: '+extras.parts); if(extras.note)noteParts.push(extras.note);
-  var patch={status:'completed',completed_by:user,completed_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  var _incomplete=!!extras.incomplete;
+  var _dd=(w.due_date?(''+w.due_date).slice(0,10):'');
+  var _actual=(extras.actualDate!=null&&/^\d{4}-\d{2}-\d{2}$/.test(''+extras.actualDate))?(''+extras.actualDate).slice(0,10):'';
+  // Actual date entered wins; with none, the PM closes on its Suggested (due) date.
+  var _at=_actual?(_actual+'T12:00:00Z'):(_dd?(_dd+'T12:00:00Z'):new Date().toISOString());
+  var patch={status:(_incomplete?'closed_incomplete':'completed'),completed_by:user,completed_at:_at,updated_at:new Date().toISOString()};
   if(extras.hours!=null&&extras.hours!=='')patch.hours_spent=parseFloat(extras.hours);
   if(noteParts.length)patch.notes=(w.notes?w.notes+' \u2022 ':'')+noteParts.join(' \u2022 ');
   // Apply locally BEFORE the round-trip. Previously the status only changed once the
@@ -7415,11 +7422,11 @@ function completeWO(id, extras){
   sbFetch('bbw_wos?id=eq.'+id,{method:'PATCH',body:JSON.stringify(patch),headers:{'Prefer':'return=minimal'}}).then(function(r){
     if(r&&r.ok===false&&r.status!==204)throw new Error('HTTP '+r.status);
     delete WO_UNCONFIRMED[id];
-    if(w.pm_id||w.pm_code){
+    if(!_incomplete&&(w.pm_id||w.pm_code)){
       var p=CMMS_PMS.filter(function(x){return (w.pm_code&&x.code===w.pm_code)||(w.pm_id&&x.id===w.pm_id);})[0];
       if(p&&p.freq){var nd=pmAdvanceISO(p.freq,today);p.next_due=nd;p.last_done=today;if(p.code)sbFetch('bbw_pms?code=eq.'+encodeURIComponent(p.code),{method:'PATCH',body:JSON.stringify({next_due:nd,last_done:today,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}});}
     }
-    try{logFromWO(w, extras);}catch(e){}
+    if(!_incomplete){try{logFromWO(w, extras);}catch(e){}}
     try{if(gid('wo-list'))renderWOList();}catch(e){}
     try{if(gid('wo-detail-pane')&&isDesktop())woSelect(id);}catch(e){}
     try{updateCmmsBadge();}catch(e){}
@@ -7464,9 +7471,11 @@ function openWOComplete(id){
   H+='<div style="font-size:13px;color:var(--text-2);margin-bottom:14px">'+rqEsc(w.description||'')+' \u00b7 '+rqEsc(w.asset||'')+'</div>';
   H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_hours')+'</label><input id="wo-c-hours" type="number" step="5" min="0" value="'+(w.hours_est?Math.round(w.hours_est*60):'')+'" style="'+inp+';margin-bottom:12px">';
   H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_parts')+'</label><input id="wo-c-parts" style="'+inp+';margin-bottom:12px" placeholder="'+T('wo_parts_ph')+'">';
-  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_note')+'</label><textarea id="wo-c-note" rows="3" style="'+inp+';resize:vertical;margin-bottom:16px" placeholder="'+T('wo_note_ph')+'"></textarea>';
-  H+='<div style="display:flex;gap:9px"><button onclick="closeWOComplete()" style="flex:1;padding:13px;background:var(--surface-2);border:1px solid var(--border);color:#fff;border-radius:10px;font-size:14px;cursor:pointer">'+T('Cancel')+'</button>';
-  H+='<button onclick="doWOComplete('+w.id+')" style="flex:2;padding:13px;background:#16a34a;border:none;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">'+T('wo_mark_complete')+'</button></div>';
+  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_note')+'</label><textarea id="wo-c-note" rows="3" style="'+inp+';resize:vertical;margin-bottom:12px" placeholder="'+T('wo_note_ph')+'"></textarea>';
+  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">Actual date <span style="color:var(--text-3);font-weight:400">\u2014 leave blank to use the due date ('+(w.due_date?(''+w.due_date).slice(0,10):'\u2014')+')</span></label><input id="wo-c-actual" type="date" value="" style="'+inp+';margin-bottom:16px">';
+  H+='<button onclick="doWOComplete('+w.id+')" style="width:100%;padding:13px;background:#16a34a;border:none;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:9px">'+T('wo_mark_complete')+'</button>';
+  H+='<div style="display:flex;gap:9px"><button onclick="closeWOComplete()" style="flex:1;padding:12px;background:var(--surface-2);border:1px solid var(--border);color:#fff;border-radius:10px;font-size:13px;cursor:pointer">'+T('Cancel')+'</button>';
+  H+='<button onclick="doWOCloseIncomplete('+w.id+')" style="flex:1;padding:12px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.42);color:#ef4444;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Close \u00b7 Incomplete</button></div>';
   H+='</div></div>';
   var d=document.createElement('div'); d.innerHTML=H; document.body.appendChild(d.firstChild);
 }
@@ -7474,10 +7483,20 @@ function doWOComplete(id){
   var _wm=gid('wo-c-hours')?gid('wo-c-hours').value:''; var hours=(_wm!==''&&!isNaN(parseFloat(_wm)))?String(parseFloat(_wm)/60):'';
   var parts=gid('wo-c-parts')?gid('wo-c-parts').value:'';
   var note=gid('wo-c-note')?gid('wo-c-note').value:'';
+  var actualDate=gid('wo-c-actual')?gid('wo-c-actual').value:'';
   closeWOComplete();
   // If this WO was one-tap completed and is waiting to commit, commit it WITH these details.
-  if(typeof _pendingWODone!=='undefined'&&_pendingWODone&&_pendingWODone.id===id){ flushPendingWO({hours:hours,parts:parts,note:note}); return; }
-  completeWO(id,{hours:hours,parts:parts,note:note});
+  if(typeof _pendingWODone!=='undefined'&&_pendingWODone&&_pendingWODone.id===id){ flushPendingWO({hours:hours,parts:parts,note:note,actualDate:actualDate}); return; }
+  completeWO(id,{hours:hours,parts:parts,note:note,actualDate:actualDate});
+  try{mwRefresh();}catch(e){}
+}
+// Close a PM as not-done: dates it to the Suggested (due) date and counts against
+// compliance (assessed, not on-time). No labor log, no schedule advance.
+function doWOCloseIncomplete(id){
+  var note=gid('wo-c-note')?gid('wo-c-note').value:'';
+  closeWOComplete();
+  if(typeof _pendingWODone!=='undefined'&&_pendingWODone&&_pendingWODone.id===id){ flushPendingWO({note:note,incomplete:true}); return; }
+  completeWO(id,{note:note,incomplete:true});
   try{mwRefresh();}catch(e){}
 }
 function autoGenerateWOs(){
@@ -7535,10 +7554,10 @@ function dashDrill(kind,arg){
   var reqs=(typeof REQUESTS!=='undefined'?REQUESTS:[])||[]; var wos=(typeof WOS!=='undefined'?WOS:[])||[];
   var title='', rows=[];
   if(kind==='requests'){ title='Open requests'; rows=reqs.filter(function(r){return r.status!=='done';}).map(function(r){return {t:(r.asset_name||r.department||'Request'),s:'By '+(r.reporter||'')+(r.department?' \u00b7 '+r.department:''),click:'openRequest('+r.id+')'};}); }
-  else if(kind==='overdue'){ title='Overdue work orders'; rows=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);}).sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');}).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:'')+' \u00b7 due '+w.due_date,click:'openWOComplete('+w.id+')',bad:true};}); }
+  else if(kind==='overdue'){ title='Overdue work orders'; rows=wos.filter(function(w){return !woIsClosed(w)&&w.due_date&&pmIsOverdue(w.due_date,today);}).sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');}).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:'')+' \u00b7 due '+w.due_date,click:'openWOComplete('+w.id+')',bad:true};}); }
   else if(kind==='ontime'){ var ym=today.slice(0,7); title='Scheduled this month'; rows=wos.filter(function(w){return (w.due_date||'').slice(0,7)===ym;}).map(function(w){var done=w.status==='completed'; var ot=done&&pmCompletedOnTime(w.due_date,w.completed_at); return {t:w.description,s:(w.asset||'')+' \u00b7 due '+w.due_date,badge:done?(ot?'On time':'Late'):'Open',badcol:done?(ot?'#10b981':'#ef4444'):'#9b9ba3',click:'openWOComplete('+w.id+')'};}); }
   else if(kind==='tech'){ title='Open work \u00b7 '+(arg||''); rows=wos.filter(function(w){return w.status!=='completed'&&((arg==='Unassigned')?!w.assignee:sameTech(w.assignee,arg));}).sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');}).map(function(w){return {t:w.description,s:(w.asset||'')+(w.due_date?' \u00b7 due '+w.due_date:''),click:'openWOComplete('+w.id+')',bad:w.due_date&&pmIsOverdue(w.due_date,today)};}); }
-  else { title='PMs due today'; var dueAll=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today;}); rows=(teamView?dueAll:dueAll.filter(function(w){return sameTech(w.assignee,user);})).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:''),click:'openWOComplete('+w.id+')',bad:pmIsOverdue(w.due_date,today)};}); }
+  else { title='PMs due today'; var dueAll=wos.filter(function(w){return !woIsClosed(w)&&w.due_date&&w.due_date<=today;}); rows=(teamView?dueAll:dueAll.filter(function(w){return sameTech(w.assignee,user);})).map(function(w){return {t:w.description,s:(w.asset||'')+(w.assignee?' \u00b7 '+w.assignee:''),click:'openWOComplete('+w.id+')',bad:pmIsOverdue(w.due_date,today)};}); }
   var H='<div id="dash-drill" onclick="if(event.target===this)closeDashDrillForce()" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:760;display:flex;align-items:center;justify-content:center;padding:20px">';
   H+='<div style="background:var(--bg);border:1px solid var(--border);border-radius:15px;width:100%;max-width:470px;max-height:84vh;display:flex;flex-direction:column;overflow:hidden">';
   H+='<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border)"><div style="font-size:16px;font-weight:800;color:#fff">'+title+'<span style="font-size:13px;color:var(--text-3);font-weight:600"> \u00b7 '+rows.length+'</span></div><button onclick="closeDashDrillForce()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:31px;height:31px;border-radius:8px;cursor:pointer;font-size:15px">\u2715</button></div>';
@@ -7577,18 +7596,18 @@ function drawDashboard(el){
   var wos=(typeof WOS!=='undefined'?WOS:[])||[];
   var openReq=reqs.filter(function(r){return r.status!=='done';}).length;
   var follow=allE.filter(function(e){return e.type==='followup';}).length;
-  var overdue=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);}).length;
+  var overdue=wos.filter(function(w){return !woIsClosed(w)&&w.due_date&&pmIsOverdue(w.due_date,today);}).length;
   var ym=today.slice(0,7);
   var sched=wos.filter(function(w){return (w.due_date||'').slice(0,7)===ym;});
   // Only judge PMs that have actually been settled: completed, or past the buffer.
   // Counting work that is not yet late as a miss made mid-month look far worse than
   // it was, because PMs due later in the month can't possibly be done yet.
-  var judged=sched.filter(function(w){return w.status==='completed'||pmIsOverdue(w.due_date,today);});
+  var judged=sched.filter(function(w){return w.status==='completed'||w.status==='closed_incomplete'||pmIsOverdue(w.due_date,today);});
   var onTime=judged.filter(function(w){return w.status==='completed'&&pmCompletedOnTime(w.due_date,w.completed_at);}).length;
   var pct=judged.length?Math.round(onTime/judged.length*100):null;
   var teamView=(user===ADMIN);
-  var dueToday=wos.filter(function(w){return w.status!=='completed'&&w.due_date&&w.due_date<=today&&(teamView||sameTech(w.assignee,user)||w.assignee==='Technicians');});
-  var techMap={}; wos.forEach(function(w){if(w.status==='completed')return;var t=w.assignee||'Unassigned';techMap[t]=techMap[t]||{t:t,n:0,od:0};techMap[t].n++;if(w.due_date&&pmIsOverdue(w.due_date,today))techMap[t].od++;});
+  var dueToday=wos.filter(function(w){return !woIsClosed(w)&&w.due_date&&w.due_date<=today&&(teamView||sameTech(w.assignee,user)||w.assignee==='Technicians');});
+  var techMap={}; wos.forEach(function(w){if(woIsClosed(w))return;var t=w.assignee||'Unassigned';techMap[t]=techMap[t]||{t:t,n:0,od:0};techMap[t].n++;if(w.due_date&&pmIsOverdue(w.due_date,today))techMap[t].od++;});
   var techs=Object.keys(techMap).map(function(k){return techMap[k];}).sort(function(a,b){return b.n-a.n;}).slice(0,6);
   var maxN=techs.reduce(function(m,x){return Math.max(m,x.n);},1);
   var openList=reqs.filter(function(r){return r.status!=='done';}).slice(0,5);
@@ -7619,7 +7638,7 @@ function drawDashboard(el){
 function updateCmmsBadge(){
   var btn=gid('tab-cmms'); if(!btn)return;
   var today=pmISO(new Date());
-  var overdue=WOS.filter(function(w){return w.status!=='completed'&&w.due_date&&pmIsOverdue(w.due_date,today);}).length;
+  var overdue=WOS.filter(function(w){return !woIsClosed(w)&&w.due_date&&pmIsOverdue(w.due_date,today);}).length;
   setTabLabel('cmms','CMMS'+(overdue?'<span style="color:#f87171;font-weight:800"> '+overdue+'</span>':''));
 }
 // ═══════════ PM tasks due — compact row at the top of My Log, one-tap done ═══════════
@@ -7667,7 +7686,7 @@ function pmCompletedOnTime(dueISO,completedISO){
 function mwDue(){
   var today=pmISO(new Date());
   return (typeof WOS!=='undefined'?WOS:[]).filter(function(w){
-    return w && w.status!=='completed' && !w._pendingDone && w.due_date && w.due_date<=today;
+    return w && !woIsClosed(w) && !w._pendingDone && w.due_date && w.due_date<=today;
   }).sort(function(a,b){
     var me=(typeof user!=='undefined'&&user)?user:'';
     var am=(sameTech(a.assignee,me))?0:1, bm=(sameTech(b.assignee,me))?0:1;   // my own first
@@ -8733,7 +8752,7 @@ function cmmsTrendHTML(todayISO){
   var bars=months.map(function(d){
     var ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
     var sched=WOS.filter(function(w){return (w.due_date||'').slice(0,7)===ym;});
-    var judged=sched.filter(function(w){return w.status==='completed'||pmIsOverdue(w.due_date,todayISO);});
+    var judged=sched.filter(function(w){return w.status==='completed'||w.status==='closed_incomplete'||pmIsOverdue(w.due_date,todayISO);});
     var onTime=judged.filter(function(w){return w.status==='completed'&&pmCompletedOnTime(w.due_date,w.completed_at);}).length;
     // A percentage from a handful of PMs is noise: August read 100% off 2 assessed
     // while its other 30 sat inside the buffer - a score that could only fall.
