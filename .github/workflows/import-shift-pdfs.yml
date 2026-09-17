@@ -1,0 +1,47 @@
+name: BBW import shift PDFs
+
+# Reads BrewQM Packaging Shift Report PDFs from the mailbox and writes the
+# volume + productivity into the schedule. Idempotent (each report applied once),
+# so a frequent schedule is safe. Runs every 4 hours; also runnable by hand.
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Parse + print, write nothing'
+        type: boolean
+        default: false
+      lookback:
+        description: 'Days of mail to scan (default 7)'
+        required: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install libraries
+        run: npm install --no-audit --no-fund
+      # PDF text extraction uses poppler's pdftotext.
+      - name: Install poppler
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - name: Import shift PDFs
+        env:
+          SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}
+          # Mailbox to read. Outlook (if IMAP enabled): outlook.office365.com.
+          # Gmail relay: imap.gmail.com. USER/PASS are the address + an app password.
+          IMAP_HOST:     ${{ secrets.IMAP_HOST }}
+          IMAP_PORT:     ${{ vars.IMAP_PORT || '993' }}
+          IMAP_USER:     ${{ secrets.IMAP_USER }}
+          IMAP_PASS:     ${{ secrets.IMAP_PASS }}
+          IMAP_FOLDER:   ${{ vars.IMAP_FOLDER || 'INBOX' }}
+          LOOKBACK_DAYS: ${{ vars.LOOKBACK_DAYS || '7' }}
+        run: |
+          node scripts/import-shift-pdfs.mjs \
+            ${{ inputs.dry_run && '--dry-run' || '' }} \
+            ${{ inputs.lookback && format('--lookback {0}', inputs.lookback) || '' }}
