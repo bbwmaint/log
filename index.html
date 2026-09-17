@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v138';
+var APP_BUILD='BBW CMMS build v139';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -10550,7 +10550,7 @@ function brewqmExtract(text){
   var dayNight=sm?sm[2].toLowerCase():null;
   var vm=text.match(/Totals:\s*[\d,]+\s+([\d,.]+)\s+[\d,]+/);           // cans  volHL  min
   var volHL=vm?parseFloat(vm[1].replace(/,/g,'')):null;
-  var pmc=text.match(/Productivity[\s\S]{0,90}?(\d{1,3})\s*%/);
+  var pmc=text.match(/Productivity[\s\S]*?(\d{1,3})\s*%/);
   var prodPct=pmc?+pmc[1]:null;
   return { date:date, dayNight:dayNight, volHL:volHL, prodPct:prodPct };
 }
