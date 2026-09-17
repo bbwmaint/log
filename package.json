@@ -4,9 +4,12 @@
   "type": "module",
   "description": "Automatic BBW maintenance shift report — reads Supabase, builds the PDF, emails it.",
   "dependencies": {
+    "imapflow": "^1.0.164",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
+    "mailparser": "^3.7.1",
     "nodemailer": "^9.0.3",
+    "playwright": "^1.47.0",
     "smtp-server": "^3.19.2"
   }
 }
