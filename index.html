@@ -885,7 +885,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v139';
+var APP_BUILD='BBW CMMS build v140';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7842,7 +7842,7 @@ function renderTechLog(){
   if(!host){ host=document.createElement('div'); host.id='techlog-modal'; document.body.appendChild(host); }
   var tech=_techLog.tech, sort=_techLog.sort, scope=_techLog.scope;
   var seg=function(k,v,lbl){var on=(_techLog[k]===v);return '<button onclick="techLogSet(\''+k+'\',\''+v+'\')" style="padding:7px 13px;border:none;border-radius:7px;background:'+(on?'#3b82f6':'transparent')+';color:'+(on?'#fff':'#42474f')+';font-size:12.5px;font-weight:'+(on?'700':'600')+';cursor:pointer">'+lbl+'</button>';};
-  host.innerHTML='<div onclick="if(event.target===this)closeTechLog()" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:650;display:flex;align-items:flex-start;justify-content:center;padding:18px;overflow-y:auto">'+
+  host.innerHTML='<div onclick="if(event.target===this)closeTechLog()" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:650;display:flex;align-items:flex-start;justify-content:center;padding:calc(18px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));overflow-y:auto">'+
     '<div style="--surface:#fff;--surface-2:#f7f9fc;--surface-3:#eef0f3;--border:#e6e7eb;--border-2:#d7d9de;--text:#1f2430;--text-2:#42474f;--text-3:#9aa0aa;color:var(--text);background:#fff;border:1px solid #e6e7eb;border-radius:14px;display:flex;flex-direction:column;max-height:calc(100vh - 36px);max-width:640px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.35)">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid #e6e7eb"><div style="font-size:17px;font-weight:800;color:#1f2430">'+rqEsc(tech)+' \u2014 logs</div><button onclick="closeTechLog()" style="background:none;border:none;font-size:24px;color:#9aa0aa;cursor:pointer;line-height:1;padding:0 4px">\u00d7</button></div>'+
       '<div style="display:flex;gap:8px;padding:12px 18px;flex-wrap:wrap;border-bottom:1px solid #eef0f3">'+
