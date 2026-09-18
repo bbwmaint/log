@@ -779,6 +779,50 @@ function canonName(n){ n=(""+(n==null?"":n)).replace(/\u00a0/g," ").trim(); retu
 function sameTech(a,b){ return canonName(a)===canonName(b); }
 var ADMIN="Praful";
 var EDITORS=["Praful","Lahcen"];   // can edit CMMS + Reports (audit control)
+// ── User roster (managed) ────────────────────────────────────────────────────
+// The live roster is stored in bbw_system id='users' as [{name,role,status,created}].
+// TECHS/EDITORS above are the seed + offline fallback; once the roster loads they are
+// rebuilt from ACTIVE users, so the login dropdown and every assignee list follow it.
+var USERS=null;                       // null until loaded; array of user records after
+var TECHS_SEED=TECHS.slice(), EDITORS_SEED=EDITORS.slice();
+function userRec(n){ if(!USERS)return null; n=canonName(n); for(var i=0;i<USERS.length;i++){if(canonName(USERS[i].name)===n)return USERS[i];} return null; }
+function rebuildRoster(){
+  if(!USERS||!USERS.length)return;    // keep hardcoded fallback if nothing loaded
+  var act=USERS.filter(function(u){return u&&u.status==='active';});
+  TECHS=act.map(function(u){return u.name;});
+  EDITORS=act.filter(function(u){return u.role==='editor';}).map(function(u){return u.name;});
+  try{ buildNames(); }catch(e){}
+}
+function saveUsers(){
+  return sbFetch('bbw_system?on_conflict=id',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:'users',data:USERS})});
+}
+function loadUsers(){
+  return sbFetch('bbw_system?id=eq.users&select=data').then(function(r){return r.ok?r.json():[];}).then(function(rows){
+    var d=rows&&rows[0]&&rows[0].data;
+    if(Array.isArray(d)&&d.length){ USERS=d; rebuildRoster(); return USERS; }
+    // First run: seed the store from the current hardcoded roster (one-time).
+    USERS=TECHS_SEED.map(function(n){return {name:n, role:(EDITORS_SEED.indexOf(n)>=0?'editor':'tech'), status:'active', created:(new Date().toISOString().slice(0,10))};});
+    saveUsers(); rebuildRoster(); return USERS;
+  }).catch(function(){ return null; });
+}
+// Move a person's OPEN work (WOs not completed/closed) and their PM templates to
+// another assignee ('Unassigned' on removal, the successor on handover). Completed
+// history is never touched.
+function userReassign(fromName, toName){
+  var enc=encodeURIComponent(fromName), body=JSON.stringify({assignee:toName,updated_at:new Date().toISOString()});
+  var jobs=[
+    sbFetch('bbw_wos?assignee=eq.'+enc+'&status=not.in.(completed,closed_incomplete,cancelled)',{method:'PATCH',headers:{'Prefer':'return=minimal'},body:body}).catch(function(){}),
+    sbFetch('bbw_pms?assignee=eq.'+enc,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({assignee:toName,updated_at:new Date().toISOString()})}).catch(function(){})
+  ];
+  return Promise.all(jobs).then(function(){
+    try{ if(typeof WOS!=='undefined'&&WOS)WOS.forEach(function(w){ if(sameTech(w.assignee,fromName)&&(typeof woIsClosed==='function'?!woIsClosed(w):w.status!=='completed'))w.assignee=toName; }); }catch(e){}
+    try{ if(typeof CMMS_PMS!=='undefined'&&CMMS_PMS)CMMS_PMS.forEach(function(p){ if(sameTech(p.assignee,fromName))p.assignee=toName; }); }catch(e){}
+    try{ if(typeof renderWOList==='function')renderWOList(); }catch(e){}
+  });
+}
+function userOpenCount(name){
+  try{ if(typeof WOS==='undefined'||!WOS)return 0; return WOS.filter(function(w){ return sameTech(w.assignee,name)&&(typeof woIsClosed==='function'?!woIsClosed(w):w.status!=='completed'); }).length; }catch(e){ return 0; }
+}
 // ====== CMMS ON/OFF SWITCH ======  set to true to show the CMMS tab, false to hide it for everyone
 var CMMS_ENABLED=true;
 // Role per person; anyone not listed is a Maintenance Technician.
@@ -885,7 +929,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v140';
+var APP_BUILD='BBW CMMS build v141';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1201,6 +1245,7 @@ function loginUser(name){
   try{loadFromSB();}catch(e){console.error('loadFromSB',e);}
   try{loadSchedulesFromStorage();}catch(e){} // instant local cache
   try{loadSchedulesFromSB();}catch(e){} // then refresh from Supabase (all devices)
+  try{loadUsers();}catch(e){}           // managed roster -> login dropdown + assignee lists
   try{loadUtilFromSB();}catch(e){console.error('loadUtil',e);}
   try{loadPMOverrides();}catch(e){console.error('loadPMOverrides',e);}
   try{renderAll();}catch(e){console.error('renderAll',e);}
@@ -10529,6 +10574,155 @@ function invDeleteItem(id){
     .catch(function(e){ alert('Delete failed: '+e.message); });
 }
 
+/* ── User Management (editors) ───────────────────────────────────────────────
+   Roster CRUD backed by the bbw_system 'users' record. Create/Pause/Resume/
+   Remove/Hand-over. Removing or handing over reassigns open work + PM templates
+   (→ Unassigned, or → the successor) and never touches completed history. */
+function jsq(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+function openUserMgmt(){
+  if(!isEditor())return;
+  var ov=document.getElementById('usermgmt-overlay'); if(ov)ov.remove();
+  ov=document.createElement('div'); ov.id='usermgmt-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:700;display:flex;flex-direction:column';
+  ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">'+
+      '<button onclick="closeUserMgmt()" class="btn-ghost" style="padding:8px 12px;font-size:13px">\u2039 Back</button>'+
+      '<div style="font-size:16px;font-weight:700;color:var(--text)">Manage Users</div>'+
+      '<button onclick="userAddDialog()" style="margin-left:auto;background:#2563eb;color:#fff;border:none;font-size:13px;font-weight:700;padding:9px 14px;border-radius:9px;cursor:pointer">+ Add user</button>'+
+    '</div><div id="usermgmt-body" style="flex:1;overflow-y:auto;padding:12px 14px calc(30px + env(safe-area-inset-bottom))"></div>';
+  document.body.appendChild(ov);
+  if(!USERS){ try{ loadUsers().then(function(){renderUserRoster();}); }catch(e){} }
+  renderUserRoster();
+}
+function closeUserMgmt(){ var m=document.getElementById('usermgmt-overlay'); if(m)m.remove(); }
+function renderUserRoster(){
+  var box=document.getElementById('usermgmt-body'); if(!box)return;
+  if(!USERS){ box.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-3);font-size:13px">Loading\u2026</div>'; return; }
+  var order={active:0,paused:1,removed:2};
+  var list=USERS.slice().sort(function(a,b){ return (order[a.status]-order[b.status])||(''+a.name).localeCompare(''+b.name); });
+  var na=USERS.filter(function(u){return u.status==='active';}).length, np=USERS.filter(function(u){return u.status==='paused';}).length, nr=USERS.filter(function(u){return u.status==='removed';}).length;
+  var H='<div style="font-size:11.5px;color:var(--text-3);margin-bottom:8px">'+USERS.length+' users \u00b7 '+na+' active'+(np?' \u00b7 '+np+' paused':'')+(nr?' \u00b7 '+nr+' removed':'')+'</div>';
+  list.forEach(function(u){
+    var st=u.status, dot=(st==='active'?'#22c55e':(st==='paused'?'#f59e0b':'#9ca3af')), stTxt=(st==='active'?'Active':(st==='paused'?'Paused':'Removed'));
+    var oc=userOpenCount(u.name), op=(st==='removed'?'.55':(st==='paused'?'.72':'1'));
+    H+='<button onclick="userActions(\''+jsq(u.name)+'\')" style="width:100%;text-align:left;display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 13px;margin-bottom:8px;cursor:pointer;opacity:'+op+'">'+
+      '<div style="width:34px;height:34px;border-radius:50%;background:var(--surface-2);color:#2563eb;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex:none">'+aeEsc((''+(u.name||'?')).slice(0,1).toUpperCase())+'</div>'+
+      '<div style="flex:1;min-width:0"><div style="font-size:14.5px;font-weight:600;color:var(--text)">'+aeEsc(u.name)+' <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:'+(u.role==='editor'?'rgba(37,99,235,.13);color:#2563eb':'var(--surface-3);color:var(--text-3)')+'">'+(u.role==='editor'?'EDITOR':'TECH')+'</span></div>'+
+        '<div style="font-size:11.5px;color:var(--text-3);margin-top:1px">'+(st==='removed'?'removed':(oc+' open PM'+(oc===1?'':'s')))+'</div></div>'+
+      '<span style="width:8px;height:8px;border-radius:50%;background:'+dot+';flex:none"></span><span style="font-size:11px;font-weight:600;color:'+dot+'">'+stTxt+'</span></button>';
+  });
+  box.innerHTML=H;
+}
+function userActions(name){
+  var u=userRec(name); if(!u)return;
+  var ov=document.getElementById('user-act'); if(ov)ov.remove();
+  ov=document.createElement('div'); ov.id='user-act';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:840;display:flex;align-items:flex-end;justify-content:center';
+  var oc=userOpenCount(u.name), acts='';
+  if(u.status!=='removed'){
+    acts+='<div class="uarow" onclick="userToggle(\''+jsq(u.name)+'\')"><span style="color:#d97706">'+(u.status==='paused'?'\u25b6':'\u23f8')+'</span> '+(u.status==='paused'?'Resume access':'Pause access')+'<span class="uasub">'+(u.status==='paused'?'let them log in again':'hide from login; keeps assignments & history')+'</span></div>';
+    acts+='<div class="uarow" onclick="userHandoverDialog(\''+jsq(u.name)+'\')"><span style="color:#2563eb">\u21c4</span> Hand over to\u2026<span class="uasub">move '+oc+' open PM'+(oc===1?'':'s')+' to another person, then remove '+aeEsc(u.name)+'</span></div>';
+    acts+='<div class="uarow" onclick="userRemoveConfirm(\''+jsq(u.name)+'\')"><span style="color:#dc2626">\ud83d\uddd1</span> <span style="color:#dc2626">Remove</span><span class="uasub">permanent lockout; '+oc+' open PM'+(oc===1?'':'s')+' \u2192 Unassigned; history kept</span></div>';
+  } else {
+    acts+='<div class="uarow" onclick="userToggle(\''+jsq(u.name)+'\')"><span style="color:#16a34a">\u21ba</span> Restore<span class="uasub">re-activate this user</span></div>';
+  }
+  ov.innerHTML='<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:80vh;overflow-y:auto;padding:18px 14px calc(24px + env(safe-area-inset-bottom))">'+
+    '<div style="width:36px;height:4px;background:var(--border-2);border-radius:2px;margin:0 auto 14px"></div>'+
+    '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:2px">'+aeEsc(u.name)+'</div>'+
+    '<div style="font-size:12px;color:var(--text-3);margin-bottom:12px">'+(u.role==='editor'?'Editor':'Technician')+' \u00b7 '+(u.status==='active'?'active':u.status)+'</div>'+
+    '<style>.uarow{padding:13px 12px;border:1px solid var(--border);border-radius:11px;margin-bottom:8px;font-size:14px;font-weight:600;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:9px;flex-wrap:wrap}.uasub{flex-basis:100%;font-size:11.5px;font-weight:400;color:var(--text-3);margin-top:2px}</style>'+
+    acts+'<button onclick="closeUserAct()" style="width:100%;padding:12px;margin-top:4px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);border-radius:10px;font-size:14px;cursor:pointer">Close</button></div>';
+  ov.addEventListener('click',function(e){if(e.target===ov)closeUserAct();});
+  document.body.appendChild(ov);
+}
+function closeUserAct(){ var m=document.getElementById('user-act'); if(m)m.remove(); }
+function userToggle(name){
+  var u=userRec(name); if(!u)return;
+  u.status=(u.status==='active')?'paused':'active';
+  saveUsers().then(function(){ rebuildRoster(); renderUserRoster(); try{toast(u.name+' '+(u.status==='active'?'active':'paused'));}catch(e){} });
+  closeUserAct();
+}
+function userRemoveConfirm(name){
+  closeUserAct();
+  var oc=userOpenCount(name);
+  if(!confirm('Remove '+name+'?\n\n\u2022 They can no longer log in (permanent)\n\u2022 Their '+oc+' open PM'+(oc===1?'':'s')+' become Unassigned\n\u2022 All their logs & completed PMs stay under their name'))return;
+  var u=userRec(name); if(!u)return;
+  userReassign(name,'Unassigned').then(function(){ u.status='removed'; return saveUsers(); })
+    .then(function(){ rebuildRoster(); renderUserRoster(); try{toast(name+' removed \u2014 '+oc+' PM'+(oc===1?'':'s')+' unassigned');}catch(e){} });
+}
+function userAddDialog(){
+  var ov=document.getElementById('user-add'); if(ov)ov.remove();
+  ov=document.createElement('div'); ov.id='user-add';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:850;display:flex;align-items:flex-end;justify-content:center';
+  ov.innerHTML='<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:18px 16px calc(24px + env(safe-area-inset-bottom))">'+
+    '<div style="width:36px;height:4px;background:var(--border-2);border-radius:2px;margin:0 auto 14px"></div>'+
+    '<div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:14px">Add user</div>'+
+    '<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">Name</label>'+
+    '<input id="ua-name" style="width:100%;box-sizing:border-box;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;margin-bottom:14px" placeholder="e.g. Dmytro">'+
+    '<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">Role</label>'+
+    '<div id="ua-role" data-role="tech" style="display:flex;gap:8px;margin-bottom:16px">'+
+      '<button onclick="uaRole(\'tech\')" id="ua-tech" style="flex:1;padding:11px;border-radius:9px;border:1px solid var(--border);background:var(--text);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Technician</button>'+
+      '<button onclick="uaRole(\'editor\')" id="ua-editor" style="flex:1;padding:11px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer">Editor</button></div>'+
+    '<div style="display:flex;gap:9px"><button onclick="closeUserAdd()" style="flex:1;padding:12px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);border-radius:10px;font-size:14px;cursor:pointer">Cancel</button>'+
+    '<button onclick="userAddSave()" style="flex:2;padding:12px;background:#2563eb;border:none;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">Add</button></div></div>';
+  ov.addEventListener('click',function(e){if(e.target===ov)closeUserAdd();});
+  document.body.appendChild(ov);
+  setTimeout(function(){var i=document.getElementById('ua-name');if(i)i.focus();},60);
+}
+function uaRole(r){ var c=document.getElementById('ua-role'); if(!c)return; c.setAttribute('data-role',r);
+  var t=document.getElementById('ua-tech'), e=document.getElementById('ua-editor');
+  if(r==='tech'){t.style.background='var(--text)';t.style.color='#fff';e.style.background='var(--surface-2)';e.style.color='var(--text-2)';}
+  else{e.style.background='var(--text)';e.style.color='#fff';t.style.background='var(--surface-2)';t.style.color='var(--text-2)';}
+}
+function closeUserAdd(){ var m=document.getElementById('user-add'); if(m)m.remove(); }
+function userAddSave(){
+  if(!USERS)USERS=[];
+  var name=((document.getElementById('ua-name')||{}).value||'').trim();
+  var role=(document.getElementById('ua-role')||{getAttribute:function(){return 'tech';}}).getAttribute('data-role')||'tech';
+  if(!name){ try{toast('Enter a name',true);}catch(e){} return; }
+  var ex=userRec(name);
+  if(ex){ if(ex.status!=='active'){ ex.status='active'; ex.role=role; saveUsers().then(function(){rebuildRoster();renderUserRoster();}); try{toast(name+' re-activated');}catch(e){} closeUserAdd(); return; } try{toast(name+' already exists',true);}catch(e){} return; }
+  USERS.push({name:name, role:role, status:'active', created:new Date().toISOString().slice(0,10)});
+  saveUsers().then(function(){ rebuildRoster(); renderUserRoster(); try{toast(name+' added');}catch(e){} });
+  closeUserAdd();
+}
+function userHandoverDialog(from){
+  closeUserAct();
+  var ov=document.getElementById('user-ho'); if(ov)ov.remove();
+  ov=document.createElement('div'); ov.id='user-ho';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:850;display:flex;align-items:flex-end;justify-content:center';
+  var oc=userOpenCount(from);
+  var others=(USERS||[]).filter(function(u){return u.status!=='removed'&&!sameTech(u.name,from);}).map(function(u){return '<option value="'+aeEsc(u.name)+'">'+aeEsc(u.name)+(u.status==='paused'?' (paused)':'')+'</option>';}).join('');
+  ov.innerHTML='<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:18px 16px calc(24px + env(safe-area-inset-bottom))">'+
+    '<div style="width:36px;height:4px;background:var(--border-2);border-radius:2px;margin:0 auto 14px"></div>'+
+    '<div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:3px">Hand over '+aeEsc(from)+'</div>'+
+    '<div style="font-size:12.5px;color:var(--text-3);margin-bottom:14px">Their '+oc+' open PM'+(oc===1?'':'s')+' and future PMs move to the person below. '+aeEsc(from)+'\u2019s completed history stays, and '+aeEsc(from)+' is removed.</div>'+
+    '<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">Give the work to</label>'+
+    '<select id="ho-to" onchange="var n=document.getElementById(\'ho-new\');if(n)n.style.display=this.value===\'__new__\'?\'block\':\'none\'" style="width:100%;box-sizing:border-box;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;margin-bottom:10px">'+
+      others+'<option value="__new__">+ New person\u2026</option></select>'+
+    '<input id="ho-new" style="display:'+(others?'none':'block')+';width:100%;box-sizing:border-box;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;margin-bottom:14px" placeholder="New person\u2019s name">'+
+    '<div style="display:flex;gap:9px"><button onclick="closeUserHo()" style="flex:1;padding:12px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);border-radius:10px;font-size:14px;cursor:pointer">Cancel</button>'+
+    '<button onclick="userHandoverSave(\''+jsq(from)+'\')" style="flex:2;padding:12px;background:#2563eb;border:none;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">Hand over & remove</button></div></div>';
+  ov.addEventListener('click',function(e){if(e.target===ov)closeUserHo();});
+  document.body.appendChild(ov);
+  var sel=document.getElementById('ho-to'); if(sel&&!others)sel.value='__new__';
+}
+function closeUserHo(){ var m=document.getElementById('user-ho'); if(m)m.remove(); }
+function userHandoverSave(from){
+  var sel=document.getElementById('ho-to'); var to=sel?sel.value:'';
+  if(to==='__new__'){ to=((document.getElementById('ho-new')||{}).value||'').trim(); }
+  if(!to){ try{toast('Pick or name the person',true);}catch(e){} return; }
+  if(sameTech(to,from)){ try{toast('Pick someone else',true);}catch(e){} return; }
+  var oc=userOpenCount(from);
+  var toRec=userRec(to);
+  if(!toRec){ USERS.push({name:to,role:'tech',status:'active',created:new Date().toISOString().slice(0,10)}); }
+  else if(toRec.status==='removed'){ toRec.status='active'; }
+  var fromRec=userRec(from);
+  var toName=(userRec(to)?userRec(to).name:to);
+  userReassign(from,toName).then(function(){ if(fromRec)fromRec.status='removed'; return saveUsers(); })
+    .then(function(){ rebuildRoster(); renderUserRoster(); try{toast(oc+' PM'+(oc===1?'':'s')+' \u2192 '+toName+'; '+from+' removed');}catch(e){} });
+  closeUserHo();
+}
+
 /* ── BrewQM Packaging Shift PDF import (editors) ─────────────────────────────
    Reads the emailed BrewQM shift report(s) in-browser, pulls date / shift /
    volume (hL) / productivity, and fills the tech schedule (dHL+dProd for a day
@@ -10650,6 +10844,7 @@ function renderMore(){
     H+='<button onclick="openActionPlans()" class="btn-ghost" style="padding:13px 8px;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;text-align:center">Action Plans</button>';
     H+='</div>';
     H+='<button onclick="openDowntimeByDay()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:7px">Downtime by Day</button>';
+    H+='<button onclick="openUserMgmt()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Manage Users</button>';
     H+='<button onclick="openBrewqmImport()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15h6"/></svg>Import Shift PDF</button>';
   }
   H+='<button onclick="openForkliftMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Forklift Inspection</button>';
