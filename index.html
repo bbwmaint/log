@@ -929,7 +929,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v142';
+var APP_BUILD='BBW CMMS build v143';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7184,7 +7184,7 @@ function woDetailBody(w){
 function woSelect(id){
   var w=WOS.filter(function(x){return x.id===id;})[0]; var pane=gid('wo-detail-pane'); if(!w||!pane)return;
   pane.innerHTML='<div onclick="if(event.target===this)woCloseDetail()" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:600;display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto">'+
-    '<div style="--bg:#eef0f3;--surface:#ffffff;--surface-2:#f7f9fc;--surface-3:#eef0f3;--border:#e6e7eb;--border-2:#d7d9de;--text:#1f2430;--text-2:#42474f;--text-3:#9aa0aa;color:var(--text);background:#fff;border:1px solid #e6e7eb;border-radius:14px;max-width:840px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.35)">'+
+    '<div style="color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:840px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.35)">'+
       '<div style="display:flex;justify-content:flex-end;padding:10px 12px 0"><button onclick="woCloseDetail()" style="background:none;border:none;font-size:24px;color:#9aa0aa;cursor:pointer;line-height:1;padding:2px 8px">\u00d7</button></div>'+
       '<div style="padding:0 20px 22px">'+woDetailBody(w)+'</div>'+
     '</div></div>';
@@ -7219,7 +7219,7 @@ function renderWOModule(){
        ['due','overdue','unassigned','assigned','parts_ordered','completed','closed_incomplete','all'].map(function(s){return '<option value="'+s+'"'+(WO_FILTER.status===s?' selected':'')+'>'+woFilterLabel(s)+'</option>';}).join('')+'</select>';
     H+='<select onchange="WO_FILTER.assignee=this.value;renderWOList()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font-size:12.5px"><option value="">All techs</option>'+assignees.map(function(a){return '<option'+(WO_FILTER.assignee===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select>';
     H+='</div><div id="wo-list"></div><div id="wo-detail-pane"></div>';
-    host.innerHTML='<div style="--bg:#eef0f3;--surface:#ffffff;--surface-2:#f7f9fc;--surface-3:#eef0f3;--border:#e6e7eb;--border-2:#d7d9de;--text:#1f2430;--text-2:#42474f;--text-3:#9aa0aa;color:var(--text)">'+H+'</div>';
+    host.innerHTML=H;
     renderWOList();
   }).catch(function(e){host.innerHTML='<div style="padding:18px;color:#f87171;font-size:13px">'+e.message+'. Run the bbw_wos SQL, then reopen.</div>';});
 }
@@ -7888,7 +7888,7 @@ function renderTechLog(){
   var tech=_techLog.tech, sort=_techLog.sort, scope=_techLog.scope;
   var seg=function(k,v,lbl){var on=(_techLog[k]===v);return '<button onclick="techLogSet(\''+k+'\',\''+v+'\')" style="padding:7px 13px;border:none;border-radius:7px;background:'+(on?'#3b82f6':'transparent')+';color:'+(on?'#fff':'#42474f')+';font-size:12.5px;font-weight:'+(on?'700':'600')+';cursor:pointer">'+lbl+'</button>';};
   host.innerHTML='<div onclick="if(event.target===this)closeTechLog()" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:650;display:flex;align-items:flex-start;justify-content:center;padding:calc(18px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));overflow-y:auto">'+
-    '<div style="--surface:#fff;--surface-2:#f7f9fc;--surface-3:#eef0f3;--border:#e6e7eb;--border-2:#d7d9de;--text:#1f2430;--text-2:#42474f;--text-3:#9aa0aa;color:var(--text);background:#fff;border:1px solid #e6e7eb;border-radius:14px;display:flex;flex-direction:column;max-height:calc(100vh - 36px);max-width:640px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.35)">'+
+    '<div style="color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:14px;display:flex;flex-direction:column;max-height:calc(100vh - 36px);max-width:640px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.35)">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid #e6e7eb"><div style="font-size:17px;font-weight:800;color:#1f2430">'+rqEsc(tech)+' \u2014 logs</div><button onclick="closeTechLog()" style="background:none;border:none;font-size:24px;color:#9aa0aa;cursor:pointer;line-height:1;padding:0 4px">\u00d7</button></div>'+
       '<div style="display:flex;gap:8px;padding:12px 18px;flex-wrap:wrap;border-bottom:1px solid #eef0f3">'+
         '<div style="display:inline-flex;background:#f7f9fc;border:1px solid #e6e7eb;border-radius:9px;padding:3px">'+seg('sort','desc','Latest first')+seg('sort','asc','Oldest first')+'</div>'+
@@ -8035,7 +8035,7 @@ function renderHomeDrill(){
     low=low.slice().sort(function(a,b){return (parseFloat(a.qty)||0)-(parseFloat(b.qty)||0);});
     title='Parts below min'; sub=low.length+' below minimum';
     body=low.length?low.map(function(i){
-      var nm=rqEsc(i.name||i.part||'\u2014'); var loc=rqEsc(i.location||i.folder||'');
+      var nm=rqEsc(i.item||i.name||i.part||'\u2014'); var loc=rqEsc(i.location||i.folder||'');
       var q=(parseFloat(i.qty)||0), m=(parseFloat(i.min_qty)||0);
       var fold=(''+(i.folder||'')).replace(/['"\\<>]/g,'');
       return '<div onclick="homeOpenPart(\''+fold+'\')" style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+nm+'</div><div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+loc+'</div></div><div style="flex:none;text-align:right"><span style="font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:20px;background:rgba(220,38,38,.13);color:#dc2626">'+q+' / '+m+'</span></div></div>';
