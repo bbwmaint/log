@@ -929,7 +929,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v141';
+var APP_BUILD='BBW CMMS build v142';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7512,7 +7512,7 @@ function openWOComplete(id){
   var inp='width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px;box-sizing:border-box';
   var H='<div id="wo-complete-modal" onclick="if(event.target===this)closeWOComplete()" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:900;display:flex;align-items:flex-end;justify-content:center">';
   H+='<div style="background:var(--bg);width:100%;max-width:600px;border-radius:18px 18px 0 0;border-top:1px solid var(--border);padding:18px 16px 26px;max-height:90vh;overflow-y:auto">';
-  H+='<div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:3px">'+T('wo_complete_title')+'</div>';
+  H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:3px"><div style="font-size:16px;font-weight:800;color:#fff">'+T('wo_complete_title')+'</div><button onclick="closeWOComplete()" style="background:none;border:none;font-size:24px;color:var(--text-3);cursor:pointer;line-height:1;padding:0 2px;margin:-4px -2px 0 8px;flex:none">\u00d7</button></div>';
   H+='<div style="font-size:13px;color:var(--text-2);margin-bottom:14px">'+rqEsc(w.description||'')+' \u00b7 '+rqEsc(w.asset||'')+'</div>';
   H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_hours')+'</label><input id="wo-c-hours" type="number" step="5" min="0" value="'+(w.hours_est?Math.round(w.hours_est*60):'')+'" style="'+inp+';margin-bottom:12px">';
   H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_parts')+'</label><input id="wo-c-parts" style="'+inp+';margin-bottom:12px" placeholder="'+T('wo_parts_ph')+'">';
@@ -10582,7 +10582,7 @@ function jsq(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,
 function openUserMgmt(){
   if(!isEditor())return;
   var ov=document.getElementById('usermgmt-overlay'); if(ov)ov.remove();
-  ov=document.createElement('div'); ov.id='usermgmt-overlay';
+  ov=document.createElement('div'); ov.id='usermgmt-overlay'; ov.setAttribute('data-fullpage','1');
   ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:700;display:flex;flex-direction:column';
   ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">'+
       '<button onclick="closeUserMgmt()" class="btn-ghost" style="padding:8px 12px;font-size:13px">\u2039 Back</button>'+
@@ -10615,7 +10615,7 @@ function renderUserRoster(){
 function userActions(name){
   var u=userRec(name); if(!u)return;
   var ov=document.getElementById('user-act'); if(ov)ov.remove();
-  ov=document.createElement('div'); ov.id='user-act';
+  ov=document.createElement('div'); ov.id='user-act'; ov.setAttribute('data-fullpage','1');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:840;display:flex;align-items:flex-end;justify-content:center';
   var oc=userOpenCount(u.name), acts='';
   if(u.status!=='removed'){
@@ -10651,7 +10651,7 @@ function userRemoveConfirm(name){
 }
 function userAddDialog(){
   var ov=document.getElementById('user-add'); if(ov)ov.remove();
-  ov=document.createElement('div'); ov.id='user-add';
+  ov=document.createElement('div'); ov.id='user-add'; ov.setAttribute('data-fullpage','1');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:850;display:flex;align-items:flex-end;justify-content:center';
   ov.innerHTML='<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:18px 16px calc(24px + env(safe-area-inset-bottom))">'+
     '<div style="width:36px;height:4px;background:var(--border-2);border-radius:2px;margin:0 auto 14px"></div>'+
@@ -10688,7 +10688,7 @@ function userAddSave(){
 function userHandoverDialog(from){
   closeUserAct();
   var ov=document.getElementById('user-ho'); if(ov)ov.remove();
-  ov=document.createElement('div'); ov.id='user-ho';
+  ov=document.createElement('div'); ov.id='user-ho'; ov.setAttribute('data-fullpage','1');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:850;display:flex;align-items:flex-end;justify-content:center';
   var oc=userOpenCount(from);
   var others=(USERS||[]).filter(function(u){return u.status!=='removed'&&!sameTech(u.name,from);}).map(function(u){return '<option value="'+aeEsc(u.name)+'">'+aeEsc(u.name)+(u.status==='paused'?' (paused)':'')+'</option>';}).join('');
@@ -10764,7 +10764,7 @@ function openBrewqmImport(){
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:820;display:flex;align-items:flex-end;justify-content:center';
   ov.innerHTML='<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;padding:20px 16px calc(30px + env(safe-area-inset-bottom))">'+
     '<div style="width:36px;height:4px;background:var(--border-2);border-radius:2px;margin:0 auto 16px"></div>'+
-    '<div style="font-size:19px;font-weight:700;color:var(--text);margin-bottom:4px">Import Packaging Shift PDF</div>'+
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px"><div style="font-size:19px;font-weight:700;color:var(--text)">Import Packaging Shift PDF</div><button onclick="closeBrewqmImport()" style="background:none;border:none;font-size:24px;color:var(--text-3);cursor:pointer;line-height:1;padding:0 2px;margin:-4px -2px 0 8px;flex:none">\u00d7</button></div>'+
     '<div style="font-size:12.5px;color:var(--text-3);margin-bottom:16px">Upload the BrewQM shift report(s). It reads the date, shift, total volume (hL) and productivity, and fills the schedule for you to review.</div>'+
     '<label style="display:block;border:1.5px dashed var(--border-2);border-radius:12px;padding:22px;text-align:center;color:#60a5fa;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:14px">'+
       '<input id="brewqm-file" type="file" accept="application/pdf,.pdf" multiple style="display:none" onchange="brewqmParseFiles(this.files)">'+
