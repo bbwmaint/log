@@ -794,10 +794,11 @@ function rebuildRoster(){
   try{ buildNames(); }catch(e){}
 }
 function saveUsers(){
-  return sbFetch('bbw_system?on_conflict=id',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:'users',data:USERS})});
+  return (typeof saveScheduleToSB==='function')?saveScheduleToSB('users',USERS)
+    :sbFetch('bbw_schedule?on_conflict=id',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:'users',data:USERS,updated_at:new Date().toISOString()})}).then(function(r){return r.ok;});
 }
 function loadUsers(){
-  return sbFetch('bbw_system?id=eq.users&select=data').then(function(r){return r.ok?r.json():[];}).then(function(rows){
+  return sbFetch('bbw_schedule?id=eq.users&select=data').then(function(r){return r.ok?r.json():[];}).then(function(rows){
     var d=rows&&rows[0]&&rows[0].data;
     if(Array.isArray(d)&&d.length){ USERS=d; rebuildRoster(); return USERS; }
     // First run: seed the store from the current hardcoded roster (one-time).
@@ -929,7 +930,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v143';
+var APP_BUILD='BBW CMMS build v144';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -10620,6 +10621,8 @@ function userActions(name){
   var oc=userOpenCount(u.name), acts='';
   if(u.status!=='removed'){
     acts+='<div class="uarow" onclick="userToggle(\''+jsq(u.name)+'\')"><span style="color:#d97706">'+(u.status==='paused'?'\u25b6':'\u23f8')+'</span> '+(u.status==='paused'?'Resume access':'Pause access')+'<span class="uasub">'+(u.status==='paused'?'let them log in again':'hide from login; keeps assignments & history')+'</span></div>';
+    var _or=(u.role==='editor')?'tech':'editor';
+    acts+='<div class="uarow" onclick="userSetRole(\''+jsq(u.name)+'\',\''+_or+'\')"><span style="color:#2563eb">\u2699</span> Make '+(_or==='editor'?'Editor':'Technician')+'<span class="uasub">'+(_or==='editor'?'can edit CMMS, reports & users':'standard technician access')+'</span></div>';
     acts+='<div class="uarow" onclick="userHandoverDialog(\''+jsq(u.name)+'\')"><span style="color:#2563eb">\u21c4</span> Hand over to\u2026<span class="uasub">move '+oc+' open PM'+(oc===1?'':'s')+' to another person, then remove '+aeEsc(u.name)+'</span></div>';
     acts+='<div class="uarow" onclick="userRemoveConfirm(\''+jsq(u.name)+'\')"><span style="color:#dc2626">\ud83d\uddd1</span> <span style="color:#dc2626">Remove</span><span class="uasub">permanent lockout; '+oc+' open PM'+(oc===1?'':'s')+' \u2192 Unassigned; history kept</span></div>';
   } else {
@@ -10639,6 +10642,12 @@ function userToggle(name){
   var u=userRec(name); if(!u)return;
   u.status=(u.status==='active')?'paused':'active';
   saveUsers().then(function(){ rebuildRoster(); renderUserRoster(); try{toast(u.name+' '+(u.status==='active'?'active':'paused'));}catch(e){} });
+  closeUserAct();
+}
+function userSetRole(name,role){
+  var u=userRec(name); if(!u)return;
+  u.role=(role==='editor')?'editor':'tech';
+  saveUsers().then(function(){ rebuildRoster(); renderUserRoster(); try{toast(name+' is now '+(u.role==='editor'?'an Editor':'a Technician'));}catch(e){} });
   closeUserAct();
 }
 function userRemoveConfirm(name){
