@@ -930,7 +930,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v148';
+var APP_BUILD='BBW CMMS build v149';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6112,7 +6112,7 @@ function machineWeekPDF(C,start,end){
   var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF library not ready \u2014 try again in a moment.');return;}
   var doc=new JS({unit:'pt',format:'letter'}); try{pdfUnicode(doc);}catch(e){}
   var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=44,CW=W-2*M,y=0,F='helvetica';
-  var INK=[30,31,34],SUB=[122,124,132],HAIR=[226,227,231],GOLD=[196,160,74],RED=[216,74,66],AMBER=[213,158,45],SLATE=[96,102,116];
+  var INK=[30,31,34],SUB=[122,124,132],HAIR=[226,227,231],GOLD=[196,160,74],RED=[216,74,66],AMBER=[213,158,45],SLATE=[96,102,116],GREEN=[22,163,74];
   function sc(c){doc.setTextColor(c[0],c[1],c[2]);}function fc(c){doc.setFillColor(c[0],c[1],c[2]);}function dc(c){doc.setDrawColor(c[0],c[1],c[2]);}
   function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(String(t),x,yy,al?{align:al}:undefined);}
   function ensure(h){if(y+h>H-52){doc.addPage();y=52;}}
@@ -6136,8 +6136,19 @@ function machineWeekPDF(C,start,end){
   card(2,'Total Lost',hh(C.totFull+C.totPart),(C.totFullN+C.totPartN)+' events',INK);
   card(3,'Machines Affected',String(C.machineCount),'this week',INK);
   card(4,'Worst Machine',trunc(C.worst?C.worst.asset:'\u2014',16),C.worst?hh(C.worst.total):'none',C.worst?RED:SLATE);
-  card(5,'Avg / Machine',C.machineCount?hh((C.totFull+C.totPart)/C.machineCount):'0 h','downtime',INK);
+  card(5,'Avg / Machine',C.machineCount?hh((C.totFull+C.totPart)/C.machineCount):'0 min','downtime',INK);
   y+=2*cardH+gap+18;
+  // PM completion (assigned vs completed) + requests for the week
+  section('PM Completion & Requests');
+  var _pmDue=C.pmDue||0,_pmDone=C.pmDone||0,_pmPct=(C.pmPct!=null?C.pmPct:(_pmDue?Math.round(_pmDone/_pmDue*100):null));
+  var _pcol=(_pmPct==null?SLATE:(_pmPct>=90?GREEN:(_pmPct>=70?AMBER:RED)));
+  T('PM Completion',M,y,9.5,'bold',INK);
+  T(_pmDone+' of '+_pmDue+' completed'+(_pmPct!=null?'   \u00b7   '+_pmPct+'%':''),W-M,y,9.5,'bold',_pcol,'right'); y+=9;
+  var _bh=9; fc([238,240,243]);doc.roundedRect(M,y,CW,_bh,3,3,'F');
+  if(_pmPct!=null&&_pmPct>0){fc(_pcol);doc.roundedRect(M,y,CW*Math.min(_pmPct,100)/100,_bh,3,3,'F');}
+  y+=_bh+15;
+  T('Requests',M,y,9.5,'bold',INK);
+  T((C.reqReceived||0)+' received   \u00b7   '+(C.reqClosed||0)+' closed',W-M,y,9.5,'normal',SLATE,'right'); y+=18;
   // Downtime by machine (stacked bars: full red + partial amber)
   section('Downtime by Machine');
   if(!C.machines.length){ T('No downtime logged this week. \ud83c\udf89',M,y,9,'normal',SLATE); y+=18; }
@@ -6209,7 +6220,9 @@ function mwrSet(off){ var d=new Date(); d.setDate(d.getDate()+off); var el=docum
 function mwrPreview(){ var el=document.getElementById('mwr-date'), box=document.getElementById('mwr-range'); if(!el||!box)return; var w=machineWeekOf(el.value||localDateStr(new Date())); box.textContent='Week: '+w.start+'  \u2192  '+w.end+'   (Sun\u2013Sat)'; }
 function mwrGenerate(){
   var el=document.getElementById('mwr-date'); var w=machineWeekOf((el&&el.value)||localDateStr(new Date())); closeMwr();
-  loadReportData(w.start,w.end).then(function(data){ var C=machineWeekStats(data.entries,w.start,w.end); machineWeekPDF(C,w.start,w.end); }).catch(function(err){alert('Could not build report: '+(err&&err.message||err));});
+  loadReportData(w.start,w.end).then(function(data){ var C=machineWeekStats(data.entries,w.start,w.end);
+    try{ var Wk=weekStats(data,w.start,w.end); C.pmDue=Wk.pmDue; C.pmDone=Wk.pmDone; C.pmPct=Wk.pmPct; C.reqReceived=Wk.reqReceived; C.reqClosed=Wk.reqClosed; }catch(e){}
+    machineWeekPDF(C,w.start,w.end); }).catch(function(err){alert('Could not build report: '+(err&&err.message||err));});
 }
 
 // Monthly report — same design/renderer as weekly, computed over the calendar month
