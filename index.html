@@ -930,7 +930,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v146';
+var APP_BUILD='BBW CMMS build v147';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4443,7 +4443,7 @@ function openUtilTrend(mk){
   var m=utMeter(UT_STATE.meter);
   if(!m.perHL)UT_STATE.perHL=false;
   var ex=gid('ut-modal'); if(ex)ex.remove();
-  var H='<div id="ut-modal" data-fullpage="1" style="position:fixed;inset:0;background:var(--bg);z-index:800;display:flex;flex-direction:column">';
+  var H='<div id="ut-modal" style="position:fixed;inset:0;background:var(--bg);z-index:800;display:flex;flex-direction:column">';
   H+='<div id="ut-body" style="flex:1;overflow-y:auto"></div></div>';
   document.body.insertAdjacentHTML('beforeend',H);
   utRender();
@@ -5280,7 +5280,7 @@ function openDashboard(){
   if(EDITORS.indexOf(user)<0){alert('Reports are restricted to maintenance management.');return;}
   var now=new Date();var m=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   var ov=document.getElementById('dash-overlay');if(ov)ov.remove();
-  ov=document.createElement('div');ov.id='dash-overlay'; ov.setAttribute('data-fullpage','1');
+  ov=document.createElement('div');ov.id='dash-overlay';
   ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column';
   ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
     '<button onclick="closeDashboard()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+T('navback')+'</button>'+
@@ -5504,7 +5504,7 @@ function openWeekDashboard(){
   if(EDITORS.indexOf(user)<0){alert('Reports are restricted to maintenance management.');return;}
   if(!WEEK_ANCHOR)WEEK_ANCHOR=new Date();
   var ov=document.getElementById('week-overlay'); if(ov)ov.remove();
-  ov=document.createElement('div'); ov.id='week-overlay'; ov.setAttribute('data-fullpage','1');
+  ov=document.createElement('div'); ov.id='week-overlay';
   ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column';
   ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
     '<button onclick="closeWeekDashboard()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+T('navback')+'</button>'+
@@ -6117,7 +6117,7 @@ function machineWeekPDF(C,start,end){
   function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(String(t),x,yy,al?{align:al}:undefined);}
   function ensure(h){if(y+h>H-52){doc.addPage();y=52;}}
   function trunc(s,max){s=String(s||'');return s.length>max?s.slice(0,max-1)+'\u2026':s;}
-  function hh(n){return (Math.round((n||0)*10)/10)+' h';}
+  function hh(n){return Math.round((n||0)*60)+' min';}
   function section(title){ensure(40);y+=6;fc(GOLD);doc.rect(M,y-8,3,11,'F');T(title,M+10,y,11.5,'bold',INK);dc(HAIR);doc.setLineWidth(.7);doc.line(M,y+7,W-M,y+7);y+=22;}
   function prettyD(ds){var d=new Date(ds+'T12:00:00');return d.toLocaleDateString('en-CA',{timeZone:'UTC',month:'short',day:'numeric'});}
   // Letterhead
@@ -6149,7 +6149,7 @@ function machineWeekPDF(C,start,end){
       var fw=(m.full/maxT)*barMaxW, pw=(m.partial/maxT)*barMaxW;
       if(fw>0){fc(RED);doc.rect(barX,y+2,fw,9,'F');}
       if(pw>0){fc(AMBER);doc.rect(barX+fw,y+2,pw,9,'F');}
-      T((Math.round(m.total*10)/10)+'h',barX+barMaxW+6,y+9,7.5,'bold',INK);
+      T(Math.round(m.total*60)+'m',barX+barMaxW+6,y+9,7.5,'bold',INK);
       y+=rowH; });
     T('red = machine down \u00b7 amber = partial (reduced speed)',M,y+7,7,'normal',SUB); y+=18;
   }
@@ -6160,7 +6160,7 @@ function machineWeekPDF(C,start,end){
   dc(HAIR);doc.setLineWidth(.7);doc.line(M,base,W-M,base);
   days.forEach(function(d,i){var bw=Math.min(slot*0.5,40),bx=M+i*slot+(slot-bw)/2;var bh=maxD>0?(d.hrs/maxD)*(plotH-26):0;
     fc(d.hrs>0?RED:HAIR);doc.rect(bx,base-bh,bw,bh,'F');
-    if(d.hrs>0)T((Math.round(d.hrs*10)/10),bx+bw/2,base-bh-4,7,'bold',INK,'center');
+    if(d.hrs>0)T(Math.round(d.hrs*60),bx+bw/2,base-bh-4,7,'bold',INK,'center');
     T(d.label,bx+bw/2,base+12,7.5,'normal',SUB,'center');});
   y=base+26;
   // Full downtime events
@@ -6170,7 +6170,7 @@ function machineWeekPDF(C,start,end){
     if(!list.length){ T('None this week.',M,y,8.5,'normal',SUB); y+=16; return; }
     list.forEach(function(e){ ensure(26);
       T(e.asset+(e.code?' \u00b7 '+e.code:''),M,y,8.5,'bold',INK);
-      T((Math.round(e.hrs*10)/10)+' h',W-M,y,8.5,'bold',col,'right'); y+=11;
+      T(Math.round(e.hrs*60)+' min',W-M,y,8.5,'bold',col,'right'); y+=11;
       T(prettyD(e.date)+' \u00b7 '+trunc(e.desc,96),M,y,7.5,'normal',SUB); y+=15; });
   }
   evList('Machine-Down Events','full',RED);
@@ -6336,7 +6336,7 @@ function techPMDue(freq, nextDueISO, todayISO){
 /* ---------- shared native full-screen overlay ---------- */
 function _analOverlay(id, title, rightHTML, bodyId){
   var ov=document.getElementById(id); if(ov)ov.remove();
-  ov=document.createElement('div'); ov.id=id; ov.setAttribute('data-fullpage','1');
+  ov=document.createElement('div'); ov.id=id;
   ov.style.cssText='position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column';
   ov.innerHTML='<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">'+
     '<button onclick="document.getElementById(\''+id+'\').remove()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+(typeof T==='function'?T('navback'):'Back')+'</button>'+
@@ -12803,8 +12803,14 @@ try{window.openLogById=openLogById;}catch(_e){}
   function findOverlay(node){ if(!node||node.nodeType!==1)return null; var c=cardOf(node); if(c)return{el:node,card:c}; for(var i=0;i<node.children.length;i++){ var cc=cardOf(node.children[i]); if(cc)return{el:node.children[i],card:cc}; } return null; }
   function dock(el,card){ el.__dd=1; el.setAttribute('data-ddock','1'); var S=function(n,k,v){n.style.setProperty(k,v,'important');};
     S(el,'z-index',(++_dz));
-    S(el,'left','auto');S(el,'right','0');S(el,'top','0');S(el,'bottom','env(safe-area-inset-bottom, 0px)');S(el,'width','min(480px,42vw)');S(el,'background','transparent');S(el,'align-items','stretch');S(el,'justify-content','flex-end');S(el,'padding','0');
-    S(card,'width','100%');S(card,'max-width','none');S(card,'height','100%');S(card,'max-height','none');S(card,'border-radius','0');S(card,'box-shadow','-10px 0 34px rgba(0,0,0,.14)');S(card,'overflow','auto'); }
+    var solid=false; try{ var _bg=getComputedStyle(el).backgroundColor||''; var _m=_bg.match(/rgba?\(([^)]+)\)/); var _a=_m?((_m[1].split(',')[3]!==undefined)?parseFloat(_m[1].split(',')[3]):1):1; solid=(_a>=0.9); }catch(e){}
+    S(el,'left','auto');S(el,'right','0');S(el,'top','0');S(el,'bottom','env(safe-area-inset-bottom, 0px)');S(el,'width','min(480px,42vw)');
+    if(solid){ /* full-screen SOLID pane (dashboard, weekly stats, analytics): dock the pane itself; its own flex column fills the tab */
+      S(el,'box-shadow','-10px 0 34px rgba(0,0,0,.14)');
+    } else { /* scrim + card overlay: transparent scrim, stretch the card into the tab */
+      S(el,'background','transparent');S(el,'align-items','stretch');S(el,'justify-content','flex-end');S(el,'padding','0');
+      S(card,'width','100%');S(card,'max-width','none');S(card,'height','100%');S(card,'max-height','none');S(card,'border-radius','0');S(card,'box-shadow','-10px 0 34px rgba(0,0,0,.14)');S(card,'overflow','auto');
+    } }
   function anyOpen(){ var os=document.querySelectorAll('[data-ddock]'); for(var i=0;i<os.length;i++){ if(os[i].isConnected){ try{ if(getComputedStyle(os[i]).display!=='none') return true; }catch(e){ return true; } } } return false; }
   function reflow(){ try{ document.body.classList.toggle('dd-open', wide() && anyOpen()); }catch(e){} }
   function process(nodes){ if(!wide())return; Array.prototype.forEach.call(nodes,function(n){ var o=findOverlay(n); if(o)dock(o.el,o.card); }); }
