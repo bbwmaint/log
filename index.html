@@ -930,7 +930,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v145';
+var APP_BUILD='BBW CMMS build v146';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6089,6 +6089,110 @@ function loadReportData(startStr,endStr){
   return Promise.all([wl,ut,rq,wo]).then(function(a){return {entries:a[0]||[],utils:a[1]||[],requests:a[2]||[],wos:a[3]||[]};});
 }
 
+// ── Weekly Machine Report (Sun–Sat) — machine downtime only, no production ───
+function machineWeekStats(entries,start,end){
+  var byM={}, events=[], totFull=0, totFullN=0, totPart=0, totPartN=0;
+  var daily={}; for(var d=new Date(start+'T00:00:00'); localDateStr(d)<=end; d.setDate(d.getDate()+1)){ daily[localDateStr(d)]=0; }
+  (entries||[]).forEach(function(e){
+    var md=(''+(e.machine_down||'')).toLowerCase(); if(md!=='yes'&&md!=='partial')return;
+    var hrs=parseFloat(e.downtime_hrs)||0; if(hrs<=0)return;
+    var asset=e.asset_name||'\u2014', code=e.asset_code||'';
+    var m=byM[asset]=byM[asset]||{asset:asset,code:code,full:0,fullN:0,partial:0,partN:0};
+    if(md==='yes'){ m.full+=hrs; m.fullN++; totFull+=hrs; totFullN++; } else { m.partial+=hrs; m.partN++; totPart+=hrs; totPartN++; }
+    var dk=(''+(e.date||'')).slice(0,10); if(daily[dk]!=null)daily[dk]+=hrs;
+    events.push({asset:asset,code:code,date:dk,hrs:hrs,kind:(md==='yes'?'full':'partial'),desc:(e.description||e.issue||'')});
+  });
+  var machines=Object.keys(byM).map(function(k){var m=byM[k];m.total=m.full+m.partial;return m;}).sort(function(a,b){return b.total-a.total;});
+  var dayLabels=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var dailyArr=Object.keys(daily).sort().map(function(dk){var dd=new Date(dk+'T00:00:00');return {label:dayLabels[dd.getDay()],hrs:Math.round(daily[dk]*100)/100};});
+  return {machines:machines, totFull:Math.round(totFull*100)/100, totFullN:totFullN, totPart:Math.round(totPart*100)/100, totPartN:totPartN,
+          events:events, daily:dailyArr, machineCount:machines.length, worst:machines[0]||null};
+}
+function machineWeekPDF(C,start,end){
+  var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF library not ready \u2014 try again in a moment.');return;}
+  var doc=new JS({unit:'pt',format:'letter'}); try{pdfUnicode(doc);}catch(e){}
+  var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=44,CW=W-2*M,y=0,F='helvetica';
+  var INK=[30,31,34],SUB=[122,124,132],HAIR=[226,227,231],GOLD=[196,160,74],RED=[216,74,66],AMBER=[213,158,45],SLATE=[96,102,116];
+  function sc(c){doc.setTextColor(c[0],c[1],c[2]);}function fc(c){doc.setFillColor(c[0],c[1],c[2]);}function dc(c){doc.setDrawColor(c[0],c[1],c[2]);}
+  function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(String(t),x,yy,al?{align:al}:undefined);}
+  function ensure(h){if(y+h>H-52){doc.addPage();y=52;}}
+  function trunc(s,max){s=String(s||'');return s.length>max?s.slice(0,max-1)+'\u2026':s;}
+  function hh(n){return (Math.round((n||0)*10)/10)+' h';}
+  function section(title){ensure(40);y+=6;fc(GOLD);doc.rect(M,y-8,3,11,'F');T(title,M+10,y,11.5,'bold',INK);dc(HAIR);doc.setLineWidth(.7);doc.line(M,y+7,W-M,y+7);y+=22;}
+  function prettyD(ds){var d=new Date(ds+'T12:00:00');return d.toLocaleDateString('en-CA',{timeZone:'UTC',month:'short',day:'numeric'});}
+  // Letterhead
+  y=44;
+  if(window.__logoDark){try{var lh=26,lw=lh*((window.__logoW||498)/(window.__logoH||220));doc.addImage(window.__logoDark,'PNG',M,y-4,lw,lh);}catch(e){T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}}else{T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}
+  T('WEEKLY MACHINE REPORT',W-M,y+6,12.5,'bold',INK,'right');
+  T(prettyD(start)+' \u2013 '+prettyD(end)+', '+start.slice(0,4)+'  \u00b7  Sun\u2013Sat',W-M,y+20,9.5,'normal',SUB,'right');
+  y+=38;dc(GOLD);doc.setLineWidth(1.4);doc.line(M,y,W-M,y);y+=20;
+  // KPI cards (2 x 3)
+  var gap=10,cols=3,cardW=(CW-gap*(cols-1))/cols,cardH=54;
+  function card(i,label,val,sub,vcol){var col=i%cols,row=Math.floor(i/cols);var x=M+col*(cardW+gap),cy=y+row*(cardH+gap);
+    dc(HAIR);doc.setLineWidth(.8);fc([255,255,255]);doc.roundedRect(x,cy,cardW,cardH,4,4,'FD');
+    T((label||'').toUpperCase(),x+9,cy+14,6.6,'bold',SUB);T(val,x+9,cy+33,16,'bold',vcol||INK);if(sub)T(sub,x+9,cy+45,7.2,'normal',SUB);}
+  card(0,'Machine Down',hh(C.totFull),C.totFullN+' event'+(C.totFullN===1?'':'s'),RED);
+  card(1,'Partial (slow)',hh(C.totPart),C.totPartN+' event'+(C.totPartN===1?'':'s'),AMBER);
+  card(2,'Total Lost',hh(C.totFull+C.totPart),(C.totFullN+C.totPartN)+' events',INK);
+  card(3,'Machines Affected',String(C.machineCount),'this week',INK);
+  card(4,'Worst Machine',trunc(C.worst?C.worst.asset:'\u2014',16),C.worst?hh(C.worst.total):'none',C.worst?RED:SLATE);
+  card(5,'Avg / Machine',C.machineCount?hh((C.totFull+C.totPart)/C.machineCount):'0 h','downtime',INK);
+  y+=2*cardH+gap+18;
+  // Downtime by machine (stacked bars: full red + partial amber)
+  section('Downtime by Machine');
+  if(!C.machines.length){ T('No downtime logged this week. \ud83c\udf89',M,y,9,'normal',SLATE); y+=18; }
+  else {
+    var top=C.machines.slice(0,14), maxT=Math.max.apply(null,top.map(function(m){return m.total;}).concat([0.1]));
+    var labelW=158, barX=M+labelW+8, barMaxW=CW-labelW-8-48, rowH=17;
+    top.forEach(function(m){ ensure(rowH);
+      T(trunc(m.asset,28),M,y+9,8,'normal',INK);
+      var fw=(m.full/maxT)*barMaxW, pw=(m.partial/maxT)*barMaxW;
+      if(fw>0){fc(RED);doc.rect(barX,y+2,fw,9,'F');}
+      if(pw>0){fc(AMBER);doc.rect(barX+fw,y+2,pw,9,'F');}
+      T((Math.round(m.total*10)/10)+'h',barX+barMaxW+6,y+9,7.5,'bold',INK);
+      y+=rowH; });
+    T('red = machine down \u00b7 amber = partial (reduced speed)',M,y+7,7,'normal',SUB); y+=18;
+  }
+  // Daily downtime trend (Sun–Sat)
+  section('Daily Downtime (Sun\u2013Sat)');
+  var days=C.daily, maxD=Math.max.apply(null,days.map(function(d){return d.hrs;}).concat([0.1]));
+  var plotH=92,base=y+plotH-14,slot=CW/Math.max(days.length,1);
+  dc(HAIR);doc.setLineWidth(.7);doc.line(M,base,W-M,base);
+  days.forEach(function(d,i){var bw=Math.min(slot*0.5,40),bx=M+i*slot+(slot-bw)/2;var bh=maxD>0?(d.hrs/maxD)*(plotH-26):0;
+    fc(d.hrs>0?RED:HAIR);doc.rect(bx,base-bh,bw,bh,'F');
+    if(d.hrs>0)T((Math.round(d.hrs*10)/10),bx+bw/2,base-bh-4,7,'bold',INK,'center');
+    T(d.label,bx+bw/2,base+12,7.5,'normal',SUB,'center');});
+  y=base+26;
+  // Full downtime events
+  function evList(title,kind,col){
+    var list=C.events.filter(function(e){return e.kind===kind;}).sort(function(a,b){return b.hrs-a.hrs;});
+    section(title+' ('+list.length+')');
+    if(!list.length){ T('None this week.',M,y,8.5,'normal',SUB); y+=16; return; }
+    list.forEach(function(e){ ensure(26);
+      T(e.asset+(e.code?' \u00b7 '+e.code:''),M,y,8.5,'bold',INK);
+      T((Math.round(e.hrs*10)/10)+' h',W-M,y,8.5,'bold',col,'right'); y+=11;
+      T(prettyD(e.date)+' \u00b7 '+trunc(e.desc,96),M,y,7.5,'normal',SUB); y+=15; });
+  }
+  evList('Machine-Down Events','full',RED);
+  evList('Partial Downtimes','partial',AMBER);
+  // Footer
+  var pc=doc.internal.getNumberOfPages();
+  for(var pg=1;pg<=pc;pg++){doc.setPage(pg);dc(HAIR);doc.setLineWidth(.7);doc.line(M,H-38,W-M,H-38);
+    T('Brunswick Bierworks \u2014 Maintenance',M,H-24,8,'normal',SUB);
+    T('BBW CMMS '+APP_BUILD.replace('BBW CMMS ','')+'  \u00b7  Page '+pg+' of '+pc,W-M,H-24,8,'normal',SUB,'right');}
+  doc.save('BBW_Machine_Week_'+start+'.pdf');
+}
+function openMachineWeekReport(){
+  if(EDITORS.indexOf(user)<0){alert('Reports are restricted to maintenance management.');return;}
+  var ref=new Date(); var dow=ref.getDay();
+  var sun=new Date(ref); sun.setDate(ref.getDate()-dow); var sat=new Date(sun); sat.setDate(sun.getDate()+6);
+  var start=localDateStr(sun), end=localDateStr(sat);
+  loadReportData(start,end).then(function(data){
+    var C=machineWeekStats(data.entries,start,end);
+    machineWeekPDF(C,start,end);
+  }).catch(function(err){alert('Could not build report: '+(err&&err.message||err));});
+}
+
 // Monthly report — same design/renderer as weekly, computed over the calendar month
 function monthlyReportPDF(){
   if(EDITORS.indexOf(user)<0){alert('Reports are restricted to maintenance management.');return;}
@@ -10854,7 +10958,8 @@ function renderMore(){
     H+='</div>';
     H+='<button onclick="openDowntimeByDay()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:7px">Downtime by Day</button>';
     H+='<button onclick="openUserMgmt()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Manage Users</button>';
-    H+='<button onclick="openBrewqmImport()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15h6"/></svg>Import Shift PDF</button>';
+    H+='<button onclick="openBrewqmImport()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15h6"/></svg>Import Shift PDF</button>';
+    H+='<button onclick="openMachineWeekReport()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 14l3-3 2 2 4-4"/></svg>Weekly Machine Report</button>';
   }
   H+='<button onclick="openForkliftMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Forklift Inspection</button>';
   H+='<button onclick="openMaintReqMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Maintenance Request</button>';
