@@ -930,7 +930,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v147';
+var APP_BUILD='BBW CMMS build v148';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6182,15 +6182,34 @@ function machineWeekPDF(C,start,end){
     T('BBW CMMS '+APP_BUILD.replace('BBW CMMS ','')+'  \u00b7  Page '+pg+' of '+pc,W-M,H-24,8,'normal',SUB,'right');}
   doc.save('BBW_Machine_Week_'+start+'.pdf');
 }
+function machineWeekOf(dateStr){ var d=new Date(dateStr+'T00:00:00'); var dow=d.getDay(); var sun=new Date(d); sun.setDate(d.getDate()-dow); var sat=new Date(sun); sat.setDate(sun.getDate()+6); return {start:localDateStr(sun),end:localDateStr(sat)}; }
 function openMachineWeekReport(){
   if(EDITORS.indexOf(user)<0){alert('Reports are restricted to maintenance management.');return;}
-  var ref=new Date(); var dow=ref.getDay();
-  var sun=new Date(ref); sun.setDate(ref.getDate()-dow); var sat=new Date(sun); sat.setDate(sun.getDate()+6);
-  var start=localDateStr(sun), end=localDateStr(sat);
-  loadReportData(start,end).then(function(data){
-    var C=machineWeekStats(data.entries,start,end);
-    machineWeekPDF(C,start,end);
-  }).catch(function(err){alert('Could not build report: '+(err&&err.message||err));});
+  var ov=document.getElementById('mwr-picker'); if(ov)ov.remove();
+  ov=document.createElement('div'); ov.id='mwr-picker'; ov.setAttribute('data-fullpage','1');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:850;display:flex;align-items:flex-end;justify-content:center';
+  var today=localDateStr(new Date());
+  ov.innerHTML='<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:18px 16px calc(24px + env(safe-area-inset-bottom))">'+
+    '<div style="width:36px;height:4px;background:var(--border-2);border-radius:2px;margin:0 auto 14px"></div>'+
+    '<div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:3px">Weekly Machine Report</div>'+
+    '<div style="font-size:12.5px;color:var(--text-3);margin-bottom:14px">Pick any date \u2014 the report covers that Sunday\u2013Saturday week (machine downtime only).</div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:12px"><button onclick="mwrSet(0)" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">This week</button>'+
+    '<button onclick="mwrSet(-7)" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">Last week</button></div>'+
+    '<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">Date in the week</label>'+
+    '<input id="mwr-date" type="date" value="'+today+'" onchange="mwrPreview()" style="width:100%;box-sizing:border-box;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;margin-bottom:10px">'+
+    '<div id="mwr-range" style="font-size:13px;color:var(--text-2);font-weight:600;margin-bottom:16px"></div>'+
+    '<div style="display:flex;gap:9px"><button onclick="closeMwr()" style="flex:1;padding:12px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);border-radius:10px;font-size:14px;cursor:pointer">Cancel</button>'+
+    '<button onclick="mwrGenerate()" style="flex:2;padding:12px;background:#2563eb;border:none;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">Generate PDF</button></div></div>';
+  ov.addEventListener('click',function(e){if(e.target===ov)closeMwr();});
+  document.body.appendChild(ov);
+  mwrPreview();
+}
+function closeMwr(){ var m=document.getElementById('mwr-picker'); if(m)m.remove(); }
+function mwrSet(off){ var d=new Date(); d.setDate(d.getDate()+off); var el=document.getElementById('mwr-date'); if(el)el.value=localDateStr(d); mwrPreview(); }
+function mwrPreview(){ var el=document.getElementById('mwr-date'), box=document.getElementById('mwr-range'); if(!el||!box)return; var w=machineWeekOf(el.value||localDateStr(new Date())); box.textContent='Week: '+w.start+'  \u2192  '+w.end+'   (Sun\u2013Sat)'; }
+function mwrGenerate(){
+  var el=document.getElementById('mwr-date'); var w=machineWeekOf((el&&el.value)||localDateStr(new Date())); closeMwr();
+  loadReportData(w.start,w.end).then(function(data){ var C=machineWeekStats(data.entries,w.start,w.end); machineWeekPDF(C,w.start,w.end); }).catch(function(err){alert('Could not build report: '+(err&&err.message||err));});
 }
 
 // Monthly report — same design/renderer as weekly, computed over the calendar month
