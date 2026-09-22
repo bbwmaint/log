@@ -1,0 +1,53 @@
+name: BBW machine report
+
+# Emails the Weekly Machine Report (last Monday–Sunday) every Monday morning.
+# Runs on GitHub's own schedule; you can also trigger it by hand from Actions.
+on:
+  schedule:
+    - cron: '0 12 * * 1'   # Mondays 12:00 UTC ≈ 8:00 AM Toronto (7:00 in winter)
+  workflow_dispatch:
+    inputs:
+      start:
+        description: 'Week start (YYYY-MM-DD) — blank = last completed Mon–Sun'
+        required: false
+      end:
+        description: 'Week end (YYYY-MM-DD) — blank = derived'
+        required: false
+      dry_run:
+        description: 'Print the email instead of sending it'
+        type: boolean
+        default: false
+      force:
+        description: 'Send again even if this week was already sent'
+        type: boolean
+        default: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install libraries
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Send machine report
+        env:
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
+          EMAILJS_PUBLIC_KEY:  ${{ secrets.EMAILJS_PUBLIC_KEY }}
+          EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
+          EMAILJS_SERVICE:     ${{ vars.EMAILJS_SERVICE  || 'service_q7rtzse' }}
+          EMAILJS_TEMPLATE:    ${{ vars.EMAILJS_TEMPLATE || 'template_i01whhv' }}
+          # Recipients — repo variable MACHINE_TO (comma-separated); defaults to the maintenance inbox.
+          MACHINE_TO:          ${{ vars.MACHINE_TO || 'maintenancebbw@brunswickbierworks.com' }}
+          APP_URL:             ${{ vars.APP_URL || 'https://bbwmaint.github.io/log/' }}
+        run: |
+          node scripts/machine-report.mjs \
+            ${{ inputs.start   && format('--start {0}', inputs.start) || '' }} \
+            ${{ inputs.end     && format('--end {0}',   inputs.end)   || '' }} \
+            ${{ inputs.dry_run && '--dry-run' || '' }} \
+            ${{ inputs.force   && '--force'   || '' }}
