@@ -930,7 +930,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v152';
+var APP_BUILD='BBW CMMS build v155';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -10986,23 +10986,45 @@ function renderMore(){
   var month=new Date().getMonth();
   var H='';
   H+='<div onclick="dangerTap()" style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace;cursor:default;user-select:none">'+BUILD+'</div>';
-  H+='<div class="more-tools">';
+  function _mI(inner){return '<span style="color:#3b82f6;flex-shrink:0;display:flex;align-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg></span>';}
+  function _mB(oc,inner,label){return '<button onclick="'+oc+'" class="btn-ghost" style="padding:14px 15px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:11px;text-align:left;justify-content:flex-start">'+_mI(inner)+'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</span><span class="chev" style="color:var(--text-3);flex-shrink:0;display:flex"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span></button>';}
+  var ICO={
+    dash:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',
+    stats:'<path d="M3 3v18h18"/><path d="M7 13l3-3 3 2 5-6"/>',
+    user:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+    pareto:'<line x1="6" y1="20" x2="6" y2="11"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="14"/>',
+    plans:'<path d="M11 6h10M11 12h10M11 18h10"/><path d="M3 6l1.4 1.4L6.5 4"/><path d="M3 12l1.4 1.4L6.5 10"/><path d="M3 18l1.4 1.4L6.5 16"/>',
+    cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M9 16l2 2 4-4"/>',
+    users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+    report:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 14l3-3 2 2 4-4"/>',
+    file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15h6"/>',
+    truck:'<rect x="1" y="6" width="13" height="10" rx="1.5"/><path d="M14 9h4l3 3.2V16h-7z"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="17.5" cy="18.5" r="2"/>',
+    msg:'<path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/>'
+  };
   if(EDITORS.indexOf(user)>=0){
-    H+='<button onclick="openDashboard()" class="btn-primary" style="width:100%;padding:15px;font-size:15px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">'+T('Maintenance Dashboard')+'</button>';
-    H+='<button onclick="openWeekDashboard()" class="btn-ghost" style="width:100%;padding:14px;font-size:14px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:8px">Weekly stats</button>';
-    H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">';
-    H+='<button onclick="openWorkloadDashboard()" class="btn-ghost" style="padding:13px 8px;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;text-align:center">Tech Workload</button>';
-    H+='<button onclick="openMachinePareto()" class="btn-ghost" style="padding:13px 8px;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;text-align:center">Machine Pareto</button>';
-    H+='<button onclick="openActionPlans()" class="btn-ghost" style="padding:13px 8px;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;text-align:center">Action Plans</button>';
+    H+='<div class="more-sec-h">Analytics</div>';
+    H+='<div class="more-tools">';
+    H+=_mB('openDashboard()',ICO.dash,T('Maintenance Dashboard'));
+    H+=_mB('openWeekDashboard()',ICO.stats,'Weekly stats');
+    H+=_mB('openWorkloadDashboard()',ICO.user,'Tech Workload');
+    H+=_mB('openMachinePareto()',ICO.pareto,'Machine Pareto');
+    H+=_mB('openActionPlans()',ICO.plans,'Action Plans');
+    H+=_mB('openDowntimeByDay()',ICO.cal,'Downtime by Day');
     H+='</div>';
-    H+='<button onclick="openDowntimeByDay()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:7px">Downtime by Day</button>';
-    H+='<button onclick="openUserMgmt()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Manage Users</button>';
-    H+='<button onclick="openBrewqmImport()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15h6"/></svg>Import Shift PDF</button>';
-    H+='<button onclick="openMachineWeekReport()" class="btn-ghost" style="width:100%;padding:13px 8px;font-size:13px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 14l3-3 2 2 4-4"/></svg>Weekly Machine Report</button>';
+    H+='<div class="more-sec-h" style="margin-top:18px">Reports &amp; Admin</div>';
+    H+='<div class="more-tools">';
+    H+=_mB('openUserMgmt()',ICO.users,'Manage Users');
+    H+=_mB('openMachineWeekReport()',ICO.report,'Weekly Machine Report');
+    H+=_mB('openBrewqmImport()',ICO.file,'Import Shift PDF');
+    H+=_mB('openForkliftMenu()',ICO.truck,'Forklift Inspection');
+    H+=_mB('openMaintReqMenu()',ICO.msg,'Maintenance Request');
+    H+='</div>';
+  }else{
+    H+='<div class="more-tools" style="margin-top:4px">';
+    H+=_mB('openForkliftMenu()',ICO.truck,'Forklift Inspection');
+    H+=_mB('openMaintReqMenu()',ICO.msg,'Maintenance Request');
+    H+='</div>';
   }
-  H+='<button onclick="openForkliftMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Forklift Inspection</button>';
-  H+='<button onclick="openMaintReqMenu()" style="width:100%;padding:14px;margin-bottom:14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">Maintenance Request</button>';
-  H+='</div>';
 
   // ── PMs now live in the dedicated CMMS tab; hidden here ──
   if(false){
@@ -11907,9 +11929,7 @@ function loadDBStats(){
       '<div>Work log entries:</div><div style="color:#60a5fa">'+wlCount+' rows</div>'+
       '<div>Utility readings:</div><div style="color:#60a5fa">'+ulCount+' rows</div>'+
       '<div>PM overrides:</div><div style="color:#60a5fa">'+pmCount+' rows</div>'+
-      '<div style="margin-top:6px">Est. data size:</div><div style="color:#4ade80;margin-top:6px">~'+estMB+' MB</div>'+
-      '</div>'+
-      '<div style="color:var(--text-3);font-size:10px;margin-top:8px;line-height:1.5">Rough estimate from row counts only. For actual database size and your plan\u2019s limits, check the Supabase dashboard \u2192 Settings \u2192 Usage.</div>';
+      '</div>';
   }).catch(function(){
     el.innerHTML='<span style="color:#ef4444">Could not load stats — check connection</span>';
   });
@@ -12833,7 +12853,7 @@ try{window.openLogById=openLogById;}catch(_e){}
 </script>
 
 
-<style id="bbw-desk-refine">@media(min-width:1000px){html[data-theme='light']{--bg:#f5f5f7;--surface:#ffffff;--surface-2:#f5f5f7;--surface-3:#ececf0;--border:#dcdce2;--border-2:#cbcbd3;--text:#1d1d1f;--text-2:#6e6e73;--text-3:#86868b;--accent:#0071e3}}@media(min-width:1000px){ #pane-home .hm-kpis{gap:10px!important} #pane-home .hm-kpis>div{padding:16px 18px 14px!important} #pane-home .hm-kpis .hm-lbl{color:var(--text-3)!important;text-transform:uppercase;letter-spacing:.02em} #pane-home .hm-kpis .hm-lbl + span{display:none!important} #pane-home .hm-kpis .hm-val{font-size:32px!important;margin-top:2px}}@media(min-width:1000px){body.dd-open #content{padding-right:min(480px,42vw)!important}}@media(min-width:1000px){#pane-home div[style*="box-shadow"],#pane-dash div[style*="box-shadow"]{border:1px solid var(--border)}}@media(min-width:1000px){#pane-more .more-tools{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:stretch;margin-bottom:14px}#pane-more .more-tools>button{margin-bottom:0!important;min-height:56px}#pane-more .more-tools>div{display:contents!important}#pane-more .more-tools>div>button{margin-bottom:0!important;min-height:56px}}</style>
+<style id="bbw-desk-refine">@media(min-width:1000px){html[data-theme='light']{--bg:#f5f5f7;--surface:#ffffff;--surface-2:#f5f5f7;--surface-3:#ececf0;--border:#dcdce2;--border-2:#cbcbd3;--text:#1d1d1f;--text-2:#6e6e73;--text-3:#86868b;--accent:#0071e3}}@media(min-width:1000px){ #pane-home .hm-kpis{gap:10px!important} #pane-home .hm-kpis>div{padding:16px 18px 14px!important} #pane-home .hm-kpis .hm-lbl{color:var(--text-3)!important;text-transform:uppercase;letter-spacing:.02em} #pane-home .hm-kpis .hm-lbl + span{display:none!important} #pane-home .hm-kpis .hm-val{font-size:32px!important;margin-top:2px}}@media(min-width:1000px){body.dd-open #content{padding-right:min(480px,42vw)!important}}@media(min-width:1000px){#pane-home div[style*="box-shadow"],#pane-dash div[style*="box-shadow"]{border:1px solid var(--border)}}#pane-more .more-tools{display:grid;grid-template-columns:1fr;gap:8px;align-items:stretch;margin-bottom:14px}#pane-more .more-tools>button{margin-bottom:0!important;min-height:54px}#pane-more .more-sec-h{font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin:2px 2px 11px}@media(min-width:1000px){#pane-more .more-tools{grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}#pane-more .more-tools .chev{display:none!important}}</style>
 
 <script id="bbw-desk-dock">
 (function(){
