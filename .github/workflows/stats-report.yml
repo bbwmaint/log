@@ -1,0 +1,88 @@
+name: BBW stats report
+
+# Weekly rotation stats PDF, emailed to the maintenance team. Self-driven:
+# a cheap gate polls every 30 min and only lets the (Chromium-based) send run
+# once the 4-day block that just ended has BOTH day and night production data
+# for ALL of its days — i.e. every shift PDF is in. If any shift is missing
+# production data it simply waits; it never sends an incomplete rotation.
+# Idempotent — each rotation is sent exactly once. Also runnable by
+# hand from the Actions tab (blank start/end = the rotation that just ended;
+# tick "force" to skip the gate, "dry_run" to print instead of send).
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      start:
+        description: 'Block start (YYYY-MM-DD) — blank = the rotation that just ended'
+        required: false
+      end:
+        description: 'Block end (YYYY-MM-DD) — blank = derived from start + length'
+        required: false
+      days:
+        description: 'Rotation length in days (overrides ROTATION_DAYS)'
+        required: false
+      dry_run:
+        description: 'Print the email instead of sending it'
+        type: boolean
+        default: false
+      force:
+        description: 'Send now — skip the completeness gate'
+        type: boolean
+        default: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ── Gate ──────────────────────────────────────────────────────────────
+      # Built-in fetch only — no npm install, no Chromium. Runs in a second and
+      # decides whether the just-ended rotation is complete (or grace/forced).
+      - name: Rotation-complete gate
+        id: gate
+        env:
+          SUPABASE_URL:    ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:    ${{ secrets.SUPABASE_KEY }}
+          ROTATION_DAYS:   ${{ vars.ROTATION_DAYS   || '4' }}
+          ROTATION_ANCHOR: ${{ vars.ROTATION_ANCHOR || '2026-08-05' }}
+        run: |
+          node scripts/stats-gate.mjs \
+            ${{ inputs.start && format('--start {0}', inputs.start) || '' }} \
+            ${{ inputs.end   && format('--end {0}',   inputs.end)   || '' }} \
+            ${{ inputs.days  && format('--days {0}',  inputs.days)  || '' }} \
+            ${{ (inputs.force || inputs.dry_run) && '--force' || '' }}
+
+      # ── Heavy steps: only when the gate says the rotation is ready ─────────
+      - name: Install libraries
+        if: steps.gate.outputs.ready == 'true'
+        run: npm install --no-audit --no-fund
+      # The stats PDF is captured from the live app in a headless browser.
+      - name: Install Chromium
+        if: steps.gate.outputs.ready == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Send stats report
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
+          EMAILJS_PUBLIC_KEY:  ${{ secrets.EMAILJS_PUBLIC_KEY }}
+          EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
+          EMAILJS_SERVICE:     ${{ vars.EMAILJS_SERVICE  || 'service_q7rtzse' }}
+          EMAILJS_TEMPLATE:    ${{ vars.EMAILJS_TEMPLATE || 'template_i01whhv' }}
+          # Whole maintenance team. Override with repo variable STATS_TO
+          # (comma-separated); defaults to the shared maintenance inbox.
+          STATS_TO:            ${{ vars.STATS_TO || 'maintenancebbw@brunswickbierworks.com' }}
+          ROTATION_DAYS:       ${{ vars.ROTATION_DAYS || '4' }}
+          ROTATION_ANCHOR:     ${{ vars.ROTATION_ANCHOR || '2026-08-05' }}
+          APP_URL:             ${{ vars.APP_URL || 'https://bbwmaint.github.io/log/' }}
+        run: |
+          node scripts/stats-report.mjs \
+            --start ${{ steps.gate.outputs.start }} --end ${{ steps.gate.outputs.end }} \
+            ${{ inputs.dry_run && '--dry-run' || '' }} \
+            ${{ inputs.force   && '--force'   || '' }}
