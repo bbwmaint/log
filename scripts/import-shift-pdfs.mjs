@@ -91,10 +91,27 @@ async function main() {
 
   console.log('IMAP ' + IMAP_USER + '@' + IMAP_HOST + ':' + IMAP_PORT + ' folder="' + IMAP_FOLDER + '" lookback=' + LOOKBACK + 'd dry=' + DRY);
 
+  const imapDetail = (e) => {
+    const b = [];
+    if (e && e.responseText)        b.push('server says: ' + e.responseText);
+    if (e && e.serverResponseCode)  b.push('code=' + e.serverResponseCode);
+    if (e && e.command)             b.push('command=' + e.command);
+    if (e && e.authenticationFailed) b.push('authFailed');
+    if (e && e.response && !e.responseText) b.push('response=' + JSON.stringify(e.response).slice(0, 200));
+    return b.length ? ' [' + b.join(' | ') + ']' : '';
+  };
+
   const client = new ImapFlow({ host: IMAP_HOST, port: IMAP_PORT, secure: true, auth: { user: IMAP_USER, pass: IMAP_PASS }, logger: false });
-  await client.connect();
+  try { await client.connect(); }
+  catch (e) { throw new Error('IMAP connect/login failed' + imapDetail(e) + ': ' + (e && e.message || e)); }
+  console.log('  connected + logged in OK');
+
   const found = [];
-  const lock = await client.getMailboxLock(IMAP_FOLDER);
+  let lock;
+  try { lock = await client.getMailboxLock(IMAP_FOLDER); }
+  catch (e) { throw new Error('could not open folder "' + IMAP_FOLDER + '"' + imapDetail(e) + ': ' + (e && e.message || e)); }
+  console.log('  opened folder "' + IMAP_FOLDER + '" OK');
+
   try {
     const since = new Date(Date.now() - LOOKBACK * 86400000);
     for await (const msg of client.fetch({ since }, { uid: true, source: true })) {
@@ -106,7 +123,8 @@ async function main() {
         if (rec.date && rec.volHL != null) found.push({ ...rec, file: att.filename || 'report.pdf' });
       }
     }
-  } finally { lock.release(); }
+  } catch (e) { throw new Error('IMAP search/fetch failed' + imapDetail(e) + ': ' + (e && e.message || e)); }
+  finally { if (lock) lock.release(); }
   await client.logout();
 
   console.log(`Scanned last ${LOOKBACK} days of "${IMAP_FOLDER}" — ${found.length} shift report PDF(s) parsed.`);
