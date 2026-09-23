@@ -53,6 +53,7 @@ function pdfText(buf) {
   const tmp = path.join(os.tmpdir(), `sr_${Date.now()}_${Math.random().toString(36).slice(2)}.pdf`);
   writeFileSync(tmp, buf);
   try { return execFileSync('pdftotext', ['-layout', tmp, '-'], { maxBuffer: 32 * 1024 * 1024 }).toString(); }
+  catch (e) { const se = (e.stderr || '').toString().trim(); throw new Error('pdftotext could not read this PDF' + (se ? ': ' + se.slice(0, 200) : ' (encrypted or malformed)')); }
   finally { try { unlinkSync(tmp); } catch (e) {} }
 }
 
@@ -88,6 +89,8 @@ async function main() {
   if (!IMAP_HOST || !IMAP_USER || !IMAP_PASS) throw new Error('IMAP_HOST / IMAP_USER / IMAP_PASS are required.');
   if (!DRY && (!SB_URL || !SB_KEY)) throw new Error('SUPABASE_URL / SUPABASE_KEY are required (or use --dry-run).');
 
+  console.log('IMAP ' + IMAP_USER + '@' + IMAP_HOST + ':' + IMAP_PORT + ' folder="' + IMAP_FOLDER + '" lookback=' + LOOKBACK + 'd dry=' + DRY);
+
   const client = new ImapFlow({ host: IMAP_HOST, port: IMAP_PORT, secure: true, auth: { user: IMAP_USER, pass: IMAP_PASS }, logger: false });
   await client.connect();
   const found = [];
@@ -99,7 +102,7 @@ async function main() {
       for (const att of (parsed.attachments || [])) {
         const isPdf = (att.contentType === 'application/pdf') || /\.pdf$/i.test(att.filename || '');
         if (!isPdf || !att.content) continue;
-        let rec; try { rec = extract(pdfText(att.content)); } catch (e) { continue; }
+        let rec; try { rec = extract(pdfText(att.content)); } catch (e) { console.log('  \u26a0 skipped attachment "' + (att.filename || '?') + '": ' + e.message); continue; }
         if (rec.date && rec.volHL != null) found.push({ ...rec, file: att.filename || 'report.pdf' });
       }
     }
@@ -142,4 +145,4 @@ async function main() {
   console.log(`Done: applied ${list.length}, skipped ${skipped}.`);
 }
 
-main().catch(e => { console.error('FATAL:', e && e.message || e); process.exit(1); });
+main().catch(e => { console.error('FATAL:', (e && e.stack) || e); process.exit(1); });
