@@ -2,10 +2,11 @@ name: BBW import shift PDFs
 
 # Reads BrewQM Packaging Shift Report PDFs from the mailbox and writes the
 # volume + productivity into the schedule. Idempotent (each report applied once),
-# so a frequent schedule is safe. Runs every 4 hours; also runnable by hand.
+# so a frequent schedule is safe. Runs every 15 min (catches both the morning and
+# evening shift reports within ~15 min of arrival); also runnable by hand.
 on:
   schedule:
-    - cron: '0 */4 * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
       dry_run:
