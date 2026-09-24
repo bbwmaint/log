@@ -708,9 +708,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
         </div>
         <div style="margin-bottom:11px">
           <div style="font-size:12px;color:var(--text-2);margin-bottom:4px" id="lbl-withwho">Worked with (optional)</div>
-          <select id="f-withwho" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:11px;color:var(--text);font-size:15px">
-            <option value="">— Just me —</option>
-          </select>
+          <div id="withwho-wrap"></div>
         </div>
         <div id="f-dt-wrap" style="display:none">
           <div style="font-size:12px;color:var(--text-2);margin-bottom:4px" id="lbl-dthrs">DT mins</div>
@@ -930,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v155';
+var APP_BUILD='BBW CMMS build v157';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1653,6 +1651,28 @@ function buildQuick(){
 function applyQ(type,desc){setType(type);gid('f-desc').value=desc;}
 
 // SHEET
+function withList(e){ if(!e) return []; var w=e.withWho; if(w==null) w=e.with_who; return String(w||'').split(',').map(function(s){return (s||'').trim();}).filter(Boolean); }
+function _withOpts(cur, others){
+  var uk=(typeof lang!=='undefined'&&lang==='uk');
+  var o='<option value="">\u2014 '+(uk?'\u041b\u0438\u0448\u0435 \u044f':'Just me')+' \u2014</option>';
+  var avail=(typeof TECHS!=='undefined'?TECHS:[]).filter(function(t){return t!==user && others.indexOf(t)<0;});
+  if(cur && avail.indexOf(cur)<0 && others.indexOf(cur)<0) avail.unshift(cur);
+  avail.forEach(function(t){ o+='<option value="'+escHtml(t)+'"'+(t===cur?' selected':'')+'>'+escHtml(t)+'</option>'; });
+  return o;
+}
+function withWhoValues(){ return Array.prototype.map.call(document.querySelectorAll('#withwho-wrap .withwho-sel'),function(s){return (s.value||'').trim();}).filter(Boolean); }
+function renderWithWho(sel){
+  var wrap=gid('withwho-wrap'); if(!wrap) return;
+  sel=(sel||[]).map(function(s){return (s||'').trim();}).filter(Boolean);
+  var rows=sel.slice(); rows.push('');
+  var html='';
+  rows.forEach(function(cur,i){
+    var others=rows.filter(function(_,j){return j!==i;}).filter(Boolean);
+    html+='<select class="withwho-sel" onchange="onWithWhoChange()" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:11px;color:var(--text);font-size:15px;'+(i>0?'margin-top:8px':'')+'">'+_withOpts(cur,others)+'</select>';
+  });
+  wrap.innerHTML=html;
+}
+function onWithWhoChange(){ renderWithWho(withWhoValues()); }
 function openSheet(id){
   editId=id||null; ctype=''; cprio=''; photos=[]; selA=null;
   if(gid('f-issue'))gid('f-issue').value=''; gid('f-desc').value=''; gid('f-dt').value=''; gid('f-pname').value=''; gid('f-pqty').value='';
@@ -1673,19 +1693,8 @@ function openSheet(id){
   if(gid('f-co'))gid('f-co').value='';
   if(gid('f-cotype'))gid('f-cotype').value='';
   if(gid('f-dt-wrap'))gid('f-dt-wrap').style.display='none';
-  // "Worked with": everyone except the person logging it
-  try{
-    var ww=gid('f-withwho');
-    if(ww){
-      var uk=(typeof lang!=='undefined'&&lang==='uk');
-      var opts='<option value="">\u2014 '+(uk?'\u041b\u0438\u0448\u0435 \u044f':'Just me')+' \u2014</option>';
-      (typeof TECHS!=='undefined'?TECHS:[]).forEach(function(t){
-        if(t===user)return;
-        opts+='<option value="'+escHtml(t)+'">'+escHtml(t)+'</option>';
-      });
-      ww.innerHTML=opts; ww.value='';
-    }
-  }catch(e){}
+  // "Worked with": dynamic multi-select (pick one -> another slot appears)
+  try{ renderWithWho([]); }catch(e){}
   gid('sheet-title').textContent=id?'Edit Entry':'Log Work';
   if(id){
     var e=entries.find(function(x){return x.id===id;})||allE.find(function(x){return x.id===id;})||CARD_REG[id];
@@ -1694,7 +1703,7 @@ function openSheet(id){
       if(e.assetCode)selA2(e.assetCode,e.assetName);
       else if(e.assetName){selA={c:'',n:e.assetName};gid('asearch').value=e.assetName;}
       if(gid('f-issue'))gid('f-issue').value=e.issue||''; gid('f-desc').value=e.desc||''; gid('f-start').value=e.start||''; gid('f-end').value=e.end||''; gid('f-dt').value=dtHrsToMins(e.dt);
-      if(gid('f-withwho')){var _ww2=gid('f-withwho'); if(e.withWho&&!Array.prototype.some.call(_ww2.options,function(o){return o.value===e.withWho;}))_ww2.insertAdjacentHTML('beforeend','<option value="'+escHtml(e.withWho)+'">'+escHtml(e.withWho)+'</option>'); _ww2.value=e.withWho||'';}
+      try{ renderWithWho(withList(e)); }catch(_w){}
       if(isEditor()){ if(gid('f-date'))gid('f-date').value=e.date||''; if(gid('f-shift'))gid('f-shift').value=(e.shift==='Day'||e.shift==='Night')?e.shift:''; }
       try{updateShiftPreview();}catch(_){}
       if(e.partName){gid('f-pname').value=e.partName;gid('f-pqty').value=e.partQty||1;}
@@ -1902,7 +1911,7 @@ function submitEntry(){
         return shiftForMins(mins);
       }
       return isDay()?'Day':'Night';
-    })(),type:ctype,priority:cprio,assetName:(selA?selA.n:(gid('asearch')?gid('asearch').value.trim():'')),assetCode:(selA?selA.c:''),issue:gid('f-issue')?gid('f-issue').value.trim():'',desc:gid('f-desc').value.trim(),start:gid('f-start').value,end:gid('f-end').value,withWho:(gid('f-withwho')?gid('f-withwho').value:''),dt:((gid('f-machinedown')&&(gid('f-machinedown').value==='yes'||gid('f-machinedown').value==='partial'))?dtMinsToHrs(gid('f-dt').value):0),machineDown:gid('f-machinedown')?gid('f-machinedown').value:'',coMins:parseInt(gid('f-co')?gid('f-co').value:0)||0,coType:gid('f-cotype')?gid('f-cotype').value:'',partName:gid('f-pname').value.trim(),partQty:gid('f-pqty').value||'1',photos:photos.slice(),photo:(photos[0]||null),who:(user===ADMIN&&gid('f-assignedto')&&gid('f-assignedto').value)?gid('f-assignedto').value:user,loggedAt:new Date().toISOString(),shiftNote:gid('snote').value};
+    })(),type:ctype,priority:cprio,assetName:(selA?selA.n:(gid('asearch')?gid('asearch').value.trim():'')),assetCode:(selA?selA.c:''),issue:gid('f-issue')?gid('f-issue').value.trim():'',desc:gid('f-desc').value.trim(),start:gid('f-start').value,end:gid('f-end').value,withWho:withWhoValues().join(', '),dt:((gid('f-machinedown')&&(gid('f-machinedown').value==='yes'||gid('f-machinedown').value==='partial'))?dtMinsToHrs(gid('f-dt').value):0),machineDown:gid('f-machinedown')?gid('f-machinedown').value:'',coMins:parseInt(gid('f-co')?gid('f-co').value:0)||0,coType:gid('f-cotype')?gid('f-cotype').value:'',partName:gid('f-pname').value.trim(),partQty:gid('f-pqty').value||'1',photos:photos.slice(),photo:(photos[0]||null),who:(user===ADMIN&&gid('f-assignedto')&&gid('f-assignedto').value)?gid('f-assignedto').value:user,loggedAt:new Date().toISOString(),shiftNote:gid('snote').value};
   if(editId){
     // Find the original BEFORE overwriting, so we keep its Supabase link.
     var orig=allE.find(function(x){return x.id===editId;})||entries.find(function(x){return x.id===editId;})||CARD_REG[editId];
@@ -3735,7 +3744,7 @@ function card(e,mine){
   if(e.machineDown==='yes')html+='<span style="color:var(--bad);font-weight:700;letter-spacing:.04em">MACHINE DOWN</span>';
   if(e.machineDown==='partial')html+='<span style="color:var(--warn);font-weight:700;letter-spacing:.04em">PARTIAL</span>';
   if(e.coMins>0)html+='<span style="color:var(--warn)">CO '+e.coMins+'min</span>';
-  if(e.withWho)html+='<span title="Worked with">+ '+rqEsc(e.withWho)+'</span>';
+  var _wl=withList(e); if(_wl.length)html+='<span title="Worked with">+ '+rqEsc(_wl.join(', '))+'</span>';
   var _synced=(e.sbId||e.synced);
   var _syncInd=_synced?'<span title="Saved" style="color:#34d399;font-size:12px;font-weight:800">\u2713</span>':'<span class="sync-dot" title="Saving\u2026" style="width:7px;height:7px;border-radius:50%;background:#fbbf24;display:inline-block"></span>';
   html+='<span style="margin-left:auto;display:flex;align-items:center;gap:7px;color:var(--text-2)">'+_syncInd+'<span style="width:20px;height:20px;border-radius:50%;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--text-2)">'+initial+'</span>'+who+'</span>';
@@ -5422,7 +5431,7 @@ function weekStats(data,start,end){
   var topDowntime=dtRows.sort(function(a,b){return b.hrs-a.hrs;}).slice(0,5);
   // Workload by tech (+ hours logged from entry start/end, split PM vs Log)
   var techMap={};
-  entries.forEach(function(e){var w=e.who||'\u2014';techMap[w]=techMap[w]||{tech:w,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};var t=e.type;if(isDone(t))techMap[w].done++;else if(isIssue(t))techMap[w].issue++;else if(t==='part'||t==='parts')techMap[w].parts++;else techMap[w].other++;techMap[w].total++;var lh=entryLaborHrs(e);techMap[w].hours+=lh;if(t==='pm')techMap[w].pmHours+=lh;else techMap[w].logHours+=lh;var _pp=e.withWho||e.with_who;if(_pp){var p=_pp;techMap[p]=techMap[p]||{tech:p,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};techMap[p].hours+=lh;if(t==='pm')techMap[p].pmHours+=lh;else techMap[p].logHours+=lh;}});
+  entries.forEach(function(e){var w=e.who||'\u2014';techMap[w]=techMap[w]||{tech:w,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};var t=e.type;if(isDone(t))techMap[w].done++;else if(isIssue(t))techMap[w].issue++;else if(t==='part'||t==='parts')techMap[w].parts++;else techMap[w].other++;techMap[w].total++;var lh=entryLaborHrs(e);techMap[w].hours+=lh;if(t==='pm')techMap[w].pmHours+=lh;else techMap[w].logHours+=lh;withList(e).forEach(function(p){techMap[p]=techMap[p]||{tech:p,done:0,issue:0,parts:0,other:0,total:0,hours:0,pmHours:0,logHours:0,reqClosed:0};techMap[p].hours+=lh;if(t==='pm')techMap[p].pmHours+=lh;else techMap[p].logHours+=lh;});});
   // Requests closed in-range — counted (not hours), attributed to whoever closed them
   (typeof REQUESTS!=='undefined'?REQUESTS:[]).forEach(function(r){
     if(!r||r.status!=='done'||!r.closed_by||!r.closed_at)return;
@@ -6438,7 +6447,7 @@ function _workloadCompute(data, start, end, sched){
   rows.forEach(function(e){
     var lh=entryLaborHrs(e); if(lh>0)timed++;
     var cat=analClassifyCategory(e), bucket=(cat==='Preventive')?'pm':(cat==='Inspection')?'inspection':(cat==='Breakdown')?'breakdown':(cat==='Partial')?'partial':'corrective';
-    var akey=_analAssetKey(e), partner=_wlName(e.with_who||e.withWho||''), people=[_wlName(e.who||'\u2014')]; if(partner)people.push(partner);
+    var akey=_analAssetKey(e), people=[_wlName(e.who||'\u2014')]; withList(e).forEach(function(pn){var _p=_wlName(pn); if(_p&&people.indexOf(_p)<0)people.push(_p);});
     people.forEach(function(nm){ var o=ens(nm); o.labor+=lh; o.logged+=lh; o[bucket]+=lh; o.wos++; o.assets[akey]=(o.assets[akey]||0)+lh;
       if(cat==='Breakdown'||cat==='Partial'||cat==='Corrective'){ var f=analClassifyFailure(e); o.fails[f]=(o.fails[f]||0)+1; }
       o.entries.push({date:e.date,asset:akey,cat:cat,fail:(cat==='Preventive'||cat==='Inspection')?null:analClassifyFailure(e),hrs:Math.round(lh*100)/100}); });
@@ -10737,6 +10746,54 @@ function openUserMgmt(){
   renderUserRoster();
 }
 function closeUserMgmt(){ var m=document.getElementById('usermgmt-overlay'); if(m)m.remove(); }
+
+function _mPanel(id,title,bodyHtml){
+  var ov=document.getElementById(id); if(ov)ov.remove();
+  ov=document.createElement('div'); ov.id=id;
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:700;display:flex;flex-direction:column';
+  ov.innerHTML='<div style="flex:1;min-height:0;display:flex;flex-direction:column;background:var(--bg)">'+
+    '<div style="display:flex;align-items:center;gap:10px;padding:calc(13px + env(safe-area-inset-top)) 14px 13px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">'+
+      '<button onclick="var m=document.getElementById(\''+id+'\');if(m)m.remove();" class="btn-ghost" style="padding:8px 12px;font-size:13px">\u2039 Back</button>'+
+      '<div style="font-size:16px;font-weight:700;color:var(--text)">'+title+'</div>'+
+    '</div>'+
+    '<div style="flex:1;overflow-y:auto;padding:16px 14px calc(30px + env(safe-area-inset-bottom))">'+bodyHtml+'</div>'+
+  '</div>';
+  document.body.appendChild(ov);
+  try{ if(window.__bbwDock)window.__bbwDock(ov); }catch(e){}
+  return ov;
+}
+function openUploadSchedules(){
+  if(user!==ADMIN)return;
+  var b='';
+  b+='<div style="margin-bottom:18px">';
+  b+='<div style="font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:2px">Production Schedule (L1_Schedule_New.xlsx)</div>';
+  b+='<div style="font-size:11.5px;color:var(--text-3);margin-bottom:9px">Updates run timeline &amp; changeover warnings</div>';
+  b+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;background:var(--surface-2);border:1.5px dashed var(--border-2);border-radius:10px;cursor:pointer;color:var(--text-2);font-size:13px" id="prod-upload-lbl"> Upload production schedule<input type="file" id="prod-schedule-file" accept=".xlsx,.xls" style="display:none" onchange="parseProdSchedule(this)"></label>';
+  b+='<div id="prod-upload-status" style="font-size:12px;color:#4ade80;margin-top:7px;display:none"></div></div>';
+  b+='<div>';
+  b+='<div style="font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:2px">Technician Schedule (Schedule.xlsx)</div>';
+  b+='<div style="font-size:11.5px;color:var(--text-3);margin-bottom:9px">Shows who is on shift each day</div>';
+  b+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;background:var(--surface-2);border:1.5px dashed var(--border-2);border-radius:10px;cursor:pointer;color:var(--text-2);font-size:13px" id="tech-upload-lbl"> Upload technician schedule<input type="file" id="tech-schedule-file" accept=".xlsx,.xls" style="display:none" onchange="parseTechSchedule(this)"></label>';
+  b+='<div id="tech-upload-status" style="font-size:12px;color:#4ade80;margin-top:7px;display:none"></div></div>';
+  _mPanel('uploadsched-overlay','Upload Schedules',b);
+}
+function openResetPins(){
+  if(user!==ADMIN)return;
+  var b='<div style="font-size:12.5px;color:var(--text-3);line-height:1.5;margin-bottom:14px">Tap a technician to reset their PIN \u2014 they\u2019ll set a new one on next login.</div>';
+  b+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">';
+  TECHS.filter(function(t){return t!==ADMIN;}).forEach(function(t){
+    b+='<button onclick="resetPin(\''+t+'\')" style="padding:12px 6px;border-radius:9px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">'+t+'</button>';
+  });
+  b+='</div>';
+  _mPanel('resetpins-overlay','Reset Tech PINs',b);
+}
+function openForkliftSup(){
+  if(user!==ADMIN)return;
+  var b='<div style="font-size:12.5px;color:var(--text-3);line-height:1.6;margin-bottom:16px">Supervisor page:<br><b style="color:var(--text)">'+flBaseURL()+'?fldash</b></div>';
+  b+='<button onclick="flDashChangePin(true)" style="width:100%;padding:13px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-size:14px;font-weight:600;border-radius:10px;cursor:pointer;margin-bottom:11px">Change forklift-supervisor PIN</button>';
+  b+='<button onclick="flDashEditNotifyEmail()" style="width:100%;padding:13px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-size:14px;font-weight:600;border-radius:10px;cursor:pointer">Set forklift request email</button>';
+  _mPanel('forkliftsup-overlay','Forklift Supervisor',b);
+}
 function renderUserRoster(){
   var box=document.getElementById('usermgmt-body'); if(!box)return;
   if(!USERS){ box.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-3);font-size:13px">Loading\u2026</div>'; return; }
@@ -10999,7 +11056,11 @@ function renderMore(){
     report:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 14l3-3 2 2 4-4"/>',
     file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15h6"/>',
     truck:'<rect x="1" y="6" width="13" height="10" rx="1.5"/><path d="M14 9h4l3 3.2V16h-7z"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="17.5" cy="18.5" r="2"/>',
-    msg:'<path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/>'
+    msg:'<path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/>',
+    doc:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/>',
+    upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M12 3v13M7 8l5-5 5 5"/>',
+    key:'<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L20 3M17 6l2 2M14 9l2 2"/>',
+    shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>'
   };
   if(EDITORS.indexOf(user)>=0){
     H+='<div class="more-sec-h">Analytics</div>';
@@ -11010,10 +11071,16 @@ function renderMore(){
     H+=_mB('openMachinePareto()',ICO.pareto,'Machine Pareto');
     H+=_mB('openActionPlans()',ICO.plans,'Action Plans');
     H+=_mB('openDowntimeByDay()',ICO.cal,'Downtime by Day');
+    H+=_mB('generateAndSendReport()',ICO.doc,'Shift Report PDF');
     H+='</div>';
     H+='<div class="more-sec-h" style="margin-top:18px">Reports &amp; Admin</div>';
     H+='<div class="more-tools">';
     H+=_mB('openUserMgmt()',ICO.users,'Manage Users');
+    if(isAdmin){
+      H+=_mB('openUploadSchedules()',ICO.upload,'Upload Schedules');
+      H+=_mB('openResetPins()',ICO.key,'Reset Tech PINs');
+      H+=_mB('openForkliftSup()',ICO.shield,'Forklift Supervisor');
+    }
     H+=_mB('openMachineWeekReport()',ICO.report,'Weekly Machine Report');
     H+=_mB('openBrewqmImport()',ICO.file,'Import Shift PDF');
     H+=_mB('openForkliftMenu()',ICO.truck,'Forklift Inspection');
@@ -11082,30 +11149,7 @@ function renderMore(){
     H+='</div>';
   }
 
-  // ── UPLOAD SCHEDULES (admin) ──
-  if(isAdmin){
-    H+='<div style="background:rgba(124,107,240,.10);border:1.5px solid var(--border-2);border-radius:12px;padding:16px;margin-bottom:12px">';
-    H+='<div style="font-size:12px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Upload Schedules</div>';
-    H+='<div style="margin-bottom:12px">';
-    H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:2px">Production Schedule (L1_Schedule_New.xlsx)</div>';
-    H+='<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">Updates run timeline &amp; changeover warnings</div>';
-    H+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:var(--surface-2);border:1.5px dashed var(--border-2);border-radius:9px;cursor:pointer;color:var(--text-2);font-size:13px" id="prod-upload-lbl"> Upload production schedule<input type="file" id="prod-schedule-file" accept=".xlsx,.xls" style="display:none" onchange="parseProdSchedule(this)"></label>';
-    H+='<div id="prod-upload-status" style="font-size:12px;color:#4ade80;margin-top:6px;display:none"></div>';
-    H+='</div>';
-    H+='<div>';
-    H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:2px">Technician Schedule (Schedule.xlsx)</div>';
-    H+='<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">Shows who is on shift each day</div>';
-    H+='<label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:var(--surface-2);border:1.5px dashed var(--border-2);border-radius:9px;cursor:pointer;color:var(--text-2);font-size:13px" id="tech-upload-lbl"> Upload technician schedule<input type="file" id="tech-schedule-file" accept=".xlsx,.xls" style="display:none" onchange="parseTechSchedule(this)"></label>';
-    H+='<div id="tech-upload-status" style="font-size:12px;color:#4ade80;margin-top:6px;display:none"></div>';
-    H+='</div></div>';
-  }
 
-  // ── SEND REPORT ──
-  H+='<div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:12px">';
-  H+='<div style="font-size:13px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">'+T('Shift Report')+'</div>';
-  H+='<p style="font-size:13px;color:var(--text-2);margin-bottom:12px">Generate a full PDF report for this shift — all technicians.</p>';
-  H+='<button onclick="generateAndSendReport()" style="width:100%;padding:14px;background:#fff;color:#000;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer">'+T('Generate Shift Report PDF')+'</button>';
-  H+='</div>';
 
   // ── MONTHLY EXPORT ──
   H+='<div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:12px">';
@@ -11130,16 +11174,6 @@ function renderMore(){
     H+='<div style="font-size:12px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Admin — Praful Only</div>';
     H+='<div id="db-stats" style="background:var(--bg);border-radius:9px;padding:12px 14px;margin-bottom:14px;font-family:monospace;font-size:12px;color:var(--text-2)">Loading DB stats...</div>';
     H+='<button onclick="downloadDataBackup(this)" style="width:100%;padding:12px;background:#15803d;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px">'+T('Download Full Backup')+'</button>';
-    H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Reset Technician PINs</div>';
-    H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:16px">';
-    TECHS.filter(function(t){return t!==ADMIN;}).forEach(function(t){
-      H+='<button onclick="resetPin(\''+t+'\')" style="padding:9px 4px;border-radius:8px;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.3);color:#ef4444;font-size:11px;font-weight:600;cursor:pointer">'+t+'</button>';
-    });
-    H+='</div>';
-    H+='<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px">Forklift Supervisor Access</div>';
-    H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-bottom:8px">Supervisor page: <b>'+flBaseURL()+'?fldash</b></div>';
-    H+='<button onclick="flDashChangePin(true)" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:10px">Change forklift-supervisor PIN</button>';
-    H+='<button onclick="flDashEditNotifyEmail()" style="width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:13.5px;font-weight:600;border-radius:9px;cursor:pointer;margin-bottom:16px">Set forklift request email</button>';
     H+='</div>';
   }
 
@@ -11298,7 +11332,7 @@ function clearAll(){
 function reportTechs(list){
   var seen={}, out=[];
   (list||[]).forEach(function(e){
-    [e.who, e.withWho].forEach(function(n){
+    [e.who].concat(withList(e)).forEach(function(n){
       if(!n)return; var c=canonName(n);
       if(!seen[c]){ seen[c]=1; out.push(c); }
     });
@@ -11483,6 +11517,7 @@ function ensureLogoPNG(){
   });
   return window.__logoPromise;
 }
+function byNames(e){var a=[e.who];var w=e.withWho||e.with_who||'';String(w).split(',').forEach(function(n){n=(n||'').trim();if(n)a.push(n);});return a.filter(Boolean).join(' + ');}
 function buildReportPDF(R){
   function pdfSafe(s){return String(s==null?'':s).replace(/\u26A0/g,'!').replace(/\u2713/g,'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/\u2014/g,'-').replace(/\u2026/g,'...').replace(/[\u2192]/g,'->');}
   var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
@@ -11569,18 +11604,18 @@ function buildReportPDF(R){
   function tr(t){return (R.tmap&&R.tmap[t])?R.tmap[t]:t;}
   function descCell(e){var s=(e.issue?tr(e.issue):''); if(e.desc){s+=(s?'\n':'')+tr(e.desc);} return pdfSafe(s)||'-';}
   if(R.issues.length){ sectTitle('Pending Issues — Next Shift Must Action',[220,38,38],R.issues.length);
-    tbl('Issues',[220,38,38],['Asset','Issue / Description','By'],R.issues.map(function(e){return [e.assetName||'General',descCell(e),e.who||''];})); }
+    tbl('Issues',[220,38,38],['Asset','Issue / Description','By'],R.issues.map(function(e){return [e.assetName||'General',descCell(e),byNames(e)];})); }
   else { if(y>doc.internal.pageSize.getHeight()-90){doc.addPage();y=44;}
     doc.setFillColor(240,253,244); doc.roundedRect(M,y,W-2*M,26,6,6,'F');
     doc.setTextColor(22,163,74); doc.setFont(RF,'bold'); doc.setFontSize(10);
     doc.text('No pending issues - clean handover', M+14, y+17); y+=38; }
   sectTitle('Work Completed',[22,163,74],R.done.length);
-  if(R.done.length) tbl('Completed',[22,163,74],['Asset','Issue / Description','Time','By'],R.done.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),e.who||''];}));
+  if(R.done.length) tbl('Completed',[22,163,74],['Asset','Issue / Description','Time','By'],R.done.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),byNames(e)];}));
   else { doc.setTextColor(150,150,150); doc.setFont(RF,'italic'); doc.setFontSize(9); doc.text('None this shift.',M,y+4); y+=18; }
   if(R.ongoing.length){ sectTitle('In Progress — Continue Next Shift',[217,119,6],R.ongoing.length);
-    tbl('Ongoing',[217,119,6],['Asset','Issue / Description','Time','By'],R.ongoing.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),e.who||''];})); }
+    tbl('Ongoing',[217,119,6],['Asset','Issue / Description','Time','By'],R.ongoing.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),byNames(e)];})); }
   if(R.parts.length){ sectTitle('Parts to Order',[234,88,12],R.parts.length);
-    tbl('Parts',[234,88,12],['Part','Asset','Qty','By'],R.parts.map(function(e){return [e.partName||e.issue||'—',e.assetName||'',e.partQty||'1',e.who||''];})); }
+    tbl('Parts',[234,88,12],['Part','Asset','Qty','By'],R.parts.map(function(e){return [e.partName||e.issue||'—',e.assetName||'',e.partQty||'1',byNames(e)];})); }
   // Attached photos (mostly parts) — embed all photos inline at the end.
   function entryPhotos(e){var ph=(e.photos&&e.photos.length)?e.photos:(e.photo?[e.photo]:[]);return ph.filter(function(p){return p&&typeof p==='string'&&p.indexOf('data:image')===0;});}
   var withPhotos=R.se.filter(function(e){return entryPhotos(e).length;});
@@ -11591,7 +11626,7 @@ function buildReportPDF(R){
     var pageH=doc.internal.pageSize.getHeight();
     withPhotos.forEach(function(e){
       doc.setFont(RF,'bold'); doc.setFontSize(9.5); doc.setTextColor(40,40,40);
-      var cap=pdfSafe((e.assetName||e.partName||'General')+(e.issue?' \u2014 '+tr(e.issue):'')+(e.who?'  ('+e.who+')':''));
+      var cap=pdfSafe((e.assetName||e.partName||'General')+(e.issue?' \u2014 '+tr(e.issue):'')+(byNames(e)?'  ('+byNames(e)+')':''));
       if(y+24>pageH-44){doc.addPage();y=44;}
       doc.text(cap, M, y); y+=11;
       entryPhotos(e).forEach(function(p){
