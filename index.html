@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v157';
+var APP_BUILD='BBW CMMS build v158';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -8052,7 +8052,7 @@ function renderTechLog(){
   var from=(scope==='month')?pmISO(new Date(y,mo,1)):'2000-01-01';
   var to=pmISO(new Date(y,mo+1,0));
   var cols='id,date,type,who,with_who,asset_name,asset_code,issue,description,start_time,end_time,downtime_hrs,machine_down,co_mins,co_type,part_name,part_qty,shift,logged_at,priority';
-  var q='bbw_worklog?select='+cols+'&date=gte.'+from+'&date=lte.'+to+'&or=(who.eq.'+encodeURIComponent(tech)+',with_who.eq.'+encodeURIComponent(tech)+')&order=logged_at.'+sort;
+  var q='bbw_worklog?select='+cols+'&date=gte.'+from+'&date=lte.'+to+'&or=(who.eq.'+encodeURIComponent(tech)+',with_who.ilike.*'+encodeURIComponent(tech)+'*)&order=logged_at.'+sort;
   sbFetchAll(q).then(function(rows){
     if(!Array.isArray(rows))rows=[];
     var entries=rows.map(wlRowToEntry);
@@ -8256,7 +8256,7 @@ function fillHomeTechHours(){
     function lab(s,e){var a=hhmmToMin(s),b=hhmmToMin(e);if(a==null||b==null)return 0;var d=b-a;if(d<0)d+=1440;if(d<=0||d>1440)return 0;return d/60;}
     var tm={}; var REQ_HRS=0.5; // each closed maintenance request counts as 30 min of work
     function _ensure(n){ tm[n]=tm[n]||{tech:n,pm:0,log:0,req:0}; return tm[n]; }
-    rows.forEach(function(r){var lh=lab(r.start_time,r.end_time);var bucket=(r.type==='pm')?(/^PM\s/.test(r.description||'')?null:'pm'):'log';if(!bucket)return;if(bucket==='log'&&/^Reported by/i.test(r.description||''))return; /* request-derived log: counted as request hours below, not Log */ [r.who||'\u2014',r.with_who].forEach(function(name){if(!name)return;_ensure(canonName(name))[bucket]+=lh;});});
+    rows.forEach(function(r){var lh=lab(r.start_time,r.end_time);var bucket=(r.type==='pm')?(/^PM\s/.test(r.description||'')?null:'pm'):'log';if(!bucket)return;if(bucket==='log'&&/^Reported by/i.test(r.description||''))return; /* request-derived log: counted as request hours below, not Log */ [r.who||'\u2014'].concat(withList(r)).forEach(function(name){if(!name)return;_ensure(canonName(name))[bucket]+=lh;});});
     // PM hours come from completed work orders (authoritative: hours + who + when, incl. historical).
     wos.forEach(function(o){var w2=o.completed_by;if(!w2)return;var h=parseFloat(o.hours_spent);if(!(h>0))h=parseFloat(o.hours_est);if(!(h>0))h=0.25;_ensure(canonName(w2)).pm+=h;});
     // Each closed request = 30 min credited to whoever closed it, folded into hours (not a bare count).
