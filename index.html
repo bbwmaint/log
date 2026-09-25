@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v160';
+var APP_BUILD='BBW CMMS build v161';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3378,7 +3378,7 @@ function syncUtil(rec){
 }
 
 function loadUtilFromSB(){
-  sbFetch('bbw_util_log?order=date.desc&limit=30')
+  sbFetch('bbw_util_log?order=date.desc&limit=1000')
     .then(function(r){return r.json();})
     .then(function(data){
       if(!Array.isArray(data))return;
