@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v158';
+var APP_BUILD='BBW CMMS build v159';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6212,7 +6212,7 @@ function machineWeekOf(dateStr){ var d=new Date(dateStr+'T00:00:00'); var dow=d.
 function openMachineWeekReport(){
   if(EDITORS.indexOf(user)<0){alert('Reports are restricted to maintenance management.');return;}
   var ov=document.getElementById('mwr-picker'); if(ov)ov.remove();
-  ov=document.createElement('div'); ov.id='mwr-picker'; ov.setAttribute('data-fullpage','1');
+  ov=document.createElement('div'); ov.id='mwr-picker'; ov.className='mob-sheet'; ov.setAttribute('data-fullpage','1');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:850;display:flex;align-items:flex-end;justify-content:center';
   var today=localDateStr(new Date());
   ov.innerHTML='<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:18px 16px calc(24px + env(safe-area-inset-bottom))">'+
@@ -7088,6 +7088,13 @@ function cmmsRenderPMListInner(host){
 }
 
 function pmIsLocal(id){return /^L\d+$/.test(String(id));}
+function nextPMCode(){
+  var max=0;
+  function scan(c){ var m=/^SM(\d+)$/i.exec(String(c||'').trim()); if(m){ var n=parseInt(m[1],10); if(n>max)max=n; } }
+  try{ if(typeof PM_TASKS!=='undefined') Object.keys(PM_TASKS).forEach(scan); }catch(e){}
+  try{ if(typeof CMMS_PMS!=='undefined'&&CMMS_PMS) CMMS_PMS.forEach(function(p){scan(p.code);}); }catch(e){}
+  return 'SM'+(max+1);
+}
 function openPMForm(id){
   var p=id?CMMS_PMS.filter(function(x){return x.id==id;})[0]:{code:'',asset:'',asset_code:'',description:'',freq:'',priority:'',assignee:'',hours:'',pm_type:'Preventive',active:true,next_due:''};
   if(!p)return;
@@ -7104,7 +7111,7 @@ function openPMForm(id){
   var H='<div id="pm-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:800;display:flex;align-items:flex-end;justify-content:center">';
   H+='<div style="background:var(--bg);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;padding:18px 18px 28px;border:1px solid var(--border)">';
   H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:17px;font-weight:700;color:var(--text)">'+(id?'Edit PM':'New PM')+'</div><button onclick="closePMForm()" class="btn-ghost" style="padding:6px 12px;font-size:13px">Close</button></div>';
-  H+=fld('Code',  '<input id="pf-code" value="'+(p.code||'').replace(/"/g,'&quot;')+'" placeholder="e.g. SM301" style="'+ist+'">');
+  H+=fld('Code',  '<input id="pf-code" value="'+((p.code||(id?'':nextPMCode()))||'').replace(/"/g,'&quot;')+'" placeholder="e.g. SM301" style="'+ist+'">');
   H+=fld('Asset', '<select id="pf-asset" style="'+ist+'"><option value="|">\u2014 select asset \u2014</option>'+assetList+'</select>');
   H+=fld('Description', '<textarea id="pf-desc" rows="2" style="'+ist+';resize:vertical">'+(p.description||'')+'</textarea>');
   H+=fld('Work Instructions \u2014 one step per line. An ALL-CAPS line ending in \u201c:\u201d becomes a section heading (e.g. \u201cSEAMER:\u201d).',
@@ -9550,7 +9557,7 @@ function openMaintReqQR(){
 }
 function openForkliftMenu(){
  var ex=gid('fl-menu');if(ex)ex.remove();
- var H='<div id="fl-menu" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99000;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">';
+ var H='<div id="fl-menu" class="mob-sheet" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99000;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">';
  H+='<div style="background:var(--surface-2);border:1px solid var(--border-2);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:520px;padding:18px 18px 26px">';
  H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:17px;font-weight:800;color:var(--text)">Forklift Inspection</div><button onclick="document.getElementById(\'fl-menu\').remove()" style="padding:6px 12px;font-size:13px;background:var(--surface);border:1px solid var(--border-2);color:var(--text-2);border-radius:8px;cursor:pointer">Close</button></div>';
  H+='<div style="font-size:12px;color:var(--text-3);margin-bottom:12px">Pick a unit to fill out a pre-operation checklist:</div>';
@@ -11044,7 +11051,7 @@ function renderMore(){
   var H='';
   H+='<div onclick="dangerTap()" style="text-align:center;font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:monospace;cursor:default;user-select:none">'+BUILD+'</div>';
   function _mI(inner){return '<span style="color:#3b82f6;flex-shrink:0;display:flex;align-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg></span>';}
-  function _mB(oc,inner,label){return '<button onclick="'+oc+'" class="btn-ghost" style="padding:14px 15px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:11px;text-align:left;justify-content:flex-start">'+_mI(inner)+'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</span><span class="chev" style="color:var(--text-3);flex-shrink:0;display:flex"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span></button>';}
+  function _mB(oc,inner,label){return '<button onclick="try{window.__bbwMoreTab&&__bbwMoreTab()}catch(_e){};'+oc+'" class="btn-ghost" style="padding:14px 15px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:11px;text-align:left;justify-content:flex-start">'+_mI(inner)+'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</span><span class="chev" style="color:var(--text-3);flex-shrink:0;display:flex"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span></button>';}
   var ICO={
     dash:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',
     stats:'<path d="M3 3v18h18"/><path d="M7 13l3-3 3 2 5-6"/>',
@@ -12888,7 +12895,7 @@ try{window.openLogById=openLogById;}catch(_e){}
 </script>
 
 
-<style id="bbw-desk-refine">@media(min-width:1000px){html[data-theme='light']{--bg:#f5f5f7;--surface:#ffffff;--surface-2:#f5f5f7;--surface-3:#ececf0;--border:#dcdce2;--border-2:#cbcbd3;--text:#1d1d1f;--text-2:#6e6e73;--text-3:#86868b;--accent:#0071e3}}@media(min-width:1000px){ #pane-home .hm-kpis{gap:10px!important} #pane-home .hm-kpis>div{padding:16px 18px 14px!important} #pane-home .hm-kpis .hm-lbl{color:var(--text-3)!important;text-transform:uppercase;letter-spacing:.02em} #pane-home .hm-kpis .hm-lbl + span{display:none!important} #pane-home .hm-kpis .hm-val{font-size:32px!important;margin-top:2px}}@media(min-width:1000px){body.dd-open #content{padding-right:min(480px,42vw)!important}}@media(min-width:1000px){#pane-home div[style*="box-shadow"],#pane-dash div[style*="box-shadow"]{border:1px solid var(--border)}}#pane-more .more-tools{display:grid;grid-template-columns:1fr;gap:8px;align-items:stretch;margin-bottom:14px}#pane-more .more-tools>button{margin-bottom:0!important;min-height:54px}#pane-more .more-sec-h{font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin:2px 2px 11px}@media(min-width:1000px){#pane-more .more-tools{grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}#pane-more .more-tools .chev{display:none!important}}</style>
+<style id="bbw-desk-refine">@media(min-width:1000px){html[data-theme='light']{--bg:#f5f5f7;--surface:#ffffff;--surface-2:#f5f5f7;--surface-3:#ececf0;--border:#dcdce2;--border-2:#cbcbd3;--text:#1d1d1f;--text-2:#6e6e73;--text-3:#86868b;--accent:#0071e3}}@media(min-width:1000px){ #pane-home .hm-kpis{gap:10px!important} #pane-home .hm-kpis>div{padding:16px 18px 14px!important} #pane-home .hm-kpis .hm-lbl{color:var(--text-3)!important;text-transform:uppercase;letter-spacing:.02em} #pane-home .hm-kpis .hm-lbl + span{display:none!important} #pane-home .hm-kpis .hm-val{font-size:32px!important;margin-top:2px}}@media(min-width:1000px){body.dd-open #content{padding-right:min(480px,42vw)!important}}@media(min-width:1000px){#pane-home div[style*="box-shadow"],#pane-dash div[style*="box-shadow"]{border:1px solid var(--border)}}#pane-more .more-tools{display:grid;grid-template-columns:1fr;gap:8px;align-items:stretch;margin-bottom:14px}#pane-more .more-tools>button{margin-bottom:0!important;min-height:54px}#pane-more .more-sec-h{font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin:2px 2px 11px}@media(min-width:1000px){.mob-sheet{align-items:center!important}.mob-sheet>div{border-radius:18px!important;margin:0 16px!important;box-shadow:0 24px 64px rgba(0,0,0,.4)!important}}@media(min-width:1000px){#pane-more .more-tools{grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}#pane-more .more-tools .chev{display:none!important}}</style>
 
 <script id="bbw-desk-dock">
 (function(){
@@ -12896,7 +12903,9 @@ try{window.openLogById=openLogById;}catch(_e){}
   var _dz=600; /* z-index counter so docked panels STACK (newest on top) instead of replacing — closing an edit reveals the panel beneath (v132) */
   function cardOf(el){ if(!el||el.nodeType!==1||el.__dd)return null; if(el.getAttribute&&el.getAttribute('data-fullpage'))return null; if(el.id&&/^fl(-|dash|req|drv)/.test(el.id))return null; var cs; try{cs=getComputedStyle(el);}catch(e){return null;} if(cs.position!=='fixed')return null; var r=el.getBoundingClientRect(); if(r.width<window.innerWidth*0.9||r.height<window.innerHeight*0.85)return null; var c=null; for(var i=0;i<el.children.length;i++){var ch=el.children[i]; if(ch.nodeType===1&&ch.tagName!=='SCRIPT'){c=ch;break;}} return c; }
   function findOverlay(node){ if(!node||node.nodeType!==1)return null; var c=cardOf(node); if(c)return{el:node,card:c}; for(var i=0;i<node.children.length;i++){ var cc=cardOf(node.children[i]); if(cc)return{el:node.children[i],card:cc}; } return null; }
-  function dock(el,card){ el.__dd=1; el.setAttribute('data-ddock','1'); var S=function(n,k,v){n.style.setProperty(k,v,'important');};
+  function dock(el,card){ el.__dd=1; el.setAttribute('data-ddock','1');
+    if(window.__bbwNextTop){ window.__bbwNextTop=0; try{ var _pv=document.querySelectorAll('[data-ddock][data-toptab]'); Array.prototype.forEach.call(_pv,function(p){ if(p!==el){ try{p.remove();}catch(_){} } }); }catch(_){} el.setAttribute('data-toptab','1'); }
+    var S=function(n,k,v){n.style.setProperty(k,v,'important');};
     S(el,'z-index',(++_dz));
     var solid=false; try{ var _bg=getComputedStyle(el).backgroundColor||''; var _m=_bg.match(/rgba?\(([^)]+)\)/); var _a=_m?((_m[1].split(',')[3]!==undefined)?parseFloat(_m[1].split(',')[3]):1):1; solid=(_a>=0.9); }catch(e){}
     S(el,'left','auto');S(el,'right','0');S(el,'top','0');S(el,'bottom','env(safe-area-inset-bottom, 0px)');S(el,'width','min(480px,42vw)');
@@ -12915,6 +12924,7 @@ try{window.openLogById=openLogById;}catch(_e){}
      so the MutationObserver never sees them. openSheet/closeSheet call these hooks to
      dock them as a right-side panel on desktop and refresh the content padding on close. */
   window.__bbwDock=function(el){ if(!el||!wide())return; if(el.__dd){ el.style.setProperty('z-index',(++_dz),'important'); } else { var card=cardOf(el); if(card)dock(el,card); } reflow(); };
+  window.__bbwMoreTab=function(){ window.__bbwNextTop=1; setTimeout(function(){ window.__bbwNextTop=0; },0); };
   window.__bbwReflow=function(){ try{ reflow(); }catch(e){} };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start); else start();
 })();
