@@ -43,7 +43,7 @@ function extract(t) {
   const date = (t.match(/Date\s+(\d{4}-\d{2}-\d{2})/) || [])[1] || null;
   const sm = t.match(/Shift\s+([A-D])\s*\((day|night)\)/i);
   const dayNight = sm ? sm[2].toLowerCase() : null;
-  const vm = t.match(/Totals:\s*[\d,]+\s+([\d,.]+)\s+[\d,]+/);   // cans  volHL  min
+  const vm = t.match(/Totals:\s*[\d,]+\s+([\d,.]+)/);            // cans  volHL  (prod-min may be blank)
   const volHL = vm ? parseFloat(vm[1].replace(/,/g, '')) : null;
   const pm = t.match(/Productivity[\s\S]*?(\d{1,3})\s*%/);       // the report's only %
   const prodPct = pm ? +pm[1] : null;
