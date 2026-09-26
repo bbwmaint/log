@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v161';
+var APP_BUILD='BBW CMMS build v162';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4458,6 +4458,50 @@ function openUtilTrend(mk){
   utRender();
 }
 function closeUtilTrend(){ var e=gid('ut-modal'); if(e)e.remove(); }
+function openUtilExport(preMeter){
+  var ex=gid('ux-modal'); if(ex)ex.remove();
+  var today=pmISO(new Date()), d30=pmISO(new Date(Date.now()-30*86400000));
+  var sel=preMeter||(typeof UT_STATE!=='undefined'?UT_STATE.meter:'all')||'all';
+  var ist='width:100%;box-sizing:border-box;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px';
+  var H='<div id="ux-modal" class="mob-sheet" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99000;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeUtilExport()">';
+  H+='<div style="background:var(--bg);width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
+  H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:18px;font-weight:800;color:var(--text)">'+utT('Export Utility Data')+'</div>';
+  H+='<button onclick="closeUtilExport()" style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);cursor:pointer">\u2715</button></div>';
+  H+='<div style="font-size:12.5px;color:var(--text-3);margin-bottom:16px">'+utT('Pick a date range and a utility (or all). Downloads a CSV.')+'</div>';
+  H+='<div style="font-size:12px;color:var(--text-2);margin-bottom:5px">'+utT('Utility')+'</div>';
+  H+='<select id="ux-meter" style="'+ist+';margin-bottom:14px">';
+  H+='<option value="all"'+(sel==='all'?' selected':'')+'>'+utT('All utilities')+'</option>';
+  UT_METERS.forEach(function(m){ H+='<option value="'+m.k+'"'+(m.k===sel?' selected':'')+'>'+m.n+' ('+m.u+')</option>'; });
+  H+='</select>';
+  H+='<div style="display:flex;gap:10px;margin-bottom:18px">';
+  H+='<div style="flex:1"><div style="font-size:12px;color:var(--text-2);margin-bottom:5px">'+utT('From')+'</div><input type="date" id="ux-from" value="'+d30+'" style="'+ist+'"></div>';
+  H+='<div style="flex:1"><div style="font-size:12px;color:var(--text-2);margin-bottom:5px">'+utT('To')+'</div><input type="date" id="ux-to" value="'+today+'" style="'+ist+'"></div>';
+  H+='</div>';
+  H+='<button onclick="runUtilExport()" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer">'+utT('Download CSV')+'</button>';
+  H+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function closeUtilExport(){ var e=gid('ux-modal'); if(e)e.remove(); }
+function runUtilExport(){
+  var from=gid('ux-from').value, to=gid('ux-to').value, mk=gid('ux-meter').value;
+  if(!from||!to){ alert(utT('Pick both dates.')); return; }
+  if(from>to){ var t=from; from=to; to=t; }
+  var rows=(typeof utilLogs!=='undefined'?utilLogs:[]).filter(function(r){ return r&&r.date&&r.date>=from&&r.date<=to; })
+    .slice().sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+  if(!rows.length){ alert(utT('No readings in that range.')); return; }
+  function esc(v){ v=(v==null?'':String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+  var csv=['BBW Utility Export','Range,'+from+' to '+to,''];
+  if(mk==='all'){
+    csv.push(['Date','Time'].concat(UT_METERS.map(function(m){return m.n+' ('+m.u+')';})).concat(['By']).map(esc).join(','));
+    rows.forEach(function(r){ csv.push([r.date,r.time||''].concat(UT_METERS.map(function(m){return r[m.k]==null?'':r[m.k];})).concat([r.by||'']).map(esc).join(',')); });
+  } else {
+    var m=utMeter(mk);
+    csv.push(['Date',m.n+' ('+m.u+')','By'].map(esc).join(','));
+    rows.forEach(function(r){ csv.push([r.date,r[mk]==null?'':r[mk],r.by||''].map(esc).join(',')); });
+  }
+  downloadBlob(new Blob([csv.join('\n')],{type:'text/csv;charset=utf-8'}),'BBW_utilities_'+(mk==='all'?'all':mk)+'_'+from+'_to_'+to+'.csv');
+  closeUtilExport();
+}
 function utSet(k,v){
   if(k==='meter')UT_STATE.meter=v;
   if(k==='days')UT_STATE.days=+v;
@@ -4477,7 +4521,7 @@ function utRender(){
   H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">';
   H+='<div><div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em">'+utT('Utility trends')+'</div>';
   H+='<div style="font-size:22px;font-weight:800;color:var(--text);line-height:1.2;margin-top:2px">'+m.n+'</div></div>';
-  H+='<button onclick="closeUtilTrend()" style="flex-shrink:0;width:32px;height:32px;border-radius:50%;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);font-size:14px;cursor:pointer;line-height:1">\u2715</button></div>';
+  H+='<div style="display:flex;gap:8px;flex-shrink:0"><button onclick="openUtilExport(\''+m.k+'\')" title="Export CSV" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);cursor:pointer;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M5 21h14"/></svg></button><button onclick="closeUtilTrend()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);font-size:14px;cursor:pointer;line-height:1">\u2715</button></div></div>';
   H+='<div style="padding-bottom:14px">';
   H+='<div style="position:relative;display:inline-block;min-width:230px;max-width:100%">';
   H+='<span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:10px;height:10px;border-radius:50%;background:'+m.c+';pointer-events:none"></span>';
