@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v165';
+var APP_BUILD='BBW CMMS build v166';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -12385,9 +12385,17 @@ function schedDrawChart(){
 function schedChipsHTML(kind){
   var sel=schedEdit[kind]||[];
   var col=kind==='day'?'#f59e0b':(kind==='night'?'#60a5fa':(kind==='sick'?'#4ade80':'#e879f9'));
-  return curRoster().map(function(n){
+  // Roster + anyone already saved on this day who's no longer on the active roster
+  // (a paused/removed user like a former tech). Without this they'd stay stored and
+  // keep showing in the calendar summary with no way to see or clear them here.
+  var roster=curRoster();
+  var names=roster.slice();
+  sel.forEach(function(n){ if(names.indexOf(n)<0) names.push(n); });
+  return names.map(function(n){
     var on=sel.indexOf(n)>=0;
-    return '<button onclick="schedTogglePick(\''+kind+'\',\''+n+'\')" style="font-size:12px;font-weight:600;padding:7px 11px;border-radius:8px;cursor:pointer;border:1px solid '+(on?col:'var(--border-2)')+';background:'+(on?col:'transparent')+';color:'+(on?'#0a0a0b':'var(--text-2)')+'">'+n+'</button>';
+    var off=roster.indexOf(n)<0;   // off the active roster (paused/removed)
+    var bd=on?col:(off?'#ef4444':'var(--border-2)');
+    return '<button onclick="schedTogglePick(\''+kind+'\',\''+n+'\')" title="'+(off?'No longer on the roster — tap to remove':'')+'" style="font-size:12px;font-weight:600;padding:7px 11px;border-radius:8px;cursor:pointer;border:1px '+(off?'dashed':'solid')+' '+bd+';background:'+(on?col:'transparent')+';color:'+(on?'#0a0a0b':(off?'#ef4444':'var(--text-2)'))+'">'+n+(off?' ✕':'')+'</button>';
   }).join('');
 }
 function schedTogglePick(kind,name){ var a=schedEdit[kind]; var i=a.indexOf(name); if(i>=0)a.splice(i,1); else a.push(name); var c=gid('se-'+kind); if(c)c.innerHTML=schedChipsHTML(kind); }
