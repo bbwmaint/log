@@ -101,7 +101,8 @@ function emailBody(s, start, end, pdfUrl) {
   const lines = [
     `Machine down: ${s.fullMin} min (${s.fullN} event${s.fullN === 1 ? '' : 's'}) \u00b7 partial: ${s.partMin} min (${s.partN}).`,
     `${s.machineCount} machine${s.machineCount === 1 ? '' : 's'} affected${s.worst ? ` \u00b7 worst: ${s.worst} (${s.worstMin} min)` : ''}.`,
-    `PM completion: ${s.pmPct == null ? '\u2014' : s.pmPct + '%'} (${s.pmDone}/${s.pmDue}) \u00b7 Requests: ${s.reqClosed}/${s.reqReceived} closed.`
+    `PM completion: ${s.pmPct == null ? '\u2014' : s.pmPct + '%'} (${s.pmDone} of ${s.pmDue} due).`,
+    `Requests: ${s.reqReceived} received this week \u00b7 ${s.reqClosed} closed this week.`
   ];
   const range = `${prettyDate(start)} \u2013 ${prettyDate(end)}  \u00b7  Mon\u2013Sun`;
   const html =
