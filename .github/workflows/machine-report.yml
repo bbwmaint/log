@@ -1,17 +1,24 @@
 name: BBW machine report
 
-# Emails the Weekly Machine Report (last Monday–Sunday) every Monday morning.
-# Runs on GitHub's own schedule; you can also trigger it by hand from Actions.
+# Weekly machine-downtime report, emailed to the maintenance team every Monday
+# morning for the week that just ended (last complete Monday–Sunday). The PDF is
+# captured from the live app in a headless browser, so whatever the in-app report
+# shows is what goes out. Idempotent — each week is sent exactly once
+# (MACHINE_<start>_<end> in bbw_report_sent). Also runnable by hand (leave
+# start/end blank to use the week that just ended; tick dry_run to preview).
+#
+# Cron: 12:00 UTC every Monday = 8 AM Toronto in daylight-saving, 7 AM in standard
+# time — always Monday morning, which is what the "week that just ended" logic needs.
 on:
   schedule:
-    - cron: '0 12 * * 1'   # Mondays 12:00 UTC ≈ 8:00 AM Toronto (7:00 in winter)
+    - cron: '0 12 * * 1'
   workflow_dispatch:
     inputs:
       start:
-        description: 'Week start (YYYY-MM-DD) — blank = last completed Mon–Sun'
+        description: 'Week start (YYYY-MM-DD) — blank = the week that just ended'
         required: false
       end:
-        description: 'Week end (YYYY-MM-DD) — blank = derived'
+        description: 'Week end (YYYY-MM-DD) — blank = derived from start'
         required: false
       dry_run:
         description: 'Print the email instead of sending it'
@@ -32,6 +39,7 @@ jobs:
           node-version: '20'
       - name: Install libraries
         run: npm install --no-audit --no-fund
+      # The machine PDF is captured from the live app in a headless browser.
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Send machine report
@@ -42,7 +50,8 @@ jobs:
           EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
           EMAILJS_SERVICE:     ${{ vars.EMAILJS_SERVICE  || 'service_q7rtzse' }}
           EMAILJS_TEMPLATE:    ${{ vars.EMAILJS_TEMPLATE || 'template_i01whhv' }}
-          # Recipients — repo variable MACHINE_TO (comma-separated); defaults to the maintenance inbox.
+          # Whole maintenance team. Override with repo variable MACHINE_TO
+          # (comma-separated); defaults to the shared maintenance inbox.
           MACHINE_TO:          ${{ vars.MACHINE_TO || 'maintenancebbw@brunswickbierworks.com' }}
           APP_URL:             ${{ vars.APP_URL || 'https://bbwmaint.github.io/log/' }}
         run: |
