@@ -1,0 +1,55 @@
+name: BBW overdue digest
+
+# Emails one plain-text OVERDUE PM digest to the shared maintenance inbox every
+# morning — overdue + due-in-grace, grouped by technician. The whole team and the
+# supervisor see the same list, so it is a nudge and an accountability record in one.
+#
+# Cron fires at 11:00 AND 12:00 UTC; the script only sends during the 7:00 Toronto
+# hour, so exactly one fire lands at 7 AM local in BOTH daylight-saving and standard
+# time. Sent once per day (deduped in bbw_report_sent), and only when something is
+# actually due. Also runnable by hand (tick dry_run to preview, force to send now).
+on:
+  schedule:
+    - cron: '0 11,12 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print the email instead of sending it'
+        type: boolean
+        default: false
+      force:
+        description: 'Send now — skip the 7 AM hour-gate and the once-a-day lock'
+        type: boolean
+        default: false
+      always:
+        description: 'Send even when nothing is overdue or due'
+        type: boolean
+        default: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # Built-in fetch only — no npm install, no Chromium. Runs in a second.
+      - name: Send overdue digest
+        env:
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
+          EMAILJS_PUBLIC_KEY:  ${{ secrets.EMAILJS_PUBLIC_KEY }}
+          EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
+          EMAILJS_SERVICE:     ${{ vars.EMAILJS_SERVICE  || 'service_q7rtzse' }}
+          EMAILJS_TEMPLATE:    ${{ vars.EMAILJS_TEMPLATE || 'template_i01whhv' }}
+          # Whole maintenance team. Override with repo variable DIGEST_TO
+          # (comma-separated); defaults to the shared maintenance inbox.
+          DIGEST_TO:           ${{ vars.DIGEST_TO || 'maintenancebbw@brunswickbierworks.com' }}
+          PM_BUFFER_DAYS:      ${{ vars.PM_BUFFER_DAYS || '7' }}
+          APP_URL:             ${{ vars.APP_URL || 'https://bbwmaint.github.io/log/' }}
+        run: |
+          node scripts/overdue-digest.mjs \
+            ${{ inputs.dry_run && '--dry-run' || '' }} \
+            ${{ inputs.force   && '--force'   || '' }} \
+            ${{ inputs.always  && '--always'  || '' }}
