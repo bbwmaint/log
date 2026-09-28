@@ -83,6 +83,25 @@ async function saveTechSched(data) {
   });
   if (!r.ok) throw new Error('schedule write failed: ' + r.status + ' ' + (await r.text()).slice(0, 160));
 }
+// Atomic per-day merge (race-safe): sets ONLY the shift's fields on ONE day,
+// server-side, so a concurrent app save of the whole schedule can't clobber it.
+// Returns false (not throw) when the sched_merge_day() function isn't in the DB
+// yet, so the caller can fall back to the whole-blob write until the SQL is added.
+async function mergeDay(id, date, patch) {
+  const r = await sb('rpc/sched_merge_day', {
+    method: 'POST', headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ p_id: id, p_date: date, p_patch: patch })
+  });
+  if (r.ok) return true;
+  const body = await r.text();
+  if (r.status === 404 || /PGRST202|Could not find the function|does not exist/i.test(body)) return false;
+  throw new Error('sched_merge_day ' + r.status + ' ' + body.slice(0, 160));
+}
+function patchOf(r) {
+  return (r.dn === 'night')
+    ? Object.assign({ nHL: r.volHL }, r.prodPct != null ? { nProd: r.prodPct } : {})
+    : Object.assign({ dHL: r.volHL }, r.prodPct != null ? { dProd: r.prodPct } : {});
+}
 
 /* ── main ──────────────────────────────────────────────────────────────────── */
 async function main() {
@@ -151,16 +170,19 @@ async function main() {
   }
   if (!list.length) { console.log(`Nothing new (skipped ${skipped}).`); return; }
 
-  const sched = await loadTechSched();
-  for (const r of list) {
-    const o = sched[r.date] || {};
-    if (r.dn === 'night') { o.nHL = r.volHL; if (r.prodPct != null) o.nProd = r.prodPct; }
-    else                  { o.dHL = r.volHL; if (r.prodPct != null) o.dProd = r.prodPct; }
-    sched[r.date] = o;
+  // Race-safe: merge each day atomically via sched_merge_day(). If that function
+  // isn't in the DB yet, fall back to the old whole-blob write for the batch.
+  let atomic = await mergeDay('tech', list[0].date, patchOf(list[0]));
+  if (atomic) {
+    for (let i = 1; i < list.length; i++) await mergeDay('tech', list[i].date, patchOf(list[i]));
+  } else {
+    console.warn('  ⚠ sched_merge_day() not found in the database — using the whole-blob write (works, but not race-safe). Add the SQL function to make imports race-safe.');
+    const sched = await loadTechSched();
+    for (const r of list) { sched[r.date] = Object.assign(sched[r.date] || {}, patchOf(r)); }
+    await saveTechSched(sched);
   }
-  await saveTechSched(sched);
-  for (const r of list) { await markDone(r.id); console.log(`  ✓ applied ${r.date} ${r.dn} — ${r.volHL} hL, ${r.prodPct == null ? '—' : r.prodPct + '%'}`); }
-  console.log(`Done: applied ${list.length}, skipped ${skipped}.`);
+  for (const r of list) { await markDone(r.id); console.log(`  ${atomic ? '✓✓' : '✓'} applied ${r.date} ${r.dn} — ${r.volHL} hL, ${r.prodPct == null ? '—' : r.prodPct + '%'}`); }
+  console.log(`Done: applied ${list.length}, skipped ${skipped}.${atomic ? ' (atomic merge)' : ''}`);
 }
 
 main().catch(e => { console.error('FATAL:', (e && e.stack) || e); process.exit(1); });
