@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v163';
+var APP_BUILD='BBW CMMS build v164';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7100,8 +7100,8 @@ function pmDueChip(p){
   if(!nd)return '';
   var today=pmISO(new Date()); var overdue=pmIsOverdue(nd,today); var soon=nd===today;
   var col=overdue?'#f87171':(soon?'#fbbf24':'var(--text-3)');
-  var lbl=overdue?'Overdue '+nd:(soon?'Due today':'Due '+nd);
-  return '<span style="color:'+col+';font-size:11px;font-weight:600">'+lbl+'</span>';
+  var lbl=overdue?('Overdue '+pmOverdueDays(nd,today)+'d'):(soon?'Due today':'Due '+nd);
+  return '<span style="color:'+col+';font-size:11px;font-weight:'+(overdue?'800':'600')+'">'+lbl+'</span>';
 }
 function cmmsRenderPMList(){
   var host=gid('pm-list'); if(!host)return;
@@ -7479,10 +7479,10 @@ function renderWOList(){
       var tc=(typeof pmTypeColor==='function'&&w.wo_type)?pmTypeColor(w.wo_type):'#3b82f6';
       var pc=pcMap[w.priority]||'var(--text-3)';
       var stCell='<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:'+eff.col+'"></span>'+eff.label+'</span>';
-      var sugCell=dd?('<span style="'+(overdue?'color:#ef4444;font-weight:700':'color:var(--text-2)')+'">'+dd+(overdue?' \u26a0':'')+'</span>'):'<span style="color:var(--text-3)">\u2014</span>';
+      var sugCell=dd?('<span style="'+(overdue?'color:#ef4444;font-weight:700':'color:var(--text-2)')+'">'+dd+(overdue?(' \u00b7 '+pmOverdueDays(w.due_date,today)+'d \u26a0'):'')+'</span>'):'<span style="color:var(--text-3)">\u2014</span>';
       var actCell=actual?('<span style="color:var(--text-2)">'+actual+'</span>'):'<span style="color:var(--text-3)">\u2014</span>';
-      return '<tr onclick="woSelect('+w.id+')" style="cursor:pointer;border-top:1px solid var(--border)" onmouseover="this.style.background=\'var(--surface-2)\'" onmouseout="this.style.background=\'\'">'+
-        '<td style="padding:11px 12px;font-size:12px;font-weight:700;color:var(--text-3);white-space:nowrap" class="tnum">'+rqEsc(w.wo_code||'')+'</td>'+
+      return '<tr onclick="woSelect('+w.id+')" style="cursor:pointer;border-top:1px solid var(--border)'+(overdue?';background:rgba(239,68,68,.05)':'')+'" onmouseover="this.style.background=\'var(--surface-2)\'" onmouseout="this.style.background=\''+(overdue?'rgba(239,68,68,.05)':'')+'\'">'+
+        '<td style="padding:11px 12px;font-size:12px;font-weight:700;color:var(--text-3);white-space:nowrap'+(overdue?';border-left:3px solid #ef4444':'')+'" class="tnum">'+rqEsc(w.wo_code||'')+'</td>'+
         '<td style="padding:11px 12px;font-size:13px;font-weight:600;color:var(--text)">'+rqEsc(w.description||'(no description)')+'</td>'+
         '<td style="padding:11px 12px;font-size:12px;font-weight:700;color:'+pc+';white-space:nowrap">'+rqEsc(w.priority||'')+'</td>'+
         '<td'+(w.asset?' onclick="event.stopPropagation();woAsset('+w.id+')"':'')+' style="padding:11px 12px;font-size:12.5px;color:#3b82f6;font-weight:600;white-space:nowrap'+(w.asset?';cursor:pointer':'')+'">'+rqEsc(w.asset||'')+(w.asset_code?' \u00b7 '+rqEsc(w.asset_code):'')+'</td>'+
@@ -7505,8 +7505,9 @@ function renderWOList(){
     var tc=(typeof pmTypeColor==='function'&&w.wo_type)?pmTypeColor(w.wo_type):'#3b82f6';
     var overdue=(st.k!=='completed'&&st.k!=='closed_incomplete')&&w.due_date&&pmIsOverdue(w.due_date,today);
     var ini=(w.assignee||'').split(/\s+/).map(function(p){return p.charAt(0);}).join('').slice(0,2).toUpperCase();
-    var H='<div style="position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 14px 12px 16px;margin-bottom:11px;overflow:hidden">';
-    H+='<div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:'+tc+'"></div>';
+    var odDays=overdue?pmOverdueDays(w.due_date,today):0;
+    var H='<div style="position:relative;background:'+(overdue?'rgba(239,68,68,.06)':'var(--surface)')+';border:1px solid '+(overdue?'rgba(239,68,68,.38)':'var(--border)')+';border-radius:12px;padding:13px 14px 12px '+(overdue?'17px':'16px')+';margin-bottom:11px;overflow:hidden">';
+    H+='<div style="position:absolute;left:0;top:0;bottom:0;width:'+(overdue?'5px':'4px')+';background:'+(overdue?'#ef4444':tc)+'"></div>';
     H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
     H+='<span style="font-size:11px;font-weight:800;color:var(--text-3)">'+(w.wo_code||'')+(w.pm_code?' \u00b7 '+w.pm_code:'')+'</span>';
     H+=(w.wo_type?'<span style="font-size:11px;font-weight:700;color:#fff;background:'+tc+';padding:4px 11px;border-radius:5px">'+rqEsc(w.wo_type)+'</span>':'');
@@ -7517,7 +7518,7 @@ function renderWOList(){
     if(w.priority)H+='<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid '+pc+'55;color:'+pc+';display:inline-flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:'+pc+'"></span>'+w.priority+'</span>';
     H+='<span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid '+st.col+'55;color:'+st.col+';display:inline-flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:'+st.col+'"></span>'+st.label+'</span>';
     H+='<span style="margin-left:auto;display:flex;gap:6px;align-items:center">';
-    if(overdue)H+='<span style="color:#ef4444;font-weight:700;font-size:11px">Overdue</span>';
+    if(overdue)H+='<span style="background:#ef4444;color:#fff;font-weight:800;font-size:10.5px;padding:3px 9px;border-radius:999px;letter-spacing:.03em">OVERDUE'+(odDays?' '+odDays+'d':'')+'</span>';
     else if(w.due_date)H+='<span style="font-size:11px;color:var(--text-3)">Due '+w.due_date+' \u00b7 ~'+fmtDurHrs(woTimeHrs(w))+'</span>';
     if(w.assignee)H+='<span style="width:22px;height:22px;border-radius:50%;background:var(--surface-3);color:var(--text-2);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center">'+rqEsc(ini)+'</span><span style="font-size:12px;color:var(--text-2);font-weight:600">'+rqEsc(w.assignee)+'</span>';
     H+='</span>';
@@ -8226,11 +8227,12 @@ function renderHomeDrill(){
     var listw=(tab==='overdue')?over:duel;
     body=listw.length?listw.map(function(w){
       var od=false; try{od=pmIsOverdue(w.due_date,tISO);}catch(e){}
+      var odd=od?pmOverdueDays(w.due_date,tISO):0;
       var asset=rqEsc(w.asset||w.asset_code||'\u2014');
       var desc=rqEsc((typeof pmDescFor==='function'&&pmDescFor(w))||w.description||w.pm_code||'');
       var who=rqEsc(w.assignee||'');
-      var chip='<span style="font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:20px;letter-spacing:.03em;'+(od?'background:rgba(220,38,38,.13);color:#dc2626':'background:rgba(217,119,6,.14);color:#c88a12')+'">'+(od?'OVERDUE':'DUE')+'</span>';
-      return '<div onclick="try{closeHomeDrill();openPMTask('+(+w.id||0)+');}catch(e){}" style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+desc+'</div><div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+(who?' \u00b7 '+who:'')+'</div></div><div style="flex:none;text-align:right">'+chip+'<div style="font-size:10.5px;color:var(--text-3);margin-top:4px">'+(''+(w.due_date||'')).slice(0,10)+'</div></div></div>';
+      var chip='<span style="font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:20px;letter-spacing:.03em;'+(od?'background:#ef4444;color:#fff':'background:rgba(217,119,6,.14);color:#c88a12')+'">'+(od?('OVERDUE'+(odd?' '+odd+'d':'')):'DUE')+'</span>';
+      return '<div onclick="try{closeHomeDrill();openPMTask('+(+w.id||0)+');}catch(e){}" style="display:flex;align-items:center;gap:11px;padding:11px 0 11px '+(od?'10px':'0')+';border-top:1px solid var(--border);cursor:pointer'+(od?';border-left:3px solid #ef4444;background:rgba(239,68,68,.05)':'')+'"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+desc+'</div><div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+(who?' \u00b7 '+who:'')+'</div></div><div style="flex:none;text-align:right">'+chip+'<div style="font-size:10.5px;color:var(--text-3);margin-top:4px">'+(''+(w.due_date||'')).slice(0,10)+'</div></div></div>';
     }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">'+(tab==='overdue'?'Nothing overdue.':'Nothing due.')+'</div>';
   } else if(kind==='requests'){
     var rq=((typeof REQUESTS!=='undefined'&&REQUESTS)?REQUESTS:[]).filter(function(x){return x&&x.status!=='done';});
@@ -8473,7 +8475,7 @@ function renderHome(){
   if(overdue.length){
     var names=overdue.slice(0,2).map(function(w){return rqEsc(pmDescFor(w)||w.pm_code||'');}).join(' \u00b7 ');
     if(overdue.length>2)names+=' \u00b7 +'+(overdue.length-2);
-    H+='<div onclick="homeDrill(\'due\')" style="display:flex;align-items:center;gap:11px;'+
+    H+='<div onclick="homeDrill(\'due\')" class="ovd-pulse" style="display:flex;align-items:center;gap:11px;'+
        'background:rgba(220,38,38,.10);border:1px solid rgba(220,38,38,.28);border-radius:12px;'+
        'padding:10px 13px;margin-bottom:11px;cursor:pointer">'+
        '<span style="color:var(--bad);display:flex;flex-shrink:0">'+homeIco(I_ALERT,17,1.9)+'</span>'+
@@ -12949,7 +12951,7 @@ try{window.openLogById=openLogById;}catch(_e){}
 </script>
 
 
-<style id="bbw-desk-refine">@media(min-width:1000px){html[data-theme='light']{--bg:#f5f5f7;--surface:#ffffff;--surface-2:#f5f5f7;--surface-3:#ececf0;--border:#dcdce2;--border-2:#cbcbd3;--text:#1d1d1f;--text-2:#6e6e73;--text-3:#86868b;--accent:#0071e3}}@media(min-width:1000px){ #pane-home .hm-kpis{gap:10px!important} #pane-home .hm-kpis>div{padding:16px 18px 14px!important} #pane-home .hm-kpis .hm-lbl{color:var(--text-3)!important;text-transform:uppercase;letter-spacing:.02em} #pane-home .hm-kpis .hm-lbl + span{display:none!important} #pane-home .hm-kpis .hm-val{font-size:32px!important;margin-top:2px}}@media(min-width:1000px){body.dd-open #content{padding-right:min(480px,42vw)!important}}@media(min-width:1000px){#pane-home div[style*="box-shadow"],#pane-dash div[style*="box-shadow"]{border:1px solid var(--border)}}#pane-more .more-tools{display:grid;grid-template-columns:1fr;gap:8px;align-items:stretch;margin-bottom:14px}#pane-more .more-tools>button{margin-bottom:0!important;min-height:54px}#pane-more .more-sec-h{font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin:2px 2px 11px}@media(min-width:1000px){.mob-sheet{align-items:center!important}.mob-sheet>div{border-radius:18px!important;margin:0 16px!important;box-shadow:0 24px 64px rgba(0,0,0,.4)!important}}@media(min-width:1000px){#pane-more .more-tools{grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}#pane-more .more-tools .chev{display:none!important}}</style>
+<style id="bbw-desk-refine">@media(min-width:1000px){html[data-theme='light']{--bg:#f5f5f7;--surface:#ffffff;--surface-2:#f5f5f7;--surface-3:#ececf0;--border:#dcdce2;--border-2:#cbcbd3;--text:#1d1d1f;--text-2:#6e6e73;--text-3:#86868b;--accent:#0071e3}}@media(min-width:1000px){ #pane-home .hm-kpis{gap:10px!important} #pane-home .hm-kpis>div{padding:16px 18px 14px!important} #pane-home .hm-kpis .hm-lbl{color:var(--text-3)!important;text-transform:uppercase;letter-spacing:.02em} #pane-home .hm-kpis .hm-lbl + span{display:none!important} #pane-home .hm-kpis .hm-val{font-size:32px!important;margin-top:2px}}@media(min-width:1000px){body.dd-open #content{padding-right:min(480px,42vw)!important}}@media(min-width:1000px){#pane-home div[style*="box-shadow"],#pane-dash div[style*="box-shadow"]{border:1px solid var(--border)}}#pane-more .more-tools{display:grid;grid-template-columns:1fr;gap:8px;align-items:stretch;margin-bottom:14px}#pane-more .more-tools>button{margin-bottom:0!important;min-height:54px}#pane-more .more-sec-h{font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin:2px 2px 11px}@media(min-width:1000px){.mob-sheet{align-items:center!important}.mob-sheet>div{border-radius:18px!important;margin:0 16px!important;box-shadow:0 24px 64px rgba(0,0,0,.4)!important}}@media(min-width:1000px){#pane-more .more-tools{grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}#pane-more .more-tools .chev{display:none!important}}@keyframes ovdPulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}50%{box-shadow:0 0 0 4px rgba(220,38,38,.14)}}.ovd-pulse{animation:ovdPulse 2.2s ease-in-out infinite}@media(prefers-reduced-motion:reduce){.ovd-pulse{animation:none}}</style>
 
 <script id="bbw-desk-dock">
 (function(){
