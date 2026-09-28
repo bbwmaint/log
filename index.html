@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v164';
+var APP_BUILD='BBW CMMS build v165';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7242,6 +7242,38 @@ function deletePM(id){
 var WOS=[]; var WOS_LOADED=false;
 var WO_UNCONFIRMED={};   // id -> patch applied locally, awaiting server confirmation
 var WO_FILTER={status:'due',assignee:''};
+var WO_SORT={col:'sug',dir:1};
+// Column key -> comparable value for a WO. Strings compare case-insensitively;
+// priority sorts by urgency rank, time/dates numerically, so "A-Z" is meaningful.
+function woSortVal(w,col){
+  switch(col){
+    case 'code':   return (w.wo_code||'').toLowerCase();
+    case 'desc':   return (w.description||'').toLowerCase();
+    case 'prio':   return ({Highest:0,High:1,Medium:2,Low:3})[w.priority]!=null?({Highest:0,High:1,Medium:2,Low:3})[w.priority]:9;
+    case 'asset':  return (w.asset||w.asset_code||'').toLowerCase();
+    case 'assign': return (w.assignee||'￿').toLowerCase();   // blank sorts last on A-Z
+    case 'status': return (typeof woEffStatus==='function'?(woEffStatus(w).label||''):(w.status||'')).toLowerCase();
+    case 'sug':    return (w.due_date||'￿');
+    case 'act':    return (w.completed_at?(''+w.completed_at).slice(0,10):'￿');
+    case 'type':   return (w.wo_type||'').toLowerCase();
+    case 'time':   return (typeof woTimeHrs==='function'?(woTimeHrs(w)||0):0);
+    default:       return (w.due_date||'');
+  }
+}
+function woSortList(list){
+  var col=WO_SORT.col, dir=WO_SORT.dir;
+  return list.slice().sort(function(a,b){
+    var x=woSortVal(a,col), y=woSortVal(b,col), c;
+    if(typeof x==='number'&&typeof y==='number') c=x-y;
+    else c=String(x).localeCompare(String(y));
+    if(c===0) c=(a.due_date||'').localeCompare(b.due_date||'');   // stable tiebreak by due date
+    return c*dir;
+  });
+}
+function woSetSort(col){
+  if(WO_SORT.col===col) WO_SORT.dir=-WO_SORT.dir; else { WO_SORT.col=col; WO_SORT.dir=1; }
+  try{ renderWOList(); }catch(e){}
+}
 
 function dedupWOs(list){
   // Collapse duplicate work orders that predate the concurrency guard: one WO per
@@ -7465,7 +7497,7 @@ function woFilter(){
 }
 function renderWOList(){
   var host=gid('wo-list'); if(!host)return;
-  var list=woFilter().sort(function(a,b){return (a.due_date||'').localeCompare(b.due_date||'');});
+  var list=woSortList(woFilter());
   if(!list.length){host.innerHTML='<div style="color:var(--text-3);text-align:center;padding:30px;font-size:13px">No work orders'+(WO_FILTER.status!=='all'?' ('+woFilterLabel(WO_FILTER.status).toLowerCase()+')':'')+'.</div>';return;}
   var today=pmISO(new Date());
   if(isDesktop()){
@@ -7494,7 +7526,7 @@ function renderWOList(){
         '<td class="tnum" style="padding:11px 12px;font-size:12px;font-weight:600;white-space:nowrap;text-align:right;color:'+(woTimeIsLogged(w)?'var(--text-2)':'var(--text-3)')+'">'+(woTimeIsLogged(w)?'':'~')+fmtDurHrs(woTimeHrs(w))+'</td>'+
         '</tr>';
     }).join('');
-    var head=['Code','Description','Priority','Asset','Assigned','Status','Suggested','Actual','Type','Time'].map(function(hh){return '<th style="text-align:'+(hh==='Time'?'right':'left')+';font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);padding:10px 12px;border-bottom:1px solid var(--border)">'+hh+'</th>';}).join('');
+    var head=[['Code','code'],['Description','desc'],['Priority','prio'],['Asset','asset'],['Assigned','assign'],['Status','status'],['Suggested','sug'],['Actual','act'],['Type','type'],['Time','time']].map(function(hc){var hh=hc[0],ck=hc[1];var on=(WO_SORT.col===ck);var arrow=on?('<span style="color:var(--accent);font-size:9px;margin-left:3px">'+(WO_SORT.dir>0?'▲':'▼')+'</span>'):'';return '<th onclick="woSetSort(\''+ck+'\')" title="Sort by '+hh+'" style="text-align:'+(hh==='Time'?'right':'left')+';font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:'+(on?'var(--text)':'var(--text-3)')+';padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap">'+hh+arrow+'</th>';}).join('');
     host.innerHTML='<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">'+list.length+' work order'+(list.length>1?'s':'')+'</div>'+
       '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--surface-2)">'+head+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
     return;
