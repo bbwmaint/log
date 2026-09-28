@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v162';
+var APP_BUILD='BBW CMMS build v163';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4496,8 +4496,18 @@ function runUtilExport(){
     rows.forEach(function(r){ csv.push([r.date,r.time||''].concat(UT_METERS.map(function(m){return r[m.k]==null?'':r[m.k];})).concat([r.by||'']).map(esc).join(',')); });
   } else {
     var m=utMeter(mk);
-    csv.push(['Date',m.n+' ('+m.u+')','By'].map(esc).join(','));
-    rows.forEach(function(r){ csv.push([r.date,r[mk]==null?'':r[mk],r.by||''].map(esc).join(',')); });
+    if(m.cum){
+      csv.push(['Date',m.n+' ('+m.u+')','Daily use ('+m.u+')','By'].map(esc).join(','));
+      var prev=null;
+      rows.forEach(function(r){
+        var raw=r[mk], use='';
+        if(raw!=null&&raw!==''){ var cur=parseFloat(raw); if(prev!=null&&!isNaN(cur)){ var d=cur-prev; if(d>=0)use=Math.round(d*1000)/1000; } if(!isNaN(cur))prev=cur; }
+        csv.push([r.date,(raw==null?'':raw),use,r.by||''].map(esc).join(','));
+      });
+    } else {
+      csv.push(['Date',m.n+' ('+m.u+')','By'].map(esc).join(','));
+      rows.forEach(function(r){ csv.push([r.date,r[mk]==null?'':r[mk],r.by||''].map(esc).join(',')); });
+    }
   }
   downloadBlob(new Blob([csv.join('\n')],{type:'text/csv;charset=utf-8'}),'BBW_utilities_'+(mk==='all'?'all':mk)+'_'+from+'_to_'+to+'.csv');
   closeUtilExport();
