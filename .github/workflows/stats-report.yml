@@ -10,7 +10,7 @@ name: BBW stats report
 # tick "force" to skip the gate, "dry_run" to print instead of send).
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
       start:
