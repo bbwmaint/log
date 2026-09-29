@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v167';
+var APP_BUILD='BBW CMMS build v168';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -11705,6 +11705,16 @@ function buildReportPDF(R){
     doc.setFillColor(240,253,244); doc.roundedRect(M,y,W-2*M,26,6,6,'F');
     doc.setTextColor(22,163,74); doc.setFont(RF,'bold'); doc.setFontSize(10);
     doc.text('No pending issues - clean handover', M+14, y+17); y+=38; }
+  // Upcoming changeovers — next-shift heads-up (navy, no orange)
+  try{
+    var _upco=(typeof getUpcomingChangeovers==='function')?getUpcomingChangeovers(24):[];
+    if(_upco&&_upco.length){ sectTitle('Upcoming Changeovers - Next Shift',_NV,_upco.length);
+      tbl('Changeovers',_NV,['Type','Change','When'],_upco.map(function(co){
+        var _chg=co.from?(pdfSafe(co.from)+' -> '+pdfSafe(co.to)):'';
+        var _when=''; try{ _when=co.at.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+', '+co.at.toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false}); }catch(e){}
+        return [pdfSafe(co.type||''),_chg,_when];
+      })); }
+  }catch(e){}
   sectTitle('Work Completed',[22,163,74],R.done.length);
   if(R.done.length) tbl('Completed',[22,163,74],['Asset','Issue / Description','Time','By'],R.done.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),byNames(e)];}));
   else { doc.setTextColor(150,150,150); doc.setFont(RF,'italic'); doc.setFontSize(9); doc.text('None this shift.',M,y+4); y+=18; }
