@@ -4,16 +4,13 @@ name: BBW import shift PDFs
 # volume + productivity into the schedule. Idempotent (each report applied once),
 # so extra runs are harmless.
 #
-# Runs at 7:30, 8:30, 9:30, 10:30 — both AM and PM Toronto time — to cover the
-# day-shift and night-shift report windows. GitHub cron is UTC-only with no DST,
-# so the UTC hours below are the union that lands on those local times in BOTH
-# daylight-saving and standard time (a couple of extra runs, which dedup makes
-# free). Also runnable by hand.
+# SCHEDULING lives in Supabase pg_cron (job "bbw-import" → bbw_trigger_import()),
+# which fires reliably and on time at 7:30, 8:00, 8:30, 9:00, 9:30, 10:00 — AM and
+# PM Toronto — computed from the Toronto clock so DST is automatic. That's why
+# there is NO GitHub `schedule:` here: GitHub's own scheduler ran late / skipped.
+# This workflow is fired by that pg_cron trigger (workflow_dispatch), and can also
+# be run by hand from the Actions tab.
 on:
-  schedule:
-    #  :30 past these UTC hours = 7:30/8:30/9:30/10:30 AM & PM in Toronto,
-    #  covering both EDT (UTC-4) and EST (UTC-5).
-    - cron: '30 0,1,2,3,11,12,13,14,15,23 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
