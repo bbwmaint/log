@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v168';
+var APP_BUILD='BBW CMMS build v169';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3892,9 +3892,63 @@ function renderShift(){
     '<button onclick="setShiftScope(\'all\')" style="padding:7px 20px;border:none;border-radius:8px;background:'+(_scope==='all'?'var(--surface-3)':'transparent')+';color:'+(_scope==='all'?'#fff':'var(--text-2)')+';font-size:13px;font-weight:'+(_scope==='all'?'700':'600')+';cursor:pointer">'+T('All')+'</button>'+
     '<button onclick="setShiftScope(\'mine\')" style="padding:7px 20px;border:none;border-radius:8px;background:'+(_scope==='mine'?'var(--surface-3)':'transparent')+';color:'+(_scope==='mine'?'#fff':'var(--text-2)')+';font-size:13px;font-weight:'+(_scope==='mine'?'700':'600')+';cursor:pointer">'+T('Mine')+'</button>'+
     '</div></div>';
-  el.innerHTML=handoff+seg+stats+statusBtn+(cur.length?cur.slice().reverse().map(function(e){return card(e,e.who===user);}).join(''):'<div style="text-align:center;padding:30px;color:var(--text-3)">'+(_scope==='mine'?T('You have no entries this shift yet'):T('No entries this shift yet'))+'</div>');
+  var _mte=minsToShiftEnd();
+  var nudge=(_mte>0&&_mte<=90)?'<div onclick="openBrainDump()" style="display:flex;align-items:center;gap:11px;background:rgba(30,58,95,.16);border:1px solid rgba(30,58,95,.55);border-left:4px solid #1e3a5f;border-radius:12px;padding:12px 14px;margin-bottom:12px;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#93b4d8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><div style="flex:1"><div style="font-size:13.5px;font-weight:800;color:#fff">'+(lang==='uk'?('Зміна закінчується через ~'+_mte+' хв'):('Shift ends in ~'+_mte+' min'))+'</div><div style="font-size:12px;color:var(--text-2);margin-top:2px">'+(lang==='uk'?'Запишіть роботу перед передачею':'Log your work before the report goes out')+'</div></div><span style="font-size:12px;font-weight:800;color:#93b4d8;white-space:nowrap">'+(lang==='uk'?'Записати ›':'Log now ›')+'</span></div>':'';
+  var bdBtn='<button onclick="openBrainDump()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#1e3a5f;border:none;border-radius:11px;padding:12px;font-size:14px;font-weight:800;color:#fff;cursor:pointer;margin-bottom:12px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'+(lang==='uk'?'Швидкий запис зміни':'Brain-dump my shift')+'</button>';
+  el.innerHTML=nudge+handoff+seg+stats+statusBtn+bdBtn+(cur.length?cur.slice().reverse().map(function(e){return card(e,e.who===user);}).join(''):'<div style="text-align:center;padding:30px;color:var(--text-3)">'+(_scope==='mine'?T('You have no entries this shift yet'):T('No entries this shift yet'))+'</div>');
 }
 function setShiftScope(s){ window._shiftScope=(s==='mine')?'mine':'all'; try{renderShift();}catch(e){} }
+
+// ── Shift brain-dump ──────────────────────────────────────────────────────────
+// End-of-shift quick capture: one task per line, saved as Completed entries for
+// the current shift under the current user. Built for the tech who ran around all
+// shift and had no time to log — so the report isn't empty at handover.
+function minsToShiftEnd(){
+  var now=new Date(), h=now.getHours(), cur=h*60+now.getMinutes();
+  var endMin=(h>=7&&h<19)?19*60:(h>=19?31*60:7*60);   // Day ends 19:00; Night ends 07:00 next
+  return endMin-cur;
+}
+function openBrainDump(){
+  var ex=document.getElementById('braindump-modal'); if(ex)ex.remove();
+  var uk=(lang==='uk');
+  var ph=uk?'Filler: замінив ущільнення, працює\nSeamer: перевірка шва, в нормі\nDepal: вирівняв датчик':'Filler: cleared jam on head 6, running\nSeamer: teardown seam check, in spec\nDepal: re-aligned infeed sensor';
+  var H='<div id="braindump-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:560;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">';
+  H+='<div style="background:var(--surface);border-radius:18px 18px 0 0;width:100%;max-width:520px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden">';
+  H+='<div style="padding:16px 18px 10px;border-bottom:1px solid var(--border)">';
+  H+='<div style="font-size:17px;font-weight:800;color:#fff">'+(uk?'Швидкий запис зміни':'Brain-dump my shift')+'</div>';
+  H+='<div style="font-size:12.5px;color:var(--text-3);margin-top:3px">'+(uk?'Одне завдання на рядок. Можна почати з машини та двокрапки.':'One task per line. Start with the machine + a colon if you like — “Filler: cleared jam”.')+'</div></div>';
+  H+='<div style="padding:14px 16px;overflow-y:auto;flex:1">';
+  H+='<textarea id="braindump-txt" rows="9" placeholder="'+ph+'" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:13px;font-size:15px;line-height:1.6;color:#fff;outline:none;resize:vertical;min-height:190px;font-family:inherit"></textarea>';
+  H+='<div style="margin-top:10px;font-size:12px;color:var(--text-3);line-height:1.5">'+(uk?'Кожен рядок зберігається як \xabВиконано\xbb для цієї зміни під вашим іменем. Натисніть картку потім, щоб змінити тип або додати час.':'Each line saves as “Completed” for this shift under your name. Tap a card afterward to change the type or add times.')+'</div></div>';
+  H+='<div style="padding:12px 16px 18px;border-top:1px solid var(--border);display:flex;gap:10px">';
+  H+='<button onclick="document.getElementById(\'braindump-modal\').remove()" style="flex:0 0 auto;padding:14px 18px;background:none;color:var(--text-2);border:1px solid var(--border);border-radius:11px;font-size:15px;font-weight:600;cursor:pointer">'+T('Cancel')+'</button>';
+  H+='<button onclick="saveBrainDump(this)" class="btn-primary" style="flex:1;padding:14px;font-size:16px;font-weight:800">'+(uk?'Записати все':'Save all')+'</button>';
+  H+='</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+  setTimeout(function(){var t=document.getElementById('braindump-txt');if(t)t.focus();},60);
+}
+function saveBrainDump(btn){
+  var t=document.getElementById('braindump-txt'); if(!t)return;
+  var lines=t.value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+  if(!lines.length){ toast(lang==='uk'?'Нічого записувати':'Nothing to save',true); return; }
+  if(btn){ btn.disabled=true; btn.style.opacity='.6'; btn.textContent=(lang==='uk'?'Зберігання…':'Saving…'); }
+  var d=shiftAnchor(), sh=isDay()?'Day':'Night', base=Date.now();
+  lines.forEach(function(line,i){
+    var an='', desc=line, mm=line.match(/^([^:]{1,40}):\s*(.+)$/);
+    if(mm){ an=mm[1].trim(); desc=mm[2].trim(); }
+    var code=''; try{ if(an&&typeof assetCodeFor==='function')code=assetCodeFor(an)||''; }catch(e){}
+    var entry={id:base+i,date:d,shift:sh,type:'done',priority:'',assetName:an,assetCode:code,
+      issue:'',desc:desc,start:'',end:'',withWho:'',dt:0,machineDown:'',coMins:0,coType:'',
+      partName:'',partQty:'1',photos:[],photo:null,who:user,loggedAt:new Date(base+i).toISOString(),shiftNote:''};
+    entries.push(entry); allE.push(entry);
+    try{ syncEntry(entry); }catch(e){}
+  });
+  try{ save(); }catch(e){}
+  try{ renderAll(); }catch(e){}
+  var m=document.getElementById('braindump-modal'); if(m)m.remove();
+  var n=lines.length;
+  toast((lang==='uk'?('Записано '+n+' ✓'):('Logged '+n+(n===1?' entry':' entries')+' ✓')));
+}
 
 function renderPrev(){
   var el=gid('pane-prev');
