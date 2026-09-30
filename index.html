@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v169';
+var APP_BUILD='BBW CMMS build v170';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1885,6 +1885,7 @@ function toast(msg,bad,ms){
     setTimeout(function(){t.style.transition='opacity .4s';t.style.opacity='0';setTimeout(function(){t.remove();},420);},(ms||2000));
   }catch(e){}
 }
+function overlayGuard(id){ try{ var x=document.getElementById(id); if(x) x.remove(); }catch(e){} }
 function submitEntry(){
  try{
   var _wasEdit=!!editId;
@@ -2750,6 +2751,7 @@ function openRequest(id){
   H+='<div style="background:var(--bg);width:100%;max-width:600px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;border-top:1px solid var(--border)">';
   H+='<div style="position:sticky;top:0;background:var(--bg);padding:15px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;z-index:1"><div style="font-size:15px;font-weight:800;color:#fff">'+T('req_wr')+'</div><button onclick="closeRequestDetail()" style="background:var(--surface-2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer">\u00d7</button></div>';
   H+='<div style="padding:16px">'+body+'</div></div></div>';
+  overlayGuard('req-detail-modal');
   var d=document.createElement('div'); d.innerHTML=H; document.body.appendChild(d.firstChild);
 }
 function done_by_line(r){ return (r.status==='done'&&r.closed_by)?'<div style="color:#16a34a;margin-top:5px">'+T('req_closedby')+rqEsc(r.closed_by)+T('req_loggedlog')+'</div>':''; }
@@ -2772,6 +2774,7 @@ function openFollowup(id){
   H+='<div style="background:var(--bg);width:100%;max-width:600px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;border-top:1px solid var(--border)">';
   H+='<div style="position:sticky;top:0;background:var(--bg);padding:15px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"><div style="font-size:15px;font-weight:800;color:#a855f7">'+T('req_followtag')+'</div><button onclick="closeRequestDetail()" style="background:var(--surface-2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer">\u00d7</button></div>';
   H+='<div style="padding:16px">'+body+'</div></div></div>';
+  overlayGuard('req-detail-modal');
   var d=document.createElement('div'); d.innerHTML=H; document.body.appendChild(d.firstChild);
 }
 function resetCMMSSchedule(){
@@ -3480,6 +3483,7 @@ function openAssetHistory(code,name){
     H+='</div>';
   });
   H+='</div></div></div>';
+  overlayGuard('ah-modal');
   document.body.insertAdjacentHTML('beforeend',H);
 }
 
@@ -3513,6 +3517,7 @@ function openStatusBoard(){
     H+='<span style="font-size:10px;font-weight:800;letter-spacing:.04em;color:'+col+';flex-shrink:0">'+lmap[r.st.s]+'</span></div>';
   });
   H+='</div></div></div>';
+  overlayGuard('sb-modal');
   document.body.insertAdjacentHTML('beforeend',H);
 }
 
@@ -3640,6 +3645,7 @@ function showReassignModal(pmIdx){
   }
   html+='<button onclick="document.getElementById(\'reassign-modal\').remove()" style="width:100%;padding:11px;background:var(--surface-2);color:#aaa;border:1px solid var(--border);border-radius:9px;font-size:13px;cursor:pointer">Cancel</button>';
   html+='</div></div></div>';
+  overlayGuard('reassign-modal');
   document.body.insertAdjacentHTML('beforeend',html);
 }
 
@@ -4076,6 +4082,7 @@ function openAssetEditor(){
     '<div style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0"><input id="ae-search" oninput="renderAssetEditor()" placeholder="Search assets\u2026" style="width:100%;box-sizing:border-box;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px"></div>'+
     '<div id="ae-filter" style="padding:10px 14px 0;flex-shrink:0"></div>'+
     '<div id="ae-body" style="flex:1;overflow-y:auto;padding:10px 14px 90px"></div>';
+  overlayGuard('ae-overlay');
   document.body.appendChild(ov);
   var body=document.getElementById('ae-body'); if(body)body.innerHTML='<div style="text-align:center;color:var(--text-3);padding:40px;font-size:14px">Loading\u2026</div>';
   refreshAeRows().then(function(ok){
@@ -4161,6 +4168,7 @@ function aeShowModal(a,isNew){
       '<button onclick="closeAeModal()" style="flex:1;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:14px;font-weight:600;padding:12px;border-radius:10px;cursor:pointer">Cancel</button>'+
       '<button id="ae-save" onclick="aeSave(\''+aeEsc(a.code).replace(/'/g,"\\'")+'\','+(isNew?'true':'false')+')" style="flex:1;background:#c8a24b;border:none;color:#1a1a1c;font-size:14px;font-weight:800;padding:12px;border-radius:10px;cursor:pointer">Save</button>'+
     '</div></div>';
+  overlayGuard('ae-modal');
   document.body.appendChild(m);
   m.addEventListener('click',function(e){if(e.target===m)closeAeModal();});
 }
@@ -4408,6 +4416,7 @@ function paintAssetDetail(assetName, logs){
   H+='<button onclick="closeAssetDetail()" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;padding:8px 13px;border-radius:9px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'+T('navback')+'</button>';
   H+='<div style="flex:1"><div style="font-size:16px;font-weight:700;color:#fff">'+assetName+'</div><div style="font-size:11px;color:var(--text-3)">'+logs.length+' total logs</div></div></div>';
   H+='<div style="padding:14px 16px calc(120px + env(safe-area-inset-bottom))">'+body+'</div></div>';
+  overlayGuard('asset-detail-modal');
   document.body.insertAdjacentHTML('beforeend', H);
 }
 
@@ -4508,6 +4517,7 @@ function openUtilTrend(mk){
   var ex=gid('ut-modal'); if(ex)ex.remove();
   var H='<div id="ut-modal" style="position:fixed;inset:0;background:var(--bg);z-index:800;display:flex;flex-direction:column">';
   H+='<div id="ut-body" style="flex:1;overflow-y:auto"></div></div>';
+  overlayGuard('ut-modal');
   document.body.insertAdjacentHTML('beforeend',H);
   utRender();
 }
@@ -4533,6 +4543,7 @@ function openUtilExport(preMeter){
   H+='</div>';
   H+='<button onclick="runUtilExport()" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer">'+utT('Download CSV')+'</button>';
   H+='</div></div>';
+  overlayGuard('ux-modal');
   document.body.insertAdjacentHTML('beforeend',H);
 }
 function closeUtilExport(){ var e=gid('ux-modal'); if(e)e.remove(); }
@@ -5404,6 +5415,7 @@ function openDashboard(){
     '<div style="font-size:15px;font-weight:700;color:var(--text)">Dashboard</div>'+
     '<input type="month" id="dash-month" value="'+m+'" max="'+m+'" onchange="renderDashOverlay(this.value)" style="margin-left:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-size:13px">'+
     '</div><div id="dash-body" style="flex:1;overflow-y:auto;padding:14px 14px 90px"></div>';
+  overlayGuard('dash-overlay');
   document.body.appendChild(ov);
   renderDashOverlay(m);
 }
@@ -5631,6 +5643,7 @@ function openWeekDashboard(){
     '<button onclick="weekToday()" style="background:var(--surface-2);border:1px solid var(--border);color:#60a5fa;font-size:11px;font-weight:600;cursor:pointer;padding:0 10px;height:32px;border-radius:8px">This block</button>'+
     '<button onclick="weekShift(1)" style="background:var(--surface-2);border:1px solid var(--border);color:#fff;width:32px;height:32px;border-radius:8px;font-size:17px;cursor:pointer">\u203A</button>'+
     '</div></div><div id="week-body" style="flex:1;overflow-y:auto;padding:14px 14px 90px"></div>';
+  overlayGuard('week-overlay');
   document.body.appendChild(ov);
   renderWeekOverlay();
 }
@@ -7232,6 +7245,7 @@ function openPMForm(id){
   H+='<button onclick="savePM('+(id?'\''+id+'\'':'')+')" class="btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:6px">'+(id?'Save changes':'Create PM')+'</button>';
   H+='</div></div>';
   var ex=gid('pm-modal'); if(ex)ex.remove();
+  overlayGuard('pm-modal');
   document.body.insertAdjacentHTML('beforeend',H);
   pmFreqPreview();
   try{
@@ -7822,6 +7836,7 @@ function openWOComplete(id){
   H+='<div style="display:flex;gap:9px"><button onclick="closeWOComplete()" style="flex:1;padding:12px;background:var(--surface-2);border:1px solid var(--border);color:#fff;border-radius:10px;font-size:13px;cursor:pointer">'+T('Cancel')+'</button>';
   H+='<button onclick="doWOCloseIncomplete('+w.id+')" style="flex:1;padding:12px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.42);color:#ef4444;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Close \u00b7 Incomplete</button></div>';
   H+='</div></div>';
+  overlayGuard('wo-complete-modal');
   var d=document.createElement('div'); d.innerHTML=H; document.body.appendChild(d.firstChild);
 }
 function doWOComplete(id){
@@ -9006,6 +9021,7 @@ function _showPMDetail(ctx){
   H+='</div>';
   if(w){ H+='<div style="position:sticky;bottom:0;background:var(--surface);padding:12px 18px 18px;border-top:1px solid var(--border)"><button onclick="var m=document.getElementById(\'pmtask-modal\');if(m)m.remove();openWOComplete('+w.id+')" style="width:100%;background:#16a34a;border:none;color:#fff;font-size:14px;font-weight:700;padding:13px;border-radius:10px;cursor:pointer">\u2713 '+T('pm_done')+'</button></div>'; }
   H+='</div></div>';
+  overlayGuard('pmtask-modal');
   document.body.insertAdjacentHTML('beforeend',H);
 }
 function pmPrintCompletion(i){
@@ -9166,6 +9182,7 @@ function openWOForm(id){
   H+='<button onclick="saveWO('+(id||'')+')" class="btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:6px">'+(id?'Save changes':'Create work order')+'</button>';
   H+='</div></div>';
   var ex=gid('wo-modal'); if(ex)ex.remove();
+  overlayGuard('wo-modal');
   document.body.insertAdjacentHTML('beforeend',H);
 }
 function closeWOForm(){var e=gid('wo-modal');if(e)e.remove();}
@@ -9323,6 +9340,7 @@ function openKillSwitch(){
   H+='<button onclick="closeKill()" style="flex:1;padding:12px;background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:14px;font-weight:700;border-radius:9px;cursor:pointer">Cancel</button>';
   H+='<button id="kill-go" disabled onclick="wipeEverything()" style="flex:1;padding:12px;background:#7f1d1d;border:1px solid #ef4444;color:#fff;font-size:14px;font-weight:800;border-radius:9px;cursor:pointer">Wipe now</button>';
   H+='</div></div></div>';
+  overlayGuard('kill-modal');
   document.body.insertAdjacentHTML('beforeend',H);
 }
 function closeKill(){ var m=gid('kill-modal'); if(m)m.remove(); }
@@ -9588,6 +9606,7 @@ function openForkliftChecklist(unit){
  H+='<div style="margin-bottom:14px">'+flField('Notes / defects found (optional)','<textarea id="fl-notes" rows="3" style="'+wst+';resize:vertical"></textarea>')+'</div>';
  H+='<button onclick="submitForkliftChecklist(\''+unit+'\',this)" class="btn-primary" style="width:100%;padding:15px;font-size:16px">Submit inspection</button>';
  H+='</div></div>';
+ overlayGuard('fl-overlay');
  document.body.insertAdjacentHTML('beforeend',H);
  try{flLoadLast(unit);}catch(e){}
 }
@@ -9846,6 +9865,7 @@ function flDashEditDrivers(){
   H+='<button onclick="document.getElementById(\'fldrv-modal\').remove()" style="flex:1;padding:12px;background:none;border:1px solid var(--border-2);color:var(--text-3);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>';
   H+='<button onclick="flDrvSave(this)" style="flex:1;padding:12px;background:#f59e0b;border:none;color:#111;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer">Save</button>';
   H+='</div></div></div></div>';
+  overlayGuard('fldrv-modal');
   document.body.insertAdjacentHTML('beforeend',H);
 }
 
@@ -10212,6 +10232,7 @@ function flDashExportRange(){
   H+='<button onclick="flDashRunRange()" style="width:100%;padding:13px;background:#f59e0b;color:#111;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;margin-top:4px">Generate report</button>';
   H+='<button onclick="document.getElementById(\'fldash-rng-modal\').remove()" style="width:100%;padding:9px;background:none;color:var(--text-3);border:none;font-size:13px;cursor:pointer">Cancel</button>';
   H+='</div></div></div>';
+  overlayGuard('fldash-rng-modal');
   document.body.insertAdjacentHTML('beforeend',H);
 }
 
@@ -10890,6 +10911,7 @@ function openUserMgmt(){
       '<div style="font-size:16px;font-weight:700;color:var(--text)">Manage Users</div>'+
       '<button onclick="userAddDialog()" style="margin-left:auto;background:#2563eb;color:#fff;border:none;font-size:13px;font-weight:700;padding:9px 14px;border-radius:9px;cursor:pointer">+ Add user</button>'+
     '</div><div id="usermgmt-body" style="flex:1;overflow-y:auto;padding:12px 14px calc(30px + env(safe-area-inset-bottom))"></div></div>';
+  overlayGuard('usermgmt-overlay');
   document.body.appendChild(ov);
   if(!USERS){ try{ loadUsers().then(function(){renderUserRoster();}); }catch(e){} }
   renderUserRoster();
@@ -11131,6 +11153,7 @@ function openBrewqmImport(){
     '<button id="brewqm-apply" onclick="brewqmApply()" disabled style="flex:2;padding:12px;background:#2563eb;border:none;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;opacity:.5">Apply to schedule</button></div>'+
     '</div>';
   ov.addEventListener('click',function(e){ if(e.target===ov)closeBrewqmImport(); });
+  overlayGuard('brewqm-modal');
   document.body.appendChild(ov);
 }
 function closeBrewqmImport(){ var m=document.getElementById('brewqm-modal'); if(m)m.remove(); }
@@ -11553,6 +11576,7 @@ function generateAndSendReport(){
   });
   H+='<button class="spm-cancel" style="width:100%;padding:11px;background:none;color:var(--text-3);border:1px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer">'+T('Cancel')+'</button>';
   H+='</div></div></div>';
+  overlayGuard('shift-pick-modal');
   document.body.insertAdjacentHTML('beforeend',H);
   var modal2=document.getElementById('shift-pick-modal');
   if(modal2){
@@ -11897,6 +11921,7 @@ function _showShiftReport(date,shift){
   H+='</div>';
   H+='<button onclick="document.getElementById(\'report-act-modal\').remove()" style="width:100%;padding:10px;background:none;color:var(--text-2);border:none;font-size:14px;cursor:pointer">'+T('Cancel')+'</button>';
   H+='</div></div></div>';
+  overlayGuard('report-act-modal');
   var d=document.createElement('div'); d.innerHTML=H; document.body.appendChild(d.firstChild);
 }
 
