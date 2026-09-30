@@ -1,0 +1,45 @@
+name: Stamp service worker
+
+# Keeps sw.js's CACHE version locked to index.html's build number, so EVERY
+# deploy automatically ships a new service worker. A new worker is what force-
+# reloads open phones onto the new code — so techs never have to refresh, the app
+# just updates itself like any native app. You only ever bump APP_BUILD in
+# index.html; this stamps sw.js to match on push. No manual sw.js edits needed.
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'index.html' ]        # only index changes trigger a re-stamp
+  workflow_dispatch:                # ...and you can run it by hand if ever needed
+
+permissions:
+  contents: write
+
+concurrency:                        # never let two stamps race
+  group: stamp-sw
+  cancel-in-progress: false
+
+jobs:
+  stamp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync sw.js cache to the app build number
+        run: |
+          set -e
+          BUILD=$(grep -oE "build v[0-9]+" index.html | head -1 | grep -oE "[0-9]+")
+          if [ -z "$BUILD" ]; then
+            echo "No 'build vNNN' found in index.html — nothing to stamp."; exit 0;
+          fi
+          NEW="bbw-b${BUILD}"
+          CUR=$(grep -oE "bbw-[a-z0-9]+" sw.js | head -1 || echo "")
+          echo "index build = v${BUILD} | sw.js currently ${CUR:-<none>} | target ${NEW}"
+          if [ "$CUR" = "$NEW" ]; then
+            echo "sw.js already stamped ${NEW} — nothing to do."; exit 0;
+          fi
+          sed -i "s/const CACHE = '[^']*';/const CACHE = '${NEW}';/" sw.js
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add sw.js
+          git commit -m "Auto-stamp sw.js cache -> ${NEW} [skip ci]"
+          git push
+          echo "Stamped sw.js to ${NEW} and pushed."
