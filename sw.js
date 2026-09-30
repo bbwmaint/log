@@ -1,6 +1,6 @@
 // BBW Work Log — Service Worker
 // Bump CACHE to force all devices onto fresh code + purge stale assets (e.g. old icon).
-const CACHE = 'bbw-v42';
+const CACHE = 'bbw-v43';
 
 // Precache the shell AND the icon set / manifest so they refresh in one shot.
 const PRECACHE = [
@@ -35,6 +35,13 @@ self.addEventListener('activate', function(e){
       );
     }).then(function(){
       return self.clients.claim();
+    }).then(function(){
+      // Force every open tab onto the fresh code — no manual reload needed.
+      // Fires once per new worker version (i.e. once per CACHE bump), so a
+      // device that's been left open self-heals instead of running stale JS.
+      return self.clients.matchAll({ type: 'window' }).then(function(cs){
+        cs.forEach(function(c){ try { c.navigate(c.url); } catch(e){} });
+      });
     })
   );
 });
