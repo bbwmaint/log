@@ -351,6 +351,21 @@ async function main() {
   console.log(`Target shift: ${target.date} ${target.shift}  (${shiftWindow(target)})`);
   console.log(`Sending to  : ${TO_EMAIL} via EmailJS`);
 
+  // Hold each shift's report until a set Toronto hour, so the incoming crew has a
+  // handover window to log before it goes out. The cron fires every 30 min; this
+  // is what decides the actual send time — and because it reads the Toronto clock,
+  // it's daylight-saving-proof (a cron-hour change is not). Night report waits
+  // until 08:00; Day report unchanged (from 19:00). Manual --date/--shift or
+  // --force bypasses the hold so an admin can send any shift on demand.
+  const SEND_AFTER = { Night: 8, Day: 19 };
+  if (!(val('date') && val('shift')) && !FORCE) {
+    const minH = SEND_AFTER[target.shift] ?? 0;
+    if (parts.hour < minH) {
+      console.log(`Holding ${target.shift} report until ${String(minH).padStart(2, '0')}:00 Toronto (now ${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}) — next scheduled run will send it.`);
+      return;
+    }
+  }
+
   if (!DRY) {
     if (!SB_URL || !SB_KEY) throw new Error('SUPABASE_URL / SUPABASE_KEY missing');
     if (!EJS_PUB || !EJS_PRIV) throw new Error('EMAILJS_PUBLIC_KEY / EMAILJS_PRIVATE_KEY missing');
