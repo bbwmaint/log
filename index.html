@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v171';
+var APP_BUILD='BBW CMMS build v172';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -9041,7 +9041,7 @@ function pmCompletionPDF(pl){
     var doc=new JS({unit:'pt',format:'letter'}); try{pdfUnicode(doc);}catch(e){}
     var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=44,CW=W-2*M,y=0;
     var F='helvetica';
-    var INK=[30,31,34],SUB=[122,124,132],HAIR=[226,227,231],GOLD=[196,160,74],GREEN=[34,163,94];
+    var INK=[30,31,34],SUB=[122,124,132],HAIR=[226,227,231],GOLD=[30,58,95],GREEN=[34,163,94];
     function sc(c){doc.setTextColor(c[0],c[1],c[2]);} function fc(c){doc.setFillColor(c[0],c[1],c[2]);} function dc(c){doc.setDrawColor(c[0],c[1],c[2]);}
     function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(String(t),x,yy,al?{align:al}:undefined);}
     function ensure(h){if(y+h>H-58){doc.addPage();y=52;}}
