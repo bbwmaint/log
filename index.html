@@ -41,6 +41,9 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     --text:#fafafa; --text-2:#9b9ba3; --text-3:#5f5f67;
     --ok:#34d399; --warn:#fbbf24; --bad:#f87171; --info:#9b9ba3;
     --accent:#60a5fa;
+    /* Production Runs (Direction C) — dark-theme accents */
+    --pr-accent:#9db8da; --pr-ink:#cfe0f3; --pr-steel:#8aa9cf; --pr-cip:#63b6c7;
+    --pr-time:#cfe0f3; --pr-next:#1a2432; --pr-shift-bg:rgba(157,184,218,.10);
     --radius:14px; --radius-sm:10px;
   }
   /* ================= LIGHT THEME (scoped; dark mode untouched) ================= */
@@ -50,6 +53,78 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     --text:#16161a; --text-2:#63636f; --text-3:#9b9ba6;
     --ok:#16a34a; --warn:#d97706; --bad:#dc2626; --info:#63636f;
     --accent:#7c6bf0;
+    /* Production Runs (Direction C) — light-theme accents */
+    --pr-accent:#1e3a5f; --pr-ink:#1e3a5f; --pr-steel:#476991; --pr-cip:#2f7585;
+    --pr-time:#1e3a5f; --pr-next:#eef3f9; --pr-shift-bg:rgba(30,58,95,.06);
+  }
+  /* ===================== PRODUCTION RUNS (redesign) ===================== */
+  .pr-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 14px 18px;margin-bottom:12px}
+  .pr-head{display:flex;align-items:center;gap:10px;margin-bottom:2px}
+  .pr-head .t{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--pr-ink)}
+  .pr-head .sub{font-size:11px;color:var(--text-3)}
+  .pr-live{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:600;color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent);padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .pr-live i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+  .pr-empty{color:var(--text-3);font-size:13px;padding:6px 2px}
+  .pr-day{display:flex;align-items:center;gap:10px;margin:14px 2px 8px;font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--pr-ink)}
+  .pr-day::after{content:"";height:1px;flex:1;background:var(--border)}
+  .pr-day .cnt{color:var(--text-3);font-weight:600}
+  .pr-now{display:flex;align-items:center;gap:8px;margin:2px 0;padding-left:2px}
+  .pr-now::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--pr-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--pr-accent) 22%,transparent);flex:none}
+  .pr-now .lbl{font-size:11px;font-weight:600;color:var(--pr-ink);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+  .pr-now .ln{height:1px;flex:1;background:linear-gradient(90deg,var(--pr-accent),transparent)}
+  .pr-feed{position:relative}
+  .pr-feed::before{content:"";position:absolute;top:6px;bottom:8px;left:6px;width:2px;background:var(--border);border-radius:2px}
+  .pr-run{position:relative;padding-left:26px;margin:7px 0}
+  .pr-node{position:absolute;top:16px;left:0;width:13px;height:13px;border-radius:50%;background:var(--surface);border:2px solid var(--border-2);z-index:1}
+  .pr-run.next .pr-node{border-color:var(--pr-accent);background:var(--pr-accent)}
+  .pr-card{position:relative;background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:11px 13px}
+  .pr-run.next .pr-card{border-color:color-mix(in srgb,var(--pr-accent) 45%,var(--border));background:var(--pr-next)}
+  .pr-card .stripe{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:11px 0 0 11px;background:var(--border-2)}
+  .pr-run.next .pr-card .stripe{background:var(--pr-accent)}
+  .pr-ctop{display:flex;align-items:flex-start;gap:9px}
+  .pr-name{flex:1;min-width:0;font-weight:600;font-size:13px;color:var(--text);line-height:1.3}
+  .pr-badge{flex:none;font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--pr-ink);background:color-mix(in srgb,var(--pr-accent) 16%,transparent);padding:3px 7px;border-radius:6px;text-transform:uppercase}
+  .pr-when{flex:none;text-align:right}
+  .pr-when .clk{font-size:15px;font-weight:600;color:var(--pr-time);font-variant-numeric:tabular-nums}
+  .pr-when .d{font-size:9.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.03em}
+  .pr-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .pr-chip{font-size:10.5px;font-weight:500;color:var(--text-2);background:var(--surface-3);padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .pr-chip.cip{color:var(--pr-cip);background:color-mix(in srgb,var(--pr-cip) 15%,transparent);font-weight:600}
+  .pr-gap{font-size:9.5px;color:var(--text-3);font-variant-numeric:tabular-nums;padding:1px 0 2px 26px}
+  .pr-trow{display:none}
+  .pr-dhead{display:none}
+  .pr-trans{display:flex;align-items:center;justify-content:center;gap:8px;padding:5px 0}
+  .pr-pill{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;padding:3px 10px;border-radius:999px}
+  .pr-trans.cip .pr-pill{color:var(--pr-cip);background:color-mix(in srgb,var(--pr-cip) 13%,transparent)}
+  .pr-trans.co .pr-pill{color:var(--pr-steel);background:color-mix(in srgb,var(--pr-steel) 15%,transparent)}
+  .pr-shift{display:flex;align-items:center;gap:10px;margin:8px 0 4px}
+  .pr-shift::before,.pr-shift::after{content:"";height:1px;flex:1;background:var(--border)}
+  .pr-shift .s{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--pr-ink);white-space:nowrap}
+  @media(min-width:780px){
+    .pr-feed::before{display:none}
+    .pr-run{padding-left:0;margin:0}
+    .pr-node,.pr-card,.pr-gap{display:none}
+    .pr-dhead{display:grid;grid-template-columns:120px minmax(0,1.5fr) minmax(0,1.1fr) 168px;gap:18px;padding:0 14px 8px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)}
+    .pr-dhead span:last-child{text-align:right}
+    .pr-trow{display:grid;grid-template-columns:120px minmax(0,1.5fr) minmax(0,1.1fr) 168px;gap:18px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border);position:relative}
+    .pr-trow:hover{background:var(--surface-2)}
+    .pr-run.next .pr-trow{background:var(--pr-next);box-shadow:inset 3px 0 0 var(--pr-accent)}
+    .c-time{line-height:1.2;white-space:nowrap}
+    .c-time .clk{font-size:15px;font-weight:600;color:var(--pr-time);font-variant-numeric:tabular-nums}
+    .c-time .d2{display:block;font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.03em;margin-top:1px}
+    .c-name .nm{font-weight:600;font-size:13px;color:var(--text)}
+    .c-spec{font-size:11.5px;color:var(--text-2);display:flex;flex-wrap:wrap;gap:3px 7px;align-items:center;font-variant-numeric:tabular-nums}
+    .c-spec .sep{color:var(--border-2)}
+    .c-spec .cip{font-weight:600;color:var(--pr-cip);display:inline-flex;align-items:center;gap:4px}
+    .c-spec .cip::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--pr-cip)}
+    .c-stat{justify-self:end;text-align:right;font-size:11px;color:var(--text-3);white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1.5}
+    .c-stat .pr-badge{margin:0 0 2px;display:inline-block}
+    .pr-trans{justify-content:flex-start;padding:6px 14px 6px 152px;border-bottom:1px solid var(--border)}
+    .pr-shift{margin:0;padding:7px 14px;background:var(--pr-shift-bg);border-bottom:1px solid var(--border)}
+    .pr-shift::before,.pr-shift::after{display:none}
+    .pr-day{padding:16px 14px 8px;margin:0}
+    .pr-day::after{display:none}
+    .pr-now{padding:10px 14px;margin:0;border-bottom:1px solid var(--border)}
   }
   /* Mockup card treatment: hairline border + a 1px lift, nothing heavier. */
   html[data-theme="light"] [style*="background:var(--surface)"]{
@@ -928,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v173';
+var APP_BUILD='BBW CMMS build v174';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -12728,50 +12803,82 @@ function schedMonthlyPDF(){
 }
 
 function schedProdRunsHTML(){
-  var H='<div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:12px">';
-  H+='<div style="font-size:12px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">'+schT('Production Runs')+' &#8212; '+schT('Next 48h')+'</div>';
+  var loc=schedLoc();
+  function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return c==='&'?'&amp;':c==='<'?'&lt;':'&gt;';});}
+  function tfmt(dt){return dt.toLocaleTimeString(loc,{hour:'numeric',minute:'2-digit'});}
+  function gapTxt(ms){if(ms<0)ms=0;var h=Math.floor(ms/3600000),m=Math.round((ms%3600000)/60000);if(m===60){h++;m=0;}return h>0?(h+'h '+(m<10?'0':'')+m+'m'):(m+'m');}
+  var H='<div class="pr-panel">';
+  H+='<div class="pr-head"><div><span class="t">'+schT('Production Runs')+'</span> <span class="sub">'+schT('Next 48h')+' &middot; Line 1</span></div>';
+  H+='<span class="pr-live"><i></i>Auto-synced</span></div>';
+
   if(!scheduleRuns.length){
-    H+='<div style="color:var(--text-3);font-size:13px;font-style:italic">'+schT('No production schedule uploaded. Go to More')+' &#8594; '+schT('Upload Schedules')+'.</div>';
-  }else{
-    var now2=new Date(); var cut=new Date(now2.getTime()+48*3600000);
-    var runs=scheduleRuns.filter(function(r){return r.startDt&&r.startDt>=now2&&r.startDt<=cut;});
-    if(!runs.length){ H+='<div style="color:var(--text-3);font-size:13px">'+schT('No runs in next 48 hours.')+'</div>'; }
-    else{
-      var prev2=null;
-      runs.forEach(function(run){
-        var cos=[];
-        if(prev2){
-          if(prev2.canSize!==run.canSize)cos.push({type:'Can Format',from:prev2.canSize,to:run.canSize,color:'#ef4444'});
-          if(prev2.pkgFormat!==run.pkgFormat)cos.push({type:'Pkg Format',from:prev2.pkgFormat,to:run.pkgFormat,color:'#f59e0b'});
-          if(run.cleaning&&run.cleaning!=='None'&&run.cleaning!=='FLUSH')cos.push({type:'CIP: '+run.cleaning,from:'',to:'',color:'#a78bfa'});
-        }
-        if(cos.length){
-          H+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0">';
-          H+='<div style="flex:1;height:1px;background:var(--surface-3)"></div>';
-          H+='<div style="display:flex;flex-direction:column;gap:3px;align-items:center">';
-          cos.forEach(function(co){H+='<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:var(--surface-2);color:'+co.color+'">'+co.type+(co.from?' ('+co.from+' &#8594; '+co.to+')':'')+'</span>';});
-          H+='</div><div style="flex:1;height:1px;background:var(--surface-3)"></div></div>';
-        }
-        var rsh=(run.startDt.getHours()>=7&&run.startDt.getHours()<19)?'Day':'Night';
-        var psh=prev2?((prev2.startDt.getHours()>=7&&prev2.startDt.getHours()<19)?'Day':'Night'):null;
-        if(psh&&psh!==rsh){H+='<div style="text-align:center;padding:6px;font-size:11px;font-weight:700;color:'+(rsh==='Day'?'#f59e0b':'#60a5fa')+'">&#8212; '+(rsh==='Day'?schT('Day Shift 07:00'):schT('Night Shift 19:00'))+' &#8212;</div>';}
-        H+='<div style="background:var(--surface-2);border-radius:9px;padding:10px 12px;margin-bottom:6px">';
-        H+='<div style="display:flex;justify-content:space-between;align-items:flex-start">';
-        H+='<div style="flex:1"><div style="font-size:13px;font-weight:700;color:#fff">'+String(run.product||'').slice(0,45)+'</div>';
-        H+='<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">';
-        H+='<span style="font-size:10px;padding:2px 7px;background:var(--surface-3);color:#ccc;border-radius:4px">'+run.canSize+'</span>';
-        H+='<span style="font-size:10px;padding:2px 7px;background:var(--surface-3);color:#ccc;border-radius:4px">'+run.pkgFormat+'</span>';
-        if(run.cleaning&&run.cleaning!=='None')H+='<span style="font-size:10px;padding:2px 7px;background:rgba(167,139,250,.2);color:#a78bfa;border-radius:4px">CIP</span>';
-        H+='</div></div>';
-        H+='<div style="text-align:right;flex-shrink:0;margin-left:8px">';
-        H+='<div style="font-size:12px;font-weight:600;color:#60a5fa">'+run.startDt.toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit'})+'</div>';
-        H+='<div style="font-size:10px;color:var(--text-3)">'+run.startDt.toLocaleDateString(schedLoc(),{month:'short',day:'numeric'})+'</div>';
-        H+='</div></div></div>';
-        prev2=run;
-      });
-    }
+    H+='<div class="pr-empty">'+schT('No production schedule uploaded. Go to More')+' &#8594; '+schT('Upload Schedules')+'.</div></div>';
+    return H;
   }
-  H+='</div>';
+  var now2=new Date(), cut=new Date(now2.getTime()+48*3600000);
+  var runs=scheduleRuns.filter(function(r){return r.startDt&&r.startDt>=now2&&r.startDt<=cut;})
+                       .sort(function(a,b){return a.startDt-b.startDt;});
+  if(!runs.length){ H+='<div class="pr-empty">'+schT('No runs in next 48 hours.')+'</div></div>'; return H; }
+
+  // runs per calendar day, for the day-band counts
+  function dayKey(dt){return dt.toLocaleDateString('en-CA',{year:'numeric',month:'2-digit',day:'2-digit'});}
+  var perDay={}; runs.forEach(function(r){var k=dayKey(r.startDt);perDay[k]=(perDay[k]||0)+1;});
+
+  H+='<div class="pr-dhead"><span>Time</span><span>Product</span><span>Format</span><span>Line status</span></div>';
+  H+='<div class="pr-feed">';
+  var prev=null, curDay=null;
+  runs.forEach(function(run,i){
+    var k=dayKey(run.startDt);
+    if(k!==curDay){
+      curDay=k;
+      var wd=run.startDt.toLocaleDateString(loc,{weekday:'long'});
+      var md=run.startDt.toLocaleDateString(loc,{month:'short',day:'numeric'});
+      var c=perDay[k];
+      H+='<div class="pr-day">'+esc(wd)+' &middot; '+esc(md)+' <span class="cnt">&middot; '+c+' run'+(c!==1?'s':'')+'</span></div>';
+      if(i===0) H+='<div class="pr-now"><span class="lbl">NOW &middot; '+tfmt(now2)+'</span><span class="ln"></span></div>';
+    }
+    // transitions INTO this run (changeover + CIP), then shift boundary
+    if(prev){
+      if(prev.canSize!==run.canSize)
+        H+='<div class="pr-trans co"><span class="pr-pill">&#8644; Changeover '+esc(prev.canSize)+' &#8594; '+esc(run.canSize)+'</span></div>';
+      if(prev.pkgFormat!==run.pkgFormat)
+        H+='<div class="pr-trans co"><span class="pr-pill">&#8644; Changeover '+esc(prev.pkgFormat)+' &#8594; '+esc(run.pkgFormat)+'</span></div>';
+      if(run.cleaning&&run.cleaning!=='None'&&run.cleaning!=='FLUSH')
+        H+='<div class="pr-trans cip"><span class="pr-pill">&#9671; CIP &middot; '+esc(run.cleaning)+'</span></div>';
+      var rsh=(run.startDt.getHours()>=7&&run.startDt.getHours()<19)?'Day':'Night';
+      var psh=(prev.startDt.getHours()>=7&&prev.startDt.getHours()<19)?'Day':'Night';
+      if(psh!==rsh)
+        H+='<div class="pr-shift"><span class="s">'+(rsh==='Day'?schT('Day Shift 07:00'):schT('Night Shift 19:00'))+'</span></div>';
+    }
+    // status / gap text
+    var stat;
+    if(i===0) stat='starts in '+gapTxt(run.startDt-now2);
+    else if(i<runs.length-1) stat=gapTxt(runs[i+1].startDt-run.startDt)+' &#8594;';
+    else stat='';
+    var isNext=(i===0);
+    var badge=isNext?'<span class="pr-badge">Next</span>':'';
+    var clk=tfmt(run.startDt), dd=run.startDt.toLocaleDateString(loc,{month:'short',day:'numeric'});
+    var cip=(run.cleaning&&run.cleaning!=='None');
+    var pname=esc(run.product);
+
+    H+='<div class="pr-run'+(isNext?' next':'')+'"><span class="pr-node"></span>';
+    // mobile card
+    H+='<div class="pr-card"><span class="stripe"></span><div class="pr-ctop">';
+    H+='<div class="pr-name">'+pname+'</div>'+badge;
+    H+='<div class="pr-when"><div class="clk">'+clk+'</div><div class="d">'+dd+'</div></div></div>';
+    H+='<div class="pr-chips"><span class="pr-chip">'+esc(run.canSize)+'</span><span class="pr-chip">'+esc(run.pkgFormat)+'</span>'+(cip?'<span class="pr-chip cip">CIP</span>':'')+'</div></div>';
+    // desktop row
+    H+='<div class="pr-trow">';
+    H+='<div class="c-time"><span class="clk">'+clk+'</span><span class="d2">'+dd+'</span></div>';
+    H+='<div class="c-name"><span class="nm">'+pname+'</span></div>';
+    H+='<div class="c-spec">'+esc(run.canSize)+'<span class="sep">&middot;</span>'+esc(run.pkgFormat)+(cip?'<span class="sep">&middot;</span><span class="cip">CIP</span>':'')+'</div>';
+    H+='<div class="c-stat">'+badge+(stat?'<div>'+stat+'</div>':'')+'</div>';
+    H+='</div>';
+    H+='</div>';
+    if(stat) H+='<div class="pr-gap">'+stat+'</div>';
+    prev=run;
+  });
+  H+='</div></div>';
   return H;
 }
 
