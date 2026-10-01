@@ -209,6 +209,15 @@ export function buildR(date, shift, rows) {
     photos: (() => { try { const a = JSON.parse(r.photos || '[]'); return (Array.isArray(a) && a.length) ? a : (r.photo ? [r.photo] : []); } catch { return r.photo ? [r.photo] : []; } })()
   })).sort((a, b) => String(a.loggedAt || '').localeCompare(String(b.loggedAt || '')));
 
+  // Collapse accidental duplicate rows (same content + times + tech) so a double-saved
+  // log shows once — mirrors the app's dedupEntries.
+  const _seen = new Set();
+  const seDedup = se.filter(e => {
+    const k = [e.type, e.assetName, e.issue, e.desc, e.start, e.end, e.who, e.withWho, e.dt, e.coMins].join('|');
+    if (_seen.has(k)) return false; _seen.add(k); return true;
+  });
+  se.length = 0; se.push(...seDedup);
+
   const dtEvents = se.filter(e => (e.machineDown === 'yes' || e.machineDown === 'partial') && e.dt > 0);
   const coEvents = se.filter(e => e.coMins > 0);
   return {
@@ -355,9 +364,9 @@ async function main() {
   // handover window to log before it goes out. The cron fires every 30 min; this
   // is what decides the actual send time — and because it reads the Toronto clock,
   // it's daylight-saving-proof (a cron-hour change is not). Night report waits
-  // until 08:00; Day report unchanged (from 19:00). Manual --date/--shift or
+  // until 08:00, Day report until 20:00 — one hour past each shift end. Manual --date/--shift or
   // --force bypasses the hold so an admin can send any shift on demand.
-  const SEND_AFTER = { Night: 8, Day: 19 };
+  const SEND_AFTER = { Night: 8, Day: 20 };
   if (!(val('date') && val('shift')) && !FORCE) {
     const minH = SEND_AFTER[target.shift] ?? 0;
     if (parts.hour < minH) {

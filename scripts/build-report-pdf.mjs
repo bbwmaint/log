@@ -55,12 +55,13 @@ export function buildReportPDF(R){
   y+=30;
   doc.setDrawColor(17,17,17); doc.setLineWidth(1.2); doc.line(M,y,W-M,y);
   y+=20;
-  // KPI tiles
-  var tiles=[['Tasks',String(R.se.length),[245,245,247],[17,17,17]],
-             ['Pending',String(R.issues.length),[254,242,242],[220,38,38]],
-             ['Parts',String(R.parts.length),[255,247,237],[234,88,12]],
-             ['Downtime',R.totalDT.toFixed(1)+'h',[255,251,235],[217,119,6]],
-             ['Changeover',R.totalCO+'m',[255,251,235],[245,158,11]]];
+  // KPI tiles — Direction C: navy neutral, red only when it's an actual alert (>0). No orange.
+  var _NV=[30,58,95], _GT=[245,246,248], _RT=[254,242,242], _RD=[220,38,38];
+  var tiles=[['Tasks',String(R.se.length),_GT,_NV],
+             ['Pending',String(R.issues.length), R.issues.length?_RT:_GT, R.issues.length?_RD:_NV],
+             ['Parts',String(R.parts.length),_GT,_NV],
+             ['Downtime',R.totalDT.toFixed(1)+'h', R.totalDT>0?_RT:_GT, R.totalDT>0?_RD:_NV],
+             ['Changeover',R.totalCO+'m',_GT,_NV]];
   var gap=10, tw=(W-2*M-gap*(tiles.length-1))/tiles.length, th=46;
   tiles.forEach(function(t,i){
     var x=M+i*(tw+gap);
@@ -120,15 +121,15 @@ export function buildReportPDF(R){
     doc.text('No pending issues - clean handover', M+14, y+17); y+=38; }
   // Upcoming changeovers — next shift (from the production schedule)
   var _uco=R.upcomingCOs||[];
-  if(_uco.length){ sectTitle('Upcoming Changeovers - Next Shift',[245,158,11],_uco.length);
-    tbl('Changeovers',[245,158,11],['Type','Change','When'],_uco.map(function(co){return [pdfSafe(co.type),pdfSafe(co.from?(co.to?co.from+' -> '+co.to:co.from):'-'),pdfSafe(co.atLabel||'')];})); }
+  if(_uco.length){ sectTitle('Upcoming Changeovers - Next Shift',_NV,_uco.length);
+    tbl('Changeovers',_NV,['Type','Change','When'],_uco.map(function(co){return [pdfSafe(co.type),pdfSafe(co.from?(co.to?co.from+' -> '+co.to:co.from):'-'),pdfSafe(co.atLabel||'')];})); }
   sectTitle('Work Completed',[22,163,74],R.done.length);
   if(R.done.length) tbl('Completed',[22,163,74],['Asset','Issue / Description','Time','By'],R.done.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),e.who||''];}));
   else { doc.setTextColor(150,150,150); doc.setFont(RF,'italic'); doc.setFontSize(9); doc.text('None this shift.',M,y+4); y+=18; }
-  if(R.ongoing.length){ sectTitle('In Progress — Continue Next Shift',[217,119,6],R.ongoing.length);
-    tbl('Ongoing',[217,119,6],['Asset','Issue / Description','Time','By'],R.ongoing.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),e.who||''];})); }
-  if(R.parts.length){ sectTitle('Parts to Order',[234,88,12],R.parts.length);
-    tbl('Parts',[234,88,12],['Part','Asset','Qty','By'],R.parts.map(function(e){return [e.partName||e.issue||'—',e.assetName||'',e.partQty||'1',e.who||''];})); }
+  if(R.ongoing.length){ sectTitle('In Progress — Continue Next Shift',_NV,R.ongoing.length);
+    tbl('Ongoing',_NV,['Asset','Issue / Description','Time','By'],R.ongoing.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),e.who||''];})); }
+  if(R.parts.length){ sectTitle('Parts to Order',_NV,R.parts.length);
+    tbl('Parts',_NV,['Part','Asset','Qty','By'],R.parts.map(function(e){return [e.partName||e.issue||'—',e.assetName||'',e.partQty||'1',e.who||''];})); }
   // Attached photos (mostly parts) — embed all photos inline at the end.
   function entryPhotos(e){var ph=(e.photos&&e.photos.length)?e.photos:(e.photo?[e.photo]:[]);return ph.filter(function(p){return p&&typeof p==='string'&&p.indexOf('data:image')===0;});}
   var withPhotos=R.se.filter(function(e){return entryPhotos(e).length;});
