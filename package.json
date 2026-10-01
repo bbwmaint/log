@@ -10,6 +10,7 @@
     "mailparser": "^3.7.1",
     "nodemailer": "^9.0.3",
     "playwright": "^1.47.0",
-    "smtp-server": "^3.19.2"
+    "smtp-server": "^3.19.2",
+    "xlsx": "^0.18.5"
   }
 }
