@@ -1003,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v179';
+var APP_BUILD='BBW CMMS build v180';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -9299,7 +9299,7 @@ function pmCompletionPDF(pl){
       T(v,x+9,cy+34,13,'bold',INK);
     }
     card(0,'Completed by',pl.who||'\u2014');
-    card(1,'Completed',(''+(pl.date||'')).replace('T',' ').slice(0,16)||'\u2014');
+    card(1,'Completed',(''+(pl.date||'')).slice(0,10)||'\u2014');
     card(2,'Hours',pl.hours?(pl.hours+' h'):'\u2014');
     card(3,'Type',pl.type||'Preventive');
     y+=cardH+8;
