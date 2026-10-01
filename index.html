@@ -1003,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v182';
+var APP_BUILD='BBW CMMS build v183';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -9386,11 +9386,17 @@ function pmInfoPDF(pl){
     // ---- KPI cards: Frequency | Type | Priority | Est. hours ----
     var gap=10,cols=4,cardW=(CW-gap*(cols-1))/cols,cardH=52;
     function kcard(i,label,val){
-      var x=M+i*(cardW+gap),cy=y;
+      var x=M+i*(cardW+gap),cy=y,maxW=cardW-16;
       dc(HAIR);doc.setLineWidth(.8);fc([255,255,255]);doc.roundedRect(x,cy,cardW,cardH,4,4,'FD');
       T(label.toUpperCase(),x+9,cy+15,6.6,'bold',SUB);
-      var v=doc.splitTextToSize(String(val==null||val===''?'—':val),cardW-16)[0];
-      T(v,x+9,cy+34,13,'bold',INK);
+      var s=String(val==null||val===''?'—':val);
+      // Shrink the value font until it fits the narrow tile in at most 2 lines, so long
+      // frequency strings ("Every 3 months on the 1st") don't bleed into the next tile.
+      doc.setFont(F,'bold'); var fs=13,lines;
+      while(fs>=7){ doc.setFontSize(fs); lines=doc.splitTextToSize(s,maxW); if(lines.length<=2)break; fs-=1; }
+      if(lines.length>2)lines=lines.slice(0,2);
+      if(lines.length<=1){ T(lines[0]||'—',x+9,cy+34,fs,'bold',INK); }
+      else { var yy=cy+29; lines.forEach(function(l){ T(l,x+9,yy,fs,'bold',INK); yy+=fs+1; }); }
     }
     kcard(0,'Frequency',pl.freq||'—');
     kcard(1,'Type',pl.type||'Preventive');
