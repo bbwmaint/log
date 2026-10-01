@@ -1003,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v175';
+var APP_BUILD='BBW CMMS build v177';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7569,7 +7569,14 @@ function woDetailBody(w){
   if(w.status==='assigned')H+='<button onclick="woStatus('+w.id+',\'in_progress\')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Start</button>';
   if(w.status==='in_progress')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Pause</button>';
   if(!woIsClosed(w))H+='<button onclick="openWOComplete('+w.id+')" class="btn-primary" style="flex:1;min-width:96px;height:40px;font-size:13px">Complete</button>';
-  if(woIsClosed(w))H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Reopen</button>';
+  if(w.status==='completed'){
+    if(isEditor()){
+      H+='<button onclick="undoWOCompletion('+w.id+')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px;color:#f59e0b;border-color:rgba(245,158,11,.4)">↶ Undo</button>';
+      H+='<button onclick="openWOComplete('+w.id+',true)" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Edit completion</button>';
+    }
+  } else if(woIsClosed(w)){
+    H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Reopen</button>';
+  }
   H+='<button onclick="openWOForm('+w.id+')" class="btn-ghost" style="flex:1;min-width:96px;height:40px;font-size:13px">Edit</button>';
   H+='<button onclick="deleteWO('+w.id+')" class="btn-ghost" style="width:48px;height:40px;font-size:14px;color:var(--bad)">\u2715</button>';
   H+='</div>';
@@ -7848,7 +7855,11 @@ function completeWO(id, extras){
   var _actual=(extras.actualDate!=null&&/^\d{4}-\d{2}-\d{2}$/.test(''+extras.actualDate))?(''+extras.actualDate).slice(0,10):'';
   // Actual date entered wins; with none, the PM closes on its Suggested (due) date.
   var _at=_actual?(_actual+'T12:00:00Z'):(_dd?(_dd+'T12:00:00Z'):new Date().toISOString());
-  var patch={status:(_incomplete?'closed_incomplete':'completed'),completed_by:user,completed_at:_at,updated_at:new Date().toISOString()};
+  // Completed-by: an editor may credit the tech who actually did the work; default to self.
+  // Validated against the live roster so a stale name can't be stored.
+  var _by=user;
+  try{ if(extras.completedBy){ for(var _bi=0;_bi<TECHS.length;_bi++){ if(canonName(TECHS[_bi])===canonName(extras.completedBy)){_by=TECHS[_bi];break;} } } }catch(e){}
+  var patch={status:(_incomplete?'closed_incomplete':'completed'),completed_by:_by,completed_at:_at,updated_at:new Date().toISOString()};
   if(extras.hours!=null&&extras.hours!=='')patch.hours_spent=parseFloat(extras.hours);
   if(noteParts.length)patch.notes=(w.notes?w.notes+' \u2022 ':'')+noteParts.join(' \u2022 ');
   // Apply locally BEFORE the round-trip. Previously the status only changed once the
@@ -7862,7 +7873,7 @@ function completeWO(id, extras){
   sbFetch('bbw_wos?id=eq.'+id,{method:'PATCH',body:JSON.stringify(patch),headers:{'Prefer':'return=minimal'}}).then(function(r){
     if(r&&r.ok===false&&r.status!==204)throw new Error('HTTP '+r.status);
     delete WO_UNCONFIRMED[id];
-    if(!_incomplete&&(w.pm_id||w.pm_code)){
+    if(!_incomplete&&!extras.isEdit&&(w.pm_id||w.pm_code)){
       var p=CMMS_PMS.filter(function(x){return (w.pm_code&&x.code===w.pm_code)||(w.pm_id&&x.id===w.pm_id);})[0];
       if(p&&p.freq){var nd=pmAdvanceISO(p.freq,today);p.next_due=nd;p.last_done=today;if(p.code)sbFetch('bbw_pms?code=eq.'+encodeURIComponent(p.code),{method:'PATCH',body:JSON.stringify({next_due:nd,last_done:today,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}});}
     }
@@ -7897,31 +7908,52 @@ function logFromWO(w, extras){
   var _dd=(w.due_date?(''+w.due_date).slice(0,10):'');
   var _actual=(extras.actualDate!=null&&/^\d{4}-\d{2}-\d{2}$/.test(''+extras.actualDate))?(''+extras.actualDate).slice(0,10):'';
   var _bizDate=_actual||_dd||entryAnchor(null);
+  // Credit the same tech the WO was completed by (editor-chosen), so the labor log, the
+  // completion PDF and the reports all agree. Validated against the roster; default to self.
+  var _by=user;
+  try{ if(extras.completedBy){ for(var _bi=0;_bi<TECHS.length;_bi++){ if(canonName(TECHS[_bi])===canonName(extras.completedBy)){_by=TECHS[_bi];break;} } } }catch(e){}
   var e={ id:Date.now(), date:_bizDate, shift:(isDay()?'Day':'Night'),
-    type:'pm', priority:'info',
+    type:'pm', priority:'info', woId:w.id,
     assetName:w.asset||'General', assetCode:w.asset_code||'',
     issue:w.description||'PM', desc:bits.join(' \u2022 '),
     start:_start, end:_end, dt:0, machineDown:'', coMins:0, coType:'', partName:(extras.parts||''), partQty:'1',
     photos:[], photo:null,
-    who:user, loggedAt:now.toISOString(), shiftNote:'' };
+    who:_by, loggedAt:now.toISOString(), shiftNote:'' };
   entries.push(e); allE.push(e); try{syncEntry(e);}catch(x){} save();
 }
 function closeWOComplete(){ var m=gid('wo-complete-modal'); if(m)m.remove(); }
-function openWOComplete(id){
+function openWOComplete(id, edit){
   var w=WOS.filter(function(x){return x.id===id;})[0]; if(!w)return;
   closeWOComplete();
+  var isEd=!!edit && isEditor() && w.status==='completed';
   var inp='width:100%;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:#fff;font-size:15px;box-sizing:border-box';
+  // Prefill: in edit mode use the stored completion; otherwise the estimate/blank.
+  var preH = isEd ? (w.hours_spent!=null&&w.hours_spent!==''?Math.round(parseFloat(w.hours_spent)*60):'') : (w.hours_est?Math.round(w.hours_est*60):'');
+  var preNote = isEd ? rqEsc(w.notes||'') : '';
+  var preActual = isEd ? (''+(w.completed_at||'')).slice(0,10) : '';
   var H='<div id="wo-complete-modal" onclick="if(event.target===this)closeWOComplete()" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:900;display:flex;align-items:flex-end;justify-content:center">';
   H+='<div style="background:var(--bg);width:100%;max-width:600px;border-radius:18px 18px 0 0;border-top:1px solid var(--border);padding:18px 16px 26px;max-height:90vh;overflow-y:auto">';
-  H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:3px"><div style="font-size:16px;font-weight:800;color:#fff">'+T('wo_complete_title')+'</div><button onclick="closeWOComplete()" style="background:none;border:none;font-size:24px;color:var(--text-3);cursor:pointer;line-height:1;padding:0 2px;margin:-4px -2px 0 8px;flex:none">\u00d7</button></div>';
+  H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:3px"><div style="font-size:16px;font-weight:800;color:#fff">'+(isEd?'Edit completion':T('wo_complete_title'))+'</div><button onclick="closeWOComplete()" style="background:none;border:none;font-size:24px;color:var(--text-3);cursor:pointer;line-height:1;padding:0 2px;margin:-4px -2px 0 8px;flex:none">\u00d7</button></div>';
   H+='<div style="font-size:13px;color:var(--text-2);margin-bottom:14px">'+rqEsc(w.description||'')+' \u00b7 '+rqEsc(w.asset||'')+'</div>';
-  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_hours')+'</label><input id="wo-c-hours" type="number" step="5" min="0" value="'+(w.hours_est?Math.round(w.hours_est*60):'')+'" style="'+inp+';margin-bottom:12px">';
+  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_hours')+'</label><input id="wo-c-hours" type="number" step="5" min="0" value="'+preH+'" style="'+inp+';margin-bottom:12px">';
   H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_parts')+'</label><input id="wo-c-parts" style="'+inp+';margin-bottom:12px" placeholder="'+T('wo_parts_ph')+'">';
-  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+T('wo_note')+'</label><textarea id="wo-c-note" rows="3" style="'+inp+';resize:vertical;margin-bottom:12px" placeholder="'+T('wo_note_ph')+'"></textarea>';
-  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">Actual date <span style="color:var(--text-3);font-weight:400">\u2014 leave blank to use the due date ('+(w.due_date?(''+w.due_date).slice(0,10):'\u2014')+')</span></label><input id="wo-c-actual" type="date" value="" style="'+inp+';margin-bottom:16px">';
-  H+='<button onclick="doWOComplete('+w.id+')" style="width:100%;padding:13px;background:#16a34a;border:none;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:9px">'+T('wo_mark_complete')+'</button>';
-  H+='<div style="display:flex;gap:9px"><button onclick="closeWOComplete()" style="flex:1;padding:12px;background:var(--surface-2);border:1px solid var(--border);color:#fff;border-radius:10px;font-size:13px;cursor:pointer">'+T('Cancel')+'</button>';
-  H+='<button onclick="doWOCloseIncomplete('+w.id+')" style="flex:1;padding:12px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.42);color:#ef4444;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Close \u00b7 Incomplete</button></div>';
+  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">'+(isEd?'Notes (replaces existing)':T('wo_note'))+'</label><textarea id="wo-c-note" rows="3" style="'+inp+';resize:vertical;margin-bottom:12px" placeholder="'+T('wo_note_ph')+'">'+preNote+'</textarea>';
+  if(isEditor()){
+    var _cur = isEd ? (w.completed_by||user) : user;
+    try{ if(!isEd && w.assignee){ for(var _ti=0;_ti<TECHS.length;_ti++){ if(canonName(TECHS[_ti])===canonName(w.assignee)){_cur=TECHS[_ti];break;} } } }catch(e){}
+    var _opts=TECHS.slice(); if(_cur&&_opts.indexOf(_cur)<0)_opts.unshift(_cur);
+    H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">Completed by <span style="color:var(--text-3);font-weight:400">\u2014 who actually did the work</span></label>';
+    H+='<select id="wo-c-by" style="'+inp+';margin-bottom:12px">'+_opts.map(function(t){return '<option value="'+rqEsc(t)+'"'+(canonName(t)===canonName(_cur)?' selected':'')+'>'+rqEsc(t)+'</option>';}).join('')+'</select>';
+  }
+  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">Actual date <span style="color:var(--text-3);font-weight:400">\u2014 '+(isEd?'the completion date':'leave blank to use the due date ('+(w.due_date?(''+w.due_date).slice(0,10):'\u2014')+')')+'</span></label><input id="wo-c-actual" type="date" value="'+preActual+'" style="'+inp+';margin-bottom:16px">';
+  if(isEd){
+    H+='<button onclick="doWOEditComplete('+w.id+')" style="width:100%;padding:13px;background:#16a34a;border:none;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:9px">Save changes</button>';
+    H+='<button onclick="closeWOComplete()" style="width:100%;padding:12px;background:var(--surface-2);border:1px solid var(--border);color:#fff;border-radius:10px;font-size:13px;cursor:pointer">'+T('Cancel')+'</button>';
+  } else {
+    H+='<button onclick="doWOComplete('+w.id+')" style="width:100%;padding:13px;background:#16a34a;border:none;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:9px">'+T('wo_mark_complete')+'</button>';
+    H+='<div style="display:flex;gap:9px"><button onclick="closeWOComplete()" style="flex:1;padding:12px;background:var(--surface-2);border:1px solid var(--border);color:#fff;border-radius:10px;font-size:13px;cursor:pointer">'+T('Cancel')+'</button>';
+    H+='<button onclick="doWOCloseIncomplete('+w.id+')" style="flex:1;padding:12px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.42);color:#ef4444;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Close \u00b7 Incomplete</button></div>';
+  }
   H+='</div></div>';
   overlayGuard('wo-complete-modal');
   var d=document.createElement('div'); d.innerHTML=H; document.body.appendChild(d.firstChild);
@@ -7931,11 +7963,79 @@ function doWOComplete(id){
   var parts=gid('wo-c-parts')?gid('wo-c-parts').value:'';
   var note=gid('wo-c-note')?gid('wo-c-note').value:'';
   var actualDate=gid('wo-c-actual')?gid('wo-c-actual').value:'';
+  var completedBy=gid('wo-c-by')?gid('wo-c-by').value:'';
   closeWOComplete();
   // If this WO was one-tap completed and is waiting to commit, commit it WITH these details.
-  if(typeof _pendingWODone!=='undefined'&&_pendingWODone&&_pendingWODone.id===id){ flushPendingWO({hours:hours,parts:parts,note:note,actualDate:actualDate}); return; }
-  completeWO(id,{hours:hours,parts:parts,note:note,actualDate:actualDate});
+  if(typeof _pendingWODone!=='undefined'&&_pendingWODone&&_pendingWODone.id===id){ flushPendingWO({hours:hours,parts:parts,note:note,actualDate:actualDate,completedBy:completedBy}); return; }
+  completeWO(id,{hours:hours,parts:parts,note:note,actualDate:actualDate,completedBy:completedBy});
   try{mwRefresh();}catch(e){}
+}
+// ---- Editor: find & remove the labor-log entry a completion created ----------
+function _woCompletionLog(w){
+  if(!w)return null;
+  var code=(w.pm_code||w.wo_code||'');
+  var cd=(''+(w.completed_at||'')).slice(0,10);
+  var re=code?new RegExp('(^|[^A-Za-z0-9])'+(''+code).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'([^A-Za-z0-9]|$)'):null;
+  var best=null;
+  (allE||[]).forEach(function(e){
+    if(!e||e.deleted||e.type!=='pm')return;
+    var byId=(e.woId!=null&&e.woId===w.id);
+    var byHeur=(!best&&re&&re.test(''+(e.desc||''))&&(''+e.date).slice(0,10)===cd);
+    if(byId){ best=e; }            // id match always wins
+    else if(byHeur && !best){ best=e; }
+  });
+  return best;
+}
+function _delCompletionEntry(e){
+  if(!e)return;
+  e.deleted=true;
+  try{ if(e.sbId&&typeof deleteFromSB==='function') deleteFromSB(e.sbId); }catch(_x){}
+  try{ var i=entries.indexOf(e); if(i>=0)entries.splice(i,1); }catch(_x){}
+  try{ var j=allE.indexOf(e); if(j>=0)allE.splice(j,1); }catch(_x){}
+  try{ save(); }catch(_x){}
+}
+// ---- Editor: edit an already-completed WO in place (no duplicate log/advance) --
+function doWOEditComplete(id){
+  if(!isEditor())return;
+  var w=WOS.filter(function(x){return x.id===id;})[0]; if(!w){closeWOComplete();return;}
+  var _wm=gid('wo-c-hours')?gid('wo-c-hours').value:''; var hours=(_wm!==''&&!isNaN(parseFloat(_wm)))?String(parseFloat(_wm)/60):'';
+  var parts=gid('wo-c-parts')?gid('wo-c-parts').value:'';
+  var note=gid('wo-c-note')?gid('wo-c-note').value:'';
+  var actualDate=gid('wo-c-actual')?gid('wo-c-actual').value:'';
+  var completedBy=gid('wo-c-by')?gid('wo-c-by').value:'';
+  closeWOComplete();
+  // Remove the old completion labor log, then re-run completion in edit mode (keeps
+  // status completed, writes the corrected completed_by + log, no schedule re-advance).
+  _delCompletionEntry(_woCompletionLog(w));
+  completeWO(id,{hours:hours,parts:parts,note:note,actualDate:actualDate,completedBy:completedBy,isEdit:true});
+  try{toast('Completion updated');}catch(e){}
+  try{mwRefresh();}catch(e){}
+}
+// ---- Editor: undo a mistaken completion -> back to ongoing --------------------
+function undoWOCompletion(id){
+  if(!isEditor())return;
+  var w=WOS.filter(function(x){return x.id===id;})[0]; if(!w)return;
+  if(!woIsClosed(w))return;
+  if(typeof confirm==='function' && !confirm('Undo this completion and set it back to ongoing? The completion record and its labor log will be removed.'))return;
+  // Drop the labor-log entry this completion created.
+  _delCompletionEntry(_woCompletionLog(w));
+  // Revert the work order to ongoing and clear the completion fields.
+  var patch={status:'in_progress',completed_by:null,completed_at:null,hours_spent:null,updated_at:new Date().toISOString()};
+  var _prev={status:w.status,completed_by:w.completed_by,completed_at:w.completed_at,hours_spent:w.hours_spent};
+  Object.assign(w,patch);
+  try{mwRefresh();}catch(e){}
+  sbFetch('bbw_wos?id=eq.'+id,{method:'PATCH',body:JSON.stringify(patch),headers:{'Prefer':'return=minimal'}}).then(function(r){
+    if(r&&r.ok===false&&r.status!==204)throw new Error('HTTP '+r.status);
+    try{if(gid('wo-list'))renderWOList();}catch(e){}
+    try{if(gid('wo-detail-pane')&&isDesktop())woSelect(id);}catch(e){}
+    try{updateCmmsBadge();}catch(e){}
+    try{dataChanged('wo');}catch(e){}
+    try{toast('Completion undone \u2014 back to ongoing');}catch(e){}
+  }).catch(function(){
+    try{Object.assign(w,_prev);}catch(e){}
+    try{mwRefresh();}catch(e){}
+    try{toast('Could not undo \u2014 please try again',true,4000);}catch(e){}
+  });
 }
 // Close a PM as not-done: dates it to the Suggested (due) date and counts against
 // compliance (assessed, not on-time). No labor log, no schedule advance.
