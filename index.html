@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v172';
+var APP_BUILD='BBW CMMS build v173';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -8200,9 +8200,21 @@ function statsLoad(cb){
 // Uses a slim, photo-free month fetch so Home stays fast; fills async into a placeholder.
 // Tap a tech on the Home widget → their logs, with Latest/Oldest + This-month/All-time filters.
 var _techLog={tech:'',sort:'desc',scope:'month'};
-function openTechLog(tech){ if(!tech)return; _techLog={tech:tech,sort:'desc',scope:'month'}; renderTechLog(); }
+function openTechLog(tech){ if(!tech)return; var _n=new Date(); _techLog={tech:tech,sort:'desc',scope:'month',month:_n.getFullYear()+'-'+String(_n.getMonth()+1).padStart(2,'0')}; renderTechLog(); }
 function closeTechLog(){ var m=gid('techlog-modal'); if(m&&m.parentNode)m.parentNode.removeChild(m); }
 function techLogSet(k,v){ _techLog[k]=v; renderTechLog(); }
+// Month picker: 'all' = every month; otherwise YYYY-MM selects that one month.
+function techLogSetMonth(v){ if(v==='all'){ _techLog.scope='all'; } else { _techLog.scope='pick'; _techLog.month=v; } renderTechLog(); }
+function techLogMonthOptions(sel){
+  var out='<option value="all"'+(sel==='all'?' selected':'')+'>All time</option>';
+  var n=new Date(), y=n.getFullYear(), m=n.getMonth();
+  for(var i=0;i<18;i++){
+    var d=new Date(y,m-i,1), ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    var lbl=d.toLocaleDateString(lang==='uk'?'uk-UA':'en-CA',{month:'short',year:'numeric'});
+    out+='<option value="'+ym+'"'+(sel===ym?' selected':'')+'>'+lbl+'</option>';
+  }
+  return out;
+}
 function renderTechLog(){
   var host=gid('techlog-modal');
   if(!host){ host=document.createElement('div'); host.id='techlog-modal'; document.body.appendChild(host); }
@@ -8213,13 +8225,14 @@ function renderTechLog(){
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid #e6e7eb"><div style="font-size:17px;font-weight:800;color:#1f2430">'+rqEsc(tech)+' \u2014 logs</div><button onclick="closeTechLog()" style="background:none;border:none;font-size:24px;color:#9aa0aa;cursor:pointer;line-height:1;padding:0 4px">\u00d7</button></div>'+
       '<div style="display:flex;gap:8px;padding:12px 18px;flex-wrap:wrap;border-bottom:1px solid #eef0f3">'+
         '<div style="display:inline-flex;background:#f7f9fc;border:1px solid #e6e7eb;border-radius:9px;padding:3px">'+seg('sort','desc','Latest first')+seg('sort','asc','Oldest first')+'</div>'+
-        '<div style="display:inline-flex;background:#f7f9fc;border:1px solid #e6e7eb;border-radius:9px;padding:3px">'+seg('scope','month','This month')+seg('scope','all','All time')+'</div>'+
+        '<select onchange="techLogSetMonth(this.value)" style="background:#f7f9fc;border:1px solid #e6e7eb;border-radius:9px;padding:7px 11px;font-size:12.5px;font-weight:600;color:#42474f;cursor:pointer;outline:none">'+techLogMonthOptions((scope==='all')?'all':(_techLog.month||''))+'</select>'+
       '</div>'+
       '<div id="techlog-body" style="padding:14px 18px 20px;flex:1;min-height:0;overflow-y:auto"><div style="text-align:center;padding:30px;color:#9aa0aa">Loading\u2026</div></div>'+
     '</div></div>';
   var now=new Date(), y=now.getFullYear(), mo=now.getMonth();
-  var from=(scope==='month')?pmISO(new Date(y,mo,1)):'2000-01-01';
-  var to=pmISO(new Date(y,mo+1,0));
+  var from, to;
+  if(scope==='all'){ from='2000-01-01'; to=pmISO(new Date(y,mo+1,0)); }
+  else { var _ym=_techLog.month||(y+'-'+String(mo+1).padStart(2,'0')); var _yy=+_ym.slice(0,4), _mm=+_ym.slice(5,7)-1; from=pmISO(new Date(_yy,_mm,1)); to=pmISO(new Date(_yy,_mm+1,0)); }
   var cols='id,date,type,who,with_who,asset_name,asset_code,issue,description,start_time,end_time,downtime_hrs,machine_down,co_mins,co_type,part_name,part_qty,shift,logged_at,priority';
   var q='bbw_worklog?select='+cols+'&date=gte.'+from+'&date=lte.'+to+'&or=(who.eq.'+encodeURIComponent(tech)+',with_who.ilike.*'+encodeURIComponent(tech)+'*)&order=logged_at.'+sort;
   sbFetchAll(q).then(function(rows){
@@ -8251,7 +8264,7 @@ function renderTechLog(){
                    '<div title="Same date, time and description as another entry \u2014 likely a duplicate" style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;font-weight:800;letter-spacing:.09em;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:7px;padding:9px 4px">DUPLICATE ENTRY</div>'+
                  '</div>'+
                '</div>';
-      }).join('')):'<div style="text-align:center;padding:40px;color:#9aa0aa">No logs'+(scope==='month'?' this month':'')+'.</div>';
+      }).join('')):'<div style="text-align:center;padding:40px;color:#9aa0aa">No logs'+(scope==='all'?'':(' in '+new Date((_techLog.month||'')+'-01T12:00:00').toLocaleDateString(lang==='uk'?'uk-UA':'en-CA',{month:'long',year:'numeric'})))+'.</div>';
   }).catch(function(){ var body=gid('techlog-body'); if(body)body.innerHTML='<div style="padding:20px;color:#f87171">Could not load logs.</div>'; });
 }
 // ── Home drill-through: tap a completions bar, or the PM-compliance / Downtime
