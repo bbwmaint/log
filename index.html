@@ -1003,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v177';
+var APP_BUILD='BBW CMMS build v178';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7715,10 +7715,17 @@ function renderWOList(){
     if(w.status==='open')H+='<button onclick="openWOAssign('+w.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Assign</button>';
     if(w.status==='assigned')H+='<button onclick="woStatus('+w.id+',\'in_progress\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Start</button>';
     if(w.status==='in_progress')H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Pause</button>';
-    if(!woIsClosed(w))H+='<button onclick="openWOComplete('+w.id+')" class="btn-primary" style="flex:1;height:31px;font-size:12px">Complete</button>';
-    if(woIsClosed(w))H+='<button onclick="woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Reopen</button>';
-    H+='<button onclick="openWOForm('+w.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Edit</button>';
-    H+='<button onclick="deleteWO('+w.id+')" class="btn-ghost" style="width:42px;height:31px;font-size:12px;color:var(--bad)">\u2715</button>';
+    if(!woIsClosed(w))H+='<button onclick="event.stopPropagation();openWOComplete('+w.id+')" class="btn-primary" style="flex:1;height:31px;font-size:12px">Complete</button>';
+    if(w.status==='completed'){
+      if(isEditor()){
+        H+='<button onclick="event.stopPropagation();undoWOCompletion('+w.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px;color:#f59e0b;border-color:rgba(245,158,11,.4)">\u21b6 Undo</button>';
+        H+='<button onclick="event.stopPropagation();openWOComplete('+w.id+',true)" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Edit completion</button>';
+      }
+    } else if(woIsClosed(w)){
+      H+='<button onclick="event.stopPropagation();woStatus('+w.id+',\'assigned\')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Reopen</button>';
+    }
+    H+='<button onclick="event.stopPropagation();openWOForm('+w.id+')" class="btn-ghost" style="flex:1;height:31px;font-size:12px">Edit</button>';
+    H+='<button onclick="event.stopPropagation();deleteWO('+w.id+')" class="btn-ghost" style="width:42px;height:31px;font-size:12px;color:var(--bad)">\u2715</button>';
     H+='</div>';
     if(w.status==='completed'&&w.completed_by)H+='<div style="font-size:10.5px;color:var(--text-3);margin-top:7px">Completed by '+w.completed_by+(w.completed_at?' \u00b7 '+w.completed_at.slice(0,10):'')+' \u00b7 '+(woTimeIsLogged(w)?'':'~')+fmtDurHrs(woTimeHrs(w))+'</div>';
     H+='</div>';
