@@ -1003,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v178';
+var APP_BUILD='BBW CMMS build v179';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2786,6 +2786,7 @@ function requestDetailBody(r){
     if(r.status==='new')H+='<button onclick="reqSetStatus('+r.id+',\'in_progress\');closeRequestDetail()" style="'+rqBtn('#3b82f6')+'">'+T('req_start')+'</button>';
     if(r.status!=='done'&&r.status!=='parts_ordered')H+='<button onclick="reqSetStatus('+r.id+',\'parts_ordered\');closeRequestDetail()" style="'+rqBtn('#a855f7')+'">'+(T('req_parts')||'Parts ordered')+'</button>';
     if(r.status!=='done')H+='<button onclick="reqDone('+r.id+')" style="'+rqBtn('#16a34a')+'">'+T('req_markdone')+'</button>';
+    if(r.status==='done'&&isEditor())H+='<button onclick="reqUndo('+r.id+')" style="'+rqBtn('#f59e0b')+'">↶ Undo (reopen)</button>';
     H+='<button onclick="reqAddNote('+r.id+');closeRequestDetail()" style="'+rqBtn('#52525b')+'">'+T('req_addnote')+'</button>';
     H+='</div>';
   }
@@ -3141,6 +3142,27 @@ function drawRequests(){try{updateReqTabCount();}catch(e){}
   try{homeSyncBadge(); if(gid('pane-home'))renderHome();}catch(e){}
 }
 function reqDone(id){ var m=gid('req-mins'); var mins=m?m.value:''; reqSetStatus(id,'done',mins); closeRequestDetail(); }
+// Editor: undo a request that was marked done by mistake -> back to ongoing.
+function _reqLog(r){
+  var byId=null,byHeur=null;
+  (allE||[]).forEach(function(e){
+    if(!e||e.deleted||e.type!=='completed')return;
+    if(e.reqId!=null&&e.reqId===r.id){byId=e;return;}
+    if((''+(e.issue||''))===(''+(r.work||''))&&(''+(e.assetName||''))===(''+(r.asset_name||r.department||'')))byHeur=e;
+  });
+  return byId||byHeur;
+}
+function reqUndo(id){
+  if(!isEditor())return;
+  var r=(typeof REQUESTS!=='undefined'?REQUESTS:[]).filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
+  if(r.status!=='done')return;
+  if(typeof confirm==='function'&&!confirm('Undo this request completion and reopen it? The labor-log entry it created will be removed.'))return;
+  try{ if(typeof _delCompletionEntry==='function') _delCompletionEntry(_reqLog(r)); }catch(e){}
+  sbFetch('bbw_requests?id=eq.'+id,{method:'PATCH',body:JSON.stringify({status:'in_progress',closed_by:null,closed_at:null})})
+    .then(function(){ REQUESTS=[]; return loadRequests(); })
+    .then(function(){ try{drawRequests();}catch(e){} try{closeRequestDetail();}catch(e){} try{toast('Request reopened — back to ongoing');}catch(e){} })
+    .catch(function(e){ try{alert('Undo failed: '+(e&&e.message||e));}catch(_){} });
+}
 function reqSetStatus(id,status,mins){
   var r=REQUESTS.filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
   var patch={status:status};
@@ -3181,7 +3203,7 @@ function logFromRequest(r, mins){
   var urls=ph.map(function(p){return SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(p);});
   var ctx='Reported by '+(r.reporter||'?')+' ('+(r.department||'')+')'+(r.contact?' \u2022 '+r.contact:'');
   var e={ id:Date.now(), date:entryAnchor(null), shift:(isDay()?'Day':'Night'),
-    type:'completed', priority:'info',
+    type:'completed', priority:'info', reqId:r.id,
     assetName:r.asset_name||r.department||'General', assetCode:r.asset_code||'',
     issue:(r.work||'Work request'), desc:ctx,
     start:_start, end:(_m>0)?_end:'', dt:0, machineDown:'', coMins:0, coType:'', partName:'', partQty:'1',
