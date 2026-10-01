@@ -7,10 +7,11 @@ name: BBW import L1 schedule
 # late or repeat run is harmless. Timing isn't critical, so GitHub cron is fine.
 on:
   schedule:
-    # Hourly during Toronto business hours only (the planner updates L1 ~9am-5pm).
-    # GitHub cron is UTC with no timezone, so 13:00-22:00 UTC spans 9am-5pm in BOTH
-    # EDT (UTC-4) and EST (UTC-5); at most one harmless extra hour at a season edge.
-    - cron: '17 13-22 * * *'     # 9am-5/6pm Toronto, at :17 past each hour
+    # Hourly during Toronto daytime only (~7am-7pm, when the schedule actually changes).
+    # GitHub cron is UTC with no timezone. 11:00-23:00 UTC = 7am-7pm EDT; adding 00:00 UTC
+    # covers 7pm EST too, so the full 7am-7pm window holds in BOTH seasons (at most one
+    # harmless extra hour at a DST edge; every run is idempotent).
+    - cron: '17 0,11-23 * * *'   # ~7am-7pm Toronto, at :17 past each hour
   workflow_dispatch:
     inputs:
       dry_run:
