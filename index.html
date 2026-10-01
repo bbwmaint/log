@@ -928,7 +928,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v170';
+var APP_BUILD='BBW CMMS build v171';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1890,6 +1890,9 @@ function submitEntry(){
  try{
   var _wasEdit=!!editId;
   if(!ctype){alert('Please pick a type at the top (Completed, Pending, Ongoing, etc.) before saving.');try{var _t=document.querySelector('[id^="tp-"]');if(_t&&_t.scrollIntoView)_t.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}return;}
+  // Guard against double/triple-tap on Save creating duplicate rows (laggy touchscreens
+  // fire the click 2-3x). Ignore repeat taps within 1.5s for a NEW entry.
+  if(!_wasEdit){ if(window._lastSubmitTs && (Date.now()-window._lastSubmitTs)<1500){ return; } window._lastSubmitTs=Date.now(); }
   var entry={id:editId||Date.now(),date:(function(){
       var ov=(isEditor()&&gid('f-date'))?gid('f-date').value:'';
       if(ov)return ov;
@@ -3225,6 +3228,8 @@ function _dropBadColumn(payload, errText){
   return {payload:out, dropped:legacy};
 }
 function syncEntry(e){
+  if(e._syncing)return;            // a POST for this entry is already in flight — don't double-post
+  e._syncing=true;
   var full={
     date:e.date,shift:e.shift,type:e.type,priority:e.priority||null,
     asset_name:e.assetName||null,asset_code:e.assetCode||null,
@@ -3257,8 +3262,9 @@ function syncEntry(e){
       }
       return r.json();
     })
-    .then(function(d){ onSaved(d); try{updateSyncBar();}catch(_e){} })
+    .then(function(d){ e._syncing=false; onSaved(d); try{updateSyncBar();}catch(_e){} })
     .catch(function(err){
+      e._syncing=false;
       console.warn('Sync failed, will retry',err);
       e.synced=false; e.syncError=true;
       try{updateSyncBar();}catch(_e){}
@@ -3286,7 +3292,7 @@ function updateSyncBar(){
 }
 function retryUnsynced(){
   try{
-    var pend=(allE||[]).filter(function(e){ return e && !e.deleted && !e.sbId && !e.synced; });
+    var pend=(allE||[]).filter(function(e){ return e && !e.deleted && !e.sbId && !e.synced && !e._syncing; });
     if(!pend.length){ updateSyncBar(); return; }
     if(navigator.onLine===false){ toast((lang==='uk')?'\u041d\u0435\u043c\u0430\u0454 \u043c\u0435\u0440\u0435\u0436\u0456 \u2014 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0443\u0454\u0442\u044c\u0441\u044f, \u043a\u043e\u043b\u0438 \u0437\u2019\u044f\u0432\u0438\u0442\u044c\u0441\u044f \u043c\u0435\u0440\u0435\u0436\u0430':'No connection \u2014 will sync automatically when back online',true); return; }
     toast((lang==='uk')?('\u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0430\u0446\u0456\u044f '+pend.length+'\u2026'):('Syncing '+pend.length+'\u2026'));
@@ -11586,8 +11592,19 @@ function generateAndSendReport(){
     });
   }
 }
+// Collapse accidental duplicate rows (same content + same times + same tech) so a
+// double-saved entry shows once. Distinct entries are untouched.
+function dedupEntries(list){
+  var seen={}, out=[];
+  (list||[]).forEach(function(e){
+    var k=[e.type,(e.assetName||''),(e.issue||''),(e.desc||''),(e.start||''),(e.end||''),(e.who||''),(e.withWho||''),(e.dt||0),(e.coMins||0)].join('|');
+    if(seen[k])return; seen[k]=1; out.push(e);
+  });
+  return out;
+}
 function computeShiftReport(date,shift){
   var se=allE.filter(function(e){return e.date===date&&e.shift===shift;});
+  se=dedupEntries(se);
   se.sort(function(a,b){return (a.loggedAt||'').localeCompare(b.loggedAt||'');});
   var techs=reportTechs(se);
   var dtEvents=se.filter(function(e){return (e.machineDown==='yes'||e.machineDown==='partial')&&(e.dt||0)>0;});
