@@ -1003,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v174';
+var APP_BUILD='BBW CMMS build v175';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7891,7 +7891,13 @@ function logFromWO(w, extras){
   var _h=parseFloat(extras.hours); if(!(_h>0))_h=parseFloat(w.hours_est);
   if(!(_h>0))_h=pmEstHours({hours:w.hours_est,asset:w.asset,desc:w.description,code:w.pm_code||w.wo_code});
   var _end=ntime(), _start=hhmmMinus(_end, Math.round(_h*60));
-  var e={ id:Date.now(), date:entryAnchor(null), shift:(isDay()?'Day':'Night'),
+  // Business date of the labor log = actual date entered, else the due date, else today's
+  // anchored shift date. Mirrors completeWO's completed_at so the completion PDF, PM hours
+  // and reports land on the REAL completion date instead of today when a PM is backdated.
+  var _dd=(w.due_date?(''+w.due_date).slice(0,10):'');
+  var _actual=(extras.actualDate!=null&&/^\d{4}-\d{2}-\d{2}$/.test(''+extras.actualDate))?(''+extras.actualDate).slice(0,10):'';
+  var _bizDate=_actual||_dd||entryAnchor(null);
+  var e={ id:Date.now(), date:_bizDate, shift:(isDay()?'Day':'Night'),
     type:'pm', priority:'info',
     assetName:w.asset||'General', assetCode:w.asset_code||'',
     issue:w.description||'PM', desc:bits.join(' \u2022 '),
@@ -9028,7 +9034,7 @@ function pmHistory(code){
     if(!e||e.deleted)return;
     if(e.type!=='pm'&&e.type!=='completed')return;
     if(re.test(''+(e.desc||''))||re.test(''+(e.issue||''))){
-      out.push({who:e.who||'', date:e.loggedAt||e.date||'', hours:'', note:e.desc||'', src:'log'});
+      out.push({who:e.who||'', date:e.date||e.loggedAt||'', hours:'', note:e.desc||'', src:'log'});
     }
   });
   (typeof WOS!=='undefined'?WOS:[]).forEach(function(w){
