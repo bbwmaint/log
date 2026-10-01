@@ -50,19 +50,40 @@ function serialToUTC(v) {
   const d = new Date(Math.round((v - 25569) * 86400 * 1000));
   return torontoWallToUTC(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds());
 }
+const norm = s => String(s).replace(/\s+/g, '').toLowerCase();
+function colIdx(hdr, ...names) {                 // case/space-insensitive column lookup
+  const want = names.map(norm);
+  for (let j = 0; j < hdr.length; j++) if (typeof hdr[j] === 'string' && want.includes(norm(hdr[j]))) return j;
+  return -1;
+}
 function parseSchedule(buf) {
   const wb = XLSX.read(buf, { type: 'buffer', cellDates: false });
-  const ws = wb.Sheets['Packaging Schedule'] || wb.Sheets[wb.SheetNames[0]];
-  if (!ws) throw new Error('No "Packaging Schedule" sheet.');
-  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
-  let hdr = null, hIdx = 0;
-  for (let i = 0; i < Math.min(8, rows.length); i++) {
-    if (rows[i] && rows[i].some(v => v === 'StartTime' || v === 'Start Time')) { hdr = rows[i]; hIdx = i; break; }
+  // Guard: a OneDrive shortcut (.url) emailed as .xlsx parses as a tiny text "sheet".
+  // Fail loudly with the pointer it contains instead of a cryptic "header not found".
+  if (buf && buf.length < 4096 && buf.slice(0, 64).toString('utf8').toLowerCase().includes('[internetshortcut]')) {
+    const txt = buf.toString('utf8').slice(0, 400);
+    throw new Error('Attachment is a OneDrive SHORTCUT (.url), not the spreadsheet. ' +
+      'The Power Automate flow is sending a pointer, not the file. Contents:\n' + txt);
   }
-  if (!hdr) throw new Error('Header row (with "StartTime") not found.');
-  const ci = { product: hdr.indexOf('Product'), canSize: hdr.indexOf('Can Size'), pkgFormat: hdr.indexOf('Pkg Format'),
-    start: (hdr.indexOf('StartTime') >= 0 ? hdr.indexOf('StartTime') : hdr.indexOf('Start Time')),
-    finish: hdr.indexOf('Finish Time'), cleaning: hdr.indexOf('Cleaning before') };
+  // Scan every sheet, first 30 rows, case/space-insensitively, for the StartTime header.
+  let ws = null, rows = null, hdr = null, hIdx = 0;
+  for (const name of (wb.Sheets['Packaging Schedule'] ? ['Packaging Schedule', ...wb.SheetNames] : wb.SheetNames)) {
+    const sh = wb.Sheets[name]; if (!sh) continue;
+    const rr = XLSX.utils.sheet_to_json(sh, { header: 1, raw: true });
+    const lim = Math.min(30, rr.length);
+    for (let i = 0; i < lim; i++) {
+      if (rr[i] && rr[i].some(v => typeof v === 'string' && norm(v) === 'starttime')) { ws = sh; rows = rr; hdr = rr[i]; hIdx = i; break; }
+    }
+    if (hdr) break;
+  }
+  if (!hdr) {
+    const peek = wb.SheetNames.map(n => { const rr = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true });
+      return `  "${n}" (${rr.length} rows) row0=${JSON.stringify((rr[0] || []).slice(0, 6))}`; }).join('\n');
+    throw new Error('Header row (with "StartTime") not found in any sheet — attachment is probably not the real file:\n' + peek);
+  }
+  const ci = { product: colIdx(hdr, 'Product'), canSize: colIdx(hdr, 'Can Size'), pkgFormat: colIdx(hdr, 'Pkg Format'),
+    start: colIdx(hdr, 'StartTime', 'Start Time'), finish: colIdx(hdr, 'Finish Time', 'FinishTime'),
+    cleaning: colIdx(hdr, 'Cleaning before', 'Cleaning Before') };
   if (ci.start < 0) throw new Error('No StartTime column.');
   const runs = [];
   for (let r = hIdx + 1; r < rows.length; r++) {
