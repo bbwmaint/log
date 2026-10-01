@@ -1,0 +1,43 @@
+name: BBW import L1 schedule
+
+# Reads the newest "L1 SCHEDULE" email (sent by a Power Automate flow whenever the
+# live SharePoint sheet changes), parses the Packaging Schedule xlsx, and upserts
+# the runs into bbw_schedule(prod) so the app's Production Runs + Upcoming
+# Changeovers stay current. Idempotent — writes the current state each run, so a
+# late or repeat run is harmless. Timing isn't critical, so GitHub cron is fine.
+on:
+  schedule:
+    - cron: '17 */2 * * *'       # every 2 hours, at :17
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Parse + print, write nothing'
+        type: boolean
+        default: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install libraries
+        run: npm install --no-audit --no-fund
+      - name: Import L1 schedule
+        env:
+          SUPABASE_URL:     ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:     ${{ secrets.SUPABASE_KEY }}
+          IMAP_HOST:        ${{ secrets.IMAP_HOST }}
+          IMAP_PORT:        ${{ vars.IMAP_PORT   || '993' }}
+          IMAP_USER:        ${{ secrets.IMAP_USER }}
+          IMAP_PASS:        ${{ secrets.IMAP_PASS }}
+          IMAP_FOLDER:      ${{ vars.IMAP_FOLDER || 'INBOX' }}
+          SCHEDULE_SUBJECT: ${{ vars.SCHEDULE_SUBJECT || 'L1 SCHEDULE' }}
+          LOOKBACK_DAYS:    ${{ vars.LOOKBACK_DAYS || '7' }}
+          SYNC_DAYS_BACK:   ${{ vars.SYNC_DAYS_BACK  || '3' }}
+          SYNC_DAYS_AHEAD:  ${{ vars.SYNC_DAYS_AHEAD || '60' }}
+        run: |
+          node scripts/import-l1-schedule.mjs \
+            ${{ inputs.dry_run && '--dry-run' || '' }}
