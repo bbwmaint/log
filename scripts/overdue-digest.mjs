@@ -93,13 +93,13 @@ async function confirmSent(id) {
 async function release(id) { try { await sb('bbw_report_sent?id=eq.' + encodeURIComponent(id), { method: 'DELETE' }); } catch (e) {} }
 
 /* ── email ─────────────────────────────────────────────────────────────────── */
-async function sendEmailTo(to, subject, text) {
+async function sendEmailTo(to, subject, text, extra) {
   const r = await fetch(EJS_API, {
     signal: AbortSignal.timeout(25000), method: 'POST',
     headers: { 'Content-Type': 'application/json', origin: 'https://bbwmaint.github.io' },
     body: JSON.stringify({
       service_id: EJS_SVC, template_id: EJS_TPL, user_id: EJS_PUB, accessToken: EJS_PRIV,
-      template_params: { to_email: to, subject, message: text, reporter: 'BBW Maintenance App', asset_name: 'Overdue PM Digest', photos: '' }
+      template_params: Object.assign({ to_email: to, subject, message: text, reporter: 'BBW Maintenance App', asset_name: 'Overdue PM Digest', photos: '' }, extra || {})
     })
   });
   const body = await r.text();
@@ -181,6 +181,26 @@ async function main() {
   const subject = `BBW Maintenance — ${overdue.length} overdue · ${dueSoon.length} due (${today})`;
   const text = buildDigest(overdue, dueSoon, today);
 
+  // Structured fields for the branded template (falls back to `text` if not updated).
+  const CAP = 15;
+  const items = overdue.slice().sort((a, b) => (a.due_date || '').localeCompare(b.due_date || '')).slice(0, CAP).map(w => {
+    const asset = (w.asset || w.asset_code || '').trim();
+    const desc = (w.description || w.pm_code || w.wo_code || 'PM').trim();
+    const d = overdueDays(w.due_date, today);
+    return { title: desc + (asset ? ' — ' + asset : ''), sub: 'Due ' + w.due_date + ' · ' + ownerOf(w) + ' · ' + d + ' day' + (d === 1 ? '' : 's') + ' overdue' };
+  });
+  const digestExtra = {
+    structured: true,
+    kicker: 'Overdue PM digest · ' + prettyDate(today),
+    has_rows: true,
+    rows: [{ label: 'Overdue', value: String(overdue.length) }, { label: 'Due soon', value: String(dueSoon.length) }],
+    has_items: items.length > 0,
+    items,
+    more: Math.max(0, overdue.length - CAP),
+    cta_url: APP_URL,
+    cta_label: 'Open the Maintenance Log'
+  };
+
   if (DRY) { console.log(`\n--- DRY RUN — nothing sent ---\nTo: ${RECIPIENTS.join(', ')}\nSubject: ${subject}\n\n${text}`); return; }
   if (!RECIPIENTS.length) throw new Error('DIGEST_TO is empty — refusing to send.');
   if (!EJS_PUB || !EJS_PRIV) throw new Error('EMAILJS_PUBLIC_KEY / EMAILJS_PRIVATE_KEY missing');
@@ -189,7 +209,7 @@ async function main() {
   if (!FORCE && !(await claim(claimId))) return;
 
   try {
-    for (const to of RECIPIENTS) { await sendEmailTo(to, subject, text); console.log(`SENT to ${to}`); }
+    for (const to of RECIPIENTS) { await sendEmailTo(to, subject, text, digestExtra); console.log(`SENT to ${to}`); }
     if (!FORCE) await confirmSent(claimId);
     console.log(`Done: ${overdue.length} overdue, ${dueSoon.length} due.`);
   } catch (err) {

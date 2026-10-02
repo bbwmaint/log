@@ -313,7 +313,25 @@ ${pdfUrl ? `<p style="margin:20px 0 6px"><a href="${pdfUrl}" style="display:inli
     + `\n\nMore detail in the app: ${APP_URL}`
     + `\n\nThis is an automated message — please do not reply to this email.\n— Brunswick Bierworks Maintenance`;
 
-  return { html, text, subject: `BBW Maintenance Report — ${R.date} ${R.shift} Shift` };
+  // Structured fields for the branded template (falls back to `text` if not updated).
+  const whoLogged = [...new Set(R.se.map(e => e.who).filter(Boolean))].sort();
+  const rows = [
+    { label: 'Tasks logged', value: String(R.se.length) },
+    { label: 'Techs logged', value: (whoLogged.length ? whoLogged.join(', ') : (R.techs.join(', ') || '—')) },
+    { label: 'Completed', value: String(R.done.length) },
+    { label: 'Pending issues', value: String(R.issues.length) }
+  ];
+  if (R.totalDT > 0) rows.push({ label: 'Downtime', value: R.totalDT.toFixed(1) + ' h' });
+  if (R.parts.length) rows.push({ label: 'Parts to order', value: String(R.parts.length) });
+  const extra = {
+    structured: true,
+    kicker: 'Shift report · ' + R.date + ' · ' + R.shift,
+    has_rows: true,
+    rows,
+    cta_url: pdfUrl || 'https://bbwmaint.github.io/log/',
+    cta_label: pdfUrl ? 'Open the report (PDF)' : 'Open the Maintenance Log'
+  };
+  return { html, text, subject: `BBW Maintenance Report — ${R.date} ${R.shift} Shift`, extra };
 }
 
 /* ── PDF hosting ──────────────────────────────────────────────────────────── */
@@ -331,15 +349,15 @@ async function uploadPDF(pdf, filename) {
 }
 
 /* ── email ────────────────────────────────────────────────────────────────── */
-async function sendEmail({ subject, text }) {
+async function sendEmail({ subject, text, extra }) {
   const r = await fetch(EJS_API, {
     signal: AbortSignal.timeout(25000),
     method: 'POST',
     headers: { 'Content-Type': 'application/json', origin: 'https://bbwmaint.github.io' },
     body: JSON.stringify({
       service_id: EJS_SVC, template_id: EJS_TPL, user_id: EJS_PUB, accessToken: EJS_PRIV,
-      template_params: { to_email: TO_EMAIL, subject, message: text,
-                         reporter: 'BBW Maintenance App', asset_name: 'Shift Report', photos: '' }
+      template_params: Object.assign({ to_email: TO_EMAIL, subject, message: text,
+                         reporter: 'BBW Maintenance App', asset_name: 'Shift Report', photos: '' }, extra || {})
     })
   });
   const body = await r.text();
