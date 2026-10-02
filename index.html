@@ -1003,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v185';
+var APP_BUILD='BBW CMMS build v186';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -11480,11 +11480,17 @@ function notifyAssignee(req, techName, by){
     var asset=req.asset_name||req.department||'a request';
     var work=(req.work||'').trim();
     var subj='New maintenance assignment — '+asset;
-    var msg='Hi '+techName+',\n\n'+(by||'A coordinator')+' assigned you a maintenance request'+(asset?(' for "'+asset+'"'):'')+'.'+
-      (work?('\n\nWhat’s needed:\n"'+work+'"'):'')+
-      (req.reporter?('\n\nReported by: '+req.reporter+(req.department?(' ('+req.department+')'):'')):'')+
-      '\n\nOpen the maintenance app to see the details and mark it done.\n\nThis is an automated message — please do not reply.\n\n— Brunswick Bierworks Maintenance';
-    ejsSend({ to_email:to, subject:subj, message:msg, reporter:req.reporter||'', asset_name:asset, photos:'' }).catch(function(){});
+    // Structured fields drive the new template (Option B); message is kept as a fallback
+    // so the email still reads fine if the template hasn't been updated yet.
+    var rep=req.reporter?(req.reporter+(req.department?(' · '+req.department):'')):'';
+    var rows=[{label:'Task',value:(work||'(see the app for details)')},{label:'Asset',value:asset}];
+    if(by)rows.push({label:'Assigned by',value:by});
+    if(rep)rows.push({label:'Reported by',value:rep});
+    var msg='Hi '+techName+',\n'+(by||'A coordinator')+' assigned you a maintenance request'+(asset?(' for "'+asset+'"'):'')+'.'+
+      (work?('\nWhat’s needed: "'+work+'"'):'')+
+      (rep?('\nReported by: '+rep):'')+
+      '\nOpen the maintenance app to see the details and mark it done.';
+    ejsSend({ to_email:to, subject:subj, structured:true, kicker:'New assignment'+(techName?(' for '+techName):''), rows:rows, message:msg, reporter:req.reporter||'', asset_name:asset, photos:'' }).catch(function(){});
   }catch(e){}
 }
 function userRemoveConfirm(name){
