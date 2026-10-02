@@ -160,13 +160,12 @@ function buildDigest(overdue, dueSoon, today) {
 async function main() {
   const now = val('at') ? new Date(val('at')) : new Date();
   const { date: today, hour } = torontoParts(now);
-  const bypassGate = FORCE || DRY || flag('now');
-
   console.log(`Overdue digest · ${today} · Toronto hour=${hour} · buffer=${BUFFER}d · dry=${DRY}`);
 
-  // Hour-gate: cron fires 11:00 & 12:00 UTC so one of them lands in the 7:00 Toronto
-  // hour in BOTH DST and EST; the off-hour fire exits here, dedup covers the rest.
-  if (!bypassGate && hour !== SEND_HOUR) { console.log(`Not the send hour (${SEND_HOUR}:00 Toronto) — exiting.`); return; }
+  // No hour-gate: the cron fires twice (11:00 & 12:00 UTC) so a morning run always lands
+  // in both DST and EST. The once-per-day dedup lock below (claim OVERDUE_<date>) makes the
+  // FIRST run send and the SECOND log "Already sent today" and exit — so it sends exactly
+  // once per day without the confusing "wrong hour, exiting" run that looked like a failure.
 
   if (!SB_URL || !SB_KEY) throw new Error('SUPABASE_URL / SUPABASE_KEY missing');
 
