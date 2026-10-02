@@ -1003,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v184';
+var APP_BUILD='BBW CMMS build v185';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3188,9 +3188,11 @@ function reqAddNote(id){
 }
 function reqAssign(id,name){
   var r=REQUESTS.filter(function(x){return ''+x.id===''+id;})[0]; if(!r)return;
+  var prev=r.assignee||'';
   sbFetch('bbw_requests?id=eq.'+id,{method:'PATCH',body:JSON.stringify({assignee:name||null})})
     .then(function(){
       r.assignee=name||'';
+      try{ if(name && canonName(name)!==canonName(prev)) notifyAssignee(r, name, user); }catch(e){}
       REQUESTS=[]; return loadRequests();
     })
     .then(function(){ drawRequests(); try{if(gid('req-detail-pane')&&isDesktop())openRequest(id);}catch(e){} })
@@ -11418,7 +11420,7 @@ function renderUserRoster(){
     H+='<button onclick="userActions(\''+jsq(u.name)+'\')" style="width:100%;text-align:left;display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 13px;margin-bottom:8px;cursor:pointer;opacity:'+op+'">'+
       '<div style="width:34px;height:34px;border-radius:50%;background:var(--surface-2);color:#2563eb;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex:none">'+aeEsc((''+(u.name||'?')).slice(0,1).toUpperCase())+'</div>'+
       '<div style="flex:1;min-width:0"><div style="font-size:14.5px;font-weight:600;color:var(--text)">'+aeEsc(u.name)+' <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:'+(u.role==='editor'?'rgba(37,99,235,.13);color:#2563eb':'var(--surface-3);color:var(--text-3)')+'">'+(u.role==='editor'?'EDITOR':'TECH')+'</span></div>'+
-        '<div style="font-size:11.5px;color:var(--text-3);margin-top:1px">'+(st==='removed'?'removed':(oc+' open PM'+(oc===1?'':'s')))+'</div></div>'+
+        '<div style="font-size:11.5px;color:var(--text-3);margin-top:1px">'+(st==='removed'?'removed':(oc+' open PM'+(oc===1?'':'s')))+(u.email?'  ·  ✉ '+aeEsc(u.email):'')+'</div></div>'+
       '<span style="width:8px;height:8px;border-radius:50%;background:'+dot+';flex:none"></span><span style="font-size:11px;font-weight:600;color:'+dot+'">'+stTxt+'</span></button>';
   });
   box.innerHTML=H;
@@ -11430,6 +11432,7 @@ function userActions(name){
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:840;display:flex;align-items:flex-end;justify-content:center';
   var oc=userOpenCount(u.name), acts='';
   if(u.status!=='removed'){
+    acts+='<div class="uarow" onclick="userSetEmail(\''+jsq(u.name)+'\')"><span style="color:#2563eb">\u2709</span> '+(u.email?'Change email':'Set email')+'<span class="uasub">'+(u.email?aeEsc(u.email):'none yet \u2014 needed to email them when you assign a request')+'</span></div>';
     acts+='<div class="uarow" onclick="userToggle(\''+jsq(u.name)+'\')"><span style="color:#d97706">'+(u.status==='paused'?'\u25b6':'\u23f8')+'</span> '+(u.status==='paused'?'Resume access':'Pause access')+'<span class="uasub">'+(u.status==='paused'?'let them log in again':'hide from login; keeps assignments & history')+'</span></div>';
     var _or=(u.role==='editor')?'tech':'editor';
     acts+='<div class="uarow" onclick="userSetRole(\''+jsq(u.name)+'\',\''+_or+'\')"><span style="color:#2563eb">\u2699</span> Make '+(_or==='editor'?'Editor':'Technician')+'<span class="uasub">'+(_or==='editor'?'can edit CMMS, reports & users':'standard technician access')+'</span></div>';
@@ -11459,6 +11462,30 @@ function userSetRole(name,role){
   u.role=(role==='editor')?'editor':'tech';
   saveUsers().then(function(){ rebuildRoster(); renderUserRoster(); try{toast(name+' is now '+(u.role==='editor'?'an Editor':'a Technician'));}catch(e){} });
   closeUserAct();
+}
+function userSetEmail(name){
+  var u=userRec(name); if(!u)return;
+  closeUserAct();
+  var v=prompt('Email for '+name+' (used to notify them when a request is assigned to them):', u.email||'');
+  if(v==null)return; v=(''+v).trim();
+  if(v&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ alert('That doesn’t look like a valid email.'); return; }
+  u.email=v||null;
+  saveUsers().then(function(){ rebuildRoster(); renderUserRoster(); try{toast(v?(name+' email saved'):(name+' email cleared'));}catch(e){} });
+}
+// Email the tech a request was just assigned to (if they have an email on file).
+function notifyAssignee(req, techName, by){
+  try{
+    var rec=(typeof userRec==='function')?userRec(techName):null;
+    var to=rec&&rec.email; if(!to)return;
+    var asset=req.asset_name||req.department||'a request';
+    var work=(req.work||'').trim();
+    var subj='New maintenance assignment — '+asset;
+    var msg='Hi '+techName+',\n\n'+(by||'A coordinator')+' assigned you a maintenance request'+(asset?(' for "'+asset+'"'):'')+'.'+
+      (work?('\n\nWhat’s needed:\n"'+work+'"'):'')+
+      (req.reporter?('\n\nReported by: '+req.reporter+(req.department?(' ('+req.department+')'):'')):'')+
+      '\n\nOpen the maintenance app to see the details and mark it done.\n\nThis is an automated message — please do not reply.\n\n— Brunswick Bierworks Maintenance';
+    ejsSend({ to_email:to, subject:subj, message:msg, reporter:req.reporter||'', asset_name:asset, photos:'' }).catch(function(){});
+  }catch(e){}
 }
 function userRemoveConfirm(name){
   closeUserAct();
