@@ -1003,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v186';
+var APP_BUILD='BBW CMMS build v187';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2483,10 +2483,12 @@ function notifyForkliftTeam(payload){
       ejsSend({
         to_email:to,
         subject:payload.subject||'Forklift help request',
-        message:(payload.body||'')
-                +_photoBlock(payload.photos)
-                +'\n\n\u2014\nPlease check the BBW Forklift dashboard for more details.'
-                +'\n\nThis is an automated message \u2014 please do not reply to this email.',
+        structured:true,
+        kicker:'Forklift help request',
+        body:(payload.body||'')+_photoBlock(payload.photos),
+        cta_url:'https://bbwmaint.github.io/log/',
+        cta_label:'Open the dashboard',
+        message:(payload.body||'')+_photoBlock(payload.photos),
         reporter:payload.reporter||'',
         asset_name:payload.asset_name||'Forklift Help',
         photos:''
@@ -9879,14 +9881,14 @@ function notifyRequester(req, kind, detail, by){
       subj='Your maintenance request is now '+human+' \u2014 '+asset;
       msg='Hi '+(req.reporter||'')+',\n\nThe status of your maintenance request for "'+asset+'" has changed to: '+human+byS+'.'+reqBlock+autoFooter+'\n\n\u2014 Brunswick Bierworks Maintenance';
     } else { return; }
-    ejsSend({
-      to_email:to,
-      subject:subj,
-      message:msg,
-      reporter:req.reporter||'',
-      asset_name:asset,
-      photos:''
-    }).catch(function(){});
+    // Fielded layout to match the rest; requester emails get no "open the app" button.
+    var _kick, _rows=[];
+    if(kind==='note'){ _kick='New note on your request'; _rows.push({label:'Note',value:detail||''}); }
+    else { _kick='Request update'; _rows.push({label:'Status',value:(typeof human!=='undefined'?human:detail)}); }
+    _rows.push({label:'Asset',value:asset});
+    if(by)_rows.push({label:(kind==='note'?'Added by':'Updated by'),value:by});
+    if(origReq)_rows.push({label:'Your request',value:origReq});
+    ejsSend({ to_email:to, subject:subj, structured:true, kicker:_kick, rows:_rows, has_rows:true, message:msg, reporter:req.reporter||'', asset_name:asset, photos:'' }).catch(function(){});
   }catch(e){}
 }
 // Photo links belong with the request text, not after the sign-off. Build a labelled
@@ -9904,13 +9906,15 @@ function notifyMaintenance(payload){
    ejsSend({
      to_email:MAILTO,
      subject:payload.subject||('BBW Maintenance \u2014 '+(payload.type||'notification')),
-     message:(payload.body||payload.message||'')
-             +_photoBlock(payload.photos)
-             +'\n\n\u2014\nPlease check the BBW Log for more details: https://bbwmaint.github.io/log/'
-             +'\n\nThis is an automated message \u2014 please do not reply to this email.',
+     structured:true,
+     kicker:(payload.type?('New '+payload.type):'Notification'),
+     body:(payload.body||payload.message||'')+_photoBlock(payload.photos),
+     cta_url:'https://bbwmaint.github.io/log/',
+     cta_label:'Open the Maintenance Log',
+     message:(payload.body||payload.message||'')+_photoBlock(payload.photos),
      reporter:payload.reporter||payload.operator||'',
      asset_name:payload.asset_name||payload.asset||'',
-     photos:''   // links are inside the message above, in the right place
+     photos:''
    }).catch(function(){});
  }catch(e){}
 }
@@ -11490,7 +11494,7 @@ function notifyAssignee(req, techName, by){
       (work?('\nWhat’s needed: "'+work+'"'):'')+
       (rep?('\nReported by: '+rep):'')+
       '\nOpen the maintenance app to see the details and mark it done.';
-    ejsSend({ to_email:to, subject:subj, structured:true, kicker:'New assignment'+(techName?(' for '+techName):''), rows:rows, message:msg, reporter:req.reporter||'', asset_name:asset, photos:'' }).catch(function(){});
+    ejsSend({ to_email:to, subject:subj, structured:true, kicker:'New assignment'+(techName?(' for '+techName):''), rows:rows, has_rows:true, cta_url:'https://bbwmaint.github.io/log/', cta_label:'Open the Maintenance Log', message:msg, reporter:req.reporter||'', asset_name:asset, photos:'' }).catch(function(){});
   }catch(e){}
 }
 function userRemoveConfirm(name){
