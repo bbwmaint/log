@@ -1,0 +1,59 @@
+name: BBW overdue requests
+
+# Emails one plain-text OVERDUE REQUESTS digest to the shared maintenance inbox
+# every morning — barcode work requests still open past the stale threshold
+# (default 4 days), grouped by the assigned tech, so a request can't quietly sit
+# unactioned. Sibling of the overdue PM digest.
+#
+# Cron fires at 11:30 AND 12:30 UTC (half an hour after the PM digest so the two
+# don't land in the same minute); the once-a-day lock in bbw_report_sent
+# (OVERDUEREQ_<date>) makes exactly one of them send. Sent only when something is
+# actually overdue. Also runnable by hand (tick dry_run to preview, force to send
+# now, always to send even when nothing is overdue).
+on:
+  schedule:
+    - cron: '30 11,12 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print the email instead of sending it'
+        type: boolean
+        default: false
+      force:
+        description: 'Send now — skip the once-a-day lock'
+        type: boolean
+        default: false
+      always:
+        description: 'Send even when nothing is overdue'
+        type: boolean
+        default: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # Built-in fetch only — no npm install, no Chromium. Runs in a second.
+      - name: Send overdue requests digest
+        env:
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
+          EMAILJS_PUBLIC_KEY:  ${{ secrets.EMAILJS_PUBLIC_KEY }}
+          EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
+          EMAILJS_SERVICE:     ${{ vars.EMAILJS_SERVICE  || 'service_q7rtzse' }}
+          EMAILJS_TEMPLATE:    ${{ vars.EMAILJS_TEMPLATE || 'template_i01whhv' }}
+          # Whole maintenance team. Override with repo variable DIGEST_TO
+          # (comma-separated); defaults to the shared maintenance inbox.
+          DIGEST_TO:           ${{ vars.DIGEST_TO || 'maintenancebbw@brunswickbierworks.com' }}
+          # A request open this many days counts as overdue. Override with repo
+          # variable REQUEST_STALE_DAYS.
+          REQUEST_STALE_DAYS:  ${{ vars.REQUEST_STALE_DAYS || '4' }}
+          APP_URL:             ${{ vars.APP_URL || 'https://bbwmaint.github.io/log/' }}
+        run: |
+          node scripts/overdue-requests.mjs \
+            ${{ inputs.dry_run && '--dry-run' || '' }} \
+            ${{ inputs.force   && '--force'   || '' }} \
+            ${{ inputs.always  && '--always'  || '' }}
