@@ -1003,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v189';
+var APP_BUILD='BBW CMMS build v190';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -9479,7 +9479,14 @@ function pmInfoPDF(pl){
     T(pillLbl,pillX+pillW/2,pillY+14,8,'bold',[255,255,255],'center');
     T('PM '+(pl.code||''),M,y-3,8,'bold',SUB);
     y+=13;
-    doc.splitTextToSize((pl.name||'PM'),CW-pillW-16).slice(0,2).forEach(function(l){T(l,M,y,19,'bold',INK);y+=22;});
+    // Measure at the real title size (not the 8pt left over from the pill) and shrink
+    // until it fits two lines inside the width left of the status pill, so a long PM
+    // name never runs under the SCHEDULED/OVERDUE pill.
+    var titleW=CW-pillW-16, tfs=19, tlines;
+    doc.setFont(F,'bold');
+    while(tfs>=12){ doc.setFontSize(tfs); tlines=doc.splitTextToSize((pl.name||'PM'),titleW); if(tlines.length<=2)break; tfs-=1; }
+    if(tlines.length>2)tlines=tlines.slice(0,2);
+    tlines.forEach(function(l){ T(l,M,y,tfs,'bold',INK); y+=tfs+3; });
     var _assetStr=(pl.asset||'—'); if(pl.assetCode&&(''+_assetStr).indexOf(pl.assetCode)<0)_assetStr+='  ('+pl.assetCode+')';
     T(_assetStr,M,y,10.5,'normal',SUB);
     y+=20;
@@ -9495,9 +9502,11 @@ function pmInfoPDF(pl){
       // frequency strings ("Every 3 months on the 1st") don't bleed into the next tile.
       doc.setFont(F,'bold'); var fs=13,lines;
       while(fs>=7){ doc.setFontSize(fs); lines=doc.splitTextToSize(s,maxW); if(lines.length<=2)break; fs-=1; }
-      if(lines.length>2)lines=lines.slice(0,2);
-      if(lines.length<=1){ T(lines[0]||'—',x+9,cy+34,fs,'bold',INK); }
-      else { var yy=cy+29; lines.forEach(function(l){ T(l,x+9,yy,fs,'bold',INK); yy+=fs+1; }); }
+      // Extremely long values (e.g. a full weekday list) get a 3rd line at the min size
+      // rather than being cut off; normal/medium strings still render on two lines.
+      if(lines.length>2){ fs=6.8; doc.setFontSize(fs); lines=doc.splitTextToSize(s,maxW); if(lines.length>3)lines=lines.slice(0,3); }
+      var n=lines.length, yy=(n<=1?cy+34:(n===2?cy+29:cy+27));
+      lines.forEach(function(l){ T(l,x+9,yy,fs,'bold',INK); yy+=fs+1; });
     }
     kcard(0,'Frequency',pl.freq||'—');
     kcard(1,'Type',pl.type||'Preventive');
@@ -9509,10 +9518,17 @@ function pmInfoPDF(pl){
     section('Schedule');
     var bw=(CW-gap)/2,bh=58;
     function bigCard(x,label,val,sub,valCol){
+      var inW=bw-22;
       dc(HAIR);doc.setLineWidth(.8);fc([255,255,255]);doc.roundedRect(x,y,bw,bh,5,5,'FD');
       T(label.toUpperCase(),x+11,y+16,7,'bold',SUB);
-      T(String(val),x+11,y+36,15,'bold',valCol||INK);
-      if(sub)T(String(sub),x+11,y+50,8.5,'normal',SUB);
+      // Shrink the value to fit the card so a long value can't spill past its edge.
+      var vs=String(val==null?'':val); doc.setFont(F,'bold'); var vfs=15;
+      while(vfs>=9){ doc.setFontSize(vfs); if(doc.getTextWidth(vs)<=inW)break; vfs-=1; }
+      T(vs,x+11,y+36,vfs,'bold',valCol||INK);
+      if(sub){ var ss=String(sub); doc.setFont(F,'normal');doc.setFontSize(8.5);
+        while(ss.length>1&&doc.getTextWidth(ss)>inW)ss=ss.slice(0,-1);
+        if(ss!==String(sub))ss=ss.slice(0,-1)+'…';
+        T(ss,x+11,y+50,8.5,'normal',SUB); }
     }
     // No logged completion -> fall back to the previous scheduled trigger date, so the
     // sheet always carries a "last completed" baseline instead of a blank.
