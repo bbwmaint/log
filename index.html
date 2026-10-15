@@ -1003,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v187';
+var APP_BUILD='BBW CMMS build v189';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -6591,6 +6591,19 @@ function pmAdvance(parsed, done){
 }
 function pmNextDueISO(freq, from){ var p=pmParseFreq(freq); var d=pmNextFrom(p, from||new Date()); return d?pmISO(d):null; }
 function pmAdvanceISO(freq, doneISO){ var p=pmParseFreq(freq); var d=pmAdvance(p, doneISO?new Date(doneISO+'T00:00:00'):new Date()); return d?pmISO(d):null; }
+// The scheduled occurrence ONE interval BEFORE `from` — the inverse of pmAdvance.
+// Used to show a baseline "last completed" for PMs never logged: the previous trigger
+// date before the next due (e.g. every 6 months on the 17th -> 6 months back on the 17th).
+function pmPrev(parsed, from){
+  from=pmDateOnly(from); if(!parsed) return null;
+  if(parsed.kind==='day'){ var d=new Date(from); d.setDate(d.getDate()-parsed.interval); return d; }
+  if(parsed.kind==='week'){ var base=new Date(from); base.setDate(base.getDate()-parsed.interval*7);
+    for(var i=0;i<14;i++){var w=new Date(base);w.setDate(w.getDate()-i);if(parsed.weekdays.indexOf(w.getDay())>=0)return w;} return base; }
+  if(parsed.kind==='month'){ var mo=from.getMonth()-parsed.interval, y=from.getFullYear(); var yy=y+Math.floor(mo/12); mo=((mo%12)+12)%12; return new Date(yy,mo,pmClampDay(yy,mo,parsed.day)); }
+  if(parsed.kind==='year'){ var ny=from.getFullYear()-parsed.interval; return new Date(ny,parsed.month,pmClampDay(ny,parsed.month,parsed.day)); }
+  return null;
+}
+function pmPrevISO(freq, fromISO){ var p=pmParseFreq(freq); if(!p||!fromISO)return null; var d=pmPrev(p, new Date(fromISO+'T00:00:00')); return d?pmISO(d):null; }
 // Schedule-driven "is this group PM due today?" (for assignee==='Technicians'). Catches next_due
 // up to today and fires ONLY when an occurrence lands exactly on today (a Friday check never fires
 // on Wednesday); missed occurrences collapse into today (today-only, no overdue pileup).
@@ -9501,8 +9514,17 @@ function pmInfoPDF(pl){
       T(String(val),x+11,y+36,15,'bold',valCol||INK);
       if(sub)T(String(sub),x+11,y+50,8.5,'normal',SUB);
     }
+    // No logged completion -> fall back to the previous scheduled trigger date, so the
+    // sheet always carries a "last completed" baseline instead of a blank.
+    var derivedLast='';
+    if(!lastDate){
+      try{ var baseNext=nextDue||pmNextDueISO(pl.freq,new Date()); if(baseNext)derivedLast=pmPrevISO(pl.freq,baseNext)||''; }catch(e){}
+    }
     if(lastDate){
       bigCard(M,'Last completed',lastDate,(pl.lastWho?('by '+pl.lastWho):''),GREEN);
+      bigCard(M+bw+gap,'Next due',nextDue||'—',(isOverdue?'Overdue':''),isOverdue?RED:INK);
+    } else if(derivedLast){
+      bigCard(M,'Last completed',derivedLast,'Based on schedule',GREEN);
       bigCard(M+bw+gap,'Next due',nextDue||'—',(isOverdue?'Overdue':''),isOverdue?RED:INK);
     } else {
       bigCard(M,'Next due',nextDue||'—',(isOverdue?'Overdue':''),isOverdue?RED:INK);
@@ -10803,6 +10825,34 @@ function invIsLow(i){ var q=parseFloat(i.qty), m=parseFloat(i.min_qty); return !
 // else sees it read-only, which is the point - the team can check status without
 // asking, and without being able to change it.
 var PORD=[], PORD_LOADED=false, PORD_TAB='stock', PORD_FILTER='open';
+// Supplier "address book" built from past orders, so a supplier's contact name
+// and email autofill next time it's used. _pordContactTouched guards manual edits.
+var _pordBook={}, _pordContactTouched=false;
+function pordBuildBook(){
+  _pordBook={};
+  PORD.forEach(function(x){
+    var s=((x.supplier||'')+'').trim().toLowerCase(); if(!s)return;
+    if(!_pordBook[s])_pordBook[s]={supplier:x.supplier,contact:'',email:''};
+    if(!_pordBook[s].contact && x.contact_name)_pordBook[s].contact=x.contact_name;
+    if(!_pordBook[s].email   && x.contact_email)_pordBook[s].email=x.contact_email;
+  });
+}
+function pordSupplierDatalist(){
+  var opts=Object.keys(_pordBook).map(function(s){
+    return '<option value="'+escHtml(_pordBook[s].supplier)+'"></option>';
+  }).join('');
+  return '<datalist id="pf-suppliers">'+opts+'</datalist>';
+}
+function pordFillContact(){
+  if(_pordContactTouched)return;                 // don't clobber what the user typed
+  var se=gid('pf-supplier'); if(!se)return;
+  var rec=_pordBook[((se.value||'')+'').trim().toLowerCase()];
+  if(!rec)return;
+  var c=gid('pf-contact'), e=gid('pf-cemail');
+  if(c&&rec.contact)c.value=rec.contact;
+  if(e&&rec.email)e.value=rec.email;
+}
+function pordTouchContact(){ _pordContactTouched=true; }
 var PORD_STAGES=[
   {k:'requested', l:'Requested',    c:'#64748b'},
   {k:'quoting',   l:'Waiting for quote', c:'#d97706'},
@@ -10880,6 +10930,12 @@ function pordDrawBody(){
        'border-radius:6px;padding:3px 8px;white-space:nowrap">'+st.l+'</span></div>';
     if(p.notes)H+='<div style="font-size:12.5px;color:var(--text-2);line-height:1.45;'+
        'margin-bottom:8px">'+rqEsc(p.notes)+'</div>';
+    if(p.contact_name||p.contact_email){
+      var cml=p.contact_email?('<a href="mailto:'+rqEsc(p.contact_email)+'" style="color:var(--accent);'+
+        'text-decoration:none">'+rqEsc(p.contact_email)+'</a>'):'';
+      H+='<div style="font-size:11.5px;color:var(--text-3);margin-bottom:8px">☎ '+
+         [p.contact_name?rqEsc(p.contact_name):'',cml].filter(Boolean).join(' · ')+'</div>';
+    }
     var meta=[];
     if(p.supplier)meta.push(rqEsc(p.supplier));
     if(p.po_no)meta.push('PO '+rqEsc(p.po_no));
@@ -10902,14 +10958,16 @@ function pordForm(id){
   var p=(id!=null)?PORD.filter(function(x){return ''+x.id===''+id;})[0]:null;
   p=p||{};
   var isNew=(id==null);
-  function fld(lbl,idd,val,ph,type){
+  function fld(lbl,idd,val,ph,type,extra){
     return '<div style="margin-bottom:11px"><label style="display:block;font-size:11px;font-weight:600;'+
       'color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">'+lbl+'</label>'+
       '<input id="'+idd+'" type="'+(type||'text')+'" value="'+escHtml(val==null?'':String(val))+'" '+
-      'placeholder="'+(ph||'')+'" style="width:100%;box-sizing:border-box;padding:11px;'+
+      'placeholder="'+(ph||'')+'" '+(extra||'')+' style="width:100%;box-sizing:border-box;padding:11px;'+
       'background:var(--surface-2);border:1px solid var(--border);border-radius:9px;'+
       'color:var(--text);font-size:15px"></div>';
   }
+  pordBuildBook();
+  _pordContactTouched=!!(p.contact_name||p.contact_email);
   var H='<div id="pord-form" onclick="if(event.target===this)pordClose()" '+
     'style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9300;display:flex;'+
     'align-items:flex-end;justify-content:center">'+
@@ -10938,7 +10996,12 @@ function pordForm(id){
   });
   H+='</div><input type="hidden" id="pf-stage" value="'+(p.stage||'requested')+'"></div>';
   H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
-     fld('Supplier','pf-supplier',p.supplier,'')+fld('PO number','pf-pono',p.po_no,'')+'</div>';
+     fld('Supplier','pf-supplier',p.supplier,'','text','list="pf-suppliers" oninput="pordFillContact()"')+
+     fld('PO number','pf-pono',p.po_no,'')+'</div>';
+  H+=pordSupplierDatalist();
+  H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
+     fld('Contact name','pf-contact',p.contact_name,'e.g. Rep name','text','oninput="pordTouchContact()"')+
+     fld('Contact email','pf-cemail',p.contact_email,'name@supplier.com','email','oninput="pordTouchContact()"')+'</div>';
   H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
      fld('Expected','pf-expected',p.expected,'','date')+
      fld('Requested by','pf-reqby',p.requested_by||(isNew?user:''),'')+'</div>';
@@ -10981,6 +11044,7 @@ function pordSave(id){
   var row={ item:item, part_no:v('pf-partno')||null, qty:v('pf-qty')||null,
     asset:v('pf-asset')||null, stage:v('pf-stage')||'requested',
     supplier:v('pf-supplier')||null, po_no:v('pf-pono')||null,
+    contact_name:v('pf-contact')||null, contact_email:v('pf-cemail')||null,
     expected:v('pf-expected')||null, requested_by:v('pf-reqby')||null,
     notes:v('pf-notes')||null, updated_by:user||null,
     updated_at:new Date().toISOString() };
