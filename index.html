@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#111111">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,6 +21,26 @@ var _t=(_bt==='dark')?'dark':'light';document.documentElement.setAttribute('data
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
+<style>
+/* Make the installed PWA behave like a fixed native app, not a zoomable web page. */
+html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; touch-action:manipulation; }
+html,body{ overscroll-behavior:none; }   /* no pull-to-refresh / rubber-band bounce */
+*{ -webkit-tap-highlight-color:transparent; }   /* no grey flash on tap */
+/* No long-press magnifier / "Copy" popup or stray text selection — but keep fields usable. */
+body{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+input,textarea,select,[contenteditable]{ -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
+</style>
+<script>
+/* Zoom lock: user-scalable=no stops zoom on Android, but iOS Safari ignores it, so we
+   also cancel the pinch gesture there. touch-action:manipulation (above) kills the
+   double-tap-to-zoom. Taps, scrolling and inputs are untouched. */
+(function(){
+  ['gesturestart','gesturechange','gestureend'].forEach(function(ev){
+    document.addEventListener(ev,function(e){ e.preventDefault(); },{passive:false});
+  });
+  document.addEventListener('wheel',function(e){ if(e.ctrlKey)e.preventDefault(); },{passive:false}); // trackpad/desktop pinch
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -844,14 +864,17 @@ select option,select optgroup{background:#1b1c20;color:#fff}
 <script>
 var ASSETS=[{"n": "Brunswick Bierworks", "c": "BBW1"}, {"n": "Building", "c": "A216"}, {"n": "Waste systems", "c": "BBWBWH1"}, {"n": "Cardboard Baler", "c": "CBBAIL"}, {"n": "Plastic Baler", "c": "PLBAIL"}, {"n": "Wastewater PIT", "c": "A247"}, {"n": "HVAC", "c": "A225"}, {"n": "Gas", "c": "A228"}, {"n": "Tap Room", "c": "A245"}, {"n": "Lab", "c": "A246"}, {"n": "Men's washroom", "c": "A267"}, {"n": "Women's washroom", "c": "A268"}, {"n": "Brewer's Office", "c": "A269"}, {"n": "Main Office", "c": "A270"}, {"n": "Warehouse", "c": "A271"}, {"n": "Brewing", "c": "A217"}, {"n": "20HL Brewhouse", "c": "BBW20HL"}, {"n": "20HL Mash Kettle", "c": "20HMK1"}, {"n": "20HL Lauter Tun", "c": "20HLT1"}, {"n": "20HL Whirlpool", "c": "20HWP1"}, {"n": "20HL Fermenters", "c": "20HFRM"}, {"n": "20HL Scale Hopper", "c": "20HSCH1"}, {"n": "20HL Heat Exchanger", "c": "20HHEX1"}, {"n": "20HL Portable Pump", "c": "20HPP1"}, {"n": "50HL Brewhouse", "c": "BBW50HL"}, {"n": "50HL Mash Tun", "c": "50HMT1"}, {"n": "50HL Lauter Tun", "c": "50HLT1"}, {"n": "50HL Kettle", "c": "50HKTL1"}, {"n": "50HL Whirlpool", "c": "50HWP1"}, {"n": "50HL Heat Exchanger", "c": "50HHEX1"}, {"n": "50HL CIP Set", "c": "50HCIP1"}, {"n": "50HL Scale Hopper", "c": "50HSCH1"}, {"n": "Spent Grain Removal", "c": "SGR1"}, {"n": "50 Hl Wort receiver", "c": "A261"}, {"n": "Yeast Room", "c": "BBWYR1"}, {"n": "Hops Room", "c": "BBWHR1"}, {"n": "Grain Handling", "c": "BBWGH1"}, {"n": "Malt Mill", "c": "MM1"}, {"n": "Chainvey Drive - Bin to Mill", "c": "1M001"}, {"n": "Specialty Malt Flex Auger", "c": "1M002"}, {"n": "Malt Mill Feed Motor", "c": "1M003-3"}, {"n": "Hot and Cold Liquor Tanks", "c": "BBWHLCLT"}, {"n": "Hot Liquor Tank", "c": "HLT1"}, {"n": "Cold Liquor Tank", "c": "CLT"}, {"n": "Utilities", "c": "A219"}, {"n": "Boiler", "c": "BBWBR1"}, {"n": "Glycol", "c": "A220"}, {"n": "Air", "c": "A221"}, {"n": "Water", "c": "A230"}, {"n": "CO2", "c": "A222"}, {"n": "Electricity", "c": "A231"}, {"n": "Spare Parts", "c": "A224"}, {"n": "Old Maintenance", "c": "MAINT"}, {"n": "New Maintenance", "c": "KFCAB"}, {"n": "Miscellaneous", "c": "A232"}, {"n": "Forklift", "c": "PWRLFT"}, {"n": "Power Walkie", "c": "PWRWLK"}, {"n": "Floor Scrubber", "c": "A194"}, {"n": "Cellar", "c": "A272"}, {"n": "Fermenting Cellar", "c": "BBWFC1"}, {"n": "Bright Beer Cellar", "c": "BBWBBC1"}, {"n": "Centrifuge", "c": "BBWCF1"}, {"n": "GEA Centrifuge", "c": "CF1"}, {"n": "Centrifuge Pump", "c": "CFP1"}, {"n": "Deaerator", "c": "A236"}, {"n": "Flash Pasteurizer", "c": "A258"}, {"n": "CIP SKID-#A282_ CIP SKID", "c": "A282"}, {"n": "Hopp Egg pump (PD pump)", "c": "A237"}, {"n": "Beer Filter Membrane Skid", "c": "A253"}, {"n": "Alcohol Skid", "c": "A254"}, {"n": "SCALES_ LOAD CEELS AND WEIGHING SCALES", "c": "A293"}, {"n": "Tetrahop pump", "c": "A350"}, {"n": "KRONES LINE 1", "c": "A315"}, {"n": "Videojets", "c": "A349"}, {"n": "FILLER", "c": "A316"}, {"n": "DEPALETTIZER", "c": "A317"}, {"n": "ECI", "c": "A318"}, {"n": "AIR RINSER", "c": "A319"}, {"n": "CHECKMAT 1", "c": "A320"}, {"n": "PASTEURIZER", "c": "A321"}, {"n": "CHECKMAT 2", "c": "A322"}, {"n": "DRYING TUNNEL 1", "c": "A323"}, {"n": "DRYING TUNNEL 2", "c": "A324"}, {"n": "VARIOPAC", "c": "A325"}, {"n": "PALLETIZER", "c": "A326"}, {"n": "RA J MERIDIAN", "c": "A331"}, {"n": "CSW", "c": "A351"}, {"n": "Drum Fans", "c": "A352"}, {"n": "Seamer", "c": "A361"}, {"n": "Logopak", "c": "A363"}, {"n": "Lantech Wrapper", "c": "A364"}, {"n": "Varioclean", "c": "A365"}, {"n": "Line Control #1", "c": "A366"}, {"n": "Line Control #2", "c": "A367"}, {"n": "Labeler #1", "c": "A368"}, {"n": "Labeler #2", "c": "A369"}, {"n": "Label Camera", "c": "A370"}, {"n": "Variopac Videojet", "c": "A371"}, {"n": "Conti-Flow", "c": "A373"}, {"n": "innovations and kegging", "c": "A329"}, {"n": "Keg Machine", "c": "KEGGING"}, {"n": "5L mini keg", "c": "A330"}, {"n": "RTD BLENDING B3", "c": "A332"}, {"n": "PDS", "c": "A335"}, {"n": "ALDOX", "c": "A336"}, {"n": "MIXER", "c": "A337"}, {"n": "DAW TANK 1", "c": "A338"}, {"n": "DAW TANK2", "c": "A339"}, {"n": "CIP", "c": "A340"}, {"n": "GNS 22%", "c": "A341"}, {"n": "RTD TANK 2", "c": "A342"}, {"n": "RTD TANK 1", "c": "A343"}, {"n": "RTD TANK 3", "c": "A344"}, {"n": "SIMPLE SYRUP TANK", "c": "A345"}];
 var GROUPS={"Line 1": ["KRONES LINE 1", "FILLER", "DEPALETTIZER", "ECI", "AIR RINSER", "CHECKMAT 1", "CHECKMAT 2", "PASTEURIZER", "DRYING TUNNEL 1", "DRYING TUNNEL 2", "VARIOPAC", "PALLETIZER", "RA J MERIDIAN", "CSW", "Drum Fans", "Seamer", "Logopak", "Lantech Wrapper", "Varioclean", "Line Control #1", "Line Control #2", "Labeler #1", "Labeler #2", "Label Camera", "Videojets", "TAPTONE", "Conti-Flow"], "Brewing": ["20HL Brewhouse", "20HL Mash Kettle", "20HL Lauter Tun", "20HL Whirlpool", "20HL Fermenters", "Hot Liquor Tank", "Cold Liquor Tank", "50HL Brewhouse", "50HL Mash Tun", "50HL Lauter Tun", "50HL Kettle", "50HL Whirlpool", "Malt Mill"], "Cellar": ["Fermenting Cellar", "Bright Beer Cellar", "GEA Centrifuge", "Flash Pasteurizer", "Beer Filter Membrane Skid", "Yeast Room"], "RTD/B3": ["RTD BLENDING B3", "PDS", "MIXER", "DAW TANK 1", "DAW TANK2", "RTD TANK 1", "RTD TANK 2", "RTD TANK 3", "SIMPLE SYRUP TANK"], "Utilities": ["Boiler", "Glycol", "Air", "Water", "CO2", "Electricity", "HVAC", "Gas", "Wastewater PIT"], "Facility": ["Forklift", "Power Walkie", "Floor Scrubber", "Building", "Warehouse", "Lab"]};
-var TECHS=["Praful", "Lahcen", "Viktor", "Adam", "Abin", "Akshay", "Anupam", "Maksym", "Sachin", "Sergei", "Yassine", "Yehor", "Vitalii"];
+// Keep the roster alphabetical everywhere it feeds a dropdown (login name, assignee,
+// Completed by, reassign). _azName is the single sort used for all of them.
+function _azName(a,b){ return (''+a).localeCompare((''+b),undefined,{sensitivity:'base'}); }
+var TECHS=["Abin","Akshay","Anupam","Lahcen","Luis","Maksym","Praful","Sachin","Sergei","Viktor","Vitalii","Yassine"].sort(_azName);
 // Some PMs were imported under a name that differs from the tech roster (e.g. "Akshaylal" == "Akshay").
 // Canonicalise so assignee<->user matching (My PMs, My Work, sorting) treats them as one person.
 var NAME_ALIAS={"Akshaylal":"Akshay"};
 function canonName(n){ n=(""+(n==null?"":n)).replace(/\u00a0/g," ").trim(); return NAME_ALIAS[n]||n; }
 function sameTech(a,b){ return canonName(a)===canonName(b); }
 var ADMIN="Praful";
-var EDITORS=["Praful","Lahcen"];   // can edit CMMS + Reports (audit control)
+var EDITORS=["Anupam","Lahcen","Luis","Praful","Viktor"];   // seed/offline fallback; live roster overrides
 // ── User roster (managed) ────────────────────────────────────────────────────
 // The live roster is stored in bbw_system id='users' as [{name,role,status,created}].
 // TECHS/EDITORS above are the seed + offline fallback; once the roster loads they are
@@ -862,7 +885,7 @@ function userRec(n){ if(!USERS)return null; n=canonName(n); for(var i=0;i<USERS.
 function rebuildRoster(){
   if(!USERS||!USERS.length)return;    // keep hardcoded fallback if nothing loaded
   var act=USERS.filter(function(u){return u&&u.status==='active';});
-  TECHS=act.map(function(u){return u.name;});
+  TECHS=act.map(function(u){return u.name;}).sort(_azName);
   EDITORS=act.filter(function(u){return u.role==='editor';}).map(function(u){return u.name;});
   try{ buildNames(); }catch(e){}
 }
@@ -1003,7 +1026,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v192';
+var APP_BUILD='BBW CMMS build v195';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
