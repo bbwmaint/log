@@ -1003,7 +1003,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v190';
+var APP_BUILD='BBW CMMS build v192';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2078,6 +2078,10 @@ var FILTERS=[];          // bbw_filters rows for current asset
 var DOC_BUCKET='bbw-docs';
 
 function isEditor(){ return EDITORS.indexOf(user)>=0; }
+// Three roles: Admin (Praful only) sees and controls everything including the More tab's
+// analytics/admin tools; Editor can edit every tab like Admin but the More tab is the
+// plain technician view; Technician is read/log-only.
+function isAdmin(){ return user===ADMIN; }
 function assetCodeFor(name){ var a=ASSETS.filter(function(x){return x.n===name;})[0]; return a?a.c:''; }
 function docCatLabel(c){ return c==='calibration'?T('doc_calibration'):c==='service'?T('doc_service'):c==='pm'?T('doc_pms'):T('doc_filters'); }
 function docToday(){ return new Date().toISOString().slice(0,10); }
@@ -8197,7 +8201,7 @@ function buildSideSections(tb){
   var who=(typeof user!=='undefined'&&user)?user:'';
   var ini=(''+(who||'?')).split(/\s+/).map(function(w){return w.charAt(0);})
            .join('').slice(0,2).toUpperCase();
-  var role=(typeof isEditor==='function'&&isEditor())?'Maintenance manager':'Technician';
+  var role=(typeof isAdmin==='function'&&isAdmin())?'Administrator':((typeof isEditor==='function'&&isEditor())?'Maintenance manager':'Technician');
   u.innerHTML='<span class="side-av">'+ini+'</span><span class="side-un">'+
     '<span class="side-n">'+(typeof rqEsc==='function'?rqEsc(who):'')+'</span>'+
     '<span class="side-r">'+role+'</span></span>';
@@ -8483,14 +8487,20 @@ function homeSpark(vals,w,h,col,plan){
 // log view is a shift tool. Anything reporting on a MONTH must not read from it:
 // doing so silently under-reported downtime by ~10x (2.6h shown vs 21h actual).
 // This pulls just the few columns needed, for 13 months, cached for the day.
-var STATS={key:null,rows:null,loading:false,at:0};
+var STATS={key:null,rows:null,loading:false,at:0,waiters:[]};
 var STATS_TTL=4*60*1000;   // re-pull after 4 minutes so other people's entries land
 function statsLoad(cb){
   var key=pmISO(new Date());
   var fresh=STATS.at&&(Date.now()-STATS.at)<STATS_TTL;
   if(STATS.rows&&STATS.key===key&&fresh){ cb&&cb(STATS.rows); return; }
-  if(STATS.loading){ cb&&cb(null); return; }
+  // Queue the callback rather than dropping it while a load is in flight — otherwise a
+  // second caller (e.g. the downtime drill opening while the dashboard card is still
+  // loading) would get cb(null) once and never hear when the rows actually land, which
+  // is what made the downtime numbers flip between 0 and the real total.
+  if(cb)STATS.waiters.push(cb);
+  if(STATS.loading)return;
   STATS.loading=true;
+  var fire=function(rows){ var ws=STATS.waiters.splice(0); ws.forEach(function(f){try{f(rows);}catch(e){}}); };
   var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-12);
   var from=pmISO(d);
   var base='bbw_worklog?select=id,date,downtime_hrs,machine_down,type,asset_name&date=gte.'+from+'&order=date.asc';
@@ -8502,9 +8512,9 @@ function statsLoad(cb){
                  md:(r.machine_down==='yes'||r.machine_down==='partial'),
                  type:r.type||'', asset:r.asset_name||'General' };
       });
-      cb&&cb(STATS.rows);
+      fire(STATS.rows);
     })
-    .catch(function(){ STATS.loading=false; cb&&cb(null); });
+    .catch(function(){ STATS.loading=false; fire(null); });
 }
 
 // Monthly team hours by category (PM/Log hours + requests closed) for the Home tab.
@@ -8637,16 +8647,24 @@ function renderHomeDrill(){
     body=_hdWORows(d2,true,false);
   } else if(kind==='downtime'){
     var mo=pmISO(new Date()).slice(0,7);
-    var src=(typeof STATS!=='undefined'&&STATS&&STATS.rows)?STATS.rows:[];
-    var ev=src.filter(function(r){return r&&(''+(r.date||'')).slice(0,7)===mo&&r.md&&(r.dt||0)>0;});
-    ev.sort(function(a,b){return (b.dt||0)-(a.dt||0);});
-    var tot=ev.reduce(function(a,r){return a+(r.dt||0);},0);
-    title='Downtime \u00b7 '+_hdMonthName(mo); sub=(Math.round(tot*10)/10)+'h across '+ev.length+' event'+(ev.length!==1?'s':'');
-    body=ev.length?ev.map(function(r){
-      var asset=rqEsc(r.asset||'\u2014'), hrs=(Math.round((r.dt||0)*10)/10), dtx=(''+(r.date||'')).slice(0,10);
-      var hasId=(r.id!=null&&r.id!==''); var op=hasId?(' onclick="try{closeHomeDrill();openLogById('+(+r.id||0)+');}catch(e){}"'):'';
-      return '<div'+op+' style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border)'+(hasId?';cursor:pointer':'')+'"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+'</div><div style="font-size:11px;color:var(--text-3)">'+dtx+'</div></div><div style="flex:none;font-size:14px;font-weight:800;color:#dc2626">'+hrs+'h</div></div>';
-    }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">No downtime logged this month.</div>';
+    var src=(typeof STATS!=='undefined'&&STATS&&STATS.rows)?STATS.rows:null;
+    if(!src){
+      // Full-month history not in yet \u2014 load it and re-render this drill when it lands,
+      // so the total always matches the dashboard card instead of flashing "0h / none".
+      try{ statsLoad(function(){ if(_homeDrill&&_homeDrill.kind==='downtime'&&gid('homedrill-modal'))renderHomeDrill(); }); }catch(e){}
+      title='Downtime \u00b7 '+_hdMonthName(mo); sub='Loading\u2026';
+      body='<div style="text-align:center;padding:36px;color:var(--text-3)">Loading this month\u2019s downtime\u2026</div>';
+    } else {
+      var ev=src.filter(function(r){return r&&(''+(r.date||'')).slice(0,7)===mo&&r.md&&(r.dt||0)>0;});
+      ev.sort(function(a,b){return (b.dt||0)-(a.dt||0);});
+      var tot=ev.reduce(function(a,r){return a+(r.dt||0);},0);
+      title='Downtime \u00b7 '+_hdMonthName(mo); sub=(Math.round(tot*10)/10)+'h across '+ev.length+' event'+(ev.length!==1?'s':'');
+      body=ev.length?ev.map(function(r){
+        var asset=rqEsc(r.asset||'\u2014'), hrs=(Math.round((r.dt||0)*10)/10), dtx=(''+(r.date||'')).slice(0,10);
+        var hasId=(r.id!=null&&r.id!==''); var op=hasId?(' onclick="try{closeHomeDrill();openLogById('+(+r.id||0)+');}catch(e){}"'):'';
+        return '<div'+op+' style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--border)'+(hasId?';cursor:pointer':'')+'"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+asset+'</div><div style="font-size:11px;color:var(--text-3)">'+dtx+'</div></div><div style="flex:none;font-size:14px;font-weight:800;color:#dc2626">'+hrs+'h</div></div>';
+      }).join(''):'<div style="text-align:center;padding:36px;color:var(--text-3)">No downtime logged this month.</div>';
+    }
   } else if(kind==='due'){
     var duel=[]; try{ duel=(typeof mwDue==='function')?(mwDue()||[]):[]; }catch(e){ duel=[]; }
     var tISO=pmISO(new Date());
@@ -8821,6 +8839,7 @@ function renderHome(){
   // ── downtime this month + 12-month completions/plan series
   var dtMonth=0, months=[], doneS=[], planS=[];
   var statRows=(STATS&&STATS.rows)?STATS.rows:null;
+  var dtReady=!!statRows;   // month downtime is only trustworthy once the full history is in
   if(!statRows)statsLoad(function(rows){ if(rows)homeRefresh(); });
   try{
     // Month-scale numbers come from statRows (full history). allE is only ~3 days,
@@ -8933,7 +8952,7 @@ function renderHome(){
   H+=kpi(hT('Open requests','\u0417\u0430\u044f\u0432\u043a\u0438'),I_MAIL,'#d97706',openReq,
         newReq?(newReq+' '+hT('new today','\u043d\u043e\u0432\u0438\u0445')):hT('open','\u0432\u0456\u0434\u043a\u0440\u0438\u0442\u043e'),
         'var(--text-3)',"homeDrill('requests')");
-  H+=kpi(hT('Downtime','\u041f\u0440\u043e\u0441\u0442\u0456\u0439'),I_ALERT,'#dc2626',dtMonth+'h',
+  H+=kpi(hT('Downtime','\u041f\u0440\u043e\u0441\u0442\u0456\u0439'),I_ALERT,'#dc2626',(dtReady?dtMonth+'h':'\u2026'),
         hT('this month','\u0446\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f'),'var(--text-3)',"homeDrill('downtime')");
   var lowN=0;
   try{ lowN=(typeof INV!=='undefined'?INV:[]).filter(function(i){return invIsLow(i);}).length; }catch(e){}
@@ -11791,7 +11810,7 @@ function renderMore(){
     key:'<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L20 3M17 6l2 2M14 9l2 2"/>',
     shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>'
   };
-  if(EDITORS.indexOf(user)>=0){
+  if(isAdmin){
     H+='<div class="more-sec-h">Analytics</div>';
     H+='<div class="more-tools">';
     H+=_mB('openDashboard()',ICO.dash,T('Maintenance Dashboard'));
