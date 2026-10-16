@@ -15,7 +15,10 @@
 if(localStorage.getItem('bbw_theme_v')!=='2'){_bt='light';localStorage.setItem('bbw_theme','light');localStorage.setItem('bbw_theme_v','2');}
 var _t=(_bt==='dark')?'dark':'light';document.documentElement.setAttribute('data-theme',_t);var _m=document.querySelector('meta[name="theme-color"]');if(_m)_m.setAttribute('content',_t==='light'?'#ffffff':'#111111');}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script>/* Status bar: light bar in light mode (crisp), dark bar in dark mode. iOS reads this
+   at launch, and data-theme is already set above, so it matches the stored theme. */
+try{var _sb=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');if(_sb)_sb.setAttribute('content',(document.documentElement.getAttribute('data-theme')==='dark')?'black':'default');}catch(e){}</script>
 <meta name="apple-mobile-web-app-title" content="BBW Maint">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
@@ -1026,7 +1029,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v195';
+var APP_BUILD='BBW CMMS build v198';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -8543,8 +8546,16 @@ function statsLoad(cb){
 // Monthly team hours by category (PM/Log hours + requests closed) for the Home tab.
 // Uses a slim, photo-free month fetch so Home stays fast; fills async into a placeholder.
 // Tap a tech on the Home widget → their logs, with Latest/Oldest + This-month/All-time filters.
-var _techLog={tech:'',sort:'desc',scope:'month'};
-function openTechLog(tech){ if(!tech)return; var _n=new Date(); _techLog={tech:tech,sort:'desc',scope:'month',month:_n.getFullYear()+'-'+String(_n.getMonth()+1).padStart(2,'0')}; renderTechLog(); }
+var _techLog={tech:'',sort:'desc',scope:'month',kind:'all'};
+function openTechLog(tech){ if(!tech)return; var _n=new Date(); _techLog={tech:tech,sort:'desc',scope:'month',kind:'all',month:_n.getFullYear()+'-'+String(_n.getMonth()+1).padStart(2,'0')}; renderTechLog(); }
+// Classify a worklog entry for the All/Logs/PMs/Requests filter. PM completions are
+// type 'pm'; request completions are written by logFromRequest as type 'completed' with a
+// "Reported by …" description; everything else is a manual log.
+function _techLogKind(e){
+  if(e&&e.type==='pm')return 'pms';
+  if(e&&e.type==='completed'&&/^\s*reported by /i.test(''+(e.desc||'')))return 'requests';
+  return 'logs';
+}
 function closeTechLog(){ var m=gid('techlog-modal'); if(m&&m.parentNode)m.parentNode.removeChild(m); }
 function techLogSet(k,v){ _techLog[k]=v; renderTechLog(); }
 // Month picker: 'all' = every month; otherwise YYYY-MM selects that one month.
@@ -8563,13 +8574,15 @@ function renderTechLog(){
   var host=gid('techlog-modal');
   if(!host){ host=document.createElement('div'); host.id='techlog-modal'; document.body.appendChild(host); }
   var tech=_techLog.tech, sort=_techLog.sort, scope=_techLog.scope;
-  var seg=function(k,v,lbl){var on=(_techLog[k]===v);return '<button onclick="techLogSet(\''+k+'\',\''+v+'\')" style="padding:7px 13px;border:none;border-radius:7px;background:'+(on?'#3b82f6':'transparent')+';color:'+(on?'#fff':'#42474f')+';font-size:12.5px;font-weight:'+(on?'700':'600')+';cursor:pointer">'+lbl+'</button>';};
+  var _ss='background:#f7f9fc;border:1px solid #e6e7eb;border-radius:9px;padding:7px 11px;font-size:12.5px;font-weight:600;color:#42474f;cursor:pointer;outline:none';
+  var drop=function(k,opts){return '<select onchange="techLogSet(\''+k+'\',this.value)" style="'+_ss+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(_techLog[k]===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';};
   host.innerHTML='<div onclick="if(event.target===this)closeTechLog()" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:650;display:flex;align-items:flex-start;justify-content:center;padding:calc(18px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));overflow-y:auto">'+
     '<div style="color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:14px;display:flex;flex-direction:column;max-height:calc(100vh - 36px);max-width:640px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.35)">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid #e6e7eb"><div style="font-size:17px;font-weight:800;color:#1f2430">'+rqEsc(tech)+' \u2014 logs</div><button onclick="closeTechLog()" style="background:none;border:none;font-size:24px;color:#9aa0aa;cursor:pointer;line-height:1;padding:0 4px">\u00d7</button></div>'+
       '<div style="display:flex;gap:8px;padding:12px 18px;flex-wrap:wrap;border-bottom:1px solid #eef0f3">'+
-        '<div style="display:inline-flex;background:#f7f9fc;border:1px solid #e6e7eb;border-radius:9px;padding:3px">'+seg('sort','desc','Latest first')+seg('sort','asc','Oldest first')+'</div>'+
-        '<select onchange="techLogSetMonth(this.value)" style="background:#f7f9fc;border:1px solid #e6e7eb;border-radius:9px;padding:7px 11px;font-size:12.5px;font-weight:600;color:#42474f;cursor:pointer;outline:none">'+techLogMonthOptions((scope==='all')?'all':(_techLog.month||''))+'</select>'+
+        drop('sort',[['desc','Latest first'],['asc','Oldest first']])+
+        '<select onchange="techLogSetMonth(this.value)" style="'+_ss+'">'+techLogMonthOptions((scope==='all')?'all':(_techLog.month||''))+'</select>'+
+        drop('kind',[['all','All'],['logs','Logs'],['pms','PMs'],['requests','Requests']])+
       '</div>'+
       '<div id="techlog-body" style="padding:14px 18px 20px;flex:1;min-height:0;overflow-y:auto"><div style="text-align:center;padding:30px;color:#9aa0aa">Loading\u2026</div></div>'+
     '</div></div>';
@@ -8582,6 +8595,7 @@ function renderTechLog(){
   sbFetchAll(q).then(function(rows){
     if(!Array.isArray(rows))rows=[];
     var entries=rows.map(wlRowToEntry);
+    if(_techLog.kind&&_techLog.kind!=='all'){ entries=entries.filter(function(e){ return _techLogKind(e)===_techLog.kind; }); }
     entries.sort(function(a,b){var av=''+(a.loggedAt||a.date||''),bv=''+(b.loggedAt||b.date||'');return sort==='asc'?av.localeCompare(bv):bv.localeCompare(av);});
     // Flag likely duplicate rows so inflated hours are easy to spot and clean up.
     // Signature = same date + start + end + description (+ asset), ignoring status —
@@ -12055,6 +12069,7 @@ function applyTheme(t){
   try{document.documentElement.setAttribute('data-theme',t);}catch(e){}
   try{localStorage.setItem('bbw_theme',t);}catch(e){}
   try{var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',t==='light'?'#ffffff':'#111111');}catch(e){}
+  try{var sb=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');if(sb)sb.setAttribute('content',t==='light'?'default':'black');}catch(e){}
   try{ syncLogos(t); }catch(e){}
   try{var ic=document.getElementById('theme-ic');if(ic)ic.innerHTML=(t==='light')
     ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6"/></svg>'
