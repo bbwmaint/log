@@ -88,7 +88,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   .pr-live{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:600;color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent);padding:3px 9px;border-radius:999px;white-space:nowrap}
   .pr-live i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
   .pr-empty{color:var(--text-3);font-size:13px;padding:6px 2px}
-  .pr-day{display:flex;align-items:center;gap:10px;margin:14px 2px 8px;font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--pr-ink)}
+  .pr-day{display:flex;align-items:center;gap:10px;margin:14px 2px 8px;font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--pr-ink);position:relative;z-index:1;background:var(--surface)}
   .pr-day::after{content:"";height:1px;flex:1;background:var(--border)}
   .pr-day .cnt{color:var(--text-3);font-weight:600}
   .pr-now{display:flex;align-items:center;gap:8px;margin:2px 0;padding-left:2px}
@@ -116,11 +116,11 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   .pr-gap{font-size:9.5px;color:var(--text-3);font-variant-numeric:tabular-nums;padding:1px 0 2px 26px}
   .pr-trow{display:none}
   .pr-dhead{display:none}
-  .pr-trans{display:flex;align-items:center;justify-content:center;gap:8px;padding:5px 0}
+  .pr-trans{display:flex;align-items:center;justify-content:center;gap:8px;padding:5px 0;position:relative;z-index:1;background:var(--surface)}
   .pr-pill{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;padding:3px 10px;border-radius:999px}
   .pr-trans.cip .pr-pill{color:var(--pr-cip);background:color-mix(in srgb,var(--pr-cip) 13%,transparent)}
   .pr-trans.co .pr-pill{color:var(--pr-steel);background:color-mix(in srgb,var(--pr-steel) 15%,transparent)}
-  .pr-shift{display:flex;align-items:center;gap:10px;margin:8px 0 4px}
+  .pr-shift{display:flex;align-items:center;gap:10px;margin:8px 0 4px;position:relative;z-index:1;background:var(--surface)}
   .pr-shift::before,.pr-shift::after{content:"";height:1px;flex:1;background:var(--border)}
   .pr-shift .s{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--pr-ink);white-space:nowrap}
   @media(min-width:780px){
@@ -1029,7 +1029,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v198';
+var APP_BUILD='BBW CMMS build v199';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
