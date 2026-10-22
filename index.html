@@ -1029,7 +1029,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v200';
+var APP_BUILD='BBW CMMS build v201';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -11138,7 +11138,7 @@ function pordDrawBody(){
 // ── Multi-part line rows in the order form (add/remove, like the work-log tech rows) ──
 function pfLineRow(l){
   l=l||{};
-  var inp='box-sizing:border-box;padding:9px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px';
+  var inp='box-sizing:border-box;min-width:0;width:100%;padding:9px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px';
   return '<div class="pf-line" style="border:1px solid var(--border);border-radius:10px;padding:9px 10px;margin-bottom:8px;background:var(--surface-2)">'+
     '<div style="display:flex;gap:8px;align-items:center">'+
       '<input class="pfl-item" value="'+escHtml(l.item||'')+'" placeholder="Item *" oninput="pfLineTotal()" style="flex:1;min-width:0;'+inp+'">'+
