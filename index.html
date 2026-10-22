@@ -1029,7 +1029,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v199';
+var APP_BUILD='BBW CMMS build v200';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4368,6 +4368,50 @@ function aeDelete(code){
     .catch(function(e){if(sv)sv.disabled=false;alert('Delete failed: '+((e&&e.message)||e));});
 }
 
+// Downloadable asset register — the plant grouped into its asset tree (group -> assets + codes).
+function assetTreePDF(){
+  try{
+    var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF engine not loaded yet — try again in a moment.');return;}
+    var doc=new JS({unit:'pt',format:'letter'}); try{pdfUnicode(doc);}catch(e){}
+    var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=44,y=0,F='helvetica';
+    var INK=[30,31,34],SUB=[122,124,132],HAIR=[226,227,231],GOLD=[30,58,95];
+    function sc(c){doc.setTextColor(c[0],c[1],c[2]);}
+    function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(String(t),x,yy,al?{align:al}:undefined);}
+    function ensure(h){if(y+h>H-52){doc.addPage();y=52;}}
+    var today=pmISO(new Date());
+    y=44;
+    if(window.__logoDark){try{var lh=26,lw=lh*((window.__logoW||498)/(window.__logoH||220));doc.addImage(window.__logoDark,'PNG',M,y-4,lw,lh);}catch(e){T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}}
+    else T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);
+    T('Asset Register',W-M,y+6,12.5,'bold',INK,'right');
+    T('Asset tree · '+today,W-M,y+20,9.5,'normal',SUB,'right');
+    y+=38; doc.setDrawColor(GOLD[0],GOLD[1],GOLD[2]);doc.setLineWidth(1.4);doc.line(M,y,W-M,y); y+=24;
+    var codeOf={}; ASSETS.forEach(function(a){codeOf[a.n]=a.c;});
+    var seen={};
+    function section(title,names){
+      ensure(46);
+      doc.setFillColor(GOLD[0],GOLD[1],GOLD[2]);doc.rect(M,y-9,3,13,'F');
+      T(title,M+10,y,12.5,'bold',INK);
+      T(names.length+' asset'+(names.length!==1?'s':''),W-M,y,9,'normal',SUB,'right');
+      y+=9; doc.setDrawColor(HAIR[0],HAIR[1],HAIR[2]);doc.setLineWidth(.7);doc.line(M,y,W-M,y); y+=15;
+      names.forEach(function(n){ ensure(16); seen[n]=1;
+        doc.setFillColor(SUB[0],SUB[1],SUB[2]);doc.circle(M+13,y-3.5,1.4,'F');
+        T(n,M+24,y,11,'normal',INK);
+        var c=codeOf[n]||''; if(c)T(c,W-M,y,9.5,'normal',SUB,'right');
+        y+=16;
+      });
+      y+=13;
+    }
+    Object.keys(GROUPS).forEach(function(g){ section(g,(GROUPS[g]||[]).slice()); });
+    var other=ASSETS.filter(function(a){return !seen[a.n];}).map(function(a){return a.n;});
+    if(other.length)section('Other',other);
+    var pages=doc.internal.getNumberOfPages();
+    for(var pi=1;pi<=pages;pi++){ doc.setPage(pi);
+      doc.setDrawColor(HAIR[0],HAIR[1],HAIR[2]);doc.setLineWidth(.7);doc.line(M,H-40,W-M,H-40);
+      T('Brunswick Bierworks · Asset register',M,H-26,8,'normal',SUB);
+      T('Generated '+today+'  ·  Page '+pi+' of '+pages,W-M,H-26,8,'normal',SUB,'right'); }
+    doc.save('BBW_Asset_Tree_'+today+'.pdf');
+  }catch(e){ try{alert('Could not generate PDF: '+e.message);}catch(_){} }
+}
 function renderAssets(){
   var el=gid('pane-assets');
   if(!el)return;
@@ -4426,6 +4470,8 @@ function renderAssets(){
   H+='<div style="font-size:22px;font-weight:800;color:#f97316">'+assets.length+'</div>';
   H+='<div style="font-size:10px;color:var(--text-2);text-transform:uppercase;margin-top:2px">'+T('assets')+'</div></div>';
   H+='</div>';
+  // Downloadable asset tree (whole plant, grouped) — handy as a printed reference.
+  H+='<button onclick="assetTreePDF()" style="width:100%;margin-bottom:14px;background:var(--surface-2);border:1px solid var(--border-2);color:var(--text);font-size:13px;font-weight:700;padding:11px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Download asset tree (PDF)</button>';
 
   // Month nav row
   var amStr=thisYear+'-'+String(thisMonth+1).padStart(2,'0');
@@ -10938,6 +10984,55 @@ function pordStage(k){
   for(var i=0;i<PORD_STAGES.length;i++)if(PORD_STAGES[i].k===k)return PORD_STAGES[i];
   return PORD_STAGES[0];
 }
+// ── Order line items (an order can hold several parts, each with part #, qty, cost) ──
+// Reads the stored `lines` JSON; falls back to the legacy single item/part_no/qty columns
+// so orders created before this change still display.
+function pordLines(p){
+  try{ if(p&&p.lines){ var a=(typeof p.lines==='string')?JSON.parse(p.lines):p.lines; if(Array.isArray(a)&&a.length)return a; } }catch(e){}
+  if(p&&(p.item||p.part_no||p.qty))return [{item:p.item||'',part_no:p.part_no||'',qty:p.qty||'',cost:''}];
+  return [];
+}
+function pordTotal(p){ return pordLines(p).reduce(function(s,l){ var q=parseFloat(l.qty)||0, c=parseFloat(l.cost)||0; return s+q*c; },0); }
+function fmtMoney(n){ n=Math.round((n||0)*100)/100; try{ return '$'+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }catch(e){ return '$'+n.toFixed(2); } }
+// Committed maintenance spend (non-cancelled orders), bucketed by order date.
+function pordSpend(){
+  var now=new Date(), y=now.getFullYear();
+  var wkStart=new Date(now); wkStart.setDate(now.getDate()-((now.getDay()+6)%7)); wkStart.setHours(0,0,0,0); // Monday
+  var moStart=new Date(y,now.getMonth(),1), yrStart=new Date(y,0,1);
+  var wk=0,mo=0,yr=0;
+  (PORD||[]).forEach(function(p){ if(p.stage==='cancelled')return; var t=pordTotal(p); if(!t)return;
+    var d=new Date(p.created_at||p.updated_at||0); if(isNaN(d))return;
+    if(d>=yrStart)yr+=t; if(d>=moStart)mo+=t; if(d>=wkStart)wk+=t; });
+  return {wk:wk,mo:mo,yr:yr};
+}
+// When an order is received, push each part into the stock (inventory) page: match an
+// existing stock row by part number (then item name) and add to its qty, else create one.
+function pordReceiveToStock(lines, meta){
+  meta=meta||{};
+  var folder=((meta.asset||'')+'').trim()||'Received';
+  var jobs=[];
+  (lines||[]).forEach(function(l){
+    var qty=parseFloat(l.qty)||0;
+    var pn=((''+(l.part_no||'')).trim()).toLowerCase();
+    var nm=((''+(l.item||'')).trim()).toLowerCase();
+    if(!qty && !pn && !nm)return;
+    var ex=null, i;
+    if(pn){ for(i=0;i<INV.length;i++){ if(((''+(INV[i].part_no||'')).trim()).toLowerCase()===pn){ ex=INV[i]; break; } } }
+    if(!ex && !pn && nm){ for(i=0;i<INV.length;i++){ if(((''+(INV[i].item||'')).trim()).toLowerCase()===nm){ ex=INV[i]; break; } } }
+    if(ex){
+      var newQty=(parseFloat(ex.qty)||0)+qty;
+      ex.qty=newQty;
+      jobs.push(sbFetch('bbw_inventory?id=eq.'+ex.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},
+        body:JSON.stringify({qty:newQty,updated_by:user||null,updated_at:new Date().toISOString()})}));
+    } else {
+      jobs.push(sbFetch('bbw_inventory',{method:'POST',headers:{'Prefer':'return=minimal'},
+        body:JSON.stringify({ folder:folder, item:(l.item||'Part'), qty:(qty||null), part_no:(l.part_no||null),
+          supplier:(meta.supplier||null), notes:(meta.po_no?('Received · PO '+meta.po_no):'Received from order'),
+          updated_by:user||null, updated_at:new Date().toISOString() })}));
+    }
+  });
+  return Promise.all(jobs);
+}
 function pordLoad(cb){
   sbFetchAll('bbw_part_orders?select=*&order=updated_at.desc')
     .then(function(rows){
@@ -10964,6 +11059,15 @@ function pordDrawBody(){
   var list=PORD_FILTER==='done'?done:open;
   var ed=isEditor();
   var H='';
+  // Maintenance spend (committed, non-cancelled orders) — this week / month / year to date.
+  var sp=pordSpend();
+  if(sp.yr||sp.mo||sp.wk){
+    var spTile=function(lbl,val){ return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:10px 8px;text-align:center">'+
+      '<div style="font-size:16px;font-weight:800;color:var(--text);letter-spacing:-.01em">'+val+'</div>'+
+      '<div style="font-size:9.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;margin-top:3px">'+lbl+'</div></div>'; };
+    H+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">'+
+       spTile('This week',fmtMoney(sp.wk))+spTile('This month',fmtMoney(sp.mo))+spTile('YTD',fmtMoney(sp.yr))+'</div>';
+  }
   // stage summary
   if(PORD_FILTER==='open'&&open.length){
     H+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">';
@@ -10990,16 +11094,23 @@ function pordDrawBody(){
              (''+p.expected)<pmISO(new Date());
     H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;'+
        'padding:13px 14px;margin-bottom:9px">';
+    var _ls=pordLines(p), _tot=pordTotal(p), _l0=_ls[0]||{};
+    var _more=_ls.length>1?('<span style="color:var(--text-3);font-weight:600;font-size:12px"> +'+(_ls.length-1)+' more</span>'):'';
+    var _subBits = (_ls.length>1)
+      ? [ _ls.length+' parts', p.asset?rqEsc(p.asset):'' ]
+      : [ _l0.part_no?('#'+rqEsc(_l0.part_no)):'', p.asset?rqEsc(p.asset):'', _l0.qty?('qty '+rqEsc(String(_l0.qty))):'' ];
     H+='<div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:6px">'+
        '<div style="flex:1;min-width:0">'+
          '<div style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:-.01em">'+
-         rqEsc(p.item||'\u2014')+'</div>'+
+         rqEsc((_l0.item||p.item)||'\u2014')+_more+'</div>'+
          '<div style="font-size:11.5px;color:var(--text-3);margin-top:2px">'+
-         [p.part_no?('#'+rqEsc(p.part_no)):'', p.asset?rqEsc(p.asset):'',
-          p.qty?('qty '+rqEsc(String(p.qty))):''].filter(Boolean).join(' \u00b7 ')+'</div>'+
+         _subBits.filter(Boolean).join(' \u00b7 ')+'</div>'+
        '</div>'+
+       '<div style="text-align:right;flex:none">'+
        '<span style="background:'+st.c+'1f;color:'+st.c+';font-size:10.5px;font-weight:700;'+
-       'border-radius:6px;padding:3px 8px;white-space:nowrap">'+st.l+'</span></div>';
+       'border-radius:6px;padding:3px 8px;white-space:nowrap">'+st.l+'</span>'+
+       (_tot>0?('<div style="font-size:12.5px;font-weight:800;color:var(--text);margin-top:5px">'+fmtMoney(_tot)+'</div>'):'')+
+       '</div></div>';
     if(p.notes)H+='<div style="font-size:12.5px;color:var(--text-2);line-height:1.45;'+
        'margin-bottom:8px">'+rqEsc(p.notes)+'</div>';
     if(p.contact_name||p.contact_email){
@@ -11023,6 +11134,39 @@ function pordDrawBody(){
     H+='</div></div>';
   });
   el.innerHTML=H;
+}
+// ── Multi-part line rows in the order form (add/remove, like the work-log tech rows) ──
+function pfLineRow(l){
+  l=l||{};
+  var inp='box-sizing:border-box;padding:9px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px';
+  return '<div class="pf-line" style="border:1px solid var(--border);border-radius:10px;padding:9px 10px;margin-bottom:8px;background:var(--surface-2)">'+
+    '<div style="display:flex;gap:8px;align-items:center">'+
+      '<input class="pfl-item" value="'+escHtml(l.item||'')+'" placeholder="Item *" oninput="pfLineTotal()" style="flex:1;min-width:0;'+inp+'">'+
+      '<button type="button" onclick="pfRemoveLine(this)" class="pfl-rm" style="flex:none;width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--bad);font-size:17px;cursor:pointer;line-height:1">×</button>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1.3fr .7fr .9fr;gap:7px;margin-top:7px">'+
+      '<input class="pfl-part" value="'+escHtml(l.part_no||'')+'" placeholder="Part #" style="'+inp+'">'+
+      '<input class="pfl-qty" type="number" step="any" min="0" value="'+escHtml(l.qty==null?'':String(l.qty))+'" placeholder="Qty" oninput="pfLineTotal()" style="'+inp+'">'+
+      '<input class="pfl-cost" type="number" step="any" min="0" value="'+escHtml(l.cost==null?'':String(l.cost))+'" placeholder="Cost/ea" oninput="pfLineTotal()" style="'+inp+'">'+
+    '</div></div>';
+}
+function pfAddLine(l){ var box=gid('pf-lines'); if(!box)return; box.insertAdjacentHTML('beforeend',pfLineRow(l||{})); pfSyncRemove(); pfLineTotal(); }
+function pfRemoveLine(btn){ var r=btn.closest?btn.closest('.pf-line'):null; if(!r){var n=btn;while(n&&!(n.className&&/pf-line/.test(n.className)))n=n.parentNode;r=n;} if(r)r.remove(); pfSyncRemove(); pfLineTotal(); }
+function pfSyncRemove(){ var rows=document.querySelectorAll('#pf-lines .pf-line'); Array.prototype.forEach.call(rows,function(r){ var b=r.querySelector('.pfl-rm'); if(b)b.style.visibility=(rows.length>1)?'visible':'hidden'; }); }
+function pfReadLines(){
+  var out=[];
+  Array.prototype.forEach.call(document.querySelectorAll('#pf-lines .pf-line'),function(r){
+    var item=(r.querySelector('.pfl-item').value||'').trim(), part=(r.querySelector('.pfl-part').value||'').trim();
+    var qty=(r.querySelector('.pfl-qty').value||'').trim(), cost=(r.querySelector('.pfl-cost').value||'').trim();
+    if(!item&&!part&&!qty&&!cost)return;
+    out.push({item:item, part_no:part, qty:qty, cost:cost});
+  });
+  return out;
+}
+function pfLineTotal(){
+  var t=0; Array.prototype.forEach.call(document.querySelectorAll('#pf-lines .pf-line'),function(r){
+    var q=parseFloat(r.querySelector('.pfl-qty').value)||0, c=parseFloat(r.querySelector('.pfl-cost').value)||0; t+=q*c; });
+  var el=gid('pf-total'); if(el)el.textContent=fmtMoney(t);
 }
 function pordForm(id){
   if(!isEditor()){ try{toast('Only maintenance management can edit parts orders',true);}catch(e){} return; }
@@ -11051,9 +11195,12 @@ function pordForm(id){
      '<button onclick="pordClose()" style="background:var(--surface-2);border:1px solid var(--border);'+
      'color:var(--text-2);width:31px;height:31px;border-radius:8px;cursor:pointer;font-size:15px">\u2715</button></div>';
   H+='<div style="overflow-y:auto;padding:14px 16px">';
-  H+=fld('Item *','pf-item',p.item,'e.g. Drive belt');
-  H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
-     fld('Part number','pf-partno',p.part_no,'')+fld('Qty','pf-qty',p.qty,'1')+'</div>';
+  // Parts (one or more line items)
+  H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'+
+     '<label style="font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em">Parts</label>'+
+     '<span style="font-size:12px;color:var(--text-3)">Total <b id="pf-total" style="color:var(--text)">$0.00</b></span></div>';
+  H+='<div id="pf-lines"></div>';
+  H+='<button type="button" onclick="pfAddLine()" style="width:100%;margin-bottom:13px;padding:10px;background:var(--surface-2);border:1px dashed var(--border);border-radius:9px;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer">+ Add part</button>';
   H+=fld('For asset','pf-asset',p.asset,'e.g. FILLER');
   // stage picker
   H+='<div style="margin-bottom:11px"><label style="display:block;font-size:11px;font-weight:600;'+
@@ -11095,6 +11242,8 @@ function pordForm(id){
      'style="flex:1;padding:13px;font-size:15px">Save</button>';
   H+='</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',H);
+  // Seed the line rows: existing lines, or the legacy single part, or one blank row.
+  var _ls=pordLines(p); if(!_ls.length)_ls=[{}]; _ls.forEach(function(l){ pfAddLine(l); });
 }
 function pordPickStage(k){
   var h=gid('pf-stage'); if(h)h.value=k;
@@ -11110,32 +11259,45 @@ function pordPickStage(k){
 function pordClose(){ var m=gid('pord-form'); if(m)m.remove(); }
 function pordSave(id){
   var v=function(i){ var e=gid(i); return e?(e.value||'').trim():''; };
-  var item=v('pf-item');
-  if(!item){ try{toast('Item name is required',true);}catch(e){} return; }
+  var lines=pfReadLines();
+  if(!lines.length||!lines[0].item){ try{toast('Add at least one part with an item name',true);}catch(e){} return; }
   var btn=gid('pf-save'); if(btn){btn.disabled=true;btn.textContent='Saving\u2026';}
-  var row={ item:item, part_no:v('pf-partno')||null, qty:v('pf-qty')||null,
-    asset:v('pf-asset')||null, stage:v('pf-stage')||'requested',
+  var isNew=(id==null||id==='null');
+  var orig=isNew?null:PORD.filter(function(x){return ''+x.id===''+id;})[0];
+  var alreadyStocked=!!(orig&&orig.stocked_at);
+  var stage=v('pf-stage')||'requested';
+  var row={ item:lines[0].item||null, part_no:lines[0].part_no||null, qty:lines[0].qty||null,
+    lines:JSON.stringify(lines),
+    asset:v('pf-asset')||null, stage:stage,
     supplier:v('pf-supplier')||null, po_no:v('pf-pono')||null,
     contact_name:v('pf-contact')||null, contact_email:v('pf-cemail')||null,
     expected:v('pf-expected')||null, requested_by:v('pf-reqby')||null,
     notes:v('pf-notes')||null, updated_by:user||null,
     updated_at:new Date().toISOString() };
-  var isNew=(id==null||id==='null');
   if(isNew)row.created_at=new Date().toISOString();
+  var toStock=(stage==='received'&&!alreadyStocked);
   var url=isNew?'bbw_part_orders':('bbw_part_orders?id=eq.'+id);
-  sbFetch(url,{method:isNew?'POST':'PATCH',headers:{'Prefer':'return=minimal'},
+  var done=function(){ pordClose(); loadInventory(function(){ pordLoad(function(){ pordDrawBody(); }); }); };
+  sbFetch(url,{method:isNew?'POST':'PATCH',headers:{'Prefer':(toStock?'return=representation':'return=minimal')},
     body:JSON.stringify(row)})
     .then(function(r){
       if(!(r.ok||r.status===201||r.status===204)){
-        return r.text().then(function(t){ throw new Error(t.slice(0,140)||('HTTP '+r.status)); });
+        return r.text().then(function(t){ throw new Error(t.slice(0,160)||('HTTP '+r.status)); });
       }
-      pordClose();
-      pordLoad(function(){ pordDrawBody(); });
+      if(!toStock){ done(); return; }
+      // First time received -> add the parts into stock, then stamp stocked_at so it never doubles.
+      var sidP = isNew ? r.json().then(function(a){return a&&a[0]&&a[0].id;}).catch(function(){return null;}) : Promise.resolve(id);
+      sidP.then(function(sid){
+        return pordReceiveToStock(lines,{asset:row.asset,supplier:row.supplier,po_no:row.po_no})
+          .then(function(){ return sid!=null ? sbFetch('bbw_part_orders?id=eq.'+sid,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({stocked_at:new Date().toISOString()})}) : null; });
+      }).then(done).catch(function(){ done(); }); // stock is best-effort; the order already saved
     })
     .catch(function(e){
       if(btn){btn.disabled=false;btn.textContent='Save';}
       var m=String(e.message||'');
-      if(/bbw_part_orders/.test(m)&&/does not exist|schema cache|PGRST/.test(m))
+      if(/bbw_part_orders/.test(m)&&/(does not exist|schema cache|PGRST|find)/i.test(m)&&/lines|stocked_at/.test(m))
+        alert('Run the parts-order update SQL in Supabase first (adds the "lines" and "stocked_at" columns).');
+      else if(/bbw_part_orders/.test(m)&&/does not exist|schema cache|PGRST/.test(m))
         alert('The parts-order table has not been created yet.\nRun the setup SQL in Supabase first.');
       else alert('Could not save: '+m);
     });
