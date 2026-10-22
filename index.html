@@ -1029,7 +1029,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v201';
+var APP_BUILD='BBW CMMS build v202';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -10961,6 +10961,15 @@ function pordSupplierDatalist(){
   }).join('');
   return '<datalist id="pf-suppliers">'+opts+'</datalist>';
 }
+// Current plant assets as a searchable dropdown, so "For asset" matches the asset tree
+// and tags cleanly into stock when the order is received. Sorted A-Z; code shown as a hint.
+function pordAssetDatalist(){
+  var opts=(ASSETS||[]).slice()
+    .sort(function(a,b){return (''+a.n).localeCompare(''+b.n,undefined,{sensitivity:'base'});})
+    .map(function(a){ return '<option value="'+escHtml(a.n)+'"'+(a.c?(' label="'+escHtml(a.c)+'"'):'')+'></option>'; })
+    .join('');
+  return '<datalist id="pf-assets">'+opts+'</datalist>';
+}
 function pordFillContact(){
   if(_pordContactTouched)return;                 // don't clobber what the user typed
   var se=gid('pf-supplier'); if(!se)return;
@@ -11201,7 +11210,8 @@ function pordForm(id){
      '<span style="font-size:12px;color:var(--text-3)">Total <b id="pf-total" style="color:var(--text)">$0.00</b></span></div>';
   H+='<div id="pf-lines"></div>';
   H+='<button type="button" onclick="pfAddLine()" style="width:100%;margin-bottom:13px;padding:10px;background:var(--surface-2);border:1px dashed var(--border);border-radius:9px;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer">+ Add part</button>';
-  H+=fld('For asset','pf-asset',p.asset,'e.g. FILLER');
+  H+=fld('For asset','pf-asset',p.asset,'Search assets…','text','list="pf-assets" autocomplete="off"');
+  H+=pordAssetDatalist();
   // stage picker
   H+='<div style="margin-bottom:11px"><label style="display:block;font-size:11px;font-weight:600;'+
      'color:var(--text-2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">Stage</label>'+
