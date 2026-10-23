@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v212';
+var APP_BUILD='BBW CMMS build v213';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -11549,13 +11549,22 @@ function pordDetail(id){
 function pordGrand(p){ return pordTotal(p)+(parseFloat(p&&p.shipping)||0)+(parseFloat(p&&p.tax)||0); }
 // ── Purchase Order PDF — exact Brunswick template, filled from an on-order order ──
 function pordPO(id){
+  // Lazy-load the Palatino-metric serif (PO title font) once, then generate.
+  if(window.PALATINO_BI){ _pordPO(id); return; }
+  var s=document.createElement('script'); s.src='po-fonts.js';
+  s.onload=function(){ _pordPO(id); }; s.onerror=function(){ _pordPO(id); };
+  document.head.appendChild(s);
+}
+function _pordPO(id){
   var p=PORD.filter(function(x){return ''+x.id===''+id;})[0];
   if(!p){ try{toast('Order not found',true);}catch(e){} return; }
   try{
     var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF engine not loaded yet — try again in a moment.');return;}
     var doc=new JS({unit:'pt',format:'letter'}); try{pdfUnicode(doc);}catch(e){}
-    var W=doc.internal.pageSize.getWidth(), MLX=40, MR=W-40, F='helvetica';
-    var INK=[34,34,38], SUB=[90,92,100], HAIR=[176,180,184], TEAL=[196,214,214], TEALT=[238,244,244];
+    var SERIF_BI='times', SERIF_IT='times';
+    try{ if(window.PALATINO_BI){ doc.addFileToVFS('P052BI.ttf',window.PALATINO_BI); doc.addFont('P052BI.ttf','Palatino','bolditalic'); SERIF_BI='Palatino'; } if(window.PALATINO_IT){ doc.addFileToVFS('P052IT.ttf',window.PALATINO_IT); doc.addFont('P052IT.ttf','Palatino','italic'); SERIF_IT='Palatino'; } }catch(e){}
+    var W=doc.internal.pageSize.getWidth(), MLX=50, MR=W-55, F='helvetica';
+    var INK=[34,34,38], SUB=[90,92,100], HAIR=[176,180,184], TEAL=[157,190,195], TEALT=[237,243,243];
     function sc(c){doc.setTextColor(c[0],c[1],c[2]);}
     function T(t,x,y,sz,st,col,al){doc.setFont(st&&st.f?st.f:F,(st&&st.s)||st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(String(t==null?'':t),x,y,al?{align:al}:undefined);}
     function line(x1,y1,x2,y2,c,w){doc.setDrawColor((c||HAIR)[0],(c||HAIR)[1],(c||HAIR)[2]);doc.setLineWidth(w||.7);doc.line(x1,y1,x2,y2);}
@@ -11568,7 +11577,7 @@ function pordPO(id){
     var y=40;
     if(window.__logoDark){ try{ var lh=50, lw=lh*((window.__logoW||498)/(window.__logoH||220)); doc.addImage(window.__logoDark,'PNG',MLX,y,lw,lh); }catch(e){ T('BRUNSWICK BIERWORKS',MLX,y+30,15,'bold',INK); } }
     else { T('BRUNSWICK BIERWORKS',MLX,y+30,15,'bold',INK); }
-    T('Purchase Order',MR,y+34,27,{f:'times',s:'bolditalic'},[40,40,46],'right');
+    T('Purchase Order',MR,y+34,27,{f:SERIF_BI,s:'bolditalic'},[40,40,46],'right');
     T('Date: '+dateStr,MR,y+58,9.5,'normal',SUB,'right');
     T('P.O. #:  '+poNum(),MR,y+72,9.5,'normal',SUB,'right');
     y=150;
@@ -11576,7 +11585,7 @@ function pordPO(id){
     T('25 Curity Avenue',MLX,y+15,11,'normal',INK);
     T('Toronto Ontario, M4B 3M2',MLX,y+30,11,'normal',INK);
     T('Tel: 416.285.1269',MLX,y+45,11,'normal',INK);
-    y=232; var RX=355, RXV=405;
+    y=209; var RX=376, RXV=413;
     T('Vendor',MLX,y,10,'normal',INK);
     T(p.supplier||'',MLX+62,y,10,'normal',INK);
     var va=((p.vendor_addr||'')+'').split(/\r?\n/).filter(function(s){return s.trim();});
@@ -11588,17 +11597,17 @@ function pordPO(id){
     T('25 Curity Ave',RXV,y+30,10,'normal',INK);
     T('Toronto, ON',RXV,y+45,10,'normal',INK);
     T('M4B 3M2',RXV,y+58,10,'normal',INK);
-    y=312; var nm='Lahcen Elghachi';
+    y=284; var nm='Lahcen Elghachi';
     doc.setFont(F,'bold');doc.setFontSize(10);var nmW=doc.getTextWidth(nm);
     T('This order placed by:  ',MR-nmW,y,10,'normal',INK,'right');
     T(nm,MR,y,10,'bold',INK,'right');
-    y=326; var t1=[MLX, MLX+205, MLX+410, MR];
+    y=291; var t1=[MLX, MLX+205, MLX+410, MR];
     rect(t1[0],y,t1[3]-t1[0],17,TEAL,HAIR); line(t1[1],y,t1[1],y+17,HAIR); line(t1[2],y,t1[2],y+17,HAIR);
     T('Delivery Time',t1[0]+6,y+12,9.5,'bold',INK); T('Quote/Order Number',t1[1]+6,y+12,9.5,'bold',INK);
     y+=17; rect(t1[0],y,t1[3]-t1[0],18,null,HAIR); line(t1[1],y,t1[1],y+18,HAIR); line(t1[2],y,t1[2],y+18,HAIR);
     T(p.delivery||'',t1[0]+6,y+12,9.5,'normal',INK); T(p.quote_no||'',t1[1]+6,y+12,9.5,'normal',INK);
-    y+=18+16;
-    var cx=[MLX, MLX+55, MLX+145, MLX+375, MLX+455, MR];
+    y+=18+4;
+    var cx=[MLX, 107, 188, 395, 478, MR];
     rect(cx[0],y,MR-MLX,17,TEAL,HAIR);
     for(var i=1;i<cx.length-1;i++)line(cx[i],y,cx[i],y+17,HAIR);
     T('Qty',cx[0]+6,y+12,9,'bold',INK); T('Item #',cx[1]+6,y+12,9,'bold',INK); T('Description',cx[2]+6,y+12,9,'bold',INK);
@@ -11606,11 +11615,11 @@ function pordPO(id){
     y+=17;
     var lns=pordLines(p);
     var rows=lns.map(function(l){ var q=parseFloat(l.qty)||0,c=parseFloat(l.cost)||0; return {qty:l.qty,item:l.part_no||'',desc:l.item||'',unit:c,total:q*c}; });
-    var ship=parseFloat(p.shipping)||0; if(ship>0)rows.push({qty:'1.00',item:'',desc:'FREIGHT / SHIPPING',unit:ship,total:ship});
+    var ship=parseFloat(p.shipping)||0; if(ship>0)rows.push({qty:'1.00',item:'',desc:'FREIGHT',unit:ship,total:ship});
     var MINROWS=11, alt=false, subtotal=0;
     function drawRow(r){
       var descLines=r?doc.splitTextToSize(String(r.desc||''), cx[3]-cx[2]-12):[''];
-      var rh=r?Math.max(26, descLines.length*12+12):20;
+      var rh=r?Math.max(26, descLines.length*12+12):18;
       rect(cx[0],y,MR-MLX,rh, alt?TEALT:[255,255,255], null);
       for(var i=1;i<cx.length-1;i++)line(cx[i],y,cx[i],y+rh,HAIR);
       line(cx[0],y+rh,cx[5],y+rh,HAIR);
@@ -11638,9 +11647,9 @@ function pordPO(id){
     T('Total',cx[4]-6,y+13,9.5,'bold',INK,'right'); rect(cx[4],y,MR-cx[4],18,TEALT,HAIR);
     T('$',cx[4]+6,y+13,10,'bold',INK); T(money2(total),cx[5]-6,y+13,10,'bold',INK,'right');
     y+=18;
-    var sy=y+54; line(390,sy,MR,sy,HAIR,.9);
-    T('Lahcen Elghachi',458,sy-5,10,'bold',INK,'center'); T(dateStr,545,sy-5,10,'bold',INK,'center');
-    T('Authorized by',458,sy+12,8.5,{f:'times',s:'italic'},SUB,'center'); T('Date',545,sy+12,8.5,{f:'times',s:'italic'},SUB,'center');
+    var sy=y+24; line(265,sy,MR,sy,HAIR,.9);
+    T('Lahcen Elghachi',303,sy-5,10,'bold',INK,'center'); T(dateStr,480,sy-5,10,'bold',INK,'center');
+    T('Authorized by',292,sy+12,8.5,{f:SERIF_IT,s:'italic'},SUB,'center'); T('Date',491,sy+12,8.5,{f:SERIF_IT,s:'italic'},SUB,'center');
     doc.save('BBW_PO_'+poNum()+'.pdf');
   }catch(e){ try{alert('Could not generate PO: '+e.message);}catch(_){} }
 }
