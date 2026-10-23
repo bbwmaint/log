@@ -1,6 +1,6 @@
 // BBW Work Log — Service Worker
 // Bump CACHE to force all devices onto fresh code + purge stale assets (e.g. old icon).
-const CACHE = 'bbw-b205';
+const CACHE = 'bbw-b206';
 
 // Precache the shell AND the icon set / manifest so they refresh in one shot.
 const PRECACHE = [
