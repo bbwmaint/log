@@ -169,8 +169,20 @@ async function main() {
 
   if (!SB_URL || !SB_KEY) throw new Error('SUPABASE_URL / SUPABASE_KEY missing');
 
-  const all = await sbGet('bbw_wos?select=wo_code,pm_code,description,asset,asset_code,assignee,status,priority,due_date&limit=8000');
-  const open = (all || []).filter(w => w && isOpen(w) && w.due_date);
+  const all = await sbGet('bbw_wos?select=id,wo_code,pm_code,pm_id,description,asset,asset_code,assignee,status,priority,due_date&limit=8000');
+  // One work order per PM + due date. Repeated or concurrent "Generate due WOs" runs can
+  // leave many identical open rows; the app dedupes these on read, so the digest does too —
+  // otherwise the same task gets counted a dozen times and the email over-reports.
+  const openRaw = (all || []).filter(w => w && isOpen(w) && w.due_date);
+  const seen = Object.create(null);
+  const open = [];
+  for (const w of openRaw.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0))) {
+    const pmk = w.pm_code || w.pm_id || w.wo_code || w.description;
+    const key = pmk + '|' + String(w.due_date).slice(0, 10);
+    if (seen[key]) continue;
+    seen[key] = 1;
+    open.push(w);
+  }
   const overdue = open.filter(w => isOverdue(w.due_date, today));
   const dueSoon = open.filter(w => !isOverdue(w.due_date, today) && w.due_date <= today);
 

@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v209';
+var APP_BUILD='BBW CMMS build v210';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7861,7 +7861,7 @@ function woFilter(){
     var dd=(''+(w.due_date||'')).slice(0,10);
     var f=WO_FILTER.status;
     if(f==='due'){ if(!(openWO&&dd&&dd<=_today))return false; }
-    else if(f==='overdue'){ if(!(openWO&&dd&&dd<_today))return false; }
+    else if(f==='overdue'){ if(!(openWO&&dd&&pmIsOverdue(dd,_today)))return false; }
     else if(f!=='all'){ if(eff!==f)return false; }
     // Missed pool ('Technicians') PMs stay visible for 14 days so a missed daily is caught
     // and cleared; older ones drop out of the live views (still reachable under "All").
