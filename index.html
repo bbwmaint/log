@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v213';
+var APP_BUILD='BBW CMMS build v214';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -11310,6 +11310,108 @@ function pfLineTotal(){
   var sh=parseFloat(gid('pf-shipping')&&gid('pf-shipping').value)||0, tx=parseFloat(gid('pf-tax')&&gid('pf-tax').value)||0;
   var g=gid('pf-grand'); if(g)g.textContent=fmtMoney(t+sh+tx);
 }
+// ── Auto-fill parts from an uploaded quote (text-based PDF). Semi-automatic:
+//    extracts candidate item / part# / qty / price rows for the user to confirm. ──
+function _loadPdfJs(cb){
+  if(window.pdfjsLib){cb(true);return;}
+  var s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  s.onload=function(){ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }catch(e){} cb(true); };
+  s.onerror=function(){ cb(false); };
+  document.head.appendChild(s);
+}
+function pordQuoteUpload(input){
+  var f=input.files&&input.files[0]; if(!f){return;}
+  try{input.value='';}catch(e){}
+  var btn=gid('pf-quote-btn'), lbl=btn?btn.innerHTML:''; if(btn)btn.innerHTML='Reading quote…';
+  function reset(){ if(btn)btn.innerHTML=lbl; }
+  _loadPdfJs(function(ok){
+    if(!ok){ reset(); alert('Could not load the PDF reader — check your connection and try again.'); return; }
+    var fr=new FileReader();
+    fr.onerror=function(){ reset(); alert('Could not read that file.'); };
+    fr.onload=function(){
+      try{
+        var data=new Uint8Array(fr.result);
+        window.pdfjsLib.getDocument({data:data}).promise.then(function(pdf){
+          var seq=Promise.resolve([]);
+          for(var i=1;i<=pdf.numPages;i++){ (function(n){ seq=seq.then(function(acc){
+            return pdf.getPage(n).then(function(pg){return pg.getTextContent();}).then(function(tc){
+              return acc.concat(tc.items.map(function(it){ return {str:it.str, x:it.transform[4], y:it.transform[5]}; }));
+            });
+          }); })(i); }
+          return seq;
+        }).then(function(items){
+          reset();
+          var lines=parseQuoteItems(items);
+          if(!lines.length){ alert('Couldn’t find line items in this quote.\n\nIf it’s a scan or photo, the text can’t be read — please enter the parts manually, or paste the quote as a text-based PDF.'); return; }
+          var box=gid('pf-lines'); if(box)box.innerHTML='';
+          lines.forEach(function(l){ pfAddLine(l); });
+          pfSyncRemove(); pfLineTotal();
+          try{toast('Found '+lines.length+' item'+(lines.length>1?'s':'')+' — please review before saving',false);}catch(e){}
+        }).catch(function(e){ reset(); alert('Could not read the quote: '+((e&&e.message)||e)); });
+      }catch(e){ reset(); alert('Could not read the quote: '+((e&&e.message)||e)); }
+    };
+    fr.readAsArrayBuffer(f);
+  });
+}
+function parseQuoteItems(items){
+  if(!items||!items.length)return [];
+  items=items.filter(function(it){return it.str&&it.str.trim();});
+  // Group text fragments into visual rows (PDF y grows upward -> sort descending).
+  var byY=items.slice().sort(function(a,b){ return (b.y-a.y)||(a.x-b.x); });
+  var rows=[], cur=null, lastY=null;
+  byY.forEach(function(it){
+    if(cur&&Math.abs(it.y-lastY)<=3.2){ cur.push(it); } else { cur=[it]; rows.push(cur); }
+    lastY=it.y;
+  });
+  function rowToks(r){ return r.slice().sort(function(a,b){return a.x-b.x;}); }
+  function rowStr(r){ return rowToks(r).map(function(t){return t.str;}).join(' ').replace(/\s+/g,' ').trim(); }
+  // Find a header row and the x-position of each column keyword.
+  var cols=null, headerIdx=-1;
+  for(var ri=0;ri<rows.length;ri++){
+    var toks=rowToks(rows[ri]), joined=rowStr(rows[ri]).toLowerCase(), hits=0;
+    if(/\b(qty|quantity|qnty)\b/.test(joined))hits++;
+    if(/\b(item|part|sku|model|catalog|mfg|product\s*(#|no|code))\b/.test(joined))hits++;
+    if(/\b(description|desc|details)\b/.test(joined))hits++;
+    if(/\b(unit\s*price|price|rate|cost|each|amount|ext|extended|line\s*total|total)\b/.test(joined))hits++;
+    if(hits>=2){ headerIdx=ri; cols={};
+      toks.forEach(function(t){ var s=t.str.trim().toLowerCase();
+        if(cols.qty==null&&/^(qty|quantity|qnty)\b/.test(s))cols.qty=t.x;
+        else if(cols.part==null&&/^(item|part|sku|model|catalog|mfg)\b/.test(s))cols.part=t.x;
+        else if(cols.desc==null&&/^(description|desc|details)\b/.test(s))cols.desc=t.x;
+        else if(cols.price==null&&/^(unit|price|rate|cost|each)\b/.test(s))cols.price=t.x;
+        else if(cols.amount==null&&/^(amount|ext|extended|line|total)\b/.test(s))cols.amount=t.x;
+      });
+      break;
+    }
+  }
+  var PRICE=/\$?\s*([0-9][0-9,]*\.[0-9]{2})\b/;
+  var out=[], start=(headerIdx>=0)?headerIdx+1:0;
+  for(var r2=start;r2<rows.length;r2++){
+    var toks2=rowToks(rows[r2]), text=rowStr(rows[r2]);
+    if(!text)continue;
+    if(/^(sub\s*-?\s*total|total|tax|gst|hst|pst|shipping|freight|discount|balance|thank|note|terms|page|remit|please)\b/i.test(text))continue;
+    if(!PRICE.test(text))continue;
+    var item='', part='', qty='', cost='';
+    if(cols){
+      function colText(colx,upto){ if(colx==null)return ''; return toks2.filter(function(t){return t.x>=colx-18 && (upto==null||t.x<upto-6);}).sort(function(a,b){return a.x-b.x;}).map(function(t){return t.str;}).join(' ').replace(/\s+/g,' ').trim(); }
+      var qtxt=colText(cols.qty,(cols.part||cols.desc)); var qm=qtxt.match(/\d+(?:\.\d+)?/); if(qm)qty=qm[0];
+      var ptxt=colText(cols.part,(cols.desc||cols.price)); var pm=ptxt.match(/[A-Za-z0-9][A-Za-z0-9\-\/\.]{2,}/); if(pm)part=pm[0];
+      item=colText(cols.desc,(cols.price||cols.amount));
+      var utxt=colText(cols.price,(cols.amount!=null?cols.amount:null))||text; var um=utxt.match(PRICE); if(um)cost=um[1].replace(/,/g,'');
+    }
+    if(!cols || (!cost)){
+      var prices=[], re=/\$?\s*([0-9][0-9,]*\.[0-9]{2})\b/g, mm; while(mm=re.exec(text))prices.push(mm[1].replace(/,/g,''));
+      if(!prices.length)continue;
+      if(!cost)cost=prices[0];
+      var qm2=text.match(/^\s*(\d+(?:\.\d+)?)\b/); if(qm2&&!qty)qty=qm2[1];
+      var pm2=text.match(/\b([A-Z0-9][A-Z0-9\-\/]{3,})\b/); if(pm2&&!part)part=pm2[1];
+      if(!item){ var d=text; if(qm2)d=d.replace(qm2[0],''); prices.forEach(function(p){d=d.replace('$'+p,'').replace(p,'');}); if(pm2)d=d.replace(pm2[1],''); item=d.replace(/\s+/g,' ').replace(/^[\s\-|,]+|[\s\-|,]+$/g,'').trim(); }
+    }
+    if((item||part)&&cost){ out.push({item:item||part, part_no:part, qty:qty, cost:cost}); }
+  }
+  return out;
+}
 function pordForm(id){
   if(!isEditor()){ try{toast('Only maintenance management can edit parts orders',true);}catch(e){} return; }
   var ex=gid('pord-form'); if(ex)ex.remove();
@@ -11342,6 +11444,8 @@ function pordForm(id){
   H+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'+
      '<label style="font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em">Parts</label>'+
      '<span style="font-size:12px;color:var(--text-3)">Subtotal <b id="pf-total" style="color:var(--text)">$0.00</b></span></div>';
+  H+='<label id="pf-quote-btn" for="pf-quote-file" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-bottom:9px;padding:11px;background:var(--surface-2);border:1px dashed var(--accent);border-radius:9px;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer">📄 Auto-fill from quote (PDF)</label>'+
+     '<input type="file" id="pf-quote-file" accept="application/pdf" onchange="pordQuoteUpload(this)" style="display:none">';
   H+='<div id="pf-lines"></div>';
   H+='<button type="button" onclick="pfAddLine()" style="width:100%;margin-bottom:11px;padding:10px;background:var(--surface-2);border:1px dashed var(--border);border-radius:9px;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer">+ Add part</button>';
   // Shipping + tax -> total price
