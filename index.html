@@ -1029,7 +1029,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v204';
+var APP_BUILD='BBW CMMS build v205';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -12099,7 +12099,7 @@ function renderMore(){
     key:'<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L20 3M17 6l2 2M14 9l2 2"/>',
     shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>'
   };
-  if(isAdmin){
+  if(isAdmin||isEditor()){
     H+='<div class="more-sec-h">Analytics</div>';
     H+='<div class="more-tools">';
     H+=_mB('openDashboard()',ICO.dash,T('Maintenance Dashboard'));
@@ -12112,12 +12112,10 @@ function renderMore(){
     H+='</div>';
     H+='<div class="more-sec-h" style="margin-top:18px">Reports &amp; Admin</div>';
     H+='<div class="more-tools">';
-    H+=_mB('openUserMgmt()',ICO.users,'Manage Users');
-    if(isAdmin){
-      H+=_mB('openUploadSchedules()',ICO.upload,'Upload Schedules');
-      H+=_mB('openResetPins()',ICO.key,'Reset Tech PINs');
-      H+=_mB('openForkliftSup()',ICO.shield,'Forklift Supervisor');
-    }
+    if(isAdmin){ H+=_mB('openUserMgmt()',ICO.users,'Manage Users'); }
+    H+=_mB('openUploadSchedules()',ICO.upload,'Upload Schedules');
+    if(isAdmin){ H+=_mB('openResetPins()',ICO.key,'Reset Tech PINs'); }
+    H+=_mB('openForkliftSup()',ICO.shield,'Forklift Supervisor');
     H+=_mB('openMachineWeekReport()',ICO.report,'Weekly Machine Report');
     H+=_mB('openBrewqmImport()',ICO.file,'Import Shift PDF');
     H+=_mB('openForkliftMenu()',ICO.truck,'Forklift Inspection');
