@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v214';
+var APP_BUILD='BBW CMMS build v215';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -11665,8 +11665,8 @@ function _pordPO(id){
   try{
     var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF engine not loaded yet — try again in a moment.');return;}
     var doc=new JS({unit:'pt',format:'letter'}); try{pdfUnicode(doc);}catch(e){}
-    var SERIF_BI='times', SERIF_IT='times';
-    try{ if(window.PALATINO_BI){ doc.addFileToVFS('P052BI.ttf',window.PALATINO_BI); doc.addFont('P052BI.ttf','Palatino','bolditalic'); SERIF_BI='Palatino'; } if(window.PALATINO_IT){ doc.addFileToVFS('P052IT.ttf',window.PALATINO_IT); doc.addFont('P052IT.ttf','Palatino','italic'); SERIF_IT='Palatino'; } }catch(e){}
+    var SERIF_BI='times', SERIF_IT='times', SERIF_BD='times';
+    try{ if(window.PALATINO_BI){ doc.addFileToVFS('P052BI.ttf',window.PALATINO_BI); doc.addFont('P052BI.ttf','Palatino','bolditalic'); SERIF_BI='Palatino'; } if(window.PALATINO_IT){ doc.addFileToVFS('P052IT.ttf',window.PALATINO_IT); doc.addFont('P052IT.ttf','Palatino','italic'); SERIF_IT='Palatino'; } if(window.PALATINO_BD){ doc.addFileToVFS('P052BD.ttf',window.PALATINO_BD); doc.addFont('P052BD.ttf','Palatino','bold'); SERIF_BD='Palatino'; } }catch(e){}
     var W=doc.internal.pageSize.getWidth(), MLX=50, MR=W-55, F='helvetica';
     var INK=[34,34,38], SUB=[90,92,100], HAIR=[176,180,184], TEAL=[157,190,195], TEALT=[237,243,243];
     function sc(c){doc.setTextColor(c[0],c[1],c[2]);}
@@ -11679,7 +11679,8 @@ function _pordPO(id){
     function money2(n){ return (Math.round((n||0)*100)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
     var theDate=poDate(), dateStr=fmtDate(theDate);
     var y=40;
-    if(window.__logoDark){ try{ var lh=50, lw=lh*((window.__logoW||498)/(window.__logoH||220)); doc.addImage(window.__logoDark,'PNG',MLX,y,lw,lh); }catch(e){ T('BRUNSWICK BIERWORKS',MLX,y+30,15,'bold',INK); } }
+    var _poLogo=window.__logoDark||(typeof BBW_LOGO_DARK!=='undefined'?BBW_LOGO_DARK:'');
+    if(_poLogo){ try{ var lh=50, lw=lh*((window.__logoW||498)/(window.__logoH||220)); doc.addImage(_poLogo,'PNG',MLX,y,lw,lh); }catch(e){ T('BRUNSWICK BIERWORKS',MLX,y+30,15,'bold',INK); } }
     else { T('BRUNSWICK BIERWORKS',MLX,y+30,15,'bold',INK); }
     T('Purchase Order',MR,y+34,27,{f:SERIF_BI,s:'bolditalic'},[40,40,46],'right');
     T('Date: '+dateStr,MR,y+58,9.5,'normal',SUB,'right');
@@ -11702,9 +11703,9 @@ function _pordPO(id){
     T('Toronto, ON',RXV,y+45,10,'normal',INK);
     T('M4B 3M2',RXV,y+58,10,'normal',INK);
     y=284; var nm='Lahcen Elghachi';
-    doc.setFont(F,'bold');doc.setFontSize(10);var nmW=doc.getTextWidth(nm);
-    T('This order placed by:  ',MR-nmW,y,10,'normal',INK,'right');
-    T(nm,MR,y,10,'bold',INK,'right');
+    doc.setFont(SERIF_BD,'bold');doc.setFontSize(10);var nmW=doc.getTextWidth(nm);
+    T('This order placed by:  ',MR-nmW,y,10,{f:SERIF_IT,s:'italic'},INK,'right');
+    T(nm,MR,y,10,{f:SERIF_BD,s:'bold'},INK,'right');
     y=291; var t1=[MLX, MLX+205, MLX+410, MR];
     rect(t1[0],y,t1[3]-t1[0],17,TEAL,HAIR); line(t1[1],y,t1[1],y+17,HAIR); line(t1[2],y,t1[2],y+17,HAIR);
     T('Delivery Time',t1[0]+6,y+12,9.5,'bold',INK); T('Quote/Order Number',t1[1]+6,y+12,9.5,'bold',INK);
@@ -11752,7 +11753,7 @@ function _pordPO(id){
     T('$',cx[4]+6,y+13,10,'bold',INK); T(money2(total),cx[5]-6,y+13,10,'bold',INK,'right');
     y+=18;
     var sy=y+24; line(265,sy,MR,sy,HAIR,.9);
-    T('Lahcen Elghachi',303,sy-5,10,'bold',INK,'center'); T(dateStr,480,sy-5,10,'bold',INK,'center');
+    T('Lahcen Elghachi',303,sy-5,10,{f:SERIF_BD,s:'bold'},INK,'center'); T(dateStr,480,sy-5,10,{f:SERIF_BD,s:'bold'},INK,'center');
     T('Authorized by',292,sy+12,8.5,{f:SERIF_IT,s:'italic'},SUB,'center'); T('Date',491,sy+12,8.5,{f:SERIF_IT,s:'italic'},SUB,'center');
     doc.save('BBW_PO_'+poNum()+'.pdf');
   }catch(e){ try{alert('Could not generate PO: '+e.message);}catch(_){} }
