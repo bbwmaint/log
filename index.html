@@ -1029,7 +1029,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v205';
+var APP_BUILD='BBW CMMS build v206';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2373,14 +2373,6 @@ function setReqLang(l){ lang=l; try{localStorage.setItem('bbw_lang',l);}catch(e)
 function renderRequestForm(){
   var el=gid('pg-request'); if(!el)return;
   var depts=['Blending','Brewing','Lab','Office','Production','Taproom','Warehouse'];
-  var assetOpts='<option value="">'+T('rq_assetnone')+'</option>';
-  Object.keys(GROUPS).forEach(function(grp){
-    var items=ASSETS.filter(function(a){return GROUPS[grp].indexOf(a.n)>=0;});
-    if(!items.length)return;
-    assetOpts+='<optgroup label="'+grp+'">';
-    items.forEach(function(a){ assetOpts+='<option value="'+a.c+'">'+a.n+' ('+a.c+')</option>'; });
-    assetOpts+='</optgroup>';
-  });
   function fld(label,inner){ return '<div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:6px">'+label+'</label>'+inner+'</div>'; }
   var inp='width:100%;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:#fff;font-size:15px;box-sizing:border-box';
   function langBtn(code,txt){ var on=lang===code; return '<button onclick="setReqLang(\''+code+'\')" style="padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:'+(on?'#fff':'transparent')+';color:'+(on?'#111':'var(--text-3)')+';font-size:12px;font-weight:700;cursor:pointer">'+txt+'</button>'; }
@@ -2389,8 +2381,8 @@ function renderRequestForm(){
   H+='<div style="font-size:23px;font-weight:800;color:#fff;text-align:center">'+T('rq_title')+'</div>';
   H+='<div style="font-size:13px;color:var(--text-3);text-align:center;margin:6px 0 22px">'+T('rq_sub')+'</div>';
   H+=fld(T('rq_name'),' <input id="rq-name" style="'+inp+'">');
-  H+=fld(T('rq_dept'),'<select id="rq-dept" style="'+inp+';color-scheme:dark">'+depts.map(function(d){return '<option>'+d+'</option>';}).join('')+'</select>');
-  H+=fld(T('rq_asset'),'<select id="rq-asset" style="'+inp+';color-scheme:dark">'+assetOpts+'</select>');
+  H+=fld(T('rq_dept'),'<select id="rq-dept" onchange="rqFillAssets()" style="'+inp+';color-scheme:dark">'+depts.map(function(d){return '<option>'+d+'</option>';}).join('')+'</select>');
+  H+='<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><label style="font-size:12px;font-weight:600;color:var(--text-2)">'+T('rq_asset')+'</label><button type="button" id="rq-asset-all" onclick="rqFillAssets(true)" style="background:none;border:none;color:#3b82f6;font-size:12px;font-weight:700;cursor:pointer;padding:0">'+(lang==='uk'?'Показати всі':'Show all')+'</button></div><select id="rq-asset" style="'+inp+';color-scheme:dark"></select></div>';
   H+=fld(T('rq_work'),'<textarea id="rq-work" rows="4" style="'+inp+';resize:vertical" placeholder="'+T('rq_workph')+'"></textarea>');
   H+=fld(T('rq_photos'),'<input type="file" id="rq-photos" accept="image/*" multiple style="'+inp+'">');
   H+=fld(T('rq_email')+' <span style="color:#ef4444">*</span>','<input id="rq-email" type="email" inputmode="email" autocomplete="email" style="'+inp+'" placeholder="'+T('rq_emailph')+'">');
@@ -2400,6 +2392,41 @@ function renderRequestForm(){
   H+='<div style="text-align:center;margin-top:20px;font-size:11px;color:var(--text-3)">'+T('rq_footer')+'</div>';
   H+='</div>';
   el.innerHTML=H;
+  try{ rqFillAssets(); }catch(e){}
+}
+// Department -> asset area-groups (keys of GROUPS). A department not listed here shows every area.
+// Edit this map to change which assets appear for each department.
+var REQ_AREA_MAP={ 'Blending':['RTD/B3'], 'Brewing':['Brewing','Cellar'], 'Production':['Line 1'], 'Warehouse':['Facility','Utilities'] };
+function rqFillAssets(forceAll){
+  var sel=gid('rq-asset'); if(!sel)return;
+  var prev=sel.value;
+  var dept=(gid('rq-dept')&&gid('rq-dept').value)||'';
+  var filter=forceAll?null:(REQ_AREA_MAP[dept]||null);   // null = show every area
+  var grpKeys=Object.keys(GROUPS);
+  var H='<option value="">'+T('rq_assetnone')+'</option>';
+  var placed={};
+  grpKeys.forEach(function(grp){
+    if(filter&&filter.indexOf(grp)<0)return;
+    var items=ASSETS.filter(function(a){return GROUPS[grp].indexOf(a.n)>=0;});
+    if(!items.length)return;
+    H+='<optgroup label="'+grp+'">';
+    items.forEach(function(a){ placed[a.n]=1; H+='<option value="'+a.c+'">'+a.n+' ('+a.c+')</option>'; });
+    H+='</optgroup>';
+  });
+  // Assets with no group (incl. newly added ones) are never hidden — always listed under "Other".
+  var others=ASSETS.filter(function(a){
+    if(placed[a.n])return false;
+    if(filter){ return !grpKeys.some(function(g){return GROUPS[g].indexOf(a.n)>=0;}); }
+    return true;
+  });
+  if(others.length){
+    H+='<optgroup label="'+(lang==='uk'?'Інше':'Other')+'">';
+    others.forEach(function(a){ H+='<option value="'+a.c+'">'+a.n+' ('+a.c+')</option>'; });
+    H+='</optgroup>';
+  }
+  sel.innerHTML=H;
+  if(prev){ sel.value=prev; }
+  var ab=gid('rq-asset-all'); if(ab){ ab.style.opacity=filter?'1':'.45'; }
 }
 function downscaleImage(file,maxDim,quality){
   return new Promise(function(resolve){
@@ -4186,6 +4213,7 @@ function loadAssetsFromDB(){
       GROUPS=g;
       try{buildAList('');}catch(e){}
       try{ if(gid('pane-assets')&&gid('pane-assets').offsetParent!==null) renderAssets(); }catch(e){}
+      try{ if(gid('rq-asset')) rqFillAssets(); }catch(e){}
       return true;
     }).catch(function(){return false;});
 }
