@@ -305,7 +305,7 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   @media(max-width:999px){
     #btabs{display:flex!important;flex-shrink:0;background:var(--surface);
       border-top:1px solid var(--border);align-items:flex-start;
-      padding:8px 4px calc(7px + env(safe-area-inset-bottom,0px));z-index:60}
+      padding:8px 4px calc(10px + env(safe-area-inset-bottom,0px));z-index:60}
     #btabs>button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;
       gap:4px;background:none;border:none;cursor:pointer;padding:0;color:var(--text-3)}
     #btabs .bt-ic{display:flex;align-items:center;justify-content:center;position:relative}
@@ -319,6 +319,10 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
     #nav-burger{display:none!important}
     .fab{bottom:calc(94px + env(safe-area-inset-bottom,0px))!important}
   }
+  /* Use the dynamic viewport height so the bottom tab bar is never cut off by
+     mobile Safari's collapsing toolbar or the iPhone home indicator. Browsers
+     without dvh support keep the inline 100vh fallback. */
+  @supports (height:100dvh){ #pg-app{ height:100dvh !important } #pg-request{ min-height:100dvh !important } }
 </style>
 <style id="bbw-desktop">
 html{color-scheme:dark}
@@ -1029,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v208';
+var APP_BUILD='BBW CMMS build v209';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
