@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v210';
+var APP_BUILD='BBW CMMS build v211';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4456,6 +4456,80 @@ function assetTreePDF(){
       T('Brunswick Bierworks · Asset register',M,H-26,8,'normal',SUB);
       T('Generated '+today+'  ·  Page '+pi+' of '+pages,W-M,H-26,8,'normal',SUB,'right'); }
     doc.save('BBW_Asset_Tree_'+today+'.pdf');
+  }catch(e){ try{alert('Could not generate PDF: '+e.message);}catch(_){} }
+}
+// ── Parts spend summary PDF (committed orders) — pick a period, download a PDF ──
+function pordSpendMenu(){
+  var ex=gid('pspend-menu'); if(ex)ex.remove();
+  var s=(typeof pordSpend==='function')?pordSpend():{wk:0,mo:0,yr:0};
+  var H='<div id="pspend-menu" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99000;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.remove()">';
+  H+='<div style="background:var(--bg);border:1px solid var(--border);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:520px;padding:18px 18px calc(26px + env(safe-area-inset-bottom))">';
+  H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:17px;font-weight:800;color:var(--text)">Spend summary PDF</div><button onclick="document.getElementById(\'pspend-menu\').remove()" style="padding:6px 12px;font-size:13px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);border-radius:8px;cursor:pointer">Close</button></div>';
+  H+='<div style="font-size:12px;color:var(--text-3);margin-bottom:14px">Committed spend (ordered &amp; received). Pick a period to download.</div>';
+  [['wk','This week',s.wk],['mo','This month',s.mo],['yr','Year to date',s.yr]].forEach(function(o){
+    H+='<button onclick="document.getElementById(\'pspend-menu\').remove();pordSpendPDF(\''+o[0]+'\')" style="width:100%;padding:14px 16px;margin-bottom:10px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center"><span>'+o[1]+'</span><span style="color:var(--text-2);font-weight:800">'+fmtMoney(o[2])+'</span></button>';
+  });
+  H+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function pordSpendPDF(period){
+  try{
+    var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF engine not loaded yet — try again in a moment.');return;}
+    function iso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+    var now=new Date(), y0=now.getFullYear();
+    var wkStart=new Date(now); wkStart.setDate(now.getDate()-((now.getDay()+6)%7)); wkStart.setHours(0,0,0,0);
+    var moStart=new Date(y0,now.getMonth(),1), yrStart=new Date(y0,0,1);
+    var start=period==='wk'?wkStart:(period==='mo'?moStart:yrStart);
+    var plabel=period==='wk'?'This week':(period==='mo'?'This month':'Year to date');
+    var rows=(PORD||[]).filter(function(p){
+      if(!PORD_COMMITTED[p.stage])return false;
+      var d=new Date(p.created_at||p.updated_at||0); if(isNaN(d))return false;
+      return d>=start;
+    }).sort(function(a,b){return new Date(b.created_at||0)-new Date(a.created_at||0);});
+    var total=rows.reduce(function(s,p){return s+pordTotal(p);},0);
+    var doc=new JS({unit:'pt',format:'letter'}); try{pdfUnicode(doc);}catch(e){}
+    var W=doc.internal.pageSize.getWidth(),Hh=doc.internal.pageSize.getHeight(),M=44,y=0,F='helvetica';
+    var INK=[30,31,34],SUB=[122,124,132],HAIR=[226,227,231],GOLD=[30,58,95];
+    function sc(c){doc.setTextColor(c[0],c[1],c[2]);}
+    function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(String(t),x,yy,al?{align:al}:undefined);}
+    function ensure(h){if(y+h>Hh-52){doc.addPage();y=52;colHead();}}
+    var today=iso(now);
+    y=44;
+    if(window.__logoDark){try{var lh=26,lw=lh*((window.__logoW||498)/(window.__logoH||220));doc.addImage(window.__logoDark,'PNG',M,y-4,lw,lh);}catch(e){T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}}
+    else T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);
+    T('Parts Spend Summary',W-M,y+6,12.5,'bold',INK,'right');
+    T(plabel+'  ·  '+iso(start)+' to '+today,W-M,y+20,9.5,'normal',SUB,'right');
+    y+=38; doc.setDrawColor(GOLD[0],GOLD[1],GOLD[2]);doc.setLineWidth(1.4);doc.line(M,y,W-M,y); y+=26;
+    T('Committed spend',M,y,11,'normal',SUB);
+    T(fmtMoney(total),W-M,y+3,20,'bold',GOLD,'right');
+    y+=17; T(rows.length+' order'+(rows.length!==1?'s':'')+'  ·  ordered & received only',M,y,9.5,'normal',SUB); y+=22;
+    function colHead(){ doc.setDrawColor(HAIR[0],HAIR[1],HAIR[2]);doc.setLineWidth(.7);doc.line(M,y-12,W-M,y-12);
+      T('DATE',M,y,8,'bold',SUB); T('ORDER',M+72,y,8,'bold',SUB); T('STATUS',W-M-150,y,8,'bold',SUB); T('TOTAL',W-M,y,8,'bold',SUB,'right');
+      y+=6; doc.setDrawColor(HAIR[0],HAIR[1],HAIR[2]);doc.line(M,y,W-M,y); y+=15; }
+    colHead();
+    if(!rows.length){ T('No committed orders in this period.',M,y,11,'normal',SUB); y+=18; }
+    rows.forEach(function(p){
+      ensure(30);
+      var lines=pordLines(p);
+      var title=(lines[0]&&(lines[0].item||lines[0].part_no))||p.asset||'Order';
+      if(lines.length>1)title+='  +'+(lines.length-1)+' more';
+      T((''+(p.created_at||'')).slice(0,10),M,y,9.5,'normal',INK);
+      T(String(title).slice(0,52),M+72,y,9.5,'normal',INK);
+      T(pordStage(p.stage).l,W-M-150,y,9.5,'normal',SUB);
+      T(fmtMoney(pordTotal(p)),W-M,y,9.5,'bold',INK,'right');
+      y+=13;
+      var sub=[]; if(p.supplier)sub.push(p.supplier); if(p.po_no)sub.push('PO '+p.po_no); if(p.asset&&p.asset!==title)sub.push(p.asset);
+      if(sub.length){ T(sub.join('  ·  ').slice(0,86),M+72,y,8.5,'normal',SUB); y+=12; }
+      doc.setDrawColor(HAIR[0],HAIR[1],HAIR[2]);doc.setLineWidth(.4);doc.line(M,y-3,W-M,y-3); y+=9;
+    });
+    ensure(26); y+=4; doc.setDrawColor(GOLD[0],GOLD[1],GOLD[2]);doc.setLineWidth(1);doc.line(M,y,W-M,y); y+=17;
+    T('TOTAL',M,y,11,'bold',INK); T(fmtMoney(total),W-M,y,13,'bold',GOLD,'right');
+    var pages=doc.internal.getNumberOfPages();
+    for(var pi=1;pi<=pages;pi++){ doc.setPage(pi);
+      doc.setDrawColor(HAIR[0],HAIR[1],HAIR[2]);doc.setLineWidth(.7);doc.line(M,Hh-40,W-M,Hh-40);
+      T('Brunswick Bierworks · Parts spend summary',M,Hh-26,8,'normal',SUB);
+      T('Generated '+today+'  ·  Page '+pi+' of '+pages,W-M,Hh-26,8,'normal',SUB,'right'); }
+    doc.save('BBW_Parts_Spend_'+period+'_'+today+'.pdf');
   }catch(e){ try{alert('Could not generate PDF: '+e.message);}catch(_){} }
 }
 function renderAssets(){
@@ -11056,13 +11130,16 @@ function pordLines(p){
 }
 function pordTotal(p){ return pordLines(p).reduce(function(s,l){ var q=parseFloat(l.qty)||0, c=parseFloat(l.cost)||0; return s+q*c; },0); }
 function fmtMoney(n){ n=Math.round((n||0)*100)/100; try{ return '$'+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }catch(e){ return '$'+n.toFixed(2); } }
-// Committed maintenance spend (non-cancelled orders), bucketed by order date.
+// Stages that represent money actually committed — only these count toward spend.
+// Requested / waiting-for-quote / waiting-PO are not yet committed; cancelled never counts.
+var PORD_COMMITTED={ordered:1,shipped:1,received:1};
+// Committed maintenance spend (ordered & received only), bucketed by order date.
 function pordSpend(){
   var now=new Date(), y=now.getFullYear();
   var wkStart=new Date(now); wkStart.setDate(now.getDate()-((now.getDay()+6)%7)); wkStart.setHours(0,0,0,0); // Monday
   var moStart=new Date(y,now.getMonth(),1), yrStart=new Date(y,0,1);
   var wk=0,mo=0,yr=0;
-  (PORD||[]).forEach(function(p){ if(p.stage==='cancelled')return; var t=pordTotal(p); if(!t)return;
+  (PORD||[]).forEach(function(p){ if(!PORD_COMMITTED[p.stage])return; var t=pordTotal(p); if(!t)return;
     var d=new Date(p.created_at||p.updated_at||0); if(isNaN(d))return;
     if(d>=yrStart)yr+=t; if(d>=moStart)mo+=t; if(d>=wkStart)wk+=t; });
   return {wk:wk,mo:mo,yr:yr};
@@ -11104,7 +11181,7 @@ function pordLoad(cb){
     .catch(function(){ PORD_LOADED=true; cb&&cb(false); });   // keep cached rows offline
 }
 function pordSetTab(t){ PORD_TAB=t; renderInventory(); }
-function pordSetFilter(f){ PORD_FILTER=f; pordDrawBody(); }
+function pordSetFilter(f){ PORD_FILTER=f; renderInventory(); }   // re-render so the Open/Received highlight moves
 function pordDaysAgo(iso){
   if(!iso)return '';
   try{
@@ -11476,6 +11553,9 @@ function renderInventory(){
         (on?'var(--text)':'var(--text-3)')+';'+(on?'background:var(--surface)':'')+'">'+f[1]+'</div>';
     });
     H2+='</div><div style="flex:1"></div>';
+    H2+='<button onclick="pordSpendMenu()" title="Download spend summary PDF" style="padding:9px 13px;'+
+        'font-size:13px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);'+
+        'color:var(--text-2);font-weight:700;cursor:pointer;white-space:nowrap">↓ PDF</button>';
     if(ed)H2+='<button onclick="pordForm(null)" class="btn-primary" style="padding:9px 15px;'+
         'font-size:13px;border-radius:9px">+ Part</button>';
     else H2+='<span style="font-size:11.5px;color:var(--text-3);font-weight:600">Read only</span>';
