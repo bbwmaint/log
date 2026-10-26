@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v217';
+var APP_BUILD='BBW CMMS build v218';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -5835,10 +5835,10 @@ function inRange(ds,a,z){ return ds>=a&&ds<=z; }
 function loadWeekData(b){
   function j(r){return r.ok?r.json():[];}
   // 14-day worklog/util window so we can compute week-over-week without extra round-trips
-  var wl=sbFetch('bbw_worklog?select=*&date=gte.'+b.prevStart+'&date=lte.'+b.end+'&limit=8000').then(j);
-  var ut=sbFetch('bbw_util_log?select=*&date=gte.'+b.prevStart+'&date=lte.'+b.end+'&limit=8000').then(j);
+  var wl=sbFetchAll('bbw_worklog?select=*&date=gte.'+b.prevStart+'&date=lte.'+b.end+'&order=date.asc');
+  var ut=sbFetchAll('bbw_util_log?select=*&date=gte.'+b.prevStart+'&date=lte.'+b.end+'&order=date.asc');
   var rq=sbFetch('bbw_requests?select=*&limit=4000').then(j);
-  var wo=sbFetch('bbw_wos?select=*&limit=8000').then(j);
+  var wo=sbFetchAll('bbw_wos?select=*&order=id.asc');
   return Promise.all([wl,ut,rq,wo]).then(function(a){return {entries:a[0]||[],utils:a[1]||[],requests:a[2]||[],wos:a[3]||[]};});
 }
 
@@ -7739,9 +7739,9 @@ function dedupWOs(list){
 }
 function loadWOs(force){
   if(WOS_LOADED&&!force)return Promise.resolve(WOS);
-  return sbFetch('bbw_wos?select=*&order=due_date.asc&limit=5000').then(function(r){
-    if(!r.ok)throw new Error('bbw_wos table not found');return r.json();
-  }).then(function(rows){
+  // Page through ALL work orders — a single request is capped at 1000 rows, which
+  // silently truncated the table once it grew past that and broke every WO count.
+  return sbFetchAll('bbw_wos?select=*&order=due_date.asc').then(function(rows){
     WOS=(rows||[]).map(function(w){
       if(w)w.description=_bestPMDesc(w.description, w.pm_code||w.code, w.asset);
       return w;
@@ -7822,7 +7822,14 @@ function generateWOs(){
     if(!made.length)return 0;
     var base=woNextCode();
     made.forEach(function(w,i){w.wo_code='WO'+(base+1+i);});
-    return sbFetch('bbw_wos',{method:'POST',body:JSON.stringify(made),headers:{'Prefer':'return=minimal'}}).then(function(r){return r.ok?made.length:-1;});
+    var _wb=JSON.stringify(made);
+    // Insert with ON CONFLICT (pm_code, due_date) DO NOTHING so concurrent/repeat
+    // generation can never create duplicate work orders. Falls back to a plain
+    // insert if the unique index isn't in the database yet.
+    return sbFetch('bbw_wos?on_conflict=pm_code,due_date',{method:'POST',body:_wb,headers:{'Prefer':'resolution=ignore-duplicates,return=minimal'}}).then(function(r){
+      if(r.ok||r.status===201||r.status===200)return made.length;
+      return sbFetch('bbw_wos',{method:'POST',body:_wb,headers:{'Prefer':'return=minimal'}}).then(function(r2){return (r2.ok||r2.status===201)?made.length:-1;});
+    });
   });
   WO_GEN_PROMISE=_p.then(function(v){WO_GEN_PROMISE=null;return v;},function(e){WO_GEN_PROMISE=null;throw e;});
   return WO_GEN_PROMISE;
@@ -10918,8 +10925,7 @@ function flDashWorkLogCSV(btn){
   var m=FLDASH_MONTH||new Date();
   var first=new Date(m.getFullYear(),m.getMonth(),1).toISOString();
   var next=new Date(m.getFullYear(),m.getMonth()+1,1).toISOString();
-  sbFetch('bbw_worklog?select=*&date=gte.'+first.slice(0,10)+'&date=lt.'+next.slice(0,10)+'&order=date.asc,logged_at.asc&limit=5000')
-    .then(function(r){return r.ok?r.json():[];})
+  sbFetchAll('bbw_worklog?select=*&date=gte.'+first.slice(0,10)+'&date=lt.'+next.slice(0,10)+'&order=date.asc,logged_at.asc')
     .then(function(rows){
       if(!rows||!rows.length){if(btn){btn.disabled=false;btn.textContent='Work Log CSV';}alert('No work log entries for '+flDashMonLabel(m)+'.');return;}
       function esc(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
