@@ -1,10 +1,9 @@
 name: Daily Supabase Backup
 
 on:
-  schedule:
-    # 08:00 UTC every day (~03:00–04:00 Toronto, a quiet time for the line).
-    - cron: '0 8 * * *'
-  workflow_dispatch: {}   # lets you run a backup on demand from the Actions tab
+  # Triggered by Supabase pg_cron (bbw-backup -> bbw_trigger_backup), which fires
+  # punctually at 4 AM Toronto. GitHub's own cron drifts, so it is not used here.
+  workflow_dispatch: {}   # also lets you run a backup on demand from the Actions tab
 
 permissions:
   contents: write          # allows the workflow to commit the snapshot back to the repo

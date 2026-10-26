@@ -13,8 +13,9 @@ name: BBW overdue requests
 # Sent only when something is overdue. Also runnable by hand (dry_run to preview,
 # force to send now, always to send even when nothing is overdue).
 on:
-  schedule:
-    - cron: '13,33,53 11-13 * * *'
+  # Triggered by Supabase pg_cron (bbw-overdue-requests -> bbw_trigger_overdue_requests),
+  # which fires punctually at 7 AM Toronto daily. GitHub's own cron drifts, so it is
+  # intentionally not used here.
   workflow_dispatch:
     inputs:
       dry_run:
