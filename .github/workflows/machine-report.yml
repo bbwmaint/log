@@ -7,11 +7,15 @@ name: BBW machine report
 # (MACHINE_<start>_<end> in bbw_report_sent). Also runnable by hand (leave
 # start/end blank to use the week that just ended; tick dry_run to preview).
 #
-# Cron: 12:00 UTC every Monday = 8 AM Toronto in daylight-saving, 7 AM in standard
-# time — always Monday morning, which is what the "week that just ended" logic needs.
+# Cron: GitHub's scheduled runs are NOT punctual — hour-aligned jobs get queued
+# and can fire minutes to hours late. So instead of one tick we fire a catch-up
+# window across Monday morning at off-peak minutes (12:07–15:47 UTC ≈ 8–11 AM
+# Toronto). A fast pre-check skips the heavy work on every tick after the week is
+# already sent, and the once-a-week lock means it still goes out exactly once —
+# but close to 8 AM instead of drifting into the afternoon.
 on:
   schedule:
-    - cron: '0 12 * * 1'
+    - cron: '7,27,47 12-15 * * 1'
   workflow_dispatch:
     inputs:
       start:
@@ -37,12 +41,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      # Fast gate (built-in fetch only — no npm install, no Chromium). On a
+      # scheduled catch-up tick, skip everything heavy if this week is already
+      # sent. The first tick GitHub actually runs does the real work.
+      - name: Already sent this week?
+        id: gate
+        if: github.event_name == 'schedule'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          OUT=$(node scripts/machine-report.mjs --check)
+          echo "$OUT"
+          if echo "$OUT" | grep -q 'SEND=yes'; then echo "go=true" >> "$GITHUB_OUTPUT"; else echo "go=false" >> "$GITHUB_OUTPUT"; fi
       - name: Install libraries
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.go == 'true'
         run: npm install --no-audit --no-fund
       # The machine PDF is captured from the live app in a headless browser.
       - name: Install Chromium
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.go == 'true'
         run: npx playwright install --with-deps chromium
       - name: Send machine report
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.go == 'true'
         env:
           SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}

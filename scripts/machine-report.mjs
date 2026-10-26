@@ -13,7 +13,8 @@
  * Flags:   --dry-run  print instead of send   --force  re-send   --at ISO  fake "now"
  * Recipients: MACHINE_TO env (comma-separated); defaults to the maintenance inbox.
  */
-import { buildMachinePDF, machineFileName } from './build-machine-pdf.mjs';
+// buildMachinePDF / machineFileName are imported lazily inside main() so the
+// --check gate (below) can run with no npm install and no Chromium.
 
 const TZ   = 'America/Toronto';
 const args = process.argv.slice(2);
@@ -147,6 +148,17 @@ async function main() {
   console.log(`Machine week : ${start} \u2192 ${end}  (Mon\u2013Sun)`);
   console.log(`Recipients   : ${RECIPIENTS.join(', ') || '(none)'}`);
 
+  if (flag('check')) {
+    // Lightweight gate for the workflow's catch-up window: has this week already
+    // been sent? Prints SEND=yes / SEND=no. Needs only Supabase + built-in fetch,
+    // so the many catch-up ticks that have nothing to do cost almost nothing.
+    let sent = false;
+    try { const rows = await sbGet('bbw_report_sent?select=id,sent_at&id=eq.' + encodeURIComponent(claimId)); sent = !!(rows[0] && rows[0].sent_at); }
+    catch (e) { console.warn('check failed, defaulting to send:', e.message); }
+    console.log('SEND=' + ((sent && !FORCE) ? 'no' : 'yes'));
+    return;
+  }
+
   if (!DRY) {
     if (!RECIPIENTS.length) throw new Error('MACHINE_TO is empty — refusing to send.');
     if (!SB_URL || !SB_KEY) throw new Error('SUPABASE_URL / SUPABASE_KEY missing');
@@ -155,6 +167,7 @@ async function main() {
   }
 
   try {
+    const { buildMachinePDF, machineFileName } = await import('./build-machine-pdf.mjs');
     const fname = machineFileName(start, end);
     let pdf = null, stats = {};
     try { const out = await buildMachinePDF(start, end); pdf = out.pdf; stats = out.stats;
