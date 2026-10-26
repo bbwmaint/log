@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v219';
+var APP_BUILD='BBW CMMS build v220';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -8194,6 +8194,33 @@ function reconcileGroupPMsFromLogs(){
       if(!m)return;
       var at=m.loggedAt||new Date().toISOString();
       var patch={status:'completed',completed_by:(canonName(m.who)||m.who||user),completed_at:at,updated_at:new Date().toISOString(),notes:(w.notes?w.notes+' \u2022 ':'')+'Auto-completed from log'};
+      Object.assign(w,patch);
+      try{ sbFetch('bbw_wos?id=eq.'+w.id,{method:'PATCH',body:JSON.stringify(patch),headers:{'Prefer':'return=minimal'}}).catch(function(){}); }catch(_e){}
+      if(w.pm_code||w.pm_id){ var p=(typeof CMMS_PMS!=='undefined'?CMMS_PMS:[]).filter(function(x){return (w.pm_code&&x.code===w.pm_code)||(w.pm_id&&x.id===w.pm_id);})[0]; if(p&&p.freq&&typeof pmAdvanceISO==='function'){var nd=pmAdvanceISO(p.freq,today);if(nd){p.next_due=nd;p.last_done=today;}} }
+      n++;
+    });
+    // ── Named-tech PMs ─────────────────────────────────────────────────────────
+    // A tech one-tapping a PM from the home/log writes a worklog entry (desc carries
+    // "(CODE)") but not a WO completion. The pass above only closes group PMs; mirror it
+    // for named assignees so their WO leaves the dashboard too. Same matcher (asset + code/
+    // desc). Only occurrences due on/before today, and only the most recent open occurrence
+    // per PM is closed from a single log so older/future rows aren't swept up.
+    var namedCand={};
+    WOS.forEach(function(w){
+      if(!w||w.status==='completed')return;
+      if(!woRealTech(w.assignee))return;                     // named techs only (group handled above)
+      var dd=(''+(w.due_date||'')).slice(0,10);
+      if(dd&&dd>today)return;                                // don't close a future occurrence
+      var m=null; for(var i=0;i<logs.length;i++){ if(logMatchesGroupPM(logs[i],w)){ m=logs[i]; break; } }
+      if(!m)return;
+      var key=(''+(w.pm_code||w.pm_id||w.id));
+      var cur=namedCand[key];
+      if(!cur||dd>(''+(cur.w.due_date||'')).slice(0,10))namedCand[key]={w:w,m:m};
+    });
+    Object.keys(namedCand).forEach(function(key){
+      var w=namedCand[key].w, m=namedCand[key].m;
+      var at=m.loggedAt||new Date().toISOString();
+      var patch={status:'completed',completed_by:(canonName(m.who)||m.who||user),completed_at:at,updated_at:new Date().toISOString(),notes:(w.notes?w.notes+' • ':'')+'Auto-completed from log'};
       Object.assign(w,patch);
       try{ sbFetch('bbw_wos?id=eq.'+w.id,{method:'PATCH',body:JSON.stringify(patch),headers:{'Prefer':'return=minimal'}}).catch(function(){}); }catch(_e){}
       if(w.pm_code||w.pm_id){ var p=(typeof CMMS_PMS!=='undefined'?CMMS_PMS:[]).filter(function(x){return (w.pm_code&&x.code===w.pm_code)||(w.pm_id&&x.id===w.pm_id);})[0]; if(p&&p.freq&&typeof pmAdvanceISO==='function'){var nd=pmAdvanceISO(p.freq,today);if(nd){p.next_due=nd;p.last_done=today;}} }
