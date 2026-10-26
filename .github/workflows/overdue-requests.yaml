@@ -5,14 +5,16 @@ name: BBW overdue requests
 # (default 4 days), grouped by the assigned tech, so a request can't quietly sit
 # unactioned. Sibling of the overdue PM digest.
 #
-# Cron fires at 11:30 AND 12:30 UTC (half an hour after the PM digest so the two
-# don't land in the same minute); the once-a-day lock in bbw_report_sent
-# (OVERDUEREQ_<date>) makes exactly one of them send. Sent only when something is
-# actually overdue. Also runnable by hand (tick dry_run to preview, force to send
-# now, always to send even when nothing is overdue).
+# Catch-up window across the morning at off-peak minutes (11:13–13:53 UTC ≈
+# 7:13–9:53 AM Toronto), offset by 6 min from the PM digest so the two never land in
+# the same minute. GitHub's scheduled runs drift, so firing several times and letting
+# the once-a-day lock (OVERDUEREQ_<date>) pick exactly one keeps it close to 7 AM
+# instead of drifting. Built-in fetch only, so the extra ticks cost almost nothing.
+# Sent only when something is overdue. Also runnable by hand (dry_run to preview,
+# force to send now, always to send even when nothing is overdue).
 on:
   schedule:
-    - cron: '30 11,12 * * *'
+    - cron: '13,33,53 11-13 * * *'
   workflow_dispatch:
     inputs:
       dry_run:

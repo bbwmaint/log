@@ -4,13 +4,16 @@ name: BBW overdue digest
 # morning — overdue + due-in-grace, grouped by technician. The whole team and the
 # supervisor see the same list, so it is a nudge and an accountability record in one.
 #
-# Cron fires at 11:00 AND 12:00 UTC; the script only sends during the 7:00 Toronto
-# hour, so exactly one fire lands at 7 AM local in BOTH daylight-saving and standard
-# time. Sent once per day (deduped in bbw_report_sent), and only when something is
-# actually due. Also runnable by hand (tick dry_run to preview, force to send now).
+# GitHub's scheduled runs aren't punctual (hour-aligned jobs queue and drift), so
+# instead of two hour-aligned ticks we fire a catch-up window across the morning at
+# off-peak minutes (11:07–13:47 UTC ≈ 7–9:47 AM Toronto). The once-a-day lock
+# (OVERDUE_<date> in bbw_report_sent) still means exactly one send — but the first
+# tick GitHub actually runs sends it, close to 7 AM instead of drifting. This step is
+# built-in fetch only, so the extra catch-up ticks cost almost nothing. Sent only
+# when something is due. Also runnable by hand (dry_run to preview, force to send now).
 on:
   schedule:
-    - cron: '0 11,12 * * *'
+    - cron: '7,27,47 11-13 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
