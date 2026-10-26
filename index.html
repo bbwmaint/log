@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v218';
+var APP_BUILD='BBW CMMS build v219';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3946,10 +3946,47 @@ function card(e,mine){
   return html;
 }
 
+// Live PM source for the home "Due Today". Use the CMMS PM table (active only) when it's
+// loaded so the home list matches the CMMS dashboard — it then picks up newly-added PMs and
+// drops retired ones instead of reading the snapshot baked into the app. Falls back to the
+// baked-in PMS only before the table has loaded (first paint / offline). Normalized to the
+// shape the home card + log helpers expect: asset is the bare name so it matches ASSETS.
+function pmDueList(){
+  try{
+    if(typeof CMMS_PMS!=='undefined'&&CMMS_PMS&&CMMS_PMS.length){
+      return CMMS_PMS.filter(function(p){return p&&p.active!==false;}).map(function(p){
+        return {code:p.code,asset:p.asset||'',asset_code:p.asset_code||'',desc:p.description||p.desc||'',freq:p.freq||'',priority:p.priority||'',assignee:p.assignee||'',hours:p.hours};
+      });
+    }
+  }catch(e){}
+  return (typeof PMS!=='undefined'&&PMS)?PMS:[];
+}
+function _pmByCode(code){
+  var L=pmDueList(); var p=L.filter(function(x){return x.code===code;})[0];
+  if(!p&&typeof PMS!=='undefined'&&PMS)p=PMS.filter(function(x){return x.code===code;})[0];
+  return p;
+}
+
 function renderLog(){
   var el=gid('pane-log');
   var today=td();
   var shiftNow=isDay()?'Day':'Night';
+
+  // The home "Due Today" reads the live PM table + work orders (pmDueList / WOS). Those load
+  // when the CMMS/dashboard tab is opened, but the home can be the first screen — so pull them
+  // once here and re-render when they land, otherwise the list would stay on the baked-in
+  // snapshot until the user visited another tab. Guarded so it fires at most once at a time.
+  try{
+    var _needPM=(typeof CMMS_PMS==='undefined'||!CMMS_PMS||!CMMS_PMS.length);
+    var _needWO=(typeof WOS_LOADED==='undefined'||!WOS_LOADED);
+    if((_needPM||_needWO)&&!window.__pmHomeLoading&&typeof loadCMMS==='function'){
+      window.__pmHomeLoading=true;
+      Promise.all([loadCMMS(),(typeof loadWOs==='function'?loadWOs():Promise.resolve())]).then(function(){
+        window.__pmHomeLoading=false;
+        try{ if(gid('pane-log')&&gid('pane-log').style.display!=='none')renderLog(); }catch(e){}
+      }).catch(function(){ window.__pmHomeLoading=false; });
+    }
+  }catch(e){}
 
   // My logged entries — pull from allE (not the current-shift-scoped `entries`) so
   // an entry filed under a different shift (e.g. a 05:30 fix that anchors to the
@@ -3980,12 +4017,17 @@ function renderLog(){
     if(w.indexOf('every 4 days')>=0&&dow==='Monday')return true;
     return false;
   }
-  // PMs due today that haven't been logged by ANYONE in last 24hrs
-  var myPMs=PMS.filter(function(pm){
+  // PMs due today that haven't been logged by ANYONE in last 24hrs. Sourced from the live
+  // PM table (pmDueList) so it stays in step with the CMMS dashboard.
+  var _doneToday={};
+  try{ (typeof WOS!=='undefined'&&WOS?WOS:[]).forEach(function(w){ if(w&&w.status==='completed'){ var d=(''+(w.completed_at||w.updated_at||w.due_date||'')).slice(0,10); if(d===today){ if(w.pm_code)_doneToday[w.pm_code]=1; if(w.pm_id)_doneToday[w.pm_id]=1; } } }); }catch(e){}
+  var myPMs=pmDueList().filter(function(pm){
     if(!isDueToday2(pm))return false;
     // Only show PMs assigned to this user
     var assignee=getAssignee(pm);
     if(assignee&&assignee!==user&&assignee!=='Unassigned'&&assignee!=='Technicians')return false;
+    // Drop anything already completed today — matches the dashboard dropping a done WO
+    if(_doneToday[pm.code])return false;
     // Check not already logged by anyone today
     var alreadyDone=allE.some(function(e){
       return (e.type==='pm'||e.type==='completed')&&e.desc&&e.desc.indexOf(pm.code)>=0&&(e.date===today||e.date===shiftAnchor());
@@ -4030,13 +4072,13 @@ function renderLog(){
     H+='<div style="background:var(--surface);border-radius:12px;padding:14px;margin-bottom:12px;border-left:3px solid #7c3aed">';
     H+='<div style="font-size:12px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Your PMs Due Today ('+myPMs.length+')</div>';
     myPMs.forEach(function(pm){
-      var pmIdx=PMS.indexOf(pm);
+      var _c=(pm.code||'').replace(/'/g,'');
       H+='<div style="background:var(--surface-2);border-radius:8px;padding:10px 12px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;gap:8px">';
-      H+='<div onclick="logPMByIdx('+pmIdx+')" style="flex:1;min-width:0;cursor:pointer"><div style="font-size:13px;font-weight:600;color:#fff">'+rqEsc(pm.asset||'')+'</div>';
+      H+='<div onclick="logPMByCode(\''+_c+'\')" style="flex:1;min-width:0;cursor:pointer"><div style="font-size:13px;font-weight:600;color:#fff">'+rqEsc(pm.asset||'')+'</div>';
       H+='<div style="font-size:11px;color:var(--text-2);margin-top:2px">'+rqEsc(pm.desc||'')+'</div></div>';
       H+='<div style="display:flex;gap:6px;flex-shrink:0">';
-      H+='<button onclick="logPMByIdx('+pmIdx+')" title="Add time / notes" style="padding:7px 10px;background:transparent;color:var(--text-3);border:1px solid var(--border-2);border-radius:7px;font-size:13px;cursor:pointer">\u270E</button>';
-      H+='<button onclick="quickPM('+pmIdx+')" style="padding:7px 14px;background:#7c3aed;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">\u2713 '+T('pm_done')+'</button>';
+      H+='<button onclick="logPMByCode(\''+_c+'\')" title="Add time / notes" style="padding:7px 10px;background:transparent;color:var(--text-3);border:1px solid var(--border-2);border-radius:7px;font-size:13px;cursor:pointer">\u270E</button>';
+      H+='<button onclick="quickPMByCode(\''+_c+'\')" style="padding:7px 14px;background:#7c3aed;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">\u2713 '+T('pm_done')+'</button>';
       H+='</div>';
       H+='</div>';
     });
@@ -5549,8 +5591,8 @@ function filterPMs(val){
   var el=gid('pm-list');if(el)el.innerHTML=renderPMList(filtered);
 }
 
-function logPMByIdx(idx){
-  var pm=PMS[idx];if(!pm)return;
+function _logPM(pm){
+  if(!pm)return;
   openSheet(null);
   setTimeout(function(){
     setType('pm');
@@ -5559,6 +5601,8 @@ function logPMByIdx(idx){
     if(found)selA2(found.c,found.n);
   },100);
 }
+function logPMByIdx(idx){ _logPM(PMS[idx]); }
+function logPMByCode(code){ _logPM(_pmByCode(code)); }
 
 // Estimated duration for a PM when it's one-tap completed. Prefer the PM's own hours
 // estimate; when blank, fall back to 30 min for Brewing/B1 PMs, else 15 min.
@@ -5605,8 +5649,10 @@ function hhmmMinus(hhmm, mins){
 }
 // One-tap PM completion — logs a Done entry immediately, no form. The pencil on the
 // card still opens the full sheet (logPMByIdx) when a tech wants to add time/notes.
-function quickPM(idx){
-  var pm=PMS[idx];if(!pm)return;
+function quickPM(idx){ _quickPM(PMS[idx]); }
+function quickPMByCode(code){ _quickPM(_pmByCode(code)); }
+function _quickPM(pm){
+  if(!pm)return;
   var found=ASSETS.find(function(a){return a.n===pm.asset||(pm.asset&&a.n.indexOf(pm.asset)>=0);});
   var _end=ntime(), _start=hhmmMinus(_end, Math.round(pmEstHours(pm)*60));
   var entry={
@@ -5659,8 +5705,7 @@ function toggleVoice(targetId){
 try{ if(!voiceSupported()){ var _mb=document.getElementById('f-desc-mic'); if(_mb)_mb.style.display='none'; } }catch(e){}
 
 function logPMDone(code,asset,desc){
-  var idx=PMS.findIndex(function(p){return p.code===code;});
-  if(idx>=0)logPMByIdx(idx);
+  logPMByCode(code);
 }
 
 // ═══════════════ MAINTENANCE DASHBOARD ═══════════════
