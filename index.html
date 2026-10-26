@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v216';
+var APP_BUILD='BBW CMMS build v217';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -5885,8 +5885,11 @@ function weekStats(data,start,end){
   var resHrs=[];
   closed.forEach(function(r){if(r.created_at){var h=(new Date(r.closed_at)-new Date(r.created_at))/3600000;if(h>=0&&isFinite(h))resHrs.push(h);}});
   var avgRes=resHrs.length?(resHrs.reduce(function(a,b){return a+b;},0)/resHrs.length):null;
-  // PM completion — work orders due in the window
-  var woDue=(data.wos||[]).filter(function(w){return w.due_date&&inRange((''+w.due_date).slice(0,10),start,end);});
+  // PM completion — work orders due in the window. Collapse duplicate rows (same
+  // PM + due date, keeping a completed one) so repeated WO generation can't inflate
+  // the "due" count, the same way the in-app views dedupe on read.
+  var _rwos=(typeof dedupWOs==='function')?dedupWOs(data.wos||[]):(data.wos||[]);
+  var woDue=_rwos.filter(function(w){return w.due_date&&inRange((''+w.due_date).slice(0,10),start,end);});
   var woDone=woDue.filter(function(w){return w.status==='completed';}).length;
   var pmPct=woDue.length?Math.round(woDone/woDue.length*100):null;
   // Production from the Schedule tab (techSchedule): volume, day/night hL, mean productivity, attainment
@@ -6517,8 +6520,11 @@ function loadReportData(startStr,endStr){
   function j(r){return r.ok?r.json():[];}
   var wl=sbFetchAll('bbw_worklog?select=*&date=gte.'+startStr+'&date=lte.'+endStr+'&order=date.asc');
   var ut=sbFetch('bbw_util_log?select=*&date=gte.'+startStr+'&date=lte.'+endStr+'&limit=20000').then(j);
-  var rq=sbFetch('bbw_requests?select=*&limit=8000').then(j);
-  var wo=sbFetch('bbw_wos?select=*&limit=20000').then(j);
+  // Supabase caps a single response at 1000 rows, so a plain fetch silently
+  // dropped most work orders/requests and the report under-counted (e.g. "0 of 66
+  // completed"). Page through everything instead.
+  var rq=sbFetchAll('bbw_requests?select=*&order=created_at.asc');
+  var wo=sbFetchAll('bbw_wos?select=*&order=id.asc');
   return Promise.all([wl,ut,rq,wo]).then(function(a){return {entries:a[0]||[],utils:a[1]||[],requests:a[2]||[],wos:a[3]||[]};});
 }
 
