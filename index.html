@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v220';
+var APP_BUILD='BBW CMMS build v221';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -8335,7 +8335,11 @@ function openWOComplete(id, edit){
   // Prefill: in edit mode use the stored completion; otherwise the estimate/blank.
   var preH = isEd ? (w.hours_spent!=null&&w.hours_spent!==''?Math.round(parseFloat(w.hours_spent)*60):'') : (w.hours_est?Math.round(w.hours_est*60):'');
   var preNote = isEd ? rqEsc(w.notes||'') : '';
-  var preActual = isEd ? (''+(w.completed_at||'')).slice(0,10) : '';
+  var _todayISO = (typeof pmISO==='function') ? pmISO(new Date()) : new Date().toISOString().slice(0,10);
+  // Fresh completion: the admin keeps the scheduled (due) date as the default (blank -> due date);
+  // everyone else defaults to the date they're completing (today), still editable.
+  var preActual = isEd ? (''+(w.completed_at||'')).slice(0,10)
+                       : ((typeof isAdmin==='function' && isAdmin()) ? '' : _todayISO);
   var H='<div id="wo-complete-modal" onclick="if(event.target===this)closeWOComplete()" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:900;display:flex;align-items:flex-end;justify-content:center">';
   H+='<div style="background:var(--bg);width:100%;max-width:600px;border-radius:18px 18px 0 0;border-top:1px solid var(--border);padding:18px 16px 26px;max-height:90vh;overflow-y:auto">';
   H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:3px"><div style="font-size:16px;font-weight:800;color:#fff">'+(isEd?'Edit completion':T('wo_complete_title'))+'</div><button onclick="closeWOComplete()" style="background:none;border:none;font-size:24px;color:var(--text-3);cursor:pointer;line-height:1;padding:0 2px;margin:-4px -2px 0 8px;flex:none">\u00d7</button></div>';
@@ -8355,7 +8359,11 @@ function openWOComplete(id, edit){
     H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">Completed by <span style="color:var(--text-3);font-weight:400">\u2014 who actually did the work</span></label>';
     H+='<select id="wo-c-by" style="'+inp+';margin-bottom:12px">'+_opts.map(function(t){return '<option value="'+rqEsc(t)+'"'+(canonName(t)===canonName(_cur)?' selected':'')+'>'+rqEsc(t)+'</option>';}).join('')+'</select>';
   }
-  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">Actual date <span style="color:var(--text-3);font-weight:400">\u2014 '+(isEd?'the completion date':'leave blank to use the due date ('+(w.due_date?(''+w.due_date).slice(0,10):'\u2014')+')')+'</span></label><input id="wo-c-actual" type="date" value="'+preActual+'" style="'+inp+';margin-bottom:16px">';
+  var _dateHint = isEd ? 'the completion date'
+      : ((typeof isAdmin==='function' && isAdmin())
+          ? ('leave blank to use the due date ('+(w.due_date?(''+w.due_date).slice(0,10):'\u2014')+')')
+          : 'defaults to today \u2014 change it if you finished on another day');
+  H+='<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">Actual date <span style="color:var(--text-3);font-weight:400">\u2014 '+_dateHint+'</span></label><input id="wo-c-actual" type="date" value="'+preActual+'" style="'+inp+';margin-bottom:16px">';
   if(isEd){
     H+='<button onclick="doWOEditComplete('+w.id+')" style="width:100%;padding:13px;background:#16a34a;border:none;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:9px">Save changes</button>';
     H+='<button onclick="closeWOComplete()" style="width:100%;padding:12px;background:var(--surface-2);border:1px solid var(--border);color:#fff;border-radius:10px;font-size:13px;cursor:pointer">'+T('Cancel')+'</button>';
