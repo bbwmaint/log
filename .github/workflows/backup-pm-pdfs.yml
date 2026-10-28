@@ -4,8 +4,9 @@ name: BBW PM PDF backup
 # For each PM work order completed since the last run it re-creates the exact in-app
 # PDF in a headless browser (same technique as the machine report), saves a durable
 # copy to Supabase Storage (bbw-docs/pm-reports/), and emails it as an attachment
-# via Brevo. A no-code Power Automate flow watching that mailbox files the attachment
-# into OneDrive — so there's no Microsoft Graph / Azure app to set up.
+# via the maintenance mailbox's SMTP. A no-code Power Automate flow watching that
+# mailbox files the attachment into OneDrive — the exact mirror of the L1 schedule
+# import, so there's no Microsoft Graph / Azure app to set up.
 #
 # Idempotent: each completion is backed up exactly once (PMBK_<wo>_<date> in
 # bbw_report_sent). Triggered by Supabase pg_cron (bbw-pm-backup ->
@@ -46,8 +47,18 @@ jobs:
         env:
           SUPABASE_URL:      ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY:      ${{ secrets.SUPABASE_KEY }}
-          BREVO_API_KEY:     ${{ secrets.BREVO_API_KEY }}
-          BREVO_FROM:        ${{ vars.BREVO_FROM || secrets.BREVO_FROM }}
+          # SMTP send — defaults to the same mailbox the L1/shift imports read via IMAP.
+          # Gmail relay: nothing else needed (app password works for IMAP + SMTP).
+          # Outlook/O365: set repo vars SMTP_HOST=smtp.office365.com and SMTP_PORT=587.
+          IMAP_HOST:         ${{ secrets.IMAP_HOST }}
+          IMAP_USER:         ${{ secrets.IMAP_USER }}
+          IMAP_PASS:         ${{ secrets.IMAP_PASS }}
+          SMTP_HOST:         ${{ vars.SMTP_HOST }}
+          SMTP_PORT:         ${{ vars.SMTP_PORT }}
+          SMTP_USER:         ${{ secrets.SMTP_USER }}
+          SMTP_PASS:         ${{ secrets.SMTP_PASS }}
+          SMTP_SECURE:       ${{ vars.SMTP_SECURE }}
+          PM_BACKUP_FROM:    ${{ vars.PM_BACKUP_FROM }}
           # The mailbox the Power Automate flow watches. Set as a repo variable.
           PM_BACKUP_TO:      ${{ vars.PM_BACKUP_TO }}
           PM_BACKUP_SUBJECT: ${{ vars.PM_BACKUP_SUBJECT || 'BBW PM Backup' }}

@@ -7,16 +7,21 @@
  * index.html — same technique as the weekly machine report) and:
  *   1. uploads it to Supabase Storage (bbw-docs/pm-reports/) — an immediate,
  *      durable copy, reusing the bucket the shift/machine reports already use;
- *   2. emails it as an attachment (Brevo) to a mailbox a no-code Power Automate
- *      flow watches, which drops the attachment into the shared OneDrive folder.
- * So OneDrive keeps a permanent copy of every completed PM — no Microsoft Graph,
- * no Azure app registration.
+ *   2. emails it as an attachment to a mailbox a no-code Power Automate flow
+ *      watches, which drops the attachment into the shared OneDrive folder.
+ * This is the exact mirror of the L1 schedule import (Power Automate bridges
+ * OneDrive/SharePoint and email; the Action just uses the mailbox) — only here
+ * the Action SENDS via SMTP and Power Automate WRITES to OneDrive. No Microsoft
+ * Graph, no Azure app registration.
  *
  * Idempotent: each completion is backed up exactly once (marker
  * PMBK_<woId>_<completedDate> in bbw_report_sent). Re-runs never duplicate.
  *
- * Secrets you already have:  SUPABASE_URL  SUPABASE_KEY  BREVO_API_KEY  BREVO_FROM
+ * Secrets you already have:  SUPABASE_URL  SUPABASE_KEY   (+ IMAP_USER/IMAP_PASS,
+ *   reused as the SMTP login when SMTP_* aren't set)
  * New (repo variable, not secret):  PM_BACKUP_TO  = the mailbox Power Automate watches
+ * SMTP (defaults to the IMAP_* mailbox):  SMTP_HOST  SMTP_PORT(465)  SMTP_USER
+ *   SMTP_PASS  SMTP_SECURE  PM_BACKUP_FROM
  * Optional env:  PM_BACKUP_SUBJECT('BBW PM Backup')  PDF_BUCKET('bbw-docs')
  *                APP_HTML('./index.html')  LOOKBACK_DAYS(30)  MAX_ATTACH(8)  MAX_PER_RUN(60)
  *                STORAGE_BACKUP('1' on; '0' to skip the Supabase copy)
@@ -24,6 +29,7 @@
  *        --force (ignore markers)  --lookback N  --since YYYY-MM-DD  --limit N
  */
 import { chromium } from 'playwright';
+import nodemailer from 'nodemailer';
 import { writeFileSync, mkdirSync } from 'fs';
 import path from 'path';
 
@@ -43,13 +49,21 @@ const MAX_ATTACH = +(process.env.MAX_ATTACH || 8);               // ~8 × 0.46 M
 const BUCKET = process.env.PDF_BUCKET || 'bbw-docs';
 const STORE  = !/^(0|false|no)$/i.test(process.env.STORAGE_BACKUP || '1');
 
-const BREVO_KEY = process.env.BREVO_API_KEY || '';
-const BREVO_FROM = process.env.BREVO_FROM || '';
+// Send through the SAME maintenance mailbox the L1 / shift imports already read
+// from — SMTP this time instead of IMAP. Defaults to the IMAP_* creds, so for a
+// Gmail relay (app password works for both) there are no new secrets; for Outlook
+// set SMTP_HOST (smtp.office365.com) + SMTP_PORT 587.
+const IMAP_HOST = process.env.IMAP_HOST || '';
+const SMTP_HOST = process.env.SMTP_HOST || (IMAP_HOST ? IMAP_HOST.replace(/^imap\./i, 'smtp.') : '');
+const SMTP_PORT = +(process.env.SMTP_PORT || 465);
+const SMTP_USER = process.env.SMTP_USER || process.env.IMAP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || process.env.IMAP_PASS || '';
+const SMTP_SECURE = /^(1|true|yes)$/i.test(process.env.SMTP_SECURE || (SMTP_PORT === 465 ? 'true' : 'false'));
+const FROM    = process.env.PM_BACKUP_FROM || SMTP_USER;
 const TO      = (process.env.PM_BACKUP_TO || '').split(',').map(s => s.trim()).filter(Boolean);
 const SUBJECT = process.env.PM_BACKUP_SUBJECT || 'BBW PM Backup';
 
 function isoOf(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function parseFrom(s){ const m = (s||'').match(/^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/); return m ? { name: m[1] || 'BBW Maintenance', email: m[2] } : { name: 'BBW Maintenance', email: (s||'').trim() }; }
 
 /* ── supabase ─────────────────────────────────────────────────────────────── */
 function sb(p, opts = {}) {
@@ -149,24 +163,20 @@ async function renderPDFs(targets) {
   return out;
 }
 
-/* ── email a batch of PDFs as attachments (Brevo transactional API) ───────── */
+/* ── email a batch of PDFs as attachments (SMTP via the maintenance mailbox) ─ */
 async function sendBatch(pdfs) {
-  const from = parseFrom(BREVO_FROM);
+  const transporter = nodemailer.createTransport({
+    host: SMTP_HOST, port: SMTP_PORT, secure: SMTP_SECURE, auth: { user: SMTP_USER, pass: SMTP_PASS }
+  });
   const names = pdfs.map(p => p.filename);
   const text = 'Automated backup of completed PM reports.\n\n' + names.map(n => ' - ' + n).join('\n') +
                '\n\nThese are filed into the shared OneDrive folder by Power Automate.';
-  const r = await fetch('https://api.brevo.com/v3/smtp/email', {
-    signal: AbortSignal.timeout(30000), method: 'POST',
-    headers: { 'api-key': BREVO_KEY, 'Content-Type': 'application/json', accept: 'application/json' },
-    body: JSON.stringify({
-      sender: from,
-      to: TO.map(email => ({ email })),
-      subject: `${SUBJECT}: ${pdfs.length} PM report${pdfs.length === 1 ? '' : 's'} · ${isoOf(new Date())}`,
-      textContent: text,
-      attachment: pdfs.map(p => ({ name: p.filename, content: p.buf.toString('base64') }))
-    })
+  await transporter.sendMail({
+    from: FROM, to: TO.join(', '),
+    subject: `${SUBJECT}: ${pdfs.length} PM report${pdfs.length === 1 ? '' : 's'} · ${isoOf(new Date())}`,
+    text,
+    attachments: pdfs.map(p => ({ filename: p.filename, content: p.buf, contentType: 'application/pdf' }))
   });
-  if (!r.ok) throw new Error(`Brevo ${r.status}: ${(await r.text()).slice(0, 220)}`);
 }
 
 /* ── main ─────────────────────────────────────────────────────────────────── */
@@ -214,8 +224,8 @@ async function sendBatch(pdfs) {
   }
 
   // 2) email as attachments → Power Automate files them into OneDrive
-  if (!BREVO_KEY || !from_ok() || !TO.length) {
-    console.log('PM_BACKUP_TO / BREVO_API_KEY / BREVO_FROM not all set — skipping the email step.' +
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS || !TO.length) {
+    console.log('SMTP_* / PM_BACKUP_TO not all set — skipping the email step.' +
       (STORE ? ' PDFs are still saved in Supabase Storage.' : '') + ' (Markers not written, so it retries once configured.)');
     return;
   }
@@ -227,5 +237,3 @@ async function sendBatch(pdfs) {
   }
   console.log('Done.');
 })().catch(e => { console.error('FATAL', e); process.exit(1); });
-
-function from_ok() { return !!parseFrom(BREVO_FROM).email; }
