@@ -1,0 +1,68 @@
+name: BBW PM PDF backup
+
+# Backs up every completed PM's Completion Report PDF to the shared OneDrive folder.
+# For each PM work order completed since the last run it re-creates the exact in-app
+# PDF in a headless browser (same technique as the machine report), saves a durable
+# copy to Supabase Storage (bbw-docs/pm-reports/), and emails it as an attachment
+# via Brevo. A no-code Power Automate flow watching that mailbox files the attachment
+# into OneDrive — so there's no Microsoft Graph / Azure app to set up.
+#
+# Idempotent: each completion is backed up exactly once (PMBK_<wo>_<date> in
+# bbw_report_sent). Triggered by Supabase pg_cron (bbw-pm-backup ->
+# bbw_trigger_pm_backup), the same way the other reports run; GitHub's own cron
+# drifts, so it is intentionally not scheduled here. Also runnable by hand.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Render + save PDFs as artifacts, send/store/mark nothing'
+        type: boolean
+        default: false
+      force:
+        description: 'Re-back-up even completions already marked done'
+        type: boolean
+        default: false
+      lookback:
+        description: 'How many days back to scan for completions (default 30)'
+        required: false
+      limit:
+        description: 'Max PMs to back up this run (default 60)'
+        required: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install libraries
+        run: npm install --no-audit --no-fund
+      # PDFs are captured from the live app in a headless browser.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Back up PM PDFs
+        env:
+          SUPABASE_URL:      ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:      ${{ secrets.SUPABASE_KEY }}
+          BREVO_API_KEY:     ${{ secrets.BREVO_API_KEY }}
+          BREVO_FROM:        ${{ vars.BREVO_FROM || secrets.BREVO_FROM }}
+          # The mailbox the Power Automate flow watches. Set as a repo variable.
+          PM_BACKUP_TO:      ${{ vars.PM_BACKUP_TO }}
+          PM_BACKUP_SUBJECT: ${{ vars.PM_BACKUP_SUBJECT || 'BBW PM Backup' }}
+          PDF_BUCKET:        ${{ vars.PDF_BUCKET || 'bbw-docs' }}
+          LOOKBACK_DAYS:     ${{ vars.PM_BACKUP_LOOKBACK || '30' }}
+        run: |
+          node scripts/backup-pm-pdfs.mjs \
+            ${{ inputs.dry_run && '--dry-run' || '' }} \
+            ${{ inputs.force   && '--force'   || '' }} \
+            ${{ inputs.lookback && format('--lookback {0}', inputs.lookback) || '' }} \
+            ${{ inputs.limit    && format('--limit {0}',    inputs.limit)    || '' }}
+      - name: Upload dry-run PDFs (only when dry_run)
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pm-backup-dryrun
+          path: pm-backup-dryrun/
+          if-no-files-found: ignore
