@@ -45,7 +45,7 @@ const INDEX  = process.env.APP_HTML || path.resolve(process.cwd(), 'index.html')
 const LOOKBACK = +(val('lookback') || process.env.LOOKBACK_DAYS || 30);
 const SINCE  = val('since') || null;
 const LIMIT  = +(val('limit') || process.env.MAX_PER_RUN || 60);
-const MAX_ATTACH = +(process.env.MAX_ATTACH || 8);               // ~8 × 0.46 MB ≈ 5 MB base64 — safe for Brevo
+const MAX_ATTACH = +(process.env.MAX_ATTACH || 30);              // ~30 × 0.47 MB ≈ 14 MB — safe under Gmail's 25 MB
 const BUCKET = process.env.PDF_BUCKET || 'bbw-docs';
 const STORE  = !/^(0|false|no)$/i.test(process.env.STORAGE_BACKUP || '1');
 
