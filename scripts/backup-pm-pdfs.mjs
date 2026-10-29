@@ -64,6 +64,17 @@ const TO      = (process.env.PM_BACKUP_TO || '').split(',').map(s => s.trim()).f
 const SUBJECT = process.env.PM_BACKUP_SUBJECT || 'BBW PM Backup';
 
 function isoOf(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+// Readable, SharePoint-safe filename led by the asset so files group by machine in the
+// folder, e.g. "PALLETIZER - Monthly Lubrication (SM184) - 2026-10-08.pdf".
+function _san(s){ return String(s == null ? '' : s).replace(/[\\\/:*?"<>|#%]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+function _cap(s, n){ s = _san(s); return s.length > n ? s.slice(0, n).trim() : s; }
+function pmFileName(w, date) {
+  const asset = _cap(w.asset || w.asset_code || 'Unknown asset', 60);
+  const name  = _cap(w.description || w.pm_code || 'PM', 80);
+  const code  = _san(w.pm_code || '');
+  const base  = `${asset} - ${name}${code ? ` (${code})` : ''} - ${date}`;
+  return base.slice(0, 180).trim() + '.pdf';
+}
 
 /* ── supabase ─────────────────────────────────────────────────────────────── */
 function sb(p, opts = {}) {
@@ -156,7 +167,7 @@ async function renderPDFs(targets) {
       }, w);
       if (res.err) { console.warn(`  ! ${w.pm_code} WO#${w.id}: ${res.err}`); continue; }
       const date = ('' + (w.completed_at || '')).slice(0, 10);
-      out.push({ wo: w, filename: `PM_${w.pm_code}_${date}.pdf`, buf: Buffer.from(res.b64, 'base64') });
+      out.push({ wo: w, filename: pmFileName(w, date), buf: Buffer.from(res.b64, 'base64') });
     }
     if (warns.length) console.warn('  (app warnings: ' + warns.slice(0, 3).join(' | ') + ')');
   } finally { await browser.close(); }
