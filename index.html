@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v223';
+var APP_BUILD='BBW CMMS build v224';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -11466,107 +11466,133 @@ function parseQuoteItems(items){
   function rowToks(r){ return r.slice().sort(function(a,b){return a.x-b.x;}); }
   function rowStr(r){ return rowToks(r).map(function(t){return t.str;}).join(' ').replace(/\s+/g,' ').trim(); }
   var MONEY=/([0-9][0-9,]*\.[0-9]{2})(?!\d)/;
-  function cleanNum(s){ return (''+s).replace(/,/g,''); }
+  var MONEYG=/([0-9][0-9,]*\.[0-9]{2})(?!\d)/g;
+  function num(s){ return (''+s).replace(/,/g,''); }
+  var UNIT=/^(pce|pcs|pc|ea|each|unit|units|box|set|sets|pkg|pk|roll|rolls|m|kg|l|lot)\.?$/i;
+  var QTYUNIT=/^(\d+(?:\.\d+)?)\s*(pce|pcs|pc|ea|each|unit|units|box|set|sets|pkg|pk|roll|rolls|lot)\.?$/i;
+  var NOISE=/^(item\s*\d*$|time\s+of\s+delivery|delivery\s+time|parts?\s+for\s+machine|spare\s+part\s+for|page\s+\d+\s+of\s+\d+|quotation\s+no|brunswick\s+bier|item\s+qty\s+material|description\b\s*(cad|usd)?|_{3,}|part\s*#|net\s*weight|weight\b|currency\b|validity|your\s+contact|telephone|email\s+address|confidential)/i;
 
-  // ---- 1) header row + the x of the numeric columns (qty / unit price / total) ----
+  // ---- header + numeric column anchors ----
   var headerIdx=-1, hx={};
   for(var ri=0;ri<rows.length;ri++){
     var toks=rowToks(rows[ri]), j=rowStr(rows[ri]).toLowerCase(), hits=0;
     if(/\b(qty|quantity|qnty)\b/.test(j))hits++;
-    if(/\b(part|item|sku|model|catalog|mfg|product|number|no\b)\b/.test(j))hits++;
+    if(/\b(part|item|sku|model|catalog|mfg|product|material|number|no\b)\b/.test(j))hits++;
     if(/\b(description|desc|details|designation)\b/.test(j))hits++;
     if(/\b(unit\s*price|price|rate|cost|each|amount|ext|total)\b/.test(j))hits++;
     if(hits>=3){
       headerIdx=ri;
       toks.forEach(function(t){ var s=t.str.trim().toLowerCase();
         if(hx.qty==null&&/^(qty|quantity|qnty)/.test(s))hx.qty=t.x;
-        else if(hx.price==null&&/^(unit|price|rate|cost|each)/.test(s))hx.price=t.x;
-        else if(hx.total==null&&/^(total|amount|ext)/.test(s))hx.total=t.x;
+        else if(hx.price==null&&/^(unit|price|rate|cost|each)$/.test(s))hx.price=t.x;
+        else if(hx.price==null&&/^(unit\s*price|price)/.test(s))hx.price=t.x;
+        else if(hx.total==null&&/^(total|amount|ext|line)/.test(s))hx.total=t.x;
       });
       break;
     }
   }
-
-  // ---- 2) where the item table ends (first summary / footer row) ----
-  var SUMMARY=/(comments?|sub\s*-?\s*total|lines?\s+total|total\s+tax|miscellaneous\s+charges|sales\s*person|\bterms\b|remit|thank\s*you|balance\s+due|grand\s+total)/i;
-  var TOTALLINE=/^\s*total\s*:/i;
   var start=(headerIdx>=0)?headerIdx+1:0;
+
+  // ---- end of item table: first totals / summary row ----
+  var SUMMARY=/\b(sub\s*-?\s*total|items?\s+total|net\s+value|final\s+amount|grand\s+total|amount\s+due|balance\s+due|total\s+tax|lines?\s+total|miscellaneous\s+charges|comments?|sales\s*person)\b/i;
+  var TOTALLINE=/^\s*total\s*:/i;
   var endIdx=rows.length;
   for(var e=start;e<rows.length;e++){ var es=rowStr(rows[e]); if(SUMMARY.test(es)||TOTALLINE.test(es)){ endIdx=e; break; } }
 
-  // ---- 3) shipping + tax from the label:value summary pairs ----
-  function sumVal(labelRe, excludeTailRe){
+  // ---- shipping + tax from summary label:value rows ----
+  function labelVal(labelRe, excludeTailRe, last){
     for(var i=start;i<rows.length;i++){
       var s=rowStr(rows[i]); var reg=new RegExp(labelRe.source,'ig'), m;
       while(m=reg.exec(s)){
         if(excludeTailRe && excludeTailRe.test(s.slice(0,m.index).slice(-10).toLowerCase())) continue;
-        var after=s.slice(m.index+m[0].length).match(MONEY);
-        if(after) return cleanNum(after[1]);
+        var tail=s.slice(m.index+m[0].length);
+        var all=tail.match(MONEYG);
+        if(all&&all.length) return num(last?all[all.length-1]:all[0]);
       }
     }
     return '';
   }
-  var shipping = sumVal(/miscellaneous\s+charges\s*:?/, /line\s*$/) || sumVal(/(transport|freight|shipping|handling)\b[^0-9]*/, null);
-  var tax      = sumVal(/total\s+tax\s*:?/, null) || sumVal(/\b(hst|gst|pst|tvh|sales\s+tax|tax)\b\s*:?/, null);
+  var shipping = labelVal(/miscellaneous\s+charges\s*:?/, /line\s*$/, false) || labelVal(/(transport|freight|shipping|handling)\b[^0-9]*/, null, false);
+  var tax = labelVal(/total\s+tax\s*:?/, null, true) || labelVal(/\b(hst|gst|pst|tvh|qst|sales\s+tax|vat|tax)\b[^0-9]*/, null, true);
 
-  var lines=[];
-  if(headerIdx>=0 && (hx.qty!=null||hx.price!=null||hx.total!=null)){
-    // ---- 4) column-banded item assembly ----
-    var nums=[hx.qty,hx.price,hx.total].filter(function(v){return v!=null;});
-    var numLeft=Math.min.apply(null,nums)-8;            // tokens left of this = part/#/description
-    var leftFar=1e9; for(var a=start;a<endIdx;a++){ rowToks(rows[a]).forEach(function(t){ if(t.x<leftFar)leftFar=t.x; }); }
-    function colOf(x){ // nearest numeric anchor
-      var best='total',bd=1e9;
-      if(hx.qty!=null&&Math.abs(x-hx.qty)<bd){bd=Math.abs(x-hx.qty);best='qty';}
-      if(hx.price!=null&&Math.abs(x-hx.price)<bd){bd=Math.abs(x-hx.price);best='price';}
-      if(hx.total!=null&&Math.abs(x-hx.total)<bd){bd=Math.abs(x-hx.total);best='total';}
-      return best;
-    }
-    var items2=[], it=null;
-    function flush(){ if(it)items2.push(it); it=null; }
-    for(var r=start;r<endIdx;r++){
-      var tk=rowToks(rows[r]); if(!tk.length)continue;
-      var lead=tk[0];
-      var isStart = lead.x<=leftFar+22 && (/^\d{1,4}$/.test(lead.str.trim()) || /^[A-Za-z0-9][A-Za-z0-9\-\/\.]{3,}$/.test(lead.str.trim()));
-      if(isStart){ flush(); it={numTok:lead.str.trim(), part:'', desc:[], qty:'', price:'', total:''}; }
-      if(!it){ it={numTok:'', part:'', desc:[], qty:'', price:'', total:''}; }
-      var sawPartOnStartRow=false;
-      tk.forEach(function(t){
-        var s=t.str.trim(); if(!s)return;
-        if(t.x<numLeft){
-          // left zone: line# / part / description
-          if(isStart && t===lead && /^\d{1,4}$/.test(s)){ return; } // the line number
-          if(!it.part && /[0-9]/.test(s) && /^[A-Za-z0-9][A-Za-z0-9\-\/\.]{3,}$/.test(s) && t.x<=leftFar+40){ it.part=s; sawPartOnStartRow=true; return; }
-          it.desc.push(s);
-        } else {
-          // numeric zone
-          var mm=s.match(MONEY); var col=colOf(t.x);
-          if(col==='qty'){ var q=s.match(/\d+(?:\.\d+)?/); if(q&&!it.qty)it.qty=q[0]; }
-          else if(col==='price'){ if(mm&&!it.price)it.price=cleanNum(mm[1]); }
-          else { if(mm&&!it.total)it.total=cleanNum(mm[1]); }
-        }
-      });
-    }
-    flush();
-    items2.forEach(function(o){
-      // drop shipping/stock-only continuation words from description
-      var desc=o.desc.filter(function(w){ return !/^(transport|freight|shipping|handling)\b/i.test(w); }).join(' ').replace(/\s+/g,' ').trim();
-      var cost=o.price||o.total||'';
-      var qty=o.qty||'';
-      if((desc||o.part)&&cost){ lines.push({item:desc||o.part, part_no:o.part||'', qty:qty, cost:cost}); }
-    });
+  // ---- part-number scoring ----
+  function partScore(s){
+    s=s.trim();
+    if(/^[A-Za-z0-9]+(?:[\-\/\.][A-Za-z0-9]+)+$/.test(s) && /[0-9]/.test(s)) return 3;   // dashed/slashed catalog no.
+    if(/^[0-9]{6,}$/.test(s)) return 2;                                                   // long pure-digit
+    if(/[A-Za-z]/.test(s) && /[0-9]/.test(s) && s.replace(/[^A-Za-z0-9]/g,'').length>=5) return 2; // alphanumeric
+    return 0;
   }
 
+  // ---- cluster items by leading position number ----
+  function rowHasItemSignal(tk){
+    for(var i=1;i<tk.length;i++){ var s=tk[i].str.trim(); if(MONEY.test(s)||UNIT.test(s)||QTYUNIT.test(s)||partScore(s)>=2) return true; }
+    return false;
+  }
+  var lines=[];
+  var clusters=[], cc=null;
+  for(var r=start;r<endIdx;r++){
+    var tk=rowToks(rows[r]); if(!tk.length)continue;
+    var leadIsQty = (tk[1] && UNIT.test(tk[1].str.trim())) || QTYUNIT.test(tk[0].str.trim());
+    var isStart = /^\d{1,7}$/.test(tk[0].str.trim()) && !leadIsQty && rowHasItemSignal(tk);
+    if(isStart){ if(cc)clusters.push(cc); cc={rows:[], pos:tk[0].str.trim()}; }
+    if(cc) cc.rows.push(tk);
+  }
+  if(cc)clusters.push(cc);
+  clusters=clusters.filter(function(cl){ return cl.rows.some(function(tk){ return tk.some(function(t){return MONEY.test(t.str);}); }); });
+
+  clusters.forEach(function(cl){
+    var all=[]; cl.rows.forEach(function(tk){ tk.forEach(function(t){ all.push(t); }); });
+    // prices by column
+    var priceVal='', totalVal='', prices=[];
+    all.forEach(function(t){ var m=t.str.match(MONEY); if(m)prices.push({v:num(m[1]),x:t.x}); });
+    if(prices.length){
+      if(hx.price!=null||hx.total!=null){
+        prices.forEach(function(p){ var dP=hx.price!=null?Math.abs(p.x-hx.price):1e9, dT=hx.total!=null?Math.abs(p.x-hx.total):1e9;
+          if(dP<=dT){ if(!priceVal)priceVal=p.v; } else { if(!totalVal)totalVal=p.v; } });
+      }
+      if(!priceVal) priceVal=prices[0].v;
+    }
+    // qty: combined "6 PCE" token, or N followed by a unit, else qty-band
+    var qty='', qtyTok=null;
+    for(var i=0;i<all.length;i++){ var s=all[i].str.trim(); var mc=s.match(QTYUNIT);
+      if(mc){ qty=mc[1]; qtyTok=all[i]; break; }
+      if(/^\d+(?:\.\d+)?$/.test(s)){ var nx=all[i+1]&&all[i+1].str.trim(); if(nx&&UNIT.test(nx)){ qty=s; qtyTok=all[i]; break; } }
+    }
+    if(!qty && hx.qty!=null){ var band=all.filter(function(t){return Math.abs(t.x-hx.qty)<26 && /^\d+(?:\.\d+)?$/.test(t.str.trim());}); if(band.length){qty=band[0].str.trim(); qtyTok=band[0];} }
+    // part: best-scoring token (not position / qty / price / unit)
+    var part='', best=0;
+    all.forEach(function(t){ var s=t.str.trim();
+      if(s===cl.pos||t===qtyTok)return; if(MONEY.test(s)||UNIT.test(s)||QTYUNIT.test(s))return;
+      var sc=partScore(s); if(sc>best){ best=sc; part=s; } });
+    // description: per-row, stop at the first noise row after the lead row
+    var descParts=[];
+    for(var ri2=0; ri2<cl.rows.length; ri2++){
+      var tk2=cl.rows[ri2]; var rstr=rowToks(tk2).map(function(t){return t.str;}).join(' ').replace(/\s+/g,' ').trim();
+      if(ri2>0 && NOISE.test(rstr)) break;
+      if(NOISE.test(rstr)) continue;
+      var kept=rowToks(tk2).map(function(t){return t.str;}).filter(function(s){ s=s.trim(); if(!s)return false;
+        if(s===cl.pos)return false; if(s===qty)return false; if(s===part)return false;
+        if(UNIT.test(s)||QTYUNIT.test(s))return false; if(MONEY.test(s))return false;
+        if(/^\d+(?:\.\d+)?%?$/.test(s))return false;
+        if(/^(transport|freight|shipping|handling)/i.test(s))return false;
+        return true; });
+      if(kept.length)descParts.push(kept.join(' '));
+    }
+    var desc=descParts.join(' ').replace(/\s+/g,' ').replace(/^[\s\-:,|]+|[\s\-:,|]+$/g,'').trim();
+    var cost=priceVal||totalVal||'';
+    if((desc||part)&&cost){ lines.push({item:desc||part, part_no:part, qty:qty, cost:cost}); }
+  });
+
+  // ---- fallback when no position-numbered clusters found ----
   if(!lines.length){
-    // ---- fallback: per-row price scan within the item region (old behaviour, summary-stopped) ----
     for(var r3=start;r3<endIdx;r3++){
-      var text=rowStr(rows[r3]); if(!text)continue;
-      var prices=[], re=/([0-9][0-9,]*\.[0-9]{2})(?!\d)/g, mm2; while(mm2=re.exec(text))prices.push(cleanNum(mm2[1]));
-      if(!prices.length)continue;
-      var qm=text.match(/^\s*(\d+(?:\.\d+)?)\b/), pm=text.match(/\b([A-Z0-9][A-Z0-9\-\/]{3,})\b/);
-      var d=text; if(qm)d=d.replace(qm[0],''); prices.forEach(function(p){d=d.replace(p,'');}); if(pm)d=d.replace(pm[1],'');
-      d=d.replace(/\s+/g,' ').replace(/^[\s\-|,:$]+|[\s\-|,:$]+$/g,'').trim();
-      if(d||pm){ lines.push({item:d||(pm?pm[1]:''), part_no:pm?pm[1]:'', qty:qm?qm[1]:'', cost:prices[0]}); }
+      var rstr2=rowStr(rows[r3]); if(!rstr2||NOISE.test(rstr2))continue;
+      var pr=rstr2.match(MONEYG); if(!pr)continue;
+      var qm=rstr2.match(/^\s*(\d+(?:\.\d+)?)\b/), pm=rstr2.match(/\b([A-Z0-9][A-Z0-9\-\/]{3,})\b/);
+      var d=rstr2; if(qm)d=d.replace(qm[0],''); pr.forEach(function(p){d=d.replace(p,'');}); if(pm)d=d.replace(pm[1],'');
+      d=d.replace(/\s+/g,' ').replace(/^[\s\-|,:$%]+|[\s\-|,:$%]+$/g,'').trim();
+      if(d||pm){ lines.push({item:d||(pm?pm[1]:''), part_no:pm?pm[1]:'', qty:qm?qm[1]:'', cost:num(pr[0])}); }
     }
   }
   return {lines:lines, shipping:shipping, tax:tax};
