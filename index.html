@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v224';
+var APP_BUILD='BBW CMMS build v225';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -11434,7 +11434,10 @@ function pordQuoteUpload(input){
           var seq=Promise.resolve([]);
           for(var i=1;i<=pdf.numPages;i++){ (function(n){ seq=seq.then(function(acc){
             return pdf.getPage(n).then(function(pg){return pg.getTextContent();}).then(function(tc){
-              return acc.concat(tc.items.map(function(it){ return {str:it.str, x:it.transform[4], y:it.transform[5]}; }));
+              // Offset y per page so multi-page quotes stack top-to-bottom instead of
+              // colliding (every page's y restarts near 0, so without this, rows from
+              // different pages at the same height merge into one garbled row).
+              return acc.concat(tc.items.map(function(it){ return {str:it.str, x:it.transform[4], y:it.transform[5]-(n-1)*100000}; }));
             });
           }); })(i); }
           return seq;
