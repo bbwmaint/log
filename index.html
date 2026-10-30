@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v221';
+var APP_BUILD='BBW CMMS build v222';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3344,6 +3344,12 @@ function sbFetchAll(path){
       });
   }
   return page(0);
+}
+// Exact row count via the Content-Range header (no row download, not capped at 1000).
+function sbCount(tbl){
+  return sbFetch(tbl+'?select=id',{headers:{'Prefer':'count=exact','Range':'0-0','Range-Unit':'items'}})
+    .then(function(r){ var cr=(r.headers&&r.headers.get('content-range'))||''; var m=cr.match(/\/(\d+)/); return m?parseInt(m[1],10):0; })
+    .catch(function(){ return 0; });
 }
 function sbFetch(path,opts){
   opts=opts||{};
@@ -10145,9 +10151,9 @@ function wipeEverything(){
   if(user!==ADMIN)return;
   var go=gid('kill-go'); if(go){go.disabled=true;go.textContent='Wiping\u2026';}
   Promise.all([
-    sbFetch('bbw_docs?select=storage_path').then(function(r){return r.json();}).catch(function(){return [];}),
-    sbFetch('bbw_requests?select=photos').then(function(r){return r.json();}).catch(function(){return [];}),
-    sbFetch('bbw_worklog?select=photos').then(function(r){return r.json();}).catch(function(){return [];})
+    sbFetchAll('bbw_docs?select=storage_path').catch(function(){return [];}),
+    sbFetchAll('bbw_requests?select=photos').catch(function(){return [];}),
+    sbFetchAll('bbw_worklog?select=photos').catch(function(){return [];})
   ]).then(function(res){
     var paths=[];
     function add(p){ if(p&&typeof p==='string'&&p.indexOf('data:')!==0&&p.indexOf('http')!==0&&paths.indexOf(p)<0)paths.push(p); }
@@ -13554,13 +13560,13 @@ function loadDBStats(){
   if(!el)return;
   // Count rows in each table
   Promise.all([
-    sbFetch('bbw_worklog?select=id').then(function(r){return r.json();}),
-    sbFetch('bbw_util_log?select=id').then(function(r){return r.json();}),
-    sbFetch('bbw_pm_overrides?select=id').then(function(r){return r.json();})
+    sbCount('bbw_worklog'),
+    sbCount('bbw_util_log'),
+    sbCount('bbw_pm_overrides')
   ]).then(function(results){
-    var wlCount=Array.isArray(results[0])?results[0].length:0;
-    var ulCount=Array.isArray(results[1])?results[1].length:0;
-    var pmCount=Array.isArray(results[2])?results[2].length:0;
+    var wlCount=results[0]||0;
+    var ulCount=results[1]||0;
+    var pmCount=results[2]||0;
     var estKB=((wlCount*1.2)+(ulCount*0.3)+(pmCount*0.1)).toFixed(1);
     var estMB=(estKB/1024).toFixed(3);
     el.innerHTML=
