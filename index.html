@@ -1033,7 +1033,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v226';
+var APP_BUILD='BBW CMMS build v227';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -11890,10 +11890,15 @@ function _pordPO(idOrObj){
     y=209; var RX=376, RXV=413;
     T('Vendor',MLX,y,10,'normal',INK);
     T(p.supplier||'',MLX+62,y,10,'normal',INK);
-    var va=((p.vendor_addr||'')+'').split(/\r?\n/).filter(function(s){return s.trim();});
-    var vy=y+15; va.forEach(function(l){ T(l,MLX+62,vy,10,'normal',INK); vy+=15; });
-    T('Attn:',MLX+62,y+58,10,'bold',INK);
-    var _vattn=p.vendor_attn||p.contact_name||''; if(_vattn){ doc.setFont(F,'bold');doc.setFontSize(10); var _aw=doc.getTextWidth('Attn:'); T(_vattn,MLX+62+_aw+5,y+58,10,'normal',INK); }
+    var va=((p.vendor_addr||'')+'').split(/\r?\n/).map(function(s){return s.trim();}).filter(Boolean);
+    var _vattn=p.vendor_attn||p.contact_name||'';
+    var _hasAttn=va.some(function(l){return /^attn\b/i.test(l);});
+    // Flow Attn below the address (not a fixed y) and scale line height / font so a long
+    // vendor address never overlaps the next line or the table below.
+    var _nB=va.length+((_vattn&&!_hasAttn)?1:0);
+    var _lh=_nB<=4?15:Math.min(15,Math.floor(66/_nB)), _fs=_lh>=13?10:(_lh>=11?9.5:9);
+    var vy=y+15; va.forEach(function(l){ T(l,MLX+62,vy,_fs,'normal',INK); vy+=_lh; });
+    if(_vattn&&!_hasAttn){ T('Attn:',MLX+62,vy,_fs,'bold',INK); doc.setFont(F,'bold');doc.setFontSize(_fs); var _aw=doc.getTextWidth('Attn:'); T(_vattn,MLX+62+_aw+5,vy,_fs,'normal',INK); vy+=_lh; }
     T('Ship to:',RX,y,10,'normal',INK);
     T('Brunswick Bierworks',RXV,y,10,'normal',INK);
     T('Attn:  Lahcen Elghachi',RXV,y+15,10,'normal',INK);
