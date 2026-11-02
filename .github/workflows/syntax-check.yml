@@ -1,0 +1,34 @@
+name: Syntax check
+
+# Fast guard: extract the inline <script> blocks from index.html and run
+# `node --check` on them, so a JS syntax error can never reach the live site.
+# Runs on every push/PR that touches index.html.
+
+on:
+  push:
+    paths: ['index.html']
+  pull_request:
+    paths: ['index.html']
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check inline scripts parse
+        run: |
+          node -e '
+            const fs=require("fs");
+            const h=fs.readFileSync("index.html","utf8");
+            const re=/<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+            let m,all="",n=0;
+            while(m=re.exec(h)){ if(/\bsrc=/i.test(m[0]))continue; all+="\n;(function(){\n"+m[1]+"\n})();\n"; n++; }
+            fs.writeFileSync("_syntax_check.js",all);
+            console.log("Inline <script> blocks checked:",n);
+          '
+          node --check _syntax_check.js
+          echo "✓ index.html inline scripts parse cleanly"
