@@ -271,6 +271,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
         font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
         font-feature-settings:'cv11','ss01'; }
   input, select, textarea, button { -webkit-appearance: none; }
+  /* Pill toggle switch (native checkbox is appearance:none above, so draw our own). */
+  .pf-switch{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+  .pf-switch-track{flex:none;width:42px;height:24px;border-radius:999px;background:var(--border-2);position:relative;transition:background .15s}
+  .pf-switch-track>span{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .pf-switch:checked + .pf-switch-track{background:#0d9488}
+  .pf-switch:checked + .pf-switch-track>span{left:21px}
   ::-webkit-scrollbar{width:8px;height:8px}
   ::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:99px}
   ::-webkit-scrollbar-track{background:transparent}
@@ -1039,7 +1045,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v233';
+var APP_BUILD='BBW CMMS build v234';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -12393,8 +12399,10 @@ function pordReviewPO(id){
       '<textarea id="'+idd+'" rows="2" placeholder="'+(ph||'')+'" style="'+INP+';font-size:14px;resize:vertical">'+escHtml(val==null?'':String(val))+'</textarea></div>';
   }
   function toggle(idd,label,on){
-    return '<label style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:11px 13px;margin-bottom:9px;font-size:13.5px;font-weight:600;color:var(--text);cursor:pointer">'+
-      '<input type="checkbox" id="'+idd+'" '+(on?'checked':'')+' style="width:20px;height:20px;flex:none;accent-color:#0d9488">'+label+'</label>';
+    return '<label style="display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px 13px;margin-bottom:9px;font-size:13.5px;font-weight:600;color:var(--text);cursor:pointer">'+
+      '<input type="checkbox" class="pf-switch" id="'+idd+'" '+(on?'checked':'')+'>'+
+      '<span class="pf-switch-track" aria-hidden="true"><span></span></span>'+
+      '<span style="flex:1">'+label+'</span></label>';
   }
   var today=pmISO(new Date());
   var _date=(''+(o.po_date||o.created_at||today)).slice(0,10)||today;
