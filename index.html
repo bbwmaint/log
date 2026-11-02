@@ -1045,7 +1045,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v234';
+var APP_BUILD='BBW CMMS build v235';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -5689,6 +5689,45 @@ function hhmmMinus(hhmm, mins){
 // card still opens the full sheet (logPMByIdx) when a tech wants to add time/notes.
 function quickPM(idx){ _quickPM(PMS[idx]); }
 function quickPMByCode(code){ _quickPM(_pmByCode(code)); }
+// One-tap PM completion should also CLOSE the matching work order, so it counts
+// as done everywhere (weekly report, compliance, CMMS) — not just as a log entry.
+// Uses the in-memory WOs when loaded, else closes the matching open WO in the DB.
+function quickCloseWOForPM(pm, entry){
+  if(!pm)return;
+  var today=pmISO(new Date());
+  var at=(entry&&entry.loggedAt)||new Date().toISOString();
+  var by=(entry&&entry.who)||user;
+  function patchWO(w){
+    var patch={status:'completed',completed_by:by,completed_at:at,updated_at:new Date().toISOString(),
+      notes:(w.notes?w.notes+' • ':'')+'Completed (one-tap)'};
+    try{Object.assign(w,patch);}catch(e){}
+    sbFetch('bbw_wos?id=eq.'+w.id,{method:'PATCH',body:JSON.stringify(patch),headers:{'Prefer':'return=minimal'}}).catch(function(){});
+    try{ var p=(typeof CMMS_PMS!=='undefined'?CMMS_PMS:[]).filter(function(x){return (w.pm_code&&x.code===w.pm_code)||(w.pm_id&&x.id===w.pm_id)||(pm.code&&x.code===pm.code);})[0];
+      if(p&&p.freq&&typeof pmAdvanceISO==='function'){var nd=pmAdvanceISO(p.freq,today); if(nd){p.next_due=nd;p.last_done=today; if(p.code)sbFetch('bbw_pms?code=eq.'+encodeURIComponent(p.code),{method:'PATCH',body:JSON.stringify({next_due:nd,last_done:today,updated_at:new Date().toISOString()}),headers:{'Prefer':'return=minimal'}}).catch(function(){});}} }catch(e){}
+    try{updateCmmsBadge();}catch(e){}
+    try{if(typeof mwRefresh==='function')mwRefresh();}catch(e){}
+  }
+  function openMatch(w){
+    if(!w||w.status==='completed'||w.status==='cancelled'||w.status==='closed_incomplete')return false;
+    var cm=(pm.code&&w.pm_code&&(''+w.pm_code)===(''+pm.code))||(pm.id!=null&&w.pm_id!=null&&(''+w.pm_id)===(''+pm.id));
+    if(!cm)return false;
+    var dd=(''+(w.due_date||'')).slice(0,10); return !!dd&&dd<=today;   // due today or overdue
+  }
+  try{
+    if(typeof WOS!=='undefined'&&WOS&&WOS.length){
+      var cands=WOS.filter(openMatch).sort(function(a,b){return (''+(a.due_date||'')).localeCompare(''+(b.due_date||''));});
+      if(cands[0]){ if(entry)entry.woId=cands[0].id; patchWO(cands[0]); }
+      return;   // WOs are the source of truth when loaded
+    }
+  }catch(e){}
+  // WOs not in memory — find and close the matching open WO directly in the DB.
+  if(pm.code){ try{
+    sbFetch('bbw_wos?select=id,pm_code,pm_id,due_date,status,notes&pm_code=eq.'+encodeURIComponent(pm.code)+'&status=in.(open,assigned,in_progress)&order=due_date.asc&limit=10')
+      .then(function(r){return r.ok?r.json():[];})
+      .then(function(rows){ var w=(rows||[]).filter(function(x){var dd=(''+(x.due_date||'')).slice(0,10);return dd&&dd<=today;})[0]; if(w)patchWO(w); })
+      .catch(function(){});
+  }catch(e){} }
+}
 function _quickPM(pm){
   if(!pm)return;
   var found=ASSETS.find(function(a){return a.n===pm.asset||(pm.asset&&a.n.indexOf(pm.asset)>=0);});
@@ -5705,6 +5744,7 @@ function _quickPM(pm){
     shiftNote:(gid('snote')?gid('snote').value:'')
   };
   entries.push(entry); allE.push(entry);
+  try{ quickCloseWOForPM(pm, entry); }catch(_e){}   // close the matching work order too
   try{syncEntry(entry);}catch(_e){}
   save(); renderAll(); checkUBanner();
   try{if(navigator.vibrate)navigator.vibrate(18);}catch(_e){}
