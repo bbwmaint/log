@@ -1045,7 +1045,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v235';
+var APP_BUILD='BBW CMMS build v236';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -11315,7 +11315,8 @@ function invIsLow(i){ var q=parseFloat(i.qty), m=parseFloat(i.min_qty); return !
 // is in the buying process, and when it's expected. Editors maintain it; everyone
 // else sees it read-only, which is the point - the team can check status without
 // asking, and without being able to change it.
-var PORD=[], PORD_LOADED=false, PORD_TAB='stock', PORD_FILTER='open';
+var PORD=[], PORD_LOADED=false, PORD_TAB='stock', PORD_FILTER='open', PORD_LOWEXP=false;
+function pordToggleLowExp(){ PORD_LOWEXP=!PORD_LOWEXP; try{pordDrawBody();}catch(e){} }
 // Supplier "address book" built from past orders, so a supplier's contact name
 // and email autofill next time it's used. _pordContactTouched guards manual edits.
 var _pordBook={}, _pordContactTouched=false;
@@ -11580,13 +11581,19 @@ function pordDrawBody(){
       });
       H+='<div style="height:1px;background:var(--border);margin:4px 0 13px"></div>';
     }
-    // Low-stock reorder queue — below the log requests, same actionable style.
+    // Low-stock reorder — collapsed by default so it never buries the log requests.
+    // A single tappable banner shows the count; expand to see the reorder list.
     var lows=invLowToReorder();
     if(lows.length){
-      H+='<div style="display:flex;align-items:center;gap:7px;margin-bottom:9px">'+
-         '<span style="font-size:11px;font-weight:800;color:#dc2626;text-transform:uppercase;letter-spacing:.05em">⚠ Low stock — reorder</span>'+
-         '<span style="background:rgba(220,38,38,.12);color:#dc2626;font-size:11px;font-weight:800;border-radius:999px;padding:2px 9px">'+lows.length+'</span></div>';
-      lows.forEach(function(i){
+      var _lx=(typeof PORD_LOWEXP!=='undefined'&&PORD_LOWEXP);
+      H+='<div onclick="pordToggleLowExp()" style="display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid rgba(220,38,38,.3);border-left:3px solid #dc2626;border-radius:12px;padding:11px 13px;margin-bottom:'+(_lx?'9px':'13px')+';cursor:pointer">'+
+         '<span style="font-size:12px;font-weight:800;color:#dc2626;text-transform:uppercase;letter-spacing:.04em">⚠ Low stock</span>'+
+         '<span style="background:rgba(220,38,38,.12);color:#dc2626;font-size:11px;font-weight:800;border-radius:999px;padding:2px 9px">'+lows.length+'</span>'+
+         '<div style="flex:1"></div>'+
+         '<span style="font-size:11.5px;color:var(--text-3);font-weight:600">'+(_lx?'Hide':'Review')+'</span>'+
+         '<span style="color:var(--text-3);font-size:13px;transform:rotate('+(_lx?'90':'0')+'deg);transition:transform .15s">›</span></div>';
+      if(!_lx){ H+='<div style="height:1px;background:var(--border);margin:4px 0 13px"></div>'; }
+      if(_lx)lows.forEach(function(i){
         var q=(parseFloat(i.qty)||0), m=(parseFloat(i.min_qty)||0);
         var sub=[]; if(i.part_no)sub.push('#'+rqEsc(i.part_no)); if(i.folder)sub.push(rqEsc(i.folder)); if(i.supplier)sub.push(rqEsc(i.supplier));
         H+='<div style="background:var(--surface);border:1px solid rgba(220,38,38,.3);border-left:3px solid #dc2626;border-radius:12px;padding:12px 13px;margin-bottom:9px">'+
@@ -11600,7 +11607,7 @@ function pordDrawBody(){
            '<div style="margin-top:10px"><button onclick="invReorder('+jsq(i.id)+')" class="btn-primary" style="width:100%;padding:8px;font-size:12.5px;border-radius:9px">Reorder</button></div>'+
            '</div>';
       });
-      H+='<div style="height:1px;background:var(--border);margin:4px 0 13px"></div>';
+      if(_lx){ H+='<div style="height:1px;background:var(--border);margin:4px 0 13px"></div>'; }
     }
   }
   // stage summary
