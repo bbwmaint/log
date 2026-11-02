@@ -1039,7 +1039,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v232';
+var APP_BUILD='BBW CMMS build v233';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4750,6 +4750,8 @@ function showAssetDetail(assetName){
   var inBucket=function(e){return (e.assetName||'General')===assetName;};
   var local=allE.filter(inBucket);
   paintAssetDetail(assetName, local);
+  // Reliability block needs the 12-month STATS cache — load it if absent, then repaint.
+  try{ if(typeof STATS!=='undefined'&&STATS&&!STATS.rows&&typeof statsLoad==='function'){ statsLoad(function(){ try{ if(document.getElementById('asset-detail-modal')||gid('asset-detail-pane'))paintAssetDetail(assetName, local); }catch(e){} }); } }catch(e){}
   try{
     var m=(typeof ASSET_MONTH!=='undefined'&&ASSET_MONTH)?ASSET_MONTH:new Date();
     var y=m.getFullYear(), mo=m.getMonth();
@@ -7972,6 +7974,21 @@ function woSelect(id){
     '</div></div>';
 }
 function woCloseDetail(){ var p=gid('wo-detail-pane'); if(p)p.innerHTML=''; }
+// Per-asset reliability over the trailing 12 months (from the STATS cache).
+// A "failure" is a machine-down (full or partial) log for the asset. MTBF is the
+// mean gap between consecutive failures; MTTR the mean downtime per failure.
+function assetReliability(name){
+  var rows=(typeof STATS!=='undefined'&&STATS&&STATS.rows)?STATS.rows:null;
+  if(!rows)return null;
+  var fails=rows.filter(function(r){return r.asset===name&&r.md&&r.date;})
+    .sort(function(a,b){return (''+a.date).localeCompare(''+b.date);});
+  var n=fails.length, dt12=fails.reduce(function(s,r){return s+(r.dt||0);},0);
+  var mtbf=null;
+  if(n>=2){ var d0=new Date(fails[0].date+'T00:00:00'), d1=new Date(fails[n-1].date+'T00:00:00');
+    var days=Math.round((d1-d0)/86400000); if(days>0)mtbf=days/(n-1); }
+  return {n:n, dt12:dt12, mttr:(n?dt12/n:0), mtbf:mtbf, first:(n?fails[0].date:''), last:(n?fails[n-1].date:'')};
+}
+function _relTile(l,v,c){ return '<div style="background:var(--surface);border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:'+(c||'#fff')+'">'+v+'</div><div style="font-size:10px;color:var(--text-2);text-transform:uppercase;letter-spacing:.03em">'+l+'</div></div>'; }
 function assetDetailBody(assetName, logs, totalDT, totalCO){
   var H='';
   H+='<button onclick="openAssetDocs(\''+assetCodeFor(assetName)+'\',\''+(''+assetName).replace(/'/g,"&#39;")+'\')" style="width:100%;padding:13px;margin-bottom:14px;background:linear-gradient(95deg,#2563eb,#3b82f6);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Reports &amp; Documents</button>';
@@ -7980,6 +7997,20 @@ function assetDetailBody(assetName, logs, totalDT, totalCO){
   H+='<div style="background:var(--surface);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#ef4444">'+totalDT.toFixed(1)+'h</div><div style="font-size:10px;color:var(--text-2);text-transform:uppercase">DT</div></div>';
   H+='<div style="background:var(--surface);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#f59e0b">'+totalCO+'m</div><div style="font-size:10px;color:var(--text-2);text-transform:uppercase">CO</div></div>';
   H+='</div>';
+  // ── Reliability (trailing 12 months) ──
+  var rel=assetReliability(assetName);
+  H+='<div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin:2px 2px 8px">Reliability · last 12 months</div>';
+  if(!rel){ H+='<div style="background:var(--surface);border-radius:10px;padding:13px;text-align:center;color:var(--text-3);font-size:12.5px;margin-bottom:14px">Loading reliability…</div>'; }
+  else if(!rel.n){ H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;color:#4ade80;font-size:13px;margin-bottom:14px">No machine-down events in the last 12 months ✓</div>'; }
+  else {
+    var mtbfStr=(rel.mtbf!=null)?(rel.mtbf>=1?(Math.round(rel.mtbf)+' d'):((rel.mtbf*24).toFixed(1)+' h')):'—';
+    H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px">';
+    H+=_relTile('MTBF',mtbfStr,'#60a5fa');
+    H+=_relTile('MTTR',rel.mttr?rel.mttr.toFixed(1)+'h':'—','#fbbf24');
+    H+=_relTile('Failures',rel.n,'#ef4444');
+    H+='</div>';
+    H+='<div style="font-size:11px;color:var(--text-3);margin-bottom:14px">'+rel.dt12.toFixed(1)+'h total downtime'+((rel.mtbf!=null)?(' · ~1 failure every '+mtbfStr):'')+((rel.n>=2)?(' · '+rel.first+' → '+rel.last):'')+'</div>';
+  }
   if(!logs.length){ H+='<div style="text-align:center;padding:40px;color:var(--text-3)">No logs found</div>'; }
   else { H+=logs.map(function(e){return card(e, e.who===user||user===ADMIN);}).join(''); }
   return H;
@@ -10031,11 +10062,23 @@ function saveWO(id){
 // ═══════════════ CMMS — Compliance + Calendar ═══════════════
 function ctile(label,val,col){return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 8px;text-align:center"><div style="font-size:22px;font-weight:800;line-height:1;color:'+(col||'var(--text)')+'">'+val+'</div><div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;margin-top:5px">'+label+'</div></div>';}
 
+var CMP_PERIOD='mo';
+function cmpSetPeriod(p){ CMP_PERIOD=p; renderComplianceModule(); }
+function cmpPct(on,j){ return j?Math.round(on/j*100):100; }
+function cmpBar(label,on,j,extra){
+  var p=cmpPct(on,j), col=p>=90?'#34d399':(p>=75?'#fbbf24':'#f87171');
+  return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:7px">'+
+    '<span style="font-size:13px;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+rqEsc(label)+'</span>'+
+    '<div style="flex:0 0 76px;height:6px;background:var(--surface-2);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+p+'%;background:'+col+'"></div></div>'+
+    '<span style="font-size:12px;font-weight:800;color:'+col+';width:38px;text-align:right">'+p+'%</span>'+
+    '<span style="font-size:11px;color:var(--text-3);width:52px;text-align:right">'+(extra||'')+'</span></div>';
+}
 function renderComplianceModule(){
   var host=gid('cmms-comp'); if(!host)return;
   host.innerHTML='<div style="text-align:center;color:var(--text-3);padding:26px;font-size:13px">Loading\u2026</div>';
   Promise.all([loadCMMS(),loadWOs(true)]).then(function(){
     var today=pmISO(new Date()), month=today.slice(0,7);
+    // snapshot (now)
     var open=0,assigned=0,inprog=0,overdue=0,highActive=0;
     WOS.forEach(function(w){
       if(w.status==='completed')return;
@@ -10044,36 +10087,69 @@ function renderComplianceModule(){
       if(w.priority==='High'||w.priority==='Highest')highActive++;
     });
     var active=open+assigned+inprog;
-    var dueThis=WOS.filter(function(w){return (w.due_date||'').slice(0,7)===month;});
-    var doneThis=dueThis.filter(function(w){return w.status==='completed';});
-    var judgedThis=dueThis.filter(function(w){return w.status==='completed'||pmIsOverdue(w.due_date);});
-    var onTime=judgedThis.filter(function(w){return w.status==='completed'&&pmCompletedOnTime(w.due_date,w.completed_at);}).length;
-    var pct=judgedThis.length?Math.round(onTime/judgedThis.length*100):100;
+    // period window
+    var pstart, plabel;
+    if(CMP_PERIOD==='90'){ var d9=new Date(today+'T00:00:00'); d9.setDate(d9.getDate()-90); pstart=pmISO(d9); plabel='Last 90 days'; }
+    else if(CMP_PERIOD==='ytd'){ pstart=today.slice(0,4)+'-01-01'; plabel='Year to date'; }
+    else { pstart=month+'-01'; plabel=new Date(today+'T00:00:00').toLocaleDateString('en-CA',{month:'long',year:'numeric'}); }
+    // a PM is "judged" once its due date has passed (or it's done): completed or missed.
+    var judged=WOS.filter(function(w){ var dd=(''+(w.due_date||'')).slice(0,10); if(!dd||dd<pstart||dd>today)return false; return w.status==='completed'||pmIsOverdue(w.due_date,today); });
+    var doneP=judged.filter(function(w){return w.status==='completed';});
+    var onTimeP=doneP.filter(function(w){return pmCompletedOnTime(w.due_date,w.completed_at);});
+    var lateDone=doneP.length-onTimeP.length, missed=judged.length-doneP.length;
+    var pct=cmpPct(onTimeP.length,judged.length);
     var gcol=pct>=90?'#34d399':(pct>=75?'#fbbf24':'#f87171');
-    var monthName=new Date(today+'T00:00:00').toLocaleDateString('en-CA',{month:'long',year:'numeric'});
-    var H='<div style="text-align:center;margin-bottom:6px"><div style="font-size:12px;color:var(--text-3);margin-bottom:6px">Schedule compliance \u00b7 '+monthName+'</div>';
+    // period toggle
+    var H='<div style="display:flex;gap:3px;background:var(--surface-2);border-radius:9px;padding:3px;margin-bottom:14px">';
+    [['mo','This month'],['90','90 days'],['ytd','YTD']].forEach(function(o){ var on=CMP_PERIOD===o[0];
+      H+='<div onclick="cmpSetPeriod(\''+o[0]+'\')" style="flex:1;text-align:center;padding:7px 0;border-radius:7px;font-size:12.5px;font-weight:'+(on?'700':'550')+';cursor:pointer;color:'+(on?'var(--text)':'var(--text-3)')+';'+(on?'background:var(--surface)':'')+'">'+o[1]+'</div>'; });
+    H+='</div>';
+    // gauge
+    H+='<div style="text-align:center;margin-bottom:6px"><div style="font-size:12px;color:var(--text-3);margin-bottom:6px">On-time compliance \u00b7 '+plabel+'</div>';
     H+='<svg viewBox="0 0 200 116" style="width:210px;max-width:80%">';
     H+='<path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="var(--border-2)" stroke-width="15" stroke-linecap="round"/>';
     H+='<path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="'+gcol+'" stroke-width="15" stroke-linecap="round" pathLength="100" stroke-dasharray="'+pct+' 100"/>';
     H+='<text x="100" y="92" text-anchor="middle" font-size="34" font-weight="800" fill="var(--text)">'+pct+'%</text>';
     H+='</svg>';
-    H+='<div style="font-size:11px;color:var(--text-3);margin-top:-4px">'+onTime+' on time of '+dueThis.length+' scheduled this month</div></div>';
-    H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px">';
+    H+='<div style="font-size:11px;color:var(--text-3);margin-top:-4px">'+onTimeP.length+' on time of '+judged.length+' scheduled</div></div>';
+    // period breakdown
+    H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px">';
+    H+=ctile('On time',onTimeP.length,'#34d399');
+    H+=ctile('Late',lateDone,lateDone?'#fbbf24':'var(--text)');
+    H+=ctile('Missed',missed,missed?'#f87171':'var(--text)');
+    H+='</div>';
+    // snapshot tiles (now)
+    H+='<div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin:16px 2px 8px">Right now</div>';
+    H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">';
     H+=ctile('Active',active);
     H+=ctile('Overdue',overdue,overdue?'#f87171':'var(--text)');
     H+=ctile('High priority',highActive,highActive?'#fb923c':'var(--text)');
-    H+=ctile('Completed (mo)',doneThis.length,'#34d399');
-    H+=ctile('Open',open);
-    H+=ctile('In progress',inprog);
     H+='</div>';
     H+=cmmsTrendHTML(today);
-    // by-tech backlog
+    // on-time rate by technician (period)
+    var tmap={};
+    judged.forEach(function(w){ var t=(canonName(w.assignee)||'\u2014'); var o=tmap[t]=tmap[t]||{t:t,j:0,on:0}; o.j++; if(w.status==='completed'&&pmCompletedOnTime(w.due_date,w.completed_at))o.on++; });
+    var techs=Object.keys(tmap).map(function(k){return tmap[k];}).sort(function(a,b){return b.j-a.j;});
+    if(techs.length){
+      H+='<div style="font-size:12px;font-weight:700;color:var(--text);margin:18px 0 9px">On-time rate by technician</div>';
+      H+=techs.map(function(x){return cmpBar(x.t,x.on,x.j,x.on+'/'+x.j);}).join('');
+    }
+    // lowest on-time assets (period, >=2 scheduled)
+    var amap={};
+    judged.forEach(function(w){ var a=(w.asset||'\u2014'); var o=amap[a]=amap[a]||{a:a,j:0,on:0}; o.j++; if(w.status==='completed'&&pmCompletedOnTime(w.due_date,w.completed_at))o.on++; });
+    var assets=Object.keys(amap).map(function(k){return amap[k];}).filter(function(x){return x.j>=2;})
+      .sort(function(a,b){return cmpPct(a.on,a.j)-cmpPct(b.on,b.j)||b.j-a.j;}).slice(0,8);
+    if(assets.length){
+      H+='<div style="font-size:12px;font-weight:700;color:var(--text);margin:18px 0 9px">Lowest on-time assets <span style="font-weight:500;color:var(--text-3)">(\u22652 scheduled)</span></div>';
+      H+=assets.map(function(x){return cmpBar(x.a,x.on,x.j,x.on+'/'+x.j);}).join('');
+    }
+    // open work by technician (backlog snapshot)
     var techMap={};
     WOS.forEach(function(w){if(w.status==='completed')return;var t=w.assignee||'\u2014';techMap[t]=techMap[t]||{t:t,n:0,od:0};techMap[t].n++;if(w.due_date&&pmIsOverdue(w.due_date,today))techMap[t].od++;});
-    var techs=Object.keys(techMap).map(function(k){return techMap[k];}).sort(function(a,b){return b.n-a.n;});
-    if(techs.length){
+    var bt=Object.keys(techMap).map(function(k){return techMap[k];}).sort(function(a,b){return b.n-a.n;});
+    if(bt.length){
       H+='<div style="font-size:12px;font-weight:700;color:var(--text);margin:18px 0 9px">Open work by technician</div>';
-      H+=techs.map(function(x){return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:7px"><span style="font-size:13px;color:var(--text)">'+x.t+'</span><span style="font-size:12px;color:var(--text-3)">'+x.n+' open'+(x.od?' \u00b7 <span style="color:#f87171">'+x.od+' overdue</span>':'')+'</span></div>';}).join('');
+      H+=bt.map(function(x){return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:7px"><span style="font-size:13px;color:var(--text)">'+rqEsc(x.t)+'</span><span style="font-size:12px;color:var(--text-3)">'+x.n+' open'+(x.od?' \u00b7 <span style="color:#f87171">'+x.od+' overdue</span>':'')+'</span></div>';}).join('');
     }
     host.innerHTML=H;
   }).catch(function(e){host.innerHTML='<div style="padding:18px;color:#f87171;font-size:13px">'+e.message+'</div>';});
