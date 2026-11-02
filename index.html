@@ -896,6 +896,12 @@ function rebuildRoster(){
   EDITORS=act.filter(function(u){return u.role==='editor';}).map(function(u){return u.name;});
   try{ buildNames(); }catch(e){}
 }
+// Canonical names of REMOVED accounts. Their name stays on historical records
+// (completed WO/PM rows, report PDFs, inventory stamps, workload reports) but is
+// filtered out of every live picker and assignee filter dropdown.
+function removedNameSet(){
+  var s={}; if(USERS&&USERS.length){ for(var i=0;i<USERS.length;i++){ var u=USERS[i]; if(u&&u.status==='removed')s[canonName(u.name)]=1; } } return s;
+}
 function saveUsers(){
   return (typeof saveScheduleToSB==='function')?saveScheduleToSB('users',USERS)
     :sbFetch('bbw_schedule?on_conflict=id',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:'users',data:USERS,updated_at:new Date().toISOString()})}).then(function(r){return r.ok;});
@@ -1033,7 +1039,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v229';
+var APP_BUILD='BBW CMMS build v230';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7501,7 +7507,8 @@ function renderPMModule(){
   }
   window.__pmEmptyTries=0;
   var types=Array.from(new Set(CMMS_PMS.map(function(p){return p.pm_type;}).filter(Boolean))).sort();
-  var assignees=Array.from(new Set(CMMS_PMS.map(function(p){return canonName(p.assignee);}).filter(Boolean).concat(typeof TECHS!=='undefined'?TECHS:[]))).sort();
+  var _rm=removedNameSet();
+  var assignees=Array.from(new Set(CMMS_PMS.map(function(p){return canonName(p.assignee);}).filter(Boolean).concat(typeof TECHS!=='undefined'?TECHS:[]))).filter(function(n){return !_rm[canonName(n)];}).sort();
   var H='';
   H+='<div style="display:flex;gap:8px;margin-bottom:10px">';
   H+='<input id="pm-search" value="'+CMMS_FILTER.q.replace(/"/g,'&quot;')+'" oninput="CMMS_FILTER.q=this.value;debRender(\'cmms\',cmmsRenderPMList)" placeholder="Search code, asset, description\u2026" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;color:var(--text);font-size:14px;outline:none">';
@@ -7982,7 +7989,8 @@ function renderWOModule(){
   host.innerHTML='<div style="text-align:center;color:var(--text-3);padding:24px;font-size:13px">Loading work orders\u2026</div>';
   generateWOs().then(function(){return loadWOs(true);}).then(function(){
     try{reconcileGroupPMsFromLogs();}catch(_r){}
-    var assignees=Array.from(new Set(WOS.map(function(w){return canonName(w.assignee);}).filter(Boolean).concat(typeof TECHS!=='undefined'?TECHS:[]))).sort();
+    var _rm=removedNameSet();
+    var assignees=Array.from(new Set(WOS.map(function(w){return canonName(w.assignee);}).filter(Boolean).concat(typeof TECHS!=='undefined'?TECHS:[]))).filter(function(n){return !_rm[canonName(n)];}).sort();
     var H='';
     H+='<div style="display:flex;gap:8px;margin-bottom:11px">';
     H+='<button onclick="doGenerateWOs(this)" class="btn-primary" style="flex:1;padding:11px;font-size:13px">Generate due WOs</button>';
