@@ -1045,7 +1045,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v241';
+var APP_BUILD='BBW CMMS build v242';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1184,7 +1184,11 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   var FLDASH_MODE=(location.hash.indexOf('fldash')>=0)||/[?&]fldash/.test(location.search);
   var _flm=(location.hash.match(/fl=([A-Za-z0-9]+)/)||location.search.match(/[?&]fl=([A-Za-z0-9]+)/));
   var FL_MODE=!!(_flm&&flUnitValid(_flm[1]));
-  try{var _keep=localStorage.getItem('bbw_keepuser');if(!REQ_MODE&&!FL_MODE&&!FLDASH_MODE&&!FLREQ_MODE&&_keep&&TECHS.indexOf(_keep)>=0){setTimeout(function(){loginUser(_keep);},0);}}catch(e){}
+  try{ authLoad(); var _keep=localStorage.getItem('bbw_keepuser');
+    if(!REQ_MODE&&!FL_MODE&&!FLDASH_MODE&&!FLREQ_MODE&&_keep&&TECHS.indexOf(_keep)>=0){
+      if(authValid()){ setTimeout(function(){loginUser(_keep);},0); }           // valid session -> straight in
+      else { setTimeout(function(){ try{selName(_keep);}catch(e){} },0); }      // session expired -> ask for PIN
+    } }catch(e){}
   var savedLang=localStorage.getItem('bbw_lang')||'en';
   buildNames();
   buildTemplates();
@@ -1257,8 +1261,31 @@ function buildNames(){
 
 function onNameSelect(v){if(v)selName(v);}
 
+// ── Session token (Stage A of DB security) ──────────────────────────────────
+// A correct name+PIN mints a signed session token via the bbw_login RPC; the app
+// sends it on every request as the Authorization bearer. Until RLS is enabled
+// (Stage B) nothing is enforced and the anon key still works, so this is additive
+// and safe. authBearer() falls back to the anon key when there's no valid token.
+var AUTH_TOKEN=null, AUTH_EXP=0;
+function authLoad(){
+  try{ var t=localStorage.getItem('bbw_tok'), e=parseInt(localStorage.getItem('bbw_tok_exp')||'0',10);
+    if(t&&e&&(e*1000)>Date.now()+60000){ AUTH_TOKEN=t; AUTH_EXP=e; }
+    else { localStorage.removeItem('bbw_tok'); localStorage.removeItem('bbw_tok_exp'); } }catch(e){}
+}
+function authSet(tok){
+  if(!tok){ return; }
+  AUTH_TOKEN=tok;
+  try{ var p=JSON.parse(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); AUTH_EXP=p.exp||0; }
+  catch(e){ AUTH_EXP=Math.floor(Date.now()/1000)+16*3600; }
+  try{ localStorage.setItem('bbw_tok',tok); localStorage.setItem('bbw_tok_exp',String(AUTH_EXP)); }catch(e){}
+}
+function authClear(){ AUTH_TOKEN=null; AUTH_EXP=0; try{ localStorage.removeItem('bbw_tok'); localStorage.removeItem('bbw_tok_exp'); }catch(e){} }
+function authValid(){ return !!(AUTH_TOKEN && (AUTH_EXP*1000)>Date.now()); }
+function authBearer(){ return authValid()?AUTH_TOKEN:SBKEY; }
+// Mint a token from a name+PIN (returns the token string, or null on wrong PIN).
+function authLogin(name,pin){ return sbRPC('bbw_login',{p_name:name,p_pin:pin}); }
 function sbRPC(fn,args){
-  return fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/json'},body:JSON.stringify(args||{})}).then(function(r){if(!r.ok)throw new Error('rpc '+r.status);return r.json();});
+  return fetch(SB+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+authBearer(),'Content-Type':'application/json'},body:JSON.stringify(args||{})}).then(function(r){if(!r.ok)throw new Error('rpc '+r.status);return r.json();});
 }
 function rememberAndLogin(name){
   try{if(keepLogged)localStorage.setItem('bbw_keepuser',name);else localStorage.removeItem('bbw_keepuser');}catch(e){}
@@ -1335,17 +1362,22 @@ function updDots(){
 
 function checkPin(){
   if(pstep==='enter'){
-    if(puser===ADMIN&&pbuf===APIN){ if(PIN_CENTRAL){sbRPC('set_pin',{p_name:ADMIN,p_pin:APIN}).catch(function(){});} rememberAndLogin(puser); return; }
+    if(puser===ADMIN&&pbuf===APIN){
+      if(PIN_CENTRAL){ sbRPC('set_pin',{p_name:ADMIN,p_pin:APIN}).catch(function(){}).then(function(){ return authLogin(ADMIN,APIN).catch(function(){return null;}); }).then(function(tok){ if(tok)authSet(tok); rememberAndLogin(ADMIN); }); }
+      else { rememberAndLogin(ADMIN); }
+      return;
+    }
     if(PIN_CENTRAL){
       var entered=pbuf;
-      sbRPC('verify_pin',{p_name:puser,p_pin:entered}).then(function(ok){ if(ok)rememberAndLogin(puser); else pinBad('Incorrect PIN'); }).catch(function(){ pinBad('Network error \u2014 try again'); });
+      // bbw_login verifies the PIN server-side and returns a session token (or null).
+      authLogin(puser,entered).then(function(tok){ if(tok){ authSet(tok); rememberAndLogin(puser); } else pinBad('Incorrect PIN'); }).catch(function(){ pinBad('Network error \u2014 try again'); });
     }else{
       if(pbuf===localStorage.getItem('pin_'+puser)) rememberAndLogin(puser); else pinBad('Incorrect PIN');
     }
   }else{
     var np=pbuf;
     if(PIN_CENTRAL){
-      sbRPC('set_pin',{p_name:puser,p_pin:np}).then(function(created){ if(created)rememberAndLogin(puser); else { applyPinMode('enter'); gid('pin-err').textContent='A PIN already exists \u2014 please enter it'; } }).catch(function(){ pinBad('Network error \u2014 try again'); });
+      sbRPC('set_pin',{p_name:puser,p_pin:np}).then(function(created){ if(created){ authLogin(puser,np).then(function(tok){ if(tok)authSet(tok); rememberAndLogin(puser); }).catch(function(){ rememberAndLogin(puser); }); } else { applyPinMode('enter'); gid('pin-err').textContent='A PIN already exists \u2014 please enter it'; } }).catch(function(){ pinBad('Network error \u2014 try again'); });
     }else{ localStorage.setItem('pin_'+puser,np); rememberAndLogin(puser); }
   }
 }
@@ -1393,7 +1425,7 @@ function loginUser(name){
     var pt;
     chip.addEventListener('touchstart',function(){pt=setTimeout(function(){if(user===ADMIN)alert('Admin: coming soon');},1000);},{passive:true});
     chip.addEventListener('touchend',function(){clearTimeout(pt);},{passive:true});
-    chip.addEventListener('click',function(){if(confirm('Sign out?')){user=null;localStorage.removeItem('bbw_keepuser');showPage('pg-pin');showNames();}});
+    chip.addEventListener('click',function(){if(confirm('Sign out?')){user=null;authClear();localStorage.removeItem('bbw_keepuser');showPage('pg-pin');showNames();}});
   }
 }
 
@@ -3373,7 +3405,7 @@ function sbCount(tbl){
 }
 function sbFetch(path,opts){
   opts=opts||{};
-  var headers={'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/json','Prefer':'return=representation'};
+  var headers={'apikey':SBKEY,'Authorization':'Bearer '+authBearer(),'Content-Type':'application/json','Prefer':'return=representation'};
   Object.keys(opts.headers||{}).forEach(function(k){headers[k]=opts.headers[k];});
   return fetch(SB+'/rest/v1/'+path,{method:opts.method||'GET',headers:headers,body:opts.body||undefined});
 }
