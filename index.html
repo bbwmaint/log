@@ -919,13 +919,20 @@ function loadUsersCache(){
   try{ var cu=JSON.parse(localStorage.getItem('bbw_users')||'null'); if(Array.isArray(cu)&&cu.length){ USERS=cu; rebuildRoster(); } }catch(e){}
 }
 function loadUsers(){
-  return sbFetch('bbw_schedule?id=eq.users&select=data').then(function(r){return r.ok?r.json():[];}).then(function(rows){
+  return sbFetch('bbw_schedule?id=eq.users&select=data').then(function(r){return r.ok?r.json():null;}).then(function(rows){
+    if(rows===null) return (USERS&&USERS.length)?USERS:null;   // read FAILED (RLS/network) — never touch the roster
     var d=rows&&rows[0]&&rows[0].data;
     if(Array.isArray(d)&&d.length){ USERS=d; try{localStorage.setItem('bbw_users',JSON.stringify(USERS));}catch(e){} rebuildRoster(); return USERS; }
-    // First run: seed the store from the current hardcoded roster (one-time).
-    USERS=TECHS_SEED.map(function(n){return {name:n, role:(EDITORS_SEED.indexOf(n)>=0?'editor':'tech'), status:'active', created:(new Date().toISOString().slice(0,10))};});
-    saveUsers(); rebuildRoster(); return USERS;
-  }).catch(function(){ return null; });
+    // Roster record is empty/absent. Use the seed for display ONLY — do NOT write it
+    // back, or an empty read (e.g. a transient failure) would clobber the real roster
+    // and erase anyone added since the seed. The roster is created/updated solely by
+    // explicit Add/Edit-user actions.
+    if(!USERS||!USERS.length){
+      USERS=TECHS_SEED.map(function(n){return {name:n, role:(EDITORS_SEED.indexOf(n)>=0?'editor':'tech'), status:'active', created:(new Date().toISOString().slice(0,10))};});
+      rebuildRoster();
+    }
+    return USERS;
+  }).catch(function(){ return (USERS&&USERS.length)?USERS:null; });
 }
 // Move a person's OPEN work (WOs not completed/closed) and their PM templates to
 // another assignee ('Unassigned' on removal, the successor on handover). Completed
@@ -1051,7 +1058,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v246';
+var APP_BUILD='BBW CMMS build v247';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
