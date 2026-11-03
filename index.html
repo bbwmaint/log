@@ -1045,7 +1045,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v238';
+var APP_BUILD='BBW CMMS build v239';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -5291,6 +5291,10 @@ function utilKey(ev, el){
 function renderUtil(){
   var el=gid('pane-util');
   var today=utilLogs.find(function(r){return r.date===utilDay();});
+  // Preserve anything typed-but-not-yet-saved so a background refresh (the 5-min
+  // loadFromSB) can't wipe readings mid-entry. Snapshot the current inputs, then
+  // restore them after the rebuild for any field the saved record didn't fill.
+  var _uprev={}; try{ Array.prototype.forEach.call(el?el.querySelectorAll('input[id]'):[],function(i){ if(i.value!==''&&i.value!=null)_uprev[i.id]=i.value; }); }catch(e){}
   var banner=today?
     '<div style="background:rgba(22,163,74,.15);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:10px 12px;font-size:14px;font-weight:600;color:#4ade80;margin-bottom:14px">'+utT('Logged today by')+' '+today.by+' '+utT('at')+' '+today.time+'</div>':
     '<div style="background:rgba(217,119,6,.15);border:1px solid rgba(217,119,6,.3);border-radius:10px;padding:10px 12px;font-size:13px;color:#fbbf24;margin-bottom:14px">'+utT('No readings logged today yet')+'</div>';
@@ -5442,6 +5446,9 @@ function renderUtil(){
   H+='</tbody></table></div></div>';
 
   el.innerHTML=H;
+  // Restore unsaved entries a background refresh would otherwise wipe (only fields
+  // the saved record left blank), and nudge their level bars to repaint.
+  try{ Object.keys(_uprev).forEach(function(id){ var i=gid(id); if(i&&(i.value===''||i.value==null)){ i.value=_uprev[id]; try{i.dispatchEvent(new Event('input'));}catch(e){} } }); }catch(e){}
 }
 
 function saveUtil(){
@@ -13546,7 +13553,10 @@ function setLang(l){
   try{if(gid('pane-reports')&&gid('pane-reports').style.display!=='none')renderReports();}catch(e){}
   try{if(gid('pane-requests')&&gid('pane-requests').style.display!=='none')renderRequests();}catch(e){}
   try{if(gid('pane-schedule')&&gid('pane-schedule').style.display!=='none')renderSchedule();}catch(e){}
-  try{if(gid('pane-util')&&gid('pane-util').style.display!=='none')renderUtil();}catch(e){}
+  // Don't yank the readings form out from under someone mid-entry: skip the
+  // background re-render while a reading input is focused (the preserve logic in
+  // renderUtil still protects values when a refresh does run).
+  try{ var _up=gid('pane-util'); if(_up&&_up.style.display!=='none'){ var _af=document.activeElement; var _busy=_af&&_up.contains(_af)&&/^(INPUT|TEXTAREA)$/.test(_af.tagName); if(!_busy)renderUtil(); } }catch(e){}
   try{if(gid('pane-assets')&&gid('pane-assets').style.display!=='none')renderAssets();}catch(e){}
   try{if(gid('pane-prev')&&gid('pane-prev').style.display!=='none')renderPrev();}catch(e){}
   // Update static UI text
