@@ -1045,7 +1045,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v240';
+var APP_BUILD='BBW CMMS build v241';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3569,21 +3569,33 @@ function loadFromSB(){
 
 // Sync utility readings
 function syncUtil(rec){
+  function c(v){ return v==null?null:v; }
+  // Known-good columns (always present).
+  var base={date:rec.date,time:rec.time,by_who:rec.by,
+    w3:c(rec.w3),w5:c(rec.w5),gas:c(rec.gas),elec:c(rec.elec),
+    boil:c(rec.boil),past:c(rec.past),cool:c(rec.cool),steam:c(rec.steam),
+    chiller_start:c(rec.chstart),chiller_proc:c(rec.chproc),warmcell:c(rec.warmcell),
+    bc1:c(rec.bc1),bc2:c(rec.bc2),bc3:c(rec.bc3),bc4:c(rec.bc4),
+    bc5:c(rec.bc5),bc6:c(rec.bc6),bc7:c(rec.bc7),bc8:c(rec.bc8),stack:c(rec.stack),ch_glycol:c(rec.ch_glycol)};
+  // Boiler-chemistry + weekly QA columns (added by the util-columns migration).
+  var extra={p_alk:c(rec.p_alk),m_alk:c(rec.m_alk),oh_alk:c(rec.oh_alk),sulphate:c(rec.sulphate),
+    amercor:c(rec.amercor),advplus:c(rec.advplus),amersite:c(rec.amersite),
+    ch_ph:c(rec.ch_ph),ch_purity:c(rec.ch_purity)};
+  var full=Object.assign({},base,extra);
   return sbFetch('bbw_util_log?date=eq.'+rec.date,{method:'GET'})
     .then(function(r){return r.json();})
     .then(function(existing){
-      var body=JSON.stringify({date:rec.date,time:rec.time,by_who:rec.by,
-        w3:(rec.w3==null?null:rec.w3),w5:(rec.w5==null?null:rec.w5),gas:(rec.gas==null?null:rec.gas),elec:(rec.elec==null?null:rec.elec),
-        boil:(rec.boil==null?null:rec.boil),past:(rec.past==null?null:rec.past),cool:(rec.cool==null?null:rec.cool),steam:(rec.steam==null?null:rec.steam),
-        chiller_start:(rec.chstart==null?null:rec.chstart),chiller_proc:(rec.chproc==null?null:rec.chproc),
-        warmcell:(rec.warmcell==null?null:rec.warmcell),
-        bc1:(rec.bc1==null?null:rec.bc1),bc2:(rec.bc2==null?null:rec.bc2),bc3:(rec.bc3==null?null:rec.bc3),bc4:(rec.bc4==null?null:rec.bc4),
-        bc5:(rec.bc5==null?null:rec.bc5),bc6:(rec.bc6==null?null:rec.bc6),bc7:(rec.bc7==null?null:rec.bc7),bc8:(rec.bc8==null?null:rec.bc8),stack:(rec.stack==null?null:rec.stack),ch_glycol:(rec.ch_glycol==null?null:rec.ch_glycol)});
-      if(existing&&existing.length>0){
-        return sbFetch('bbw_util_log?date=eq.'+rec.date,{method:'PATCH',body:body,headers:{'Prefer':'return=minimal'}});
-      }else{
-        return sbFetch('bbw_util_log',{method:'POST',body:body});
+      var isUpd=existing&&existing.length>0;
+      function write(body){
+        return isUpd
+          ? sbFetch('bbw_util_log?date=eq.'+rec.date,{method:'PATCH',body:JSON.stringify(body),headers:{'Prefer':'return=minimal'}})
+          : sbFetch('bbw_util_log',{method:'POST',body:JSON.stringify(body)});
       }
+      return write(full).then(function(r2){
+        if(r2&&(r2.ok||r2.status===201||r2.status===204))return r2;
+        // Extra columns not in the table yet (migration not run) — retry with the base set.
+        return write(base);
+      });
     })
     .catch(function(err){console.warn('Util sync failed',err);});
 }
@@ -3593,7 +3605,7 @@ function loadUtilFromSB(){
     .then(function(r){return r.json();})
     .then(function(data){
       if(!Array.isArray(data))return;
-      utilLogs=data.map(function(r){return {date:r.date,time:r.time,by:r.by_who,w3:r.w3,w5:r.w5,gas:r.gas,elec:r.elec,boil:r.boil,past:r.past,cool:r.cool,steam:r.steam,bc1:r.bc1,bc2:r.bc2,bc3:r.bc3,bc4:r.bc4,bc5:r.bc5,bc6:r.bc6,bc7:r.bc7,bc8:r.bc8,stack:r.stack,chstart:r.chiller_start,chproc:r.chiller_proc,warmcell:r.warmcell,ch_glycol:r.ch_glycol};});
+      utilLogs=data.map(function(r){return {date:r.date,time:r.time,by:r.by_who,w3:r.w3,w5:r.w5,gas:r.gas,elec:r.elec,boil:r.boil,past:r.past,cool:r.cool,steam:r.steam,bc1:r.bc1,bc2:r.bc2,bc3:r.bc3,bc4:r.bc4,bc5:r.bc5,bc6:r.bc6,bc7:r.bc7,bc8:r.bc8,stack:r.stack,chstart:r.chiller_start,chproc:r.chiller_proc,warmcell:r.warmcell,ch_glycol:r.ch_glycol,p_alk:r.p_alk,m_alk:r.m_alk,oh_alk:r.oh_alk,sulphate:r.sulphate,amercor:r.amercor,advplus:r.advplus,amersite:r.amersite,ch_ph:r.ch_ph,ch_purity:r.ch_purity};});
       try{localStorage.setItem('bbw_util',JSON.stringify(utilLogs));}catch(e){}
     })
     .catch(function(){});
@@ -5519,9 +5531,16 @@ var UTIL_EDIT_GROUPS=[
     ['bc5','Coil C5 (\u00B0C)','0'],['bc6','Coil C6 (\u00B0C)','0'],['bc7','Coil C7 (\u00B0C)','0'],['bc8','Coil C8 (\u00B0C)','0'],
     ['stack','Stack Temp (\u00B0C)','0']
   ]},
+  {t:'Boiler Chemistry',c:'#fbbf24',f:[
+    ['p_alk','P Alkalinity (ppm)','0'],['m_alk','M Alkalinity (ppm)','0'],
+    ['oh_alk','OH Alkalinity (ppm)','0'],['sulphate','Sulphate (ppm)','0'],
+    ['amercor','Amercor Level (in)','0'],['advplus','Advantage Plus Level (in)','0'],
+    ['amersite','Amersite Level (in)','0']
+  ]},
   {t:'Chiller',c:'#a78bfa',f:[
     ['chstart','Start Count','0'],['chproc','Process Temp (\u00B0C)','0.0'],
-    ['warmcell','Warmcell Temp (\u00B0C)','0.0'],['ch_glycol','Glycol Level (%)','0.0']
+    ['warmcell','Warmcell Temp (\u00B0C)','0.0'],['ch_glycol','Glycol Level (%)','0.0'],
+    ['ch_ph','Glycol pH','0.0'],['ch_purity','Glycol Purity (%)','0.0']
   ]}
 ];
 function utilEditKeys(){var ks=[];UTIL_EDIT_GROUPS.forEach(function(g){g.f.forEach(function(f){ks.push(f[0]);});});return ks;}
