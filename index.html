@@ -1045,7 +1045,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v236';
+var APP_BUILD='BBW CMMS build v237';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1791,7 +1791,7 @@ function renderWithWho(sel){
 }
 function onWithWhoChange(){ renderWithWho(withWhoValues()); }
 function openSheet(id){
-  editId=id||null; ctype=''; cprio=''; photos=[]; selA=null;
+  editId=id||null; ctype=''; cprio=''; photos=[]; selA=null; _logPMsrc=null;
   if(gid('f-issue'))gid('f-issue').value=''; gid('f-desc').value=''; gid('f-dt').value=''; gid('f-pname').value=''; gid('f-pqty').value='';
   gid('f-start').value=ntime(); gid('f-end').value='';
   if(gid('f-date'))gid('f-date').value='';
@@ -2073,7 +2073,11 @@ function submitEntry(){
       // Entry was never synced to Supabase yet — create it now instead of leaving it orphaned.
       try{syncEntry(entry);}catch(_e){console.warn('sync threw',_e);}
     }
-  }else{entries.push(entry);allE.push(entry);try{syncEntry(entry);}catch(_e){console.warn('sync threw',_e);}}
+  }else{entries.push(entry);allE.push(entry);
+    // A PM logged via the "add time/notes" (✎) path closes its matching work order too.
+    try{ if(entry.type==='pm' && _logPMsrc){ quickCloseWOForPM(_logPMsrc, entry); } }catch(_e){}
+    try{syncEntry(entry);}catch(_e){console.warn('sync threw',_e);}}
+  _logPMsrc=null;
   // On edit, refresh every visible copy of this card in place (person-log modal, asset modal, log pane)
   // so the change shows immediately instead of leaving stale text behind.
   if(_wasEdit){ try{ var _rn=document.querySelectorAll('.lc[data-id="'+entry.id+'"]'); if(_rn.length){ var _rm=(entry.who===user); Array.prototype.forEach.call(_rn,function(n){ try{ n.outerHTML=card(entry,_rm); }catch(_c){} }); } }catch(_e){} }
@@ -5632,6 +5636,7 @@ function filterPMs(val){
 function _logPM(pm){
   if(!pm)return;
   openSheet(null);
+  _logPMsrc=pm;   // mark this as a PM completion so Save also closes its work order
   setTimeout(function(){
     setType('pm');
     gid('f-desc').value=pm.desc+' ('+pm.code+')';
@@ -5689,6 +5694,7 @@ function hhmmMinus(hhmm, mins){
 // card still opens the full sheet (logPMByIdx) when a tech wants to add time/notes.
 function quickPM(idx){ _quickPM(PMS[idx]); }
 function quickPMByCode(code){ _quickPM(_pmByCode(code)); }
+var _logPMsrc=null;   // set when the log form is opened from a PM (✎), so Save closes its WO
 // One-tap PM completion should also CLOSE the matching work order, so it counts
 // as done everywhere (weekly report, compliance, CMMS) — not just as a log entry.
 // Uses the in-memory WOs when loaded, else closes the matching open WO in the DB.
@@ -5727,6 +5733,48 @@ function quickCloseWOForPM(pm, entry){
       .then(function(rows){ var w=(rows||[]).filter(function(x){var dd=(''+(x.due_date||'')).slice(0,10);return dd&&dd<=today;})[0]; if(w)patchWO(w); })
       .catch(function(){});
   }catch(e){} }
+}
+// One-time catch-up: close still-open work orders that were actually done & logged
+// (e.g. one-taps from before the auto-close fix, or group/daily checks). Matches the
+// same log<->WO logic as the live reconcile, across all history. Dry-run count first;
+// touches work orders only — log entries, reports and PM schedules are untouched.
+function pmBackfillFromLogs(btn){
+  if(!isAdmin()){ try{alert('Admin only.');}catch(e){} return; }
+  var _t=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Scanning…';}
+  function restore(){ if(btn){btn.disabled=false;btn.textContent=_t;} }
+  var floor=(function(){ var d=new Date(); d.setMonth(d.getMonth()-18); return pmISO(d); })();
+  Promise.all([
+    sbFetchAll('bbw_wos?select=id,pm_code,pm_id,asset,asset_code,due_date,status,notes,description&status=in.(open,assigned,in_progress)'),
+    sbFetchAll('bbw_worklog?select=id,date,who,asset_name,asset_code,type,description,issue,logged_at&type=in.(pm,completed,followup_done)&date=gte.'+floor+'&order=date.asc')
+  ]).then(function(res){
+    var wos=res[0]||[], rawLogs=res[1]||[];
+    var logs=rawLogs.map(function(r){ return {id:r.id, date:(''+(r.date||'')).slice(0,10), who:r.who||'', assetName:r.asset_name||'', asset_code:r.asset_code||'', desc:r.description||'', issue:r.issue||'', loggedAt:r.logged_at||null}; });
+    var today=pmISO(new Date()), used={}, jobs=[];
+    wos.forEach(function(w){
+      if(!w.due_date)return; var dd=(''+w.due_date).slice(0,10); if(dd>today)return;   // past-due only
+      if(!(w.pm_code||w.pm_id))return;
+      for(var i=0;i<logs.length;i++){ var e=logs[i];
+        if(used[e.id])continue; if(!e.date||e.date<dd||e.date>today)continue;
+        if(logMatchesGroupPM(e,w)){ used[e.id]=1; jobs.push({w:w,e:e}); break; }
+      }
+    });
+    restore();
+    if(!jobs.length){ try{alert('Nothing to backfill — every past-due PM with a matching log is already closed. ✓');}catch(e){} return; }
+    if(typeof confirm==='function' && !confirm(jobs.length+' work order'+(jobs.length===1?'':'s')+' were done (logged) but still show open.\n\nClose them now using the logged date and technician? Work orders only — logs, reports and PM schedules are untouched.')) return;
+    if(btn){btn.disabled=true;btn.textContent='Closing '+jobs.length+'…';}
+    var done=0, fail=0;
+    Promise.all(jobs.map(function(j){
+      var at=(''+j.e.date).slice(0,10)+'T12:00:00Z';
+      var patch={status:'completed',completed_by:(canonName(j.e.who)||j.e.who||null),completed_at:at,updated_at:new Date().toISOString(),notes:(j.w.notes?j.w.notes+' • ':'')+'Backfilled from log'};
+      return sbFetch('bbw_wos?id=eq.'+j.w.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(patch)})
+        .then(function(r){ if(r&&(r.ok||r.status===204))done++; else fail++; }).catch(function(){fail++;});
+    })).then(function(){
+      restore();
+      try{ if(typeof loadWOs==='function')loadWOs(true); }catch(e){}
+      try{updateCmmsBadge();}catch(e){}
+      try{alert('Backfill complete: '+done+' work order'+(done===1?'':'s')+' closed'+(fail?(' · '+fail+' failed'):'')+'.\n\nRegenerate the weekly/compliance views to see the updated numbers.');}catch(e){}
+    });
+  }).catch(function(e){ restore(); try{alert('Backfill failed: '+(e&&e.message||e));}catch(_){} });
 }
 function _quickPM(pm){
   if(!pm)return;
@@ -6890,6 +6938,15 @@ function pmParseFreq(freq){
   if((m=f.match(/^(?:every )?month(?:ly)? on (?:the )?(?:day )?(\d+)(?:st|nd|rd|th)?/))) return {kind:'month',interval:1,day:+m[1]};
   if((m=f.match(/^every (\d+) years?,? on (\w+) (\d+)/))) return {kind:'year',interval:+m[1],month:MO[m[2]],day:+m[3]};
   if((m=f.match(/^(?:every year|yearly|annually|annual),? on (\w+) (\d+)/))) return {kind:'year',interval:1,month:MO[m[1]],day:+m[2]};
+  // Bare interval phrasing with no anchor day/month — advance from the completion date.
+  if(/^(monthly|every month)$/.test(f)) return {kind:'month',interval:1,day:null};
+  if(/^(quarterly|every quarter)$/.test(f)) return {kind:'month',interval:3,day:null};
+  if(/^bi-?monthly$/.test(f)) return {kind:'month',interval:2,day:null};
+  if(/^semi-?annual(?:ly)?$/.test(f)) return {kind:'month',interval:6,day:null};
+  if((m=f.match(/^every (\d+) months?$/))) return {kind:'month',interval:+m[1],day:null};
+  if(/^(yearly|annually|annual|every year)$/.test(f)) return {kind:'year',interval:1,month:null,day:null};
+  if((m=f.match(/^every (\d+) years?$/))) return {kind:'year',interval:+m[1],month:null,day:null};
+  if(/^(bi-?weekly|fortnightly)$/.test(f)) return {kind:'week',interval:2,weekdays:[1]};
   return null;
 }
 function pmClampDay(y,mo,day){var last=new Date(y,mo+1,0).getDate();return Math.min(day,last);}
@@ -6910,8 +6967,8 @@ function pmAdvance(parsed, done){
   done=pmDateOnly(done); if(!parsed) return null;
   if(parsed.kind==='day'){ var d=new Date(done); d.setDate(d.getDate()+parsed.interval); return d; }
   if(parsed.kind==='week'){ var base=new Date(done); base.setDate(base.getDate()+(parsed.interval*7-6)); for(var i=0;i<14;i++){var d=new Date(base);d.setDate(d.getDate()+i);if(parsed.weekdays.indexOf(d.getDay())>=0)return d;} return base; }
-  if(parsed.kind==='month'){ var y=done.getFullYear(),mo=done.getMonth()+parsed.interval; var yy=y+Math.floor(mo/12); mo=((mo%12)+12)%12; return new Date(yy,mo,pmClampDay(yy,mo,parsed.day)); }
-  if(parsed.kind==='year'){ var ny=done.getFullYear()+parsed.interval; return new Date(ny,parsed.month,pmClampDay(ny,parsed.month,parsed.day)); }
+  if(parsed.kind==='month'){ var y=done.getFullYear(),mo=done.getMonth()+parsed.interval; var yy=y+Math.floor(mo/12); mo=((mo%12)+12)%12; var mday=(parsed.day!=null?parsed.day:done.getDate()); return new Date(yy,mo,pmClampDay(yy,mo,mday)); }
+  if(parsed.kind==='year'){ var ny=done.getFullYear()+parsed.interval; var ym=(parsed.month!=null?parsed.month:done.getMonth()); var yd=(parsed.day!=null?parsed.day:done.getDate()); return new Date(ny,ym,pmClampDay(ny,ym,yd)); }
   return null;
 }
 function pmNextDueISO(freq, from){ var p=pmParseFreq(freq); var d=pmNextFrom(p, from||new Date()); return d?pmISO(d):null; }
@@ -6924,8 +6981,8 @@ function pmPrev(parsed, from){
   if(parsed.kind==='day'){ var d=new Date(from); d.setDate(d.getDate()-parsed.interval); return d; }
   if(parsed.kind==='week'){ var base=new Date(from); base.setDate(base.getDate()-parsed.interval*7);
     for(var i=0;i<14;i++){var w=new Date(base);w.setDate(w.getDate()-i);if(parsed.weekdays.indexOf(w.getDay())>=0)return w;} return base; }
-  if(parsed.kind==='month'){ var mo=from.getMonth()-parsed.interval, y=from.getFullYear(); var yy=y+Math.floor(mo/12); mo=((mo%12)+12)%12; return new Date(yy,mo,pmClampDay(yy,mo,parsed.day)); }
-  if(parsed.kind==='year'){ var ny=from.getFullYear()-parsed.interval; return new Date(ny,parsed.month,pmClampDay(ny,parsed.month,parsed.day)); }
+  if(parsed.kind==='month'){ var mo=from.getMonth()-parsed.interval, y=from.getFullYear(); var yy=y+Math.floor(mo/12); mo=((mo%12)+12)%12; var mday=(parsed.day!=null?parsed.day:from.getDate()); return new Date(yy,mo,pmClampDay(yy,mo,mday)); }
+  if(parsed.kind==='year'){ var ny=from.getFullYear()-parsed.interval; var ym=(parsed.month!=null?parsed.month:from.getMonth()); var yd=(parsed.day!=null?parsed.day:from.getDate()); return new Date(ny,ym,pmClampDay(ny,ym,yd)); }
   return null;
 }
 function pmPrevISO(freq, fromISO){ var p=pmParseFreq(freq); if(!p||!fromISO)return null; var d=pmPrev(p, new Date(fromISO+'T00:00:00')); return d?pmISO(d):null; }
@@ -13434,7 +13491,9 @@ function renderMore(){
     H+='<div style="background:rgba(217,119,6,.10);border:1.5px solid rgba(217,119,6,.16);border-radius:12px;padding:16px;margin-bottom:12px">';
     H+='<div style="font-size:12px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Admin — Praful Only</div>';
     H+='<div id="db-stats" style="background:var(--bg);border-radius:9px;padding:12px 14px;margin-bottom:14px;font-family:monospace;font-size:12px;color:var(--text-2)">Loading DB stats...</div>';
-    H+='<button onclick="downloadDataBackup(this)" style="width:100%;padding:12px;background:#15803d;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px">'+T('Download Full Backup')+'</button>';
+    H+='<button onclick="downloadDataBackup(this)" style="width:100%;padding:12px;background:#15803d;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px">'+T('Download Full Backup')+'</button>';
+    H+='<div style="font-size:11px;color:var(--text-3);line-height:1.5;margin-bottom:8px">PM completion catch-up: close work orders that were done &amp; logged but never marked complete (e.g. one-taps before the auto-close fix). Shows a count before changing anything.</div>';
+    H+='<button onclick="pmBackfillFromLogs(this)" style="width:100%;padding:12px;background:var(--surface-2);color:#fff;border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">↻ Backfill PM completions from logs</button>';
     H+='</div>';
   }
 
