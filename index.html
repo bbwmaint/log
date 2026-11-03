@@ -1045,7 +1045,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v239';
+var APP_BUILD='BBW CMMS build v240';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3569,7 +3569,7 @@ function loadFromSB(){
 
 // Sync utility readings
 function syncUtil(rec){
-  sbFetch('bbw_util_log?date=eq.'+rec.date,{method:'GET'})
+  return sbFetch('bbw_util_log?date=eq.'+rec.date,{method:'GET'})
     .then(function(r){return r.json();})
     .then(function(existing){
       var body=JSON.stringify({date:rec.date,time:rec.time,by_who:rec.by,
@@ -5384,6 +5384,7 @@ function renderUtil(){
   var H='<div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:12px">'+
     '<div style="font-size:13px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">'+utT('Daily Utility Readings')+'</div>'+
     banner+
+    '<div style="font-size:11px;color:var(--text-3);margin:-6px 0 12px">'+utT('Each reading saves automatically as you enter it.')+'</div>'+
     section(utT('Monitoring'),'#60a5fa',monRows)+
     section(utT('Boiler'),'#f97316',boilerRows)+
     section(utT('Chiller'),'#a78bfa',chillerRows)+
@@ -5447,12 +5448,49 @@ function renderUtil(){
 
   el.innerHTML=H;
   // Restore unsaved entries a background refresh would otherwise wipe (only fields
-  // the saved record left blank), and nudge their level bars to repaint.
+  // the saved record left blank). Guarded so the restore doesn't trigger auto-save.
+  _utilRestoring=true;
   try{ Object.keys(_uprev).forEach(function(id){ var i=gid(id); if(i&&(i.value===''||i.value==null)){ i.value=_uprev[id]; try{i.dispatchEvent(new Event('input'));}catch(e){} } }); }catch(e){}
+  _utilRestoring=false;
+  // Auto-save on entry — delegated once on the stable pane so re-renders keep it.
+  try{ if(el && !el.__autosaveBound){
+    el.addEventListener('input', function(ev){ var t=ev.target; if(t&&t.tagName==='INPUT'&&t.id)utilAutoSave(false); });
+    el.addEventListener('change', function(ev){ var t=ev.target; if(t&&t.tagName==='INPUT'&&t.id)utilAutoSave(true); });
+    el.__autosaveBound=true;
+  } }catch(e){}
 }
 
+var UTIL_KEYS=['w3','w5','gas','elec','boil','past','cool','steam','chstart','chproc','warmcell','bc1','bc2','bc3','bc4','bc5','bc6','bc7','bc8','stack','p_alk','m_alk','oh_alk','sulphate','amercor','advplus','amersite','ch_glycol','ch_ph','ch_purity'];
+var _utilAutoT=null, _utilRestoring=false;
+// Auto-save: persist readings the moment they're entered, so a partial column
+// isn't lost and techs don't have to remember to tap Save. Debounced on input,
+// flushed on blur. Reuses the same record + syncUtil path as the manual save,
+// and never re-renders (so it can't disrupt typing).
+function utilAutoSave(flush){
+  if(_utilRestoring)return;
+  if(_utilAutoT){clearTimeout(_utilAutoT);_utilAutoT=null;}
+  if(flush){ utilDoAutoSave(); return; }
+  _utilAutoT=setTimeout(function(){ _utilAutoT=null; utilDoAutoSave(); }, 800);
+}
+var _utilSaving=false, _utilPendingSave=false;
+function utilDoAutoSave(){
+  // Serialize: never let two saves race (the GET-then-POST could duplicate a fresh
+  // day's row). If one is in flight, remember to run once more when it finishes.
+  if(_utilSaving){ _utilPendingSave=true; return; }
+  var rec={date:utilDay(),time:ntime(),by:user||'?'}, any=false;
+  UTIL_KEYS.forEach(function(k){ var el=gid(k); if(el&&el.value!==''){ var n=parseFloat(el.value); if(!isNaN(n)){rec[k]=n;any=true;} else rec[k]=null; } else rec[k]=null; });
+  if(!any)return;   // nothing numeric entered yet — don't write an empty row
+  var idx=utilLogs.findIndex(function(r){return r.date===utilDay();});
+  if(idx>=0)utilLogs[idx]=rec; else utilLogs.unshift(rec);
+  try{localStorage.setItem('bbw_util',JSON.stringify(utilLogs));}catch(e){}
+  _utilSaving=true;
+  var after=function(){ _utilSaving=false; if(_utilPendingSave){ _utilPendingSave=false; utilDoAutoSave(); } };
+  try{ var p=syncUtil(rec); if(p&&p.then)p.then(after,after); else after(); }catch(e){ after(); }
+  try{ var f=gid('u-flash'); if(f){ f.style.display='block'; f.style.background='rgba(22,163,74,.12)'; f.style.color='#4ade80'; f.textContent='✓ '+utT('Saved')+' '+ntime(); } }catch(e){}
+  try{ if(typeof dataChanged==='function')dataChanged('util'); }catch(e){}
+}
 function saveUtil(){
-  var keys=['w3','w5','gas','elec','boil','past','cool','steam','chstart','chproc','warmcell','bc1','bc2','bc3','bc4','bc5','bc6','bc7','bc8','stack','p_alk','m_alk','oh_alk','sulphate','amercor','advplus','amersite','ch_glycol','ch_ph','ch_purity'];
+  var keys=UTIL_KEYS;
   var rec={date:utilDay(),time:ntime(),by:user||'?'};
   var any=false;
   keys.forEach(function(k){var el=gid(k);if(el&&el.value!==''){rec[k]=parseFloat(el.value);any=true;}else{rec[k]=null;}});
