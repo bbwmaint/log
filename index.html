@@ -1045,7 +1045,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v237';
+var APP_BUILD='BBW CMMS build v238';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1193,6 +1193,10 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   buildPrios();
   buildAList('');
   try{loadAssetsFromDB();}catch(e){}
+  // Pull the managed roster up front so the login name list reflects users added
+  // since the hardcoded seed (loadUsers -> rebuildRoster -> buildNames). Previously
+  // this only ran after login, so new users never showed on the PIN screen.
+  try{loadUsers();}catch(e){}
   updateClock();
   setInterval(updateClock,30000);
   setInterval(checkShiftEnd,60000);
