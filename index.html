@@ -1051,7 +1051,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v245';
+var APP_BUILD='BBW CMMS build v246';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -12837,7 +12837,7 @@ function renderInventory(){
 
   if(PORD_TAB==='orders'){
     var H2='<div style="max-width:1680px;margin:0 auto">'+seg;
-    H2+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
+    H2+='<div style="display:flex;align-items:center;gap:10px;row-gap:9px;flex-wrap:wrap;margin-bottom:12px">'+
         '<div style="display:flex;gap:3px;background:var(--surface-2);border-radius:9px;padding:3px">';
     [['open','Open'],['done','Received'],['receipts','Receipts']].forEach(function(f){
       var on=PORD_FILTER===f[0];
@@ -12845,8 +12845,8 @@ function renderInventory(){
         'font-size:12.5px;font-weight:'+(on?'700':'550')+';cursor:pointer;color:'+
         (on?'var(--text)':'var(--text-3)')+';'+(on?'background:var(--surface)':'')+'">'+f[1]+'</div>';
     });
-    H2+='</div><div style="flex:1"></div>';
-    H2+='<button onclick="pordSpendMenu()" title="Download spend summary PDF" style="padding:9px 13px;'+
+    H2+='</div>';
+    H2+='<button onclick="pordSpendMenu()" title="Download spend summary PDF" style="margin-left:auto;padding:9px 13px;'+
         'font-size:13px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);'+
         'color:var(--text-2);font-weight:700;cursor:pointer;white-space:nowrap">↓ PDF</button>';
     if(ed)H2+='<button onclick="pordReceiptForm(null)" title="Log a receipt / misc spend" style="padding:9px 13px;'+
