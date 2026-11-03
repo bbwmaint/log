@@ -1051,7 +1051,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v243';
+var APP_BUILD='BBW CMMS build v244';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1215,6 +1215,19 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   // returns to foreground so the shift clock + This Shift view don't show stale data.
   function onForeground(){
     try{updateClock();}catch(e){}
+    // Session expired while the app was open? Bounce cleanly to the PIN screen
+    // instead of letting reads/writes fail silently once RLS is on.
+    try{
+      if(user && !REQ_MODE && !FL_MODE && !FLDASH_MODE && !FLREQ_MODE && !authValid()){
+        authClear();
+        var _ku=null; try{_ku=localStorage.getItem('bbw_keepuser');}catch(e){}
+        user=null;
+        try{toast&&toast('Session expired — please re-enter your PIN');}catch(e){}
+        showPage('pg-pin');
+        if(_ku&&TECHS.indexOf(_ku)>=0){ try{selName(_ku);}catch(e){showNames();} } else { showNames(); }
+        return;
+      }
+    }catch(e){}
     try{if(user && (Date.now()-(window._lastSbLoad||0)>120000)){loadFromSB();}}catch(e){}
   }
   document.addEventListener('visibilitychange',function(){if(!document.hidden)onForeground();});
