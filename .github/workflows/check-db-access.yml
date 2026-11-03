@@ -1,0 +1,34 @@
+name: Check DB access
+
+# One-off diagnostic (safe, read-only, no emails): confirms the SUPABASE_KEY
+# secret the nightly jobs use can still read the database once Row-Level
+# Security is on. It reads the already-locked orders table; if the key sees the
+# rows it bypasses RLS (jobs are safe), if it sees zero it's being blocked.
+# Trigger from the Actions tab -> "Check DB access" -> "Run workflow".
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe RLS bypass with the jobs' key
+        env:
+          SB_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          SB_URL="https://klrxecmasfrwowdhplfn.supabase.co"
+          if [ -z "$SB_KEY" ]; then echo "SUPABASE_KEY secret is empty"; exit 1; fi
+          CR=$(curl -s -D - -o /dev/null \
+            "$SB_URL/rest/v1/bbw_part_orders?select=id" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" \
+            -H "Prefer: count=exact" | grep -i '^content-range' | tr -d '\r')
+          echo "Raw: $CR"
+          COUNT=$(echo "$CR" | sed -E 's@.*/@@' | tr -dc '0-9')
+          echo "Rows visible to the jobs' key: ${COUNT:-?}"
+          if [ -n "$COUNT" ] && [ "$COUNT" != "0" ]; then
+            echo "PASS - the key BYPASSES row-level security. Nightly jobs are safe under RLS."
+          else
+            echo "FAIL - the key is BLOCKED by row-level security (0 rows). Do NOT lock job tables yet."
+            exit 1
+          fi
