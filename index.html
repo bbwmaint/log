@@ -912,10 +912,16 @@ function saveUsers(){
   return (typeof saveScheduleToSB==='function')?saveScheduleToSB('users',USERS)
     :sbFetch('bbw_schedule?on_conflict=id',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:'users',data:USERS,updated_at:new Date().toISOString()})}).then(function(r){return r.ok;});
 }
+// Seed TECHS/EDITORS + the login name list from the last-known roster cached on
+// this device, so the login dropdown shows everyone instantly instead of the
+// hardcoded seed until the network roster loads. Safe no-op if nothing is cached.
+function loadUsersCache(){
+  try{ var cu=JSON.parse(localStorage.getItem('bbw_users')||'null'); if(Array.isArray(cu)&&cu.length){ USERS=cu; rebuildRoster(); } }catch(e){}
+}
 function loadUsers(){
   return sbFetch('bbw_schedule?id=eq.users&select=data').then(function(r){return r.ok?r.json():[];}).then(function(rows){
     var d=rows&&rows[0]&&rows[0].data;
-    if(Array.isArray(d)&&d.length){ USERS=d; rebuildRoster(); return USERS; }
+    if(Array.isArray(d)&&d.length){ USERS=d; try{localStorage.setItem('bbw_users',JSON.stringify(USERS));}catch(e){} rebuildRoster(); return USERS; }
     // First run: seed the store from the current hardcoded roster (one-time).
     USERS=TECHS_SEED.map(function(n){return {name:n, role:(EDITORS_SEED.indexOf(n)>=0?'editor':'tech'), status:'active', created:(new Date().toISOString().slice(0,10))};});
     saveUsers(); rebuildRoster(); return USERS;
@@ -1045,7 +1051,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v242';
+var APP_BUILD='BBW CMMS build v243';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1190,6 +1196,7 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
       else { setTimeout(function(){ try{selName(_keep);}catch(e){} },0); }      // session expired -> ask for PIN
     } }catch(e){}
   var savedLang=localStorage.getItem('bbw_lang')||'en';
+  try{loadUsersCache();}catch(e){}   // instant roster from cache -> full login name list
   buildNames();
   buildTemplates();
   buildQuick();
