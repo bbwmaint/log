@@ -1058,7 +1058,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v247';
+var APP_BUILD='BBW CMMS build v248';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -12611,7 +12611,11 @@ function _pordPO(idOrObj){
       y+=rh; alt=!alt;
     }
     rows.forEach(drawRow);
-    for(var e=rows.length;e<MINROWS;e++)drawRow(null);
+    // Pad to MINROWS for the form look, but never push the Tax/Subtotal/Total +
+    // signature block off the page — tall multi-line descriptions eat the space,
+    // so stop adding filler rows once the reserved bottom block wouldn't fit.
+    var _PH=doc.internal.pageSize.getHeight(), _RESERVE=104;   // tax+subtotal+gap+total+signature
+    for(var e=rows.length;e<MINROWS && (y+18+_RESERVE)<=(_PH-40);e++)drawRow(null);
     var tax=parseFloat(p.tax)||0, total=subtotal+tax;
     rect(cx[0],y,MR-MLX,18,null,null);
     for(var j=1;j<cx.length-1;j++)line(cx[j],y,cx[j],y+18,HAIR); line(cx[0],y,cx[0],y+18,HAIR); line(cx[5],y,cx[5],y+18,HAIR);
