@@ -1058,7 +1058,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v249';
+var APP_BUILD='BBW CMMS build v250';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -12088,8 +12088,11 @@ function parseQuoteItems(items){
   var clusters=[], cc=null;
   for(var r=start;r<endIdx;r++){
     var tk=rowToks(rows[r]); if(!tk.length)continue;
-    var leadIsQty = (tk[1] && UNIT.test(tk[1].str.trim())) || QTYUNIT.test(tk[0].str.trim());
-    var isStart = /^\d{1,7}$/.test(tk[0].str.trim()) && !leadIsQty && rowHasItemSignal(tk);
+    var _lead=tk[0].str.trim();
+    var leadIsQty = (tk[1] && UNIT.test(tk[1].str.trim())) || QTYUNIT.test(_lead);
+    // Start a new item on a leading position number (1, 2, 3…) OR a leading part
+    // number (10725-16, 97500-21…) — many quotes key each line by part #, not a row #.
+    var isStart = (/^\d{1,7}$/.test(_lead) || partScore(_lead)>=2) && !leadIsQty && rowHasItemSignal(tk);
     if(isStart){ if(cc)clusters.push(cc); cc={rows:[], pos:tk[0].str.trim()}; }
     if(cc) cc.rows.push(tk);
   }
@@ -12108,6 +12111,13 @@ function parseQuoteItems(items){
       }
       if(!priceVal) priceVal=prices[0].v;
     }
+    // Per-unit price written with 3 decimals (e.g. 85.000) — the 2-decimal MONEY
+    // match catches the line NET instead, so grab the unit price from the price
+    // column directly and prefer it as the per-unit cost.
+    var unitVal='';
+    all.forEach(function(t){ var s=t.str.trim().replace(/^\$/,''); if(!/^[0-9][0-9,]*\.[0-9]{3}$/.test(s))return;
+      if(hx.price!=null && Math.abs(t.x-hx.price)>70 && (hx.total==null||Math.abs(t.x-hx.total)>70))return;
+      if(!unitVal)unitVal=num(s); });
     // qty: combined "6 PCE" token, or N followed by a unit, else qty-band
     var qty='', qtyTok=null;
     for(var i=0;i<all.length;i++){ var s=all[i].str.trim(); var mc=s.match(QTYUNIT);
@@ -12115,8 +12125,9 @@ function parseQuoteItems(items){
       if(/^\d+(?:\.\d+)?$/.test(s)){ var nx=all[i+1]&&all[i+1].str.trim(); if(nx&&UNIT.test(nx)){ qty=s; qtyTok=all[i]; break; } }
     }
     if(!qty && hx.qty!=null){ var band=all.filter(function(t){return Math.abs(t.x-hx.qty)<26 && /^\d+(?:\.\d+)?$/.test(t.str.trim());}); if(band.length){qty=band[0].str.trim(); qtyTok=band[0];} }
-    // part: best-scoring token (not position / qty / price / unit)
+    // part: the leading token if it's a part number, else best-scoring token
     var part='', best=0;
+    if(partScore(cl.pos)>=2){ part=cl.pos; best=partScore(cl.pos); }
     all.forEach(function(t){ var s=t.str.trim();
       if(s===cl.pos||t===qtyTok)return; if(MONEY.test(s)||UNIT.test(s)||QTYUNIT.test(s))return;
       var sc=partScore(s); if(sc>best){ best=sc; part=s; } });
@@ -12128,26 +12139,46 @@ function parseQuoteItems(items){
       if(NOISE.test(rstr)) continue;
       var kept=rowToks(tk2).map(function(t){return t.str;}).filter(function(s){ s=s.trim(); if(!s)return false;
         if(s===cl.pos)return false; if(s===qty)return false; if(s===part)return false;
-        if(UNIT.test(s)||QTYUNIT.test(s))return false; if(MONEY.test(s))return false;
+        if(UNIT.test(s)||QTYUNIT.test(s))return false;
+        if(MONEY.test(s)||/^\$?[0-9][0-9,]*\.[0-9]{3}$/.test(s)||/^\$+$/.test(s))return false;
         if(/^\d+(?:\.\d+)?%?$/.test(s))return false;
         if(/^(transport|freight|shipping|handling)/i.test(s))return false;
         return true; });
       if(kept.length)descParts.push(kept.join(' '));
     }
     var desc=descParts.join(' ').replace(/\s+/g,' ').replace(/^[\s\-:,|]+|[\s\-:,|]+$/g,'').trim();
-    var cost=priceVal||totalVal||'';
+    var cost=unitVal||priceVal||totalVal||'';
     if((desc||part)&&cost){ lines.push({item:desc||part, part_no:part, qty:qty, cost:cost}); }
   });
 
-  // ---- fallback when no position-numbered clusters found ----
+  // ---- fallback: each item row reads  PARTNO  DESCRIPTION  QTYunit  UNITPRICE  NET
+  //      (common when the PDF glues the part number onto the description, e.g.
+  //      "10725-16 GAUGE BLOCK"). Parse qty from the N-unit token, NOT the leading
+  //      digits — those are the part-number prefix, which was being read as 10725 qty.
   if(!lines.length){
+    var QUNIT=/(\d+(?:\.\d+)?)\s*(pce|pcs|pc|ea|each|unit|units|box|set|sets|pkg|pk|roll|rolls|lot)\b/i;
+    var PARTRE=/\b([A-Za-z0-9]+(?:[\-\/][A-Za-z0-9]+)+)\b/;        // dashed/slashed catalog no.
+    var PRICERE='\\$?\\s*([0-9][0-9,]*\\.[0-9]{2,3})(?!\\d)';       // 2- or 3-decimal money
     for(var r3=start;r3<endIdx;r3++){
       var rstr2=rowStr(rows[r3]); if(!rstr2||NOISE.test(rstr2))continue;
-      var pr=rstr2.match(MONEYG); if(!pr)continue;
-      var qm=rstr2.match(/^\s*(\d+(?:\.\d+)?)\b/), pm=rstr2.match(/\b([A-Z0-9][A-Z0-9\-\/]{3,})\b/);
-      var d=rstr2; if(qm)d=d.replace(qm[0],''); pr.forEach(function(p){d=d.replace(p,'');}); if(pm)d=d.replace(pm[1],'');
-      d=d.replace(/\s+/g,' ').replace(/^[\s\-|,:$%]+|[\s\-|,:$%]+$/g,'').trim();
-      if(d||pm){ lines.push({item:d||(pm?pm[1]:''), part_no:pm?pm[1]:'', qty:qm?qm[1]:'', cost:num(pr[0])}); }
+      var allp=[], pmp, rp=new RegExp(PRICERE,'g'); while(pmp=rp.exec(rstr2))allp.push(pmp[1]);
+      if(!allp.length){
+        // a line with no price is a wrapped description -> append to the item above it
+        if(lines.length && rstr2.length<=60){ lines[lines.length-1].item=(lines[lines.length-1].item+' '+rstr2).replace(/\s+/g,' ').trim(); }
+        continue;
+      }
+      var unit3='', net2=''; allp.forEach(function(v){ if(/\.\d{3}$/.test(v)){ if(!unit3)unit3=v; } else net2=v; });
+      var cost=num(unit3||net2||allp[allp.length-1]);
+      var qm=rstr2.match(QUNIT), qty2='';
+      if(qm)qty2=qm[1];
+      else { var lead=rstr2.match(/^\s*(\d{1,4})\b(?![\-\/\d])/); if(lead)qty2=lead[1]; } // small leading number only, never a long part-no prefix
+      var pm=rstr2.match(PARTRE), part2=pm?pm[1]:'';
+      var d=rstr2;
+      if(part2)d=d.replace(part2,' ');
+      if(qm)d=d.replace(qm[0],' ');
+      d=d.replace(new RegExp(PRICERE,'g'),' ').replace(/\$/g,' ')
+         .replace(/\s+/g,' ').replace(/^[\s\-|,:%]+|[\s\-|,:%]+$/g,'').trim();
+      if(d||part2){ lines.push({item:d||part2, part_no:part2, qty:qty2, cost:cost}); }
     }
   }
   // A freight/shipping line item belongs in the Shipping field, not the parts list.
