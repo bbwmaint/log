@@ -1058,7 +1058,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v250';
+var APP_BUILD='BBW CMMS build v251';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -12872,7 +12872,7 @@ function renderInventory(){
   // Segmented header: stock on hand vs parts on order.
   var seg='<div style="display:flex;gap:3px;background:var(--surface-2);border-radius:10px;'+
     'padding:3px;margin-bottom:12px">';
-  [['stock','Stock'],['orders','On order']].forEach(function(t){
+  [['stock','In stock'],['orders','On order']].forEach(function(t){
     var on=PORD_TAB===t[0];
     var n='';
     if(t[0]==='orders'&&PORD_LOADED){
