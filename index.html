@@ -1058,7 +1058,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v248';
+var APP_BUILD='BBW CMMS build v249';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -11531,9 +11531,11 @@ function pordBuildBook(){
   _pordBook={};
   PORD.forEach(function(x){
     var s=((x.supplier||'')+'').trim().toLowerCase(); if(!s)return;
-    if(!_pordBook[s])_pordBook[s]={supplier:x.supplier,contact:'',email:''};
-    if(!_pordBook[s].contact && x.contact_name)_pordBook[s].contact=x.contact_name;
-    if(!_pordBook[s].email   && x.contact_email)_pordBook[s].email=x.contact_email;
+    if(!_pordBook[s])_pordBook[s]={supplier:x.supplier,contact:'',email:'',address:''};
+    var b=_pordBook[s];   // PORD is updated_at.desc, so first non-empty wins = most recent
+    if(!b.contact && (x.vendor_attn||x.contact_name))b.contact=(x.vendor_attn||x.contact_name);
+    if(!b.email   && x.contact_email)b.email=x.contact_email;
+    if(!b.address && x.vendor_addr)b.address=x.vendor_addr;
   });
 }
 function pordSupplierDatalist(){
@@ -11551,15 +11553,20 @@ function pordAssetDatalist(){
     .join('');
   return '<datalist id="pf-assets">'+opts+'</datalist>';
 }
-function pordFillContact(){
+// Pick a vendor you've used before -> its address, contact person and email
+// autofill from that vendor's most recent order. Works for both PO forms.
+function pordFillVendorFields(supId,attnId,emailId,addrId){
   if(_pordContactTouched)return;                 // don't clobber what the user typed
-  var se=gid('pf-supplier'); if(!se)return;
+  var se=gid(supId); if(!se)return;
   var rec=_pordBook[((se.value||'')+'').trim().toLowerCase()];
   if(!rec)return;
-  var c=gid('pf-contact'), e=gid('pf-cemail');
+  var c=gid(attnId), e=gid(emailId), a=gid(addrId);
   if(c&&rec.contact)c.value=rec.contact;
   if(e&&rec.email)e.value=rec.email;
+  if(a&&rec.address)a.value=rec.address;
 }
+function pordFillContact(){ pordFillVendorFields('pf-supplier','pf-contact','pf-cemail','pf-vaddr'); }
+function pordFillContactCpo(){ pordFillVendorFields('cpo-supplier','cpo-attn','cpo-cemail','cpo-vaddr'); }
 function pordTouchContact(){ _pordContactTouched=true; }
 var PORD_STAGES=[
   {k:'requested', l:'Waiting for approval',    c:'#64748b'},
@@ -12208,7 +12215,7 @@ function pordForm(id,seed){
   });
   H+='</div><input type="hidden" id="pf-stage" value="'+(p.stage||'requested')+'"></div>';
   H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
-     fld('Supplier','pf-supplier',p.supplier,'','text','list="pf-suppliers" oninput="pordFillContact()"')+
+     fld('Supplier','pf-supplier',p.supplier,'','text','list="pf-suppliers" oninput="pordFillContact()" onchange="pordFillContact()"')+
      fld('PO number','pf-pono',p.po_no,'auto if blank')+'</div>';
   H+=pordSupplierDatalist();
   H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
@@ -12680,7 +12687,8 @@ function pordReviewPO(id){
   H+='<div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin:4px 2px 9px">Purchase order details</div>';
   H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+fld('PO number','cpo-pono',o.po_no||'','auto if blank')+fld('PO date','cpo-date',_date,'','date')+'</div>';
   H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+fld('Quote / order no','cpo-quote',o.quote_no||'','e.g. LG0 1301204813')+fld('Delivery time','cpo-delivery',o.delivery||'','e.g. 2 weeks')+'</div>';
-  H+=fld('Vendor','cpo-supplier',o.supplier||'','Supplier name','text','list="pf-suppliers"');
+  _pordContactTouched=!!((o.contact_email||'')+(o.vendor_attn||'')+(o.vendor_addr||''));
+  H+=fld('Vendor','cpo-supplier',o.supplier||'','Supplier name','text','list="pf-suppliers" oninput="pordFillContactCpo()" onchange="pordFillContactCpo()"');
   H+=pordSupplierDatalist();
   H+=tarea('Vendor address','cpo-vaddr',o.vendor_addr||'','3280 Wharton Way&#10;Mississauga, ON  L4X2C5');
   H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+fld('Vendor attn','cpo-attn',(o.vendor_attn||o.contact_name||''),'Rep name')+fld('Contact email','cpo-cemail',o.contact_email||'','name@supplier.com')+'</div>';
@@ -12794,7 +12802,8 @@ function openCustomPO(){
      fld('Shipping','pf-shipping','','0.00','number','step="any" min="0" inputmode="decimal" oninput="pfLineTotal()"')+
      fld('Tax','pf-tax','','0.00','number','step="any" min="0" inputmode="decimal" oninput="pfLineTotal()"')+'</div>';
   H+='<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:11px 13px;margin-bottom:14px"><span style="font-size:12px;color:var(--text-2);font-weight:700;text-transform:uppercase;letter-spacing:.04em">Total price</span><b id="pf-grand" style="font-size:17px;color:var(--text)">$0.00</b></div>';
-  H+=fld('Vendor','cpo-supplier','','Supplier name','text','list="pf-suppliers"');
+  _pordContactTouched=false;
+  H+=fld('Vendor','cpo-supplier','','Supplier name','text','list="pf-suppliers" oninput="pordFillContactCpo()" onchange="pordFillContactCpo()"');
   H+=pordSupplierDatalist();
   H+='<div style="margin-bottom:11px"><label style="display:block;font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Vendor address</label>'+
      '<textarea id="cpo-vaddr" rows="2" placeholder="3280 Wharton Way&#10;Mississauga, ON  L4X2C5" style="width:100%;box-sizing:border-box;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:14px;resize:vertical"></textarea></div>';
