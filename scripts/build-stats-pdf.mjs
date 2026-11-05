@@ -13,6 +13,11 @@ import path from 'path';
 // Override with APP_HTML for local testing.
 const INDEX = process.env.APP_HTML || path.resolve(process.cwd(), 'index.html');
 
+// The headless app reads with the anon key baked into index.html, which RLS now
+// blocks — so the privileged job key (already in CI) is injected before data loads
+// so the report sees the real numbers instead of zeros. Never leaves the CI runner.
+const SB_SECRET = process.env.SUPABASE_KEY || '';
+
 export function statsFileName(start, end) {
   return `BBW_Stats_Report_${start}_to_${end}.pdf`;
 }
@@ -37,6 +42,9 @@ export async function buildStatsPDF(start, end, opts = {}) {
 
       // Reports are editor-gated in the app; run as an editor.
       user = (typeof EDITORS !== 'undefined' && EDITORS[0]) || 'Praful';
+      // Read with the privileged key so RLS-locked tables (work logs, WOs, PMs,
+      // requests) return real data instead of empty — otherwise the report is all 0s.
+      if (r.secretKey) { try { SBKEY = r.secretKey; } catch (e) {} }
       try { loadSchedulesFromStorage(); } catch (e) {}
       try { await loadSchedulesFromSB(); } catch (e) {}   // production / schedule (hL, productivity)
       try { await loadRequests(); } catch (e) {}          // requests received / closed
@@ -63,7 +71,7 @@ export async function buildStatsPDF(start, end, opts = {}) {
           volHL: C.volHL, meanProd: C.meanProd, attain: C.attain
         }
       };
-    }, { start, end, idx, subtitle });
+    }, { start, end, idx, subtitle, secretKey: SB_SECRET });
 
     if (warns.length) console.warn('  (app warnings: ' + warns.slice(0, 3).join(' | ') + ')');
     const pdf = Buffer.from(res.b64, 'base64');
