@@ -1058,7 +1058,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v252';
+var APP_BUILD='BBW CMMS build v253';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7595,7 +7595,7 @@ function loadCMMS(force){
     return rows||[];
   }).then(function(rows){
     rows=cmmsClean(rows);
-    if(rows.length){CMMS_PMS=rows;CMMS_LOADED=true;return CMMS_PMS;}
+    if(rows.length){CMMS_PMS=rows;CMMS_LOADED=true;try{cmmsReconcileMaster();}catch(e){}return CMMS_PMS;}
     CMMS_LOADED=true;
     if(!CMMS_PMS.length && !window.__cmmsRetried){ window.__cmmsRetried=true; return new Promise(function(res){setTimeout(res,700);}).then(function(){ return sbFetch('bbw_pms?select=*&order=code.asc&limit=5000').then(function(r){return r.json();}).then(function(r2){ r2=cmmsClean(r2); if(r2.length){CMMS_PMS=r2;return CMMS_PMS;} if(!CMMS_PMS.length){CMMS_PMS=cmmsLocalPMs();} return CMMS_PMS; }); }); }
     if(!CMMS_PMS.length){CMMS_PMS=cmmsLocalPMs();}
@@ -7610,6 +7610,29 @@ function seedCMMS(){
   var today=new Date();
   var seed=PMS.map(function(p){var a=cmmsParseAsset(p.asset);return {code:p.code,asset:a.name,asset_code:a.code,description:p.desc,freq:p.freq,priority:p.priority||'',assignee:canonName(p.assignee)||'',hours:p.hours?parseFloat(p.hours):null,pm_type:p.type||'',active:true,next_due:pmNextDueISO(p.freq,today)};});
   return sbFetch('bbw_pms',{method:'POST',body:JSON.stringify(seed),headers:{'Prefer':'return=minimal'}});
+}
+// Back-fill: bbw_pms is only seeded when empty, so any PM added to the master list
+// AFTER the first seed never reached the CMMS (the dashboard reads the master, the
+// CMMS reads bbw_pms -> they drift). Add the missing ones. Admin-only writer, once
+// per session, no-op when nothing's missing.
+var __cmmsReconciled=false;
+function cmmsReconcileMaster(){
+  if(__cmmsReconciled)return Promise.resolve();
+  if(typeof isAdmin==='function' && !isAdmin())return Promise.resolve();
+  __cmmsReconciled=true;
+  try{
+    var have={}; (CMMS_PMS||[]).forEach(function(p){ if(p&&p.code)have[(''+p.code).trim()]=1; });
+    var today=new Date();
+    var missing=(PMS||[]).filter(function(p){ return p&&p.code && !have[(''+p.code).trim()]; })
+      .map(function(p){ var a=cmmsParseAsset(p.asset); return {code:p.code,asset:a.name,asset_code:a.code,description:p.desc,freq:p.freq,priority:p.priority||'',assignee:canonName(p.assignee)||'',hours:p.hours?parseFloat(p.hours):null,pm_type:p.type||'',active:true,next_due:pmNextDueISO(p.freq,today)}; });
+    if(!missing.length)return Promise.resolve();
+    return sbFetch('bbw_pms',{method:'POST',body:JSON.stringify(missing),headers:{'Prefer':'return=minimal'}})
+      .then(function(r){ if(!r.ok)return; return loadCMMS(true).then(function(){
+        try{ if(gid('pane-home'))renderHome(); }catch(e){}
+        try{ if(typeof renderCMMSView==='function')renderCMMSView(); }catch(e){}
+        try{toast&&toast('Added '+missing.length+' missing PM'+(missing.length>1?'s':'')+' to the CMMS');}catch(e){}
+      }); });
+  }catch(e){ return Promise.resolve(); }
 }
 
 // Technician view of the PMs tab. Managers get the full CMMS; technicians used to
