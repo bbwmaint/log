@@ -9,6 +9,8 @@ import { chromium } from 'playwright';
 import path from 'path';
 
 const INDEX = process.env.APP_HTML || path.resolve(process.cwd(), 'index.html');
+// Privileged job key (CI only) injected so RLS-locked tables aren't read as empty.
+const SB_SECRET = process.env.SUPABASE_KEY || '';
 
 export function machineFileName(start, end) {
   return `BBW_Machine_Week_${start}_to_${end}.pdf`;
@@ -30,6 +32,7 @@ export async function buildMachinePDF(start, end) {
       URL.createObjectURL = function (b) { cap = b; return _o(b); };
 
       user = (typeof EDITORS !== 'undefined' && EDITORS[0]) || 'Praful';  // reports are editor-gated
+      if (r.secretKey) { try { SBKEY = r.secretKey; } catch (e) {} }       // read past RLS (CI key)
       try { loadSchedulesFromStorage(); } catch (e) {}
       try { await loadSchedulesFromSB(); } catch (e) {}
       try { await loadRequests(); } catch (e) {}                          // for the Requests bar
@@ -58,7 +61,7 @@ export async function buildMachinePDF(start, end) {
           reqReceived: C.reqReceived, reqClosed: C.reqClosed
         }
       };
-    }, { start, end });
+    }, { start, end, secretKey: SB_SECRET });
 
     if (warns.length) console.warn('  (app warnings: ' + warns.slice(0, 3).join(' | ') + ')');
     const pdf = Buffer.from(res.b64, 'base64');

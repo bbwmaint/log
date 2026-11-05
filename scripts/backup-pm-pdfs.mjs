@@ -135,12 +135,13 @@ async function renderPDFs(targets) {
     const warns = []; page.on('pageerror', e => warns.push(e.message));
     await page.goto('file://' + INDEX, { waitUntil: 'load', timeout: 60000 });
     await page.waitForFunction(() => window.jspdf && window.jspdf.jsPDF, { timeout: 30000 }).catch(() => {});
-    await page.evaluate(async () => {
+    await page.evaluate(async (secretKey) => {
       user = (typeof EDITORS !== 'undefined' && EDITORS[0]) || 'Praful';
+      if (secretKey) { try { SBKEY = secretKey; } catch (e) {} }   // read past RLS with the CI key
       try { loadSchedulesFromStorage && loadSchedulesFromStorage(); } catch (e) {}
       try { await loadCMMS(true); } catch (e) {}
       try { await loadWOs(true); } catch (e) {}
-    });
+    }, process.env.SUPABASE_KEY || '');
     for (const w of targets) {
       const res = await page.evaluate(async (wo) => {
         try {
