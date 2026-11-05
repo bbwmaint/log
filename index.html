@@ -1058,7 +1058,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v254';
+var APP_BUILD='BBW CMMS build v255';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2182,6 +2182,31 @@ var DOC_FOLDERS=[];      // bbw_doc_folders rows for current asset
 var DOC_FOLD_OPEN={};    // folder name -> open/collapsed
 var FILTERS=[];          // bbw_filters rows for current asset
 var DOC_BUCKET='bbw-docs';
+// ── Signed-URL layer (private-bucket ready) ─────────────────────────────────
+// Files in bbw-docs are reached through short-lived SIGNED links instead of
+// permanent public URLs, so the bucket can be flipped private. Signing works
+// on a public bucket too and falls back to the public URL on failure, so this
+// is safe to ship while the bucket is still public.
+var _sbSig={};
+function sbPubUrl(path){ return SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(path); }
+function sbSignUrl(path, secs){
+  path=''+(path||''); if(!path) return Promise.resolve('');
+  secs=secs||3600;
+  var c=_sbSig[path]; if(c && c.exp>Date.now()) return Promise.resolve(c.url);
+  return fetch(SB+'/storage/v1/object/sign/'+DOC_BUCKET+'/'+encodeURI(path),
+      {method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+authBearer(),'Content-Type':'application/json'},body:JSON.stringify({expiresIn:secs})})
+    .then(function(r){ return r.ok?r.json():null; })
+    .then(function(j){ if(j&&j.signedURL){ var u=SB+'/storage/v1'+j.signedURL; _sbSig[path]={url:u,exp:Date.now()+Math.max(60000,secs*1000-120000)}; return u; } return sbPubUrl(path); })
+    .catch(function(){ return sbPubUrl(path); });
+}
+function sbSignMany(paths, secs){ return Promise.all((paths||[]).map(function(p){return sbSignUrl(p,secs);})); }
+// Open a stored file in a new tab via a signed link — popup-blocker-safe: open
+// the tab synchronously on the click, then point it at the signed URL.
+function sbOpenPath(path){
+  var w=null; try{ w=window.open('','_blank'); }catch(e){}
+  sbSignUrl(path).then(function(u){ if(!u){ if(w)try{w.close();}catch(e){} return; } if(w){ try{ w.location.href=u; }catch(e){ window.open(u,'_blank'); } } else { window.open(u,'_blank'); } });
+  return false;
+}
 
 function isEditor(){ return EDITORS.indexOf(user)>=0; }
 // Three roles: Admin (Praful only) sees and controls everything including the More tab's
@@ -2383,7 +2408,7 @@ function docUploadFiles(fileList, folder){
     var file=files[i];
     var safe=(file.name||'file').replace(/[^a-zA-Z0-9._-]/g,'_');
     var path=DOC_ASSET.c+'/'+DOC_CAT+'/'+yr+'/'+Date.now()+'_'+i+'_'+safe;
-    fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},body:file})
+    fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+authBearer(),'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},body:file})
      .then(function(r){ if(!r.ok)throw new Error('storage '+r.status); return sbFetch('bbw_docs',{method:'POST',body:JSON.stringify({asset_code:DOC_ASSET.c,asset_name:DOC_ASSET.n,category:DOC_CAT,year:yr,filename:file.name,storage_path:path,uploaded_by:user,folder:folder||null}),headers:{'Prefer':'return=minimal'}}); })
      .then(function(r){ if(!r.ok)throw new Error('db '+r.status); done++; status(); uploadOne(i+1); })
      .catch(function(e){ failed++; done++; console.warn('upload failed',file.name,e); status(); uploadOne(i+1); });
@@ -2391,9 +2416,9 @@ function docUploadFiles(fileList, folder){
   uploadOne(0);
 }
 function docDrop(ev, folder){ try{ev.preventDefault();}catch(e){} var dt=ev.dataTransfer; if(dt&&dt.files&&dt.files.length)docUploadFiles(dt.files, folder||null); }
-function docOpen(id){ var d=DOCS.filter(function(x){return ''+x.id===''+id;})[0]; if(!d)return; window.open(SB+'/storage/v1/object/public/'+DOC_BUCKET+'/'+encodeURI(d.storage_path),'_blank'); }
+function docOpen(id){ var d=DOCS.filter(function(x){return ''+x.id===''+id;})[0]; if(!d)return; sbOpenPath(d.storage_path); }
 function docDelete(id){ var d=DOCS.filter(function(x){return ''+x.id===''+id;})[0]; if(!d)return; if(!confirm('Delete "'+(d.filename||'this file')+'"? This cannot be undone.'))return;
-  fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(d.storage_path),{method:'DELETE',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY}})
+  fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(d.storage_path),{method:'DELETE',headers:{'apikey':SBKEY,'Authorization':'Bearer '+authBearer()}})
    .then(function(){ return sbFetch('bbw_docs?id=eq.'+d.id,{method:'DELETE'}); })
    .then(function(){ DOCS=[]; loadDocs(); })
    .catch(function(e){ alert('Delete failed: '+e.message); });
@@ -2542,7 +2567,7 @@ function uploadReqPhotos(files){
   return Promise.all(files.map(function(f){
     return downscaleImage(f,1280,0.7).then(function(blob){
       var path='requests/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg';
-      return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'image/jpeg','x-upsert':'true'},body:blob}).then(function(r){return r.ok?path:null;}).catch(function(){return null;});
+      return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+authBearer(),'Content-Type':'image/jpeg','x-upsert':'true'},body:blob}).then(function(r){return r.ok?path:null;}).catch(function(){return null;});
     });
   })).then(function(paths){return paths.filter(Boolean);});
 }
@@ -2897,10 +2922,13 @@ function photoFallback(img){
     var path=img.dataset.ppath?decodeURI(img.dataset.ppath):'';
     if(!path){ var m=(img.getAttribute('src')||'').match(/\/object\/public\/[^/]+\/(.+)$/); if(m){ try{path=decodeURIComponent(m[1]);}catch(e){path=m[1];} } }
     if(!path){ return _photoPlaceholder(img); }
-    fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY}})
-      .then(function(r){ if(!r.ok)throw 0; return r.blob(); })
-      .then(function(b){ img.onerror=null; img.src=URL.createObjectURL(b); })
-      .catch(function(){ _photoPlaceholder(img); });
+    sbSignUrl(path).then(function(u){ img.onerror=null; img.src=u; })
+      .catch(function(){
+        fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{headers:{'apikey':SBKEY,'Authorization':'Bearer '+authBearer()}})
+          .then(function(r){ if(!r.ok)throw 0; return r.blob(); })
+          .then(function(b){ img.onerror=null; img.src=URL.createObjectURL(b); })
+          .catch(function(){ _photoPlaceholder(img); });
+      });
   }catch(e){ _photoPlaceholder(img); }
 }
 function _photoPlaceholder(img){
@@ -7844,7 +7872,7 @@ function calDetail(id){
   H+='<div style="height:1px;background:var(--border);margin:12px 0"></div><div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Calibration history</div>';
   if(!evs.length)H+='<div style="font-size:12.5px;color:var(--text-3)">No calibrations recorded yet.</div>';
   else evs.forEach(function(e){ var rc=e.result==='Fail'?'#dc2626':((e.result==='Adjusted'||e.result==='Adjust')?'#d97706':'#16a34a');
-    H+='<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700">'+escHtml((''+(e.date||'')).slice(0,10))+'</span><span style="font-size:12px;font-weight:700;color:'+rc+'">'+escHtml(e.result||'')+'</span></div><div style="font-size:12px;color:var(--text-3);margin-top:3px">'+escHtml(e.by||'')+(e.external?' · external':'')+((e.as_found||e.as_left)?(' · '+escHtml(e.as_found||'—')+' → '+escHtml(e.as_left||'—')):'')+'</div>'+(e.cert?('<a href="'+flPubUrl(e.cert)+'" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none;font-weight:600;display:inline-block;margin-top:5px">📄 View certificate</a>'):'')+'</div>';
+    H+='<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700">'+escHtml((''+(e.date||'')).slice(0,10))+'</span><span style="font-size:12px;font-weight:700;color:'+rc+'">'+escHtml(e.result||'')+'</span></div><div style="font-size:12px;color:var(--text-3);margin-top:3px">'+escHtml(e.by||'')+(e.external?' · external':'')+((e.as_found||e.as_left)?(' · '+escHtml(e.as_found||'—')+' → '+escHtml(e.as_left||'—')):'')+'</div>'+(e.cert?('<a href="#" onclick="return sbOpenPath(\''+(''+e.cert).replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')" style="font-size:12px;color:var(--accent);text-decoration:none;font-weight:600;display:inline-block;margin-top:5px">📄 View certificate</a>'):'')+'</div>';
   });
   if(ed)H+='<div style="height:1px;background:var(--border);margin:12px 0"></div><button onclick="calForm('+c.id+')" style="width:100%;padding:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:12.5px;font-weight:700;border-radius:9px;cursor:pointer">Edit device</button>';
   H+='</div></div></div>';
@@ -10702,7 +10730,7 @@ function wipeEverything(){
     (Array.isArray(res[2])?res[2]:[]).forEach(function(r){addArr(r.photos);});
     if(!paths.length)return Promise.resolve();
     var batches=[]; for(var i=0;i<paths.length;i+=100)batches.push(paths.slice(i,i+100));
-    return Promise.all(batches.map(function(b){ return fetch(SB+'/storage/v1/object/'+DOC_BUCKET,{method:'DELETE',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/json'},body:JSON.stringify({prefixes:b})}).catch(function(){}); }));
+    return Promise.all(batches.map(function(b){ return fetch(SB+'/storage/v1/object/'+DOC_BUCKET,{method:'DELETE',headers:{'apikey':SBKEY,'Authorization':'Bearer '+authBearer(),'Content-Type':'application/json'},body:JSON.stringify({prefixes:b})}).catch(function(){}); }));
   }).catch(function(){}).then(function(){
     return Promise.all(BBW_TABLES.map(function(t){ return sbFetch(t+'?id=not.is.null',{method:'DELETE',headers:{'Prefer':'return=minimal'}}).catch(function(){}); }));
   }).then(function(){
@@ -10828,7 +10856,7 @@ function uploadForkliftPhotos(files,unit){
  return Promise.all(Array.prototype.map.call(files,function(f){
    return downscaleImage(f,1280,0.7).then(function(blob){
      var path='forklift/'+unit+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg';
-     return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'image/jpeg','x-upsert':'true'},body:blob}).then(function(r){return r.ok?path:null;}).catch(function(){return null;});
+     return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+authBearer(),'Content-Type':'image/jpeg','x-upsert':'true'},body:blob}).then(function(r){return r.ok?path:null;}).catch(function(){return null;});
    });
  })).then(function(pp){return pp.filter(Boolean);});
 }
@@ -10982,7 +11010,7 @@ function submitForkliftChecklist(unit,btn){
   var yr=(new Date(d.date).getFullYear())||new Date().getFullYear();
   var safe=(unit+'_Inspection_'+d.date+'_'+d.shift).replace(/[^a-zA-Z0-9._-]/g,'_')+'.pdf';
   var path='PWRLFT/inspections/'+yr+'/'+Date.now()+'_'+safe;
-  return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/pdf','x-upsert':'true'},body:blob})
+  return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+authBearer(),'Content-Type':'application/pdf','x-upsert':'true'},body:blob})
    .then(function(r){if(!r.ok)throw new Error('storage '+r.status);return sbFetch('bbw_docs',{method:'POST',body:JSON.stringify({asset_code:'PWRLFT',asset_name:'Forklift',category:'inspections',year:yr,filename:unit+' Inspection '+d.date+' '+d.shift+'.pdf',storage_path:path,uploaded_by:op,folder:unit}),headers:{'Prefer':'return=minimal'}});})
    .then(function(r){if(!r.ok&&r.status!==201&&r.status!==204)throw new Error('db '+r.status);
      var flagged=d.visual.concat(d.oper).filter(function(x){return x[1]!=='OK';});
@@ -11285,7 +11313,7 @@ function flDashReqCard(r){
   H+='</div>';
   H+='<div style="font-size:13.5px;color:var(--text);line-height:1.5;white-space:pre-wrap;margin-bottom:8px">'+flDashEsc(r.work||'')+'</div>';
   H+='<div style="font-size:11.5px;color:var(--text-3);margin-bottom:'+(photos.length||notes.length?'10px':'12px')+'">By '+flDashEsc(r.reporter||'?')+(r.requester_email?(' \u00b7 '+flDashEsc(r.requester_email)):'')+' \u00b7 '+when+'</div>';
-  if(photos.length){ H+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+photos.map(function(p){var u=flPubUrl(p);return '<a href="'+u+'" target="_blank"><img src="'+u+'" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:1px solid var(--border-2)"></a>';}).join('')+'</div>'; }
+  if(photos.length){ H+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+photos.map(function(p){var u=flPubUrl(p);var pe=(''+p).replace(/\\/g,'\\\\').replace(/'/g,"\\'");return '<a href="#" onclick="return sbOpenPath(\''+pe+'\')"><img src="'+u+'" data-ppath="'+encodeURI(p)+'" onerror="photoFallback(this)" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:1px solid var(--border-2)"></a>';}).join('')+'</div>'; }
   if(notes.length){ H+='<div style="background:var(--bg);border-radius:8px;padding:9px 11px;margin-bottom:10px">'+notes.map(function(n){return '<div style="font-size:12px;color:var(--text-2);margin-bottom:4px"><b style="color:var(--text)">'+flDashEsc(n.by||'')+':</b> '+flDashEsc(n.text||'')+'</div>';}).join('')+'</div>'; }
   // Action buttons
   H+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">';
@@ -11415,7 +11443,7 @@ function renderFlDash(){
       var sm=fn.match(/(\d{4}-\d{2}-\d{2})\s+([A-Za-z]{2,3})/); var shift=sm?sm[2].toUpperCase():'';
       var unit=(x.folder||'').toUpperCase();
       var fl=flags[unit+'|'+date]||null;
-      return {date:date,unit:unit,shift:shift,operator:x.uploaded_by||'',flagged:fl?fl.count:0,tag:fl?fl.tag:false,url:flPubUrl(x.storage_path)};
+      return {date:date,unit:unit,shift:shift,operator:x.uploaded_by||'',flagged:fl?fl.count:0,tag:fl?fl.tag:false,path:x.storage_path,url:flPubUrl(x.storage_path)};
     });
     rows.sort(function(a,b){return (a.date<b.date?1:a.date>b.date?-1:0);});
     FLDASH_ROWS=rows;
@@ -11444,7 +11472,7 @@ function flDashRenderTable(rows){
     H+='<td style="padding:11px 13px;border-bottom:1px solid var(--border)">'+flDashEsc(r.shift)+'</td>';
     H+='<td style="padding:11px 13px;color:var(--text);border-bottom:1px solid var(--border)">'+flDashEsc(r.operator)+'</td>';
     H+='<td style="padding:11px 13px;border-bottom:1px solid var(--border)">'+flagCell+'</td>';
-    H+='<td style="padding:11px 13px;border-bottom:1px solid var(--border)">'+(FLDASH_ROLE==='driver'?'<span style="color:var(--text-3)">\u2014</span>':'<a href="'+r.url+'" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:none;font-weight:600">View \u2197</a>')+'</td>';
+    H+='<td style="padding:11px 13px;border-bottom:1px solid var(--border)">'+(FLDASH_ROLE==='driver'?'<span style="color:var(--text-3)">\u2014</span>':'<a href="#" onclick="return sbOpenPath(\''+(''+(r.path||'')).replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')" style="color:#60a5fa;text-decoration:none;font-weight:600">View \u2197</a>')+'</td>';
     H+='</tr>';
   });
   H+='</tbody></table></div>';
@@ -11620,6 +11648,11 @@ function flDashRunRange(){
       return flags[u+'|'+date]||null;
     }
     rows.forEach(function(d){var f=flagFor(d);if(f&&f.count)flaggedCount++;});
+    // Pre-sign every inspection PDF (7-day links) so the printable summary works
+    // on a private bucket; the tab (W) was already opened on the click above.
+    var _sp=rows.map(function(d){return d.storage_path;});
+    sbSignMany(_sp,604800).then(function(_su){
+    var _sm={}; _sp.forEach(function(p,i){_sm[p]=_su[i]||sbPubUrl(p);});
     var _logoSrc=(typeof BBW_LOGO_DARK!=='undefined'&&BBW_LOGO_DARK)?BBW_LOGO_DARK:'';
     var H='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BBW Forklift Inspections '+fromV+' to '+toV+'</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:32px;color:#111}a{color:#2563eb}@media print{.noprint{display:none!important}}</style></head><body>';
     H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:18px;border-bottom:2px solid #111;margin-bottom:22px">';
@@ -11645,7 +11678,7 @@ function flDashRunRange(){
         var when=(''+(d.created_at||'')).slice(0,16).replace('T',' ');
         var fl=flagFor(d);
         var status=(fl&&fl.count)?'<span style="color:#dc2626;font-weight:700">'+fl.count+' flag'+(fl.count>1?'s':'')+(fl.tag?' \u00b7 TAG OUT':'')+'</span>':'<span style="color:#16a34a;font-weight:600">Pass</span>';
-        var url=flPubUrl(d.storage_path);
+        var url=_sm[d.storage_path]||sbPubUrl(d.storage_path);
         H+='<tr><td style="padding:8px 10px;border-bottom:1px solid #eee;white-space:nowrap">'+san(when)+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee">'+san(d.uploaded_by||'')+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee">'+status+'</td><td style="padding:8px 10px;border-bottom:1px solid #eee"><a href="'+url+'" target="_blank">Open PDF</a></td></tr>';
       });
       H+='</tbody></table></div>';
@@ -11653,6 +11686,7 @@ function flDashRunRange(){
     H+='<div style="margin-top:30px;padding-top:14px;border-top:1px solid #ddd;font-size:11px;color:#999">Each row links to the original inspection PDF stored in the system. Use Print / Save as PDF above to keep this summary.</div>';
     H+='</body></html>';
     W.document.open();W.document.write(H);W.document.close();
+    });
   }).catch(function(){var l=gid('fldash-rng-loading');if(l)l.remove();alert('Could not load inspections.');});
 }
 
@@ -13267,7 +13301,7 @@ function uploadInvPhotos(files){
   return Promise.all(Array.prototype.map.call(files,function(f){
     return downscaleImage(f,1280,0.7).then(function(blob){
       var path='inventory/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.jpg';
-      return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'image/jpeg','x-upsert':'true'},body:blob}).then(function(r){return r.ok?path:null;}).catch(function(){return null;});
+      return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+authBearer(),'Content-Type':'image/jpeg','x-upsert':'true'},body:blob}).then(function(r){return r.ok?path:null;}).catch(function(){return null;});
     });
   })).then(function(paths){return paths.filter(Boolean);});
 }

@@ -270,6 +270,18 @@ async function uploadPDF(pdf, filename) {
     body: pdf
   });
   if (!r.ok) throw new Error(`upload failed: ${r.status} ${(await r.text()).slice(0, 200)}`);
+  // Email a 7-day SIGNED link, not a permanent public URL: the secret key signs
+  // it (keeps working after the bucket is made private) and it expires, so an
+  // old forwarded email can't resurface the report forever. Public URL is used
+  // only if signing fails.
+  try {
+    const sgn = await fetch(`${SB_URL}/storage/v1/object/sign/${BUCKET}/${encodeURI(path)}`, {
+      signal: AbortSignal.timeout(20000), method: 'POST',
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expiresIn: 604800 })
+    });
+    if (sgn.ok) { const j = await sgn.json(); if (j && j.signedURL) return `${SB_URL}/storage/v1${j.signedURL}`; }
+  } catch (e) {}
   return `${SB_URL}/storage/v1/object/public/${BUCKET}/${encodeURI(path)}`;
 }
 export function emailBody(R, pdfUrl) {
