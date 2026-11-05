@@ -1058,7 +1058,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v253';
+var APP_BUILD='BBW CMMS build v254';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7754,7 +7754,7 @@ function renderCMMS(){
 function cmmsSub(s){CMMS_SUB=s;renderCMMSView();}
 function renderCMMSView(){
   var el=gid('pane-cmms'); if(!el)return;
-  var subs=[['wos','Work Orders'],['pms','PMs'],['compliance','Compliance'],['calendar','Calendar']];
+  var subs=[['wos','Work Orders'],['pms','PMs'],['calibration','Calibration'],['compliance','Compliance'],['calendar','Calendar']];
   var nav='<div style="display:flex;gap:7px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">'+subs.map(function(s){
     var on=CMMS_SUB===s[0];
     return '<button onclick="cmmsSub(\''+s[0]+'\')" style="padding:8px 15px;border-radius:999px;border:1px solid '+(on?'#fff':'var(--border)')+';background:'+(on?'#fff':'transparent')+';color:'+(on?'#000':'var(--text-2)')+';font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;flex-shrink:0">'+s[1]+'</button>';
@@ -7763,12 +7763,176 @@ function renderCMMSView(){
   if(CMMS_SUB==='pms')body='<div id="cmms-pms"></div>';
   else if(CMMS_SUB==='wos')body='<div id="cmms-wos"></div>';
   else if(CMMS_SUB==='compliance')body='<div id="cmms-comp"></div>';
+  else if(CMMS_SUB==='calibration')body='<div id="cmms-calib"></div>';
   else body='<div id="cmms-cal"></div>';
   el.innerHTML=nav+body;
   if(CMMS_SUB==='pms')renderPMModule();
   else if(CMMS_SUB==='wos')renderWOModule();
   else if(CMMS_SUB==='compliance')renderComplianceModule();
+  else if(CMMS_SUB==='calibration')renderCalModule();
   else if(CMMS_SUB==='calendar')renderCalendarModule();
+}
+
+// ═══════════════ CMMS — Calibration register ═══════════════
+// Instruments with an OEM calibration interval. Interval drives the next-due date
+// like a PM; each calibration event stores as-found/as-left + a validation
+// certificate (PDF in bbw-docs). Needs the bbw_calibrations table (see SQL).
+var CAL=[], CAL_LOADED=false, CAL_FILTER='all';
+function loadCals(cb,force){
+  if(CAL_LOADED&&!force){cb&&cb();return;}
+  sbFetchAll('bbw_calibrations?select=*&order=cal_id.asc').then(function(rows){
+    CAL=Array.isArray(rows)?rows:[]; CAL_LOADED=true; cb&&cb();
+  }).catch(function(){ CAL=CAL||[]; CAL_LOADED=true; cb&&cb(); });
+}
+function calEvents(c){ try{ var e=c&&c.events; if(typeof e==='string')e=JSON.parse(e); return Array.isArray(e)?e:[]; }catch(_){ return []; } }
+function calAddMonths(iso,m){ if(!iso)return null; var d=new Date(iso+'T12:00:00'); if(isNaN(d))return null; var day=d.getDate(); d.setMonth(d.getMonth()+Math.round(parseFloat(m)||0)); if(d.getDate()<day)d.setDate(0); return pmISO(d); }
+function calNextDue(c){ if(!c||!c.last_cal||!c.interval_months)return null; return calAddMonths((''+c.last_cal).slice(0,10), c.interval_months); }
+function calStatus(c){
+  if(!c.last_cal)return {k:'new',l:'Not calibrated',c:'var(--text-3)',b:'var(--surface-2)'};
+  var nd=calNextDue(c); if(!nd)return {k:'ok',l:'In cal',c:'#16a34a',b:'rgba(22,163,74,.12)'};
+  var today=pmISO(new Date());
+  var days=Math.round((new Date(nd+'T00:00:00')-new Date(today+'T00:00:00'))/86400000);
+  if(days<0)return {k:'overdue',l:'Overdue '+(-days)+'d',c:'#dc2626',b:'rgba(220,38,38,.1)'};
+  var rem=parseInt(c.reminder_days,10); if(!(rem>0))rem=30;
+  if(days<=rem)return {k:'due',l:'Due '+days+'d',c:'#d97706',b:'rgba(217,119,6,.12)'};
+  return {k:'ok',l:'In cal',c:'#16a34a',b:'rgba(22,163,74,.12)'};
+}
+function calChip(s){ return '<span style="font-size:11px;font-weight:700;color:'+s.c+';background:'+s.b+';border-radius:999px;padding:3px 9px;white-space:nowrap">'+s.l+'</span>'; }
+function calSetFilter(f){ CAL_FILTER=f; renderCalModule(); }
+function renderCalModule(){
+  var el=gid('cmms-calib'); if(!el)return;
+  if(!CAL_LOADED){ el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-3);font-size:13px">Loading calibrations…</div>'; loadCals(function(){ if(gid('cmms-calib'))renderCalModule(); }); return; }
+  var ed=isEditor();
+  var ws=CAL.map(function(c){return {c:c,s:calStatus(c),nd:calNextDue(c)};});
+  var nOver=ws.filter(function(x){return x.s.k==='overdue';}).length;
+  var nDue=ws.filter(function(x){return x.s.k==='due';}).length;
+  var nCert=0; CAL.forEach(function(c){ calEvents(c).forEach(function(e){ if(e&&e.cert)nCert++; }); });
+  var H='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px"><div style="font-size:13px;color:var(--text-3)">'+CAL.length+' device'+(CAL.length!==1?'s':'')+' tracked</div>';
+  if(ed)H+='<button onclick="calForm(null)" class="btn-primary" style="padding:9px 15px;font-size:13px;border-radius:9px">+ Add device</button>';
+  H+='</div>';
+  var tile=function(val,l,col){ return '<div style="flex:1;min-width:116px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 15px"><div style="font-size:24px;font-weight:800;color:'+(col||'var(--text)')+'">'+val+'</div><div style="font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);margin-top:2px">'+l+'</div></div>'; };
+  H+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+tile(CAL.length,'Devices')+tile(nDue,'Due soon',nDue?'#d97706':'var(--text)')+tile(nOver,'Overdue',nOver?'#dc2626':'var(--text)')+tile(nCert,'Certificates','#0f9488')+'</div>';
+  var fils=[['all','All'],['due','Due soon'],['overdue','Overdue'],['new','Not calibrated']];
+  H+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">'+fils.map(function(f){ var on=CAL_FILTER===f[0]; return '<button onclick="calSetFilter(\''+f[0]+'\')" style="padding:6px 13px;border-radius:999px;border:1px solid '+(on?'var(--text)':'var(--border)')+';background:'+(on?'var(--text)':'transparent')+';color:'+(on?'var(--surface)':'var(--text-2)')+';font-size:12px;font-weight:600;cursor:pointer">'+f[1]+'</button>'; }).join('')+'</div>';
+  var list=ws;
+  if(CAL_FILTER==='due')list=ws.filter(function(x){return x.s.k==='due';});
+  else if(CAL_FILTER==='overdue')list=ws.filter(function(x){return x.s.k==='overdue';});
+  else if(CAL_FILTER==='new')list=ws.filter(function(x){return x.s.k==='new';});
+  list.sort(function(a,b){ var o={overdue:0,due:1,new:2,ok:3}; return (o[a.s.k]-o[b.s.k])||((a.nd||'9999')<(b.nd||'9999')?-1:1); });
+  if(!list.length){ H+='<div style="padding:34px 20px;text-align:center;color:var(--text-3);font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:12px">No calibration devices'+(ed&&CAL_FILTER==='all'?' yet — tap “+ Add device”.':' in this filter.')+'</div>'; el.innerHTML=H; return; }
+  H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden">';
+  list.forEach(function(x,i){ var c=x.c, s=x.s;
+    H+='<div onclick="calDetail('+c.id+')" style="display:flex;align-items:center;gap:12px;padding:13px 15px;cursor:pointer;border-bottom:'+(i<list.length-1?'1px solid var(--border)':'none')+'">'+
+      '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--text)">'+escHtml(c.instrument||'Device')+'</div>'+
+      '<div style="font-size:11.5px;color:var(--text-3);margin-top:2px">'+escHtml(c.cal_id||'')+(c.asset?(' · '+escHtml(c.asset)):'')+(c.interval_months?(' · every '+c.interval_months+' mo'):'')+'</div></div>'+
+      '<div style="text-align:right;flex:none">'+calChip(s)+'<div style="font-size:11px;color:var(--text-3);margin-top:4px">'+(x.nd?('due '+x.nd):'—')+'</div></div></div>';
+  });
+  H+='</div>';
+  el.innerHTML=H;
+}
+function calDetail(id){
+  var c=CAL.filter(function(x){return ''+x.id===''+id;})[0]; if(!c)return;
+  var ed=isEditor(), s=calStatus(c), nd=calNextDue(c), evs=calEvents(c);
+  var row=function(k,val){ return '<div style="display:flex;justify-content:space-between;gap:12px;padding:4px 0"><span style="color:var(--text-3);font-size:13px">'+k+'</span><span style="font-size:13px;font-weight:600;text-align:right">'+(val||'—')+'</span></div>'; };
+  var H='<div id="cal-modal" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9200;display:flex;align-items:flex-end;justify-content:center">'+
+    '<div style="background:var(--bg);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden">'+
+    '<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px"><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:11px;font-family:monospace;color:var(--text-3)">'+escHtml(c.cal_id||'')+'</span>'+calChip(s)+'</div><div style="font-size:18px;font-weight:800;color:var(--text)">'+escHtml(c.instrument||'Device')+'</div><div style="font-size:12px;color:var(--text-3);margin-top:2px">'+escHtml(c.asset||'')+(c.asset_code?(' · '+escHtml(c.asset_code)):'')+'</div></div><button onclick="var m=gid(\'cal-modal\');if(m)m.remove()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:30px;height:30px;border-radius:8px;cursor:pointer;flex:none">✕</button></div>'+
+    '<div style="overflow-y:auto;padding:16px 18px">';
+  if(ed)H+='<button onclick="calRecordForm('+c.id+')" class="btn-primary" style="width:100%;padding:11px;font-size:13.5px;border-radius:10px;margin-bottom:14px">+ Record calibration</button>';
+  H+='<div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Identification</div>'+row('Manufacturer',escHtml(c.manufacturer))+row('Model',escHtml(c.model))+row('Serial',escHtml(c.serial))+row('Range',escHtml(c.meas_range))+row('Tolerance',escHtml(c.tolerance))+row('Method',escHtml(c.method));
+  H+='<div style="height:1px;background:var(--border);margin:12px 0"></div><div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Schedule</div>'+row('Interval',c.interval_months?(c.interval_months+' months'):'—')+row('Interval basis',escHtml(c.interval_basis))+row('Last calibrated',c.last_cal?(''+c.last_cal).slice(0,10):'—')+row('Next due','<span style="color:'+s.c+'">'+(nd||'—')+'</span>')+row('Responsible',escHtml(c.responsible));
+  H+='<div style="height:1px;background:var(--border);margin:12px 0"></div><div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Calibration history</div>';
+  if(!evs.length)H+='<div style="font-size:12.5px;color:var(--text-3)">No calibrations recorded yet.</div>';
+  else evs.forEach(function(e){ var rc=e.result==='Fail'?'#dc2626':((e.result==='Adjusted'||e.result==='Adjust')?'#d97706':'#16a34a');
+    H+='<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:700">'+escHtml((''+(e.date||'')).slice(0,10))+'</span><span style="font-size:12px;font-weight:700;color:'+rc+'">'+escHtml(e.result||'')+'</span></div><div style="font-size:12px;color:var(--text-3);margin-top:3px">'+escHtml(e.by||'')+(e.external?' · external':'')+((e.as_found||e.as_left)?(' · '+escHtml(e.as_found||'—')+' → '+escHtml(e.as_left||'—')):'')+'</div>'+(e.cert?('<a href="'+flPubUrl(e.cert)+'" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none;font-weight:600;display:inline-block;margin-top:5px">📄 View certificate</a>'):'')+'</div>';
+  });
+  if(ed)H+='<div style="height:1px;background:var(--border);margin:12px 0"></div><button onclick="calForm('+c.id+')" style="width:100%;padding:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:12.5px;font-weight:700;border-radius:9px;cursor:pointer">Edit device</button>';
+  H+='</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function calForm(id){
+  if(!isEditor()){toast('Editors only',true);return;}
+  var c=(id!=null)?CAL.filter(function(x){return ''+x.id===''+id;})[0]:null; var isNew=!c; c=c||{};
+  var ex=gid('cal-form'); if(ex)ex.remove();
+  var lab='display:block;font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em';
+  var inp='width:100%;box-sizing:border-box;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:14px';
+  var fld=function(l,idd,val,ph,type){ return '<div style="margin-bottom:10px"><label style="'+lab+'">'+l+'</label><input id="'+idd+'" type="'+(type||'text')+'" value="'+escHtml(val==null?'':val)+'" placeholder="'+(ph||'')+'" style="'+inp+'"></div>'; };
+  var nextCal=(function(){ var mx=0; CAL.forEach(function(x){ var m=(''+(x.cal_id||'')).match(/(\d+)/); if(m){var n=parseInt(m[1],10); if(n>mx)mx=n;} }); return 'CAL-'+String(mx+1).padStart(3,'0'); })();
+  var H='<div id="cal-form" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9300;display:flex;align-items:flex-end;justify-content:center">'+
+    '<div style="background:var(--bg);border-top-left-radius:16px;border-top-right-radius:16px;width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden">'+
+    '<div style="padding:15px 17px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between"><div style="font-size:16px;font-weight:800;color:var(--text)">'+(isNew?'Add device':'Edit device')+'</div><button onclick="var m=gid(\'cal-form\');if(m)m.remove()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:31px;height:31px;border-radius:8px;cursor:pointer">✕</button></div>'+
+    '<div style="overflow-y:auto;padding:14px 16px">';
+  H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+fld('Device ID','cf-id',c.cal_id||nextCal)+fld('Interval (months)','cf-int',c.interval_months,'6','number')+'</div>';
+  H+=fld('Instrument','cf-inst',c.instrument,'e.g. Free chlorine analyzer');
+  H+='<div style="margin-bottom:10px"><label style="'+lab+'">Asset</label><input id="cf-asset" list="pf-assets" value="'+escHtml(c.asset||'')+'" placeholder="Search assets…" style="'+inp+'"></div>'+pordAssetDatalist();
+  H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+fld('Manufacturer','cf-mfr',c.manufacturer)+fld('Model','cf-model',c.model)+'</div>';
+  H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+fld('Serial','cf-serial',c.serial)+fld('Range','cf-range',c.meas_range,'0–5 ppm')+'</div>';
+  H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+fld('Tolerance','cf-tol',c.tolerance,'± 0.05 ppm')+fld('Method / standard','cf-method',c.method)+'</div>';
+  H+=fld('Interval basis','cf-basis',c.interval_basis,'OEM manual §…');
+  H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+fld('Last calibrated','cf-last',c.last_cal?(''+c.last_cal).slice(0,10):'','','date')+fld('Reminder (days before)','cf-rem',(c.reminder_days!=null?c.reminder_days:30),'30','number')+'</div>';
+  H+=fld('Responsible','cf-resp',c.responsible,'Internal — Praful / vendor');
+  H+='<div style="display:flex;gap:10px;margin-top:6px"><button onclick="calSave('+(isNew?'null':c.id)+')" class="btn-primary" style="flex:1;padding:12px;font-size:14px;border-radius:10px">'+(isNew?'Add device':'Save')+'</button>';
+  if(!isNew)H+='<button onclick="calDelete('+c.id+')" style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);color:#dc2626;font-size:13px;font-weight:700;border-radius:10px;cursor:pointer">Delete</button>';
+  H+='</div></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function calSave(id){
+  var asset=v('cf-asset');
+  var row={ cal_id:v('cf-id')||null, instrument:v('cf-inst')||null, asset:asset||null,
+    asset_code:(function(){ var a=(ASSETS||[]).filter(function(x){return x.n===asset;})[0]; return a?a.c:null; })(),
+    manufacturer:v('cf-mfr')||null, model:v('cf-model')||null, serial:v('cf-serial')||null,
+    meas_range:v('cf-range')||null, tolerance:v('cf-tol')||null, method:v('cf-method')||null,
+    interval_months:(v('cf-int')!==''?parseFloat(v('cf-int')):null), interval_basis:v('cf-basis')||null,
+    last_cal:v('cf-last')||null, reminder_days:(v('cf-rem')!==''?parseInt(v('cf-rem'),10):30),
+    responsible:v('cf-resp')||null, updated_at:new Date().toISOString() };
+  if(!row.instrument){toast('Instrument name required',true);return;}
+  var p; if(id!=null){ p=sbFetch('bbw_calibrations?id=eq.'+id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(row)}); }
+  else { row.events=[]; row.active=true; p=sbFetch('bbw_calibrations',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(row)}); }
+  p.then(function(r){ if(!r.ok&&r.status!==201&&r.status!==204)throw new Error('save '+r.status); var m=gid('cal-form');if(m)m.remove(); var d=gid('cal-modal');if(d)d.remove(); toast(id!=null?'Device updated':'Device added'); loadCals(function(){ if(gid('cmms-calib'))renderCalModule(); },true); }).catch(function(e){ toast('Save failed: '+(e.message||e),true); });
+}
+function calDelete(id){ if(!confirm('Delete this device and its calibration history?'))return; sbFetch('bbw_calibrations?id=eq.'+id,{method:'DELETE',headers:{'Prefer':'return=minimal'}}).then(function(){ var m=gid('cal-form');if(m)m.remove(); var d=gid('cal-modal');if(d)d.remove(); toast('Device deleted'); loadCals(function(){ if(gid('cmms-calib'))renderCalModule(); },true); }).catch(function(){toast('Delete failed',true);}); }
+function calRecordForm(id){
+  var c=CAL.filter(function(x){return ''+x.id===''+id;})[0]; if(!c)return;
+  var ex=gid('cal-rec'); if(ex)ex.remove();
+  var lab='display:block;font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em';
+  var inp='width:100%;box-sizing:border-box;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:14px';
+  var extChk=(/extern|vendor|hach|inc\b|ltd|corp/i.test(''+(c.responsible||'')))?' checked':'';
+  var H='<div id="cal-rec" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9400;display:flex;align-items:flex-end;justify-content:center">'+
+    '<div style="background:var(--bg);border-top-left-radius:16px;border-top-right-radius:16px;width:100%;max-width:520px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden">'+
+    '<div style="padding:15px 17px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between"><div style="font-size:16px;font-weight:800;color:var(--text)">Record calibration</div><button onclick="var m=gid(\'cal-rec\');if(m)m.remove()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:31px;height:31px;border-radius:8px;cursor:pointer">✕</button></div>'+
+    '<div style="overflow-y:auto;padding:14px 16px"><div style="font-size:12.5px;color:var(--text-3);margin-bottom:12px">'+escHtml(c.instrument||'')+' · '+escHtml(c.cal_id||'')+'</div>';
+  H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="margin-bottom:10px"><label style="'+lab+'">Date</label><input id="cr-date" type="date" value="'+pmISO(new Date())+'" style="'+inp+'"></div><div style="margin-bottom:10px"><label style="'+lab+'">Result</label><select id="cr-result" style="'+inp+'"><option>Pass</option><option>Adjusted</option><option>Fail</option></select></div></div>';
+  H+='<div style="margin-bottom:10px"><label style="'+lab+'">Performed by</label><input id="cr-by" value="'+escHtml(c.responsible||user||'')+'" style="'+inp+'"></div>';
+  H+='<label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;color:var(--text-2)"><input type="checkbox" id="cr-ext"'+extChk+'> External vendor</label>';
+  H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="margin-bottom:10px"><label style="'+lab+'">As-found</label><input id="cr-found" placeholder="e.g. 1.98 ppm" style="'+inp+'"></div><div style="margin-bottom:10px"><label style="'+lab+'">As-left</label><input id="cr-left" placeholder="e.g. 2.00 ppm" style="'+inp+'"></div></div>';
+  H+='<div style="margin-bottom:10px"><label style="'+lab+'">Notes</label><input id="cr-notes" style="'+inp+'"></div>';
+  H+='<div style="margin-bottom:12px"><label style="'+lab+'">Validation certificate (PDF / photo)</label><input id="cr-cert" type="file" accept="application/pdf,image/*" style="'+inp+';padding:8px"></div>';
+  H+='<button id="cr-save" onclick="calRecordSave('+c.id+')" class="btn-primary" style="width:100%;padding:12px;font-size:14px;border-radius:10px">Save calibration</button>';
+  H+='</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function calUploadCert(file, cal_id){
+  if(!file)return Promise.resolve(null);
+  var safe=(''+file.name).replace(/[^a-zA-Z0-9._-]/g,'_');
+  var path='calibration/'+((''+(cal_id||'device')).replace(/[^A-Za-z0-9_-]/g,'_'))+'/'+Date.now()+'_'+safe;
+  return fetch(SB+'/storage/v1/object/'+DOC_BUCKET+'/'+encodeURI(path),{method:'POST',headers:{'apikey':SBKEY,'Authorization':'Bearer '+authBearer(),'Content-Type':file.type||'application/pdf','x-upsert':'true'},body:file}).then(function(r){return r.ok?path:null;}).catch(function(){return null;});
+}
+function calRecordSave(id){
+  var c=CAL.filter(function(x){return ''+x.id===''+id;})[0]; if(!c)return;
+  var date=v('cr-date'); if(!date){toast('Date required',true);return;}
+  var btn=gid('cr-save'); if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  var fileEl=gid('cr-cert'); var file=fileEl&&fileEl.files&&fileEl.files[0];
+  var ev={ date:date, by:v('cr-by')||null, external:!!(gid('cr-ext')&&gid('cr-ext').checked), as_found:v('cr-found')||null, as_left:v('cr-left')||null, result:v('cr-result')||'Pass', notes:v('cr-notes')||null };
+  calUploadCert(file, c.cal_id).then(function(certPath){
+    if(certPath)ev.cert=certPath;
+    var events=calEvents(c); events.unshift(ev);
+    return sbFetch('bbw_calibrations?id=eq.'+c.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({events:events,last_cal:date,updated_at:new Date().toISOString()})}).then(function(r){
+      if(!r.ok&&r.status!==204)throw new Error('save '+r.status);
+      c.events=events; c.last_cal=date;
+      var m=gid('cal-rec');if(m)m.remove(); var d=gid('cal-modal');if(d)d.remove();
+      toast('Calibration recorded'); loadCals(function(){ if(gid('cmms-calib'))renderCalModule(); },true);
+    });
+  }).catch(function(e){ if(btn){btn.disabled=false;btn.textContent='Save calibration';} toast('Save failed: '+(e.message||e),true); });
 }
 
 function renderPMModule(){
