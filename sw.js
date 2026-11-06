@@ -34,14 +34,11 @@ self.addEventListener('activate', function(e){
             .map(function(k){ return caches.delete(k); })
       );
     }).then(function(){
+      // Take control of open pages WITHOUT force-reloading them. The app serves
+      // HTML network-first, so every online load already gets the latest code;
+      // forcing a navigate here just yanked people out of what they were doing
+      // (and flashed the login screen) on every deploy.
       return self.clients.claim();
-    }).then(function(){
-      // Force every open tab onto the fresh code — no manual reload needed.
-      // Fires once per new worker version (i.e. once per CACHE bump), so a
-      // device that's been left open self-heals instead of running stale JS.
-      return self.clients.matchAll({ type: 'window' }).then(function(cs){
-        cs.forEach(function(c){ try { c.navigate(c.url); } catch(e){} });
-      });
     })
   );
 });

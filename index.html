@@ -1063,7 +1063,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v259';
+var APP_BUILD='BBW CMMS build v260';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1203,9 +1203,12 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   var _flm=(location.hash.match(/fl=([A-Za-z0-9]+)/)||location.search.match(/[?&]fl=([A-Za-z0-9]+)/));
   var FL_MODE=!!(_flm&&flUnitValid(_flm[1]));
   try{ authLoad(); var _keep=localStorage.getItem('bbw_keepuser');
-    if(!REQ_MODE&&!FL_MODE&&!FLDASH_MODE&&!FLREQ_MODE&&_keep&&TECHS.indexOf(_keep)>=0){
-      if(authValid()){ setTimeout(function(){loginUser(_keep);},0); }           // valid session -> straight in
-      else { setTimeout(function(){ try{selName(_keep);}catch(e){} },0); }      // session expired -> ask for PIN
+    if(!REQ_MODE&&!FL_MODE&&!FLDASH_MODE&&!FLREQ_MODE&&_keep){
+      // A valid token is proof enough — restore the session straight away, even for
+      // users (e.g. auditors) not in the hardcoded seed list. Only fall back to the
+      // PIN prompt (seed-gated) when the token has actually expired.
+      if(authValid()){ setTimeout(function(){loginUser(_keep);},0); }
+      else if(TECHS.indexOf(_keep)>=0){ setTimeout(function(){ try{selName(_keep);}catch(e){} },0); }
     } }catch(e){}
   var savedLang=localStorage.getItem('bbw_lang')||'en';
   try{loadUsersCache();}catch(e){}   // instant roster from cache -> full login name list
@@ -14889,14 +14892,10 @@ if('serviceWorker' in navigator){
       })
       .catch(function(e){console.log('SW failed:', e);});
   });
-  // When a new worker takes control, reload once so the user actually sees the new build.
-  var _swReloaded=false;
-  try{
-    navigator.serviceWorker.addEventListener('controllerchange', function(){
-      if(_swReloaded)return; _swReloaded=true;
-      try{ window.location.reload(); }catch(e){}
-    });
-  }catch(e){}
+  // A new worker taking control no longer force-reloads the page. HTML is served
+  // network-first, so the next natural load already picks up the latest build;
+  // auto-reloading here logged people out mid-task on every deploy. The in-app
+  // "force update" (forceUpdateApp) is still available if someone wants it now.
 }
 // Nuclear option surfaced in the UI: drop every cache + SW and hard-reload.
 function forceUpdateApp(){
