@@ -888,6 +888,7 @@ function canonName(n){ n=(""+(n==null?"":n)).replace(/\u00a0/g," ").trim(); retu
 function sameTech(a,b){ return canonName(a)===canonName(b); }
 var ADMIN="Praful";
 var EDITORS=["Anupam","Lahcen","Luis","Praful","Viktor"];   // seed/offline fallback; live roster overrides
+var AUDITORS=[];   // role='auditor' in the roster: view-only, Dashboard + CMMS/Calibration only
 // ── User roster (managed) ────────────────────────────────────────────────────
 // The live roster is stored in bbw_system id='users' as [{name,role,status,created}].
 // TECHS/EDITORS above are the seed + offline fallback; once the roster loads they are
@@ -900,7 +901,11 @@ function rebuildRoster(){
   var act=USERS.filter(function(u){return u&&u.status==='active';});
   TECHS=act.map(function(u){return u.name;}).sort(_azName);
   EDITORS=act.filter(function(u){return u.role==='editor';}).map(function(u){return u.name;});
+  AUDITORS=act.filter(function(u){return u.role==='auditor';}).map(function(u){return u.name;});
   try{ buildNames(); }catch(e){}
+  // Roster can arrive after login; re-apply role-based tab visibility and, if the
+  // current user is an auditor sitting on a now-disallowed tab, bounce to Dashboard.
+  try{ if(typeof user!=='undefined'&&user){ applyRoleTabs(); if(isAuditor()){ var ct=null; try{ct=sessionStorage.getItem('bbw_tab');}catch(_e){} if(!AUDIT_TABS[ct]) showTab('dash'); } } }catch(e){}
 }
 // Canonical names of REMOVED accounts. Their name stays on historical records
 // (completed WO/PM rows, report PDFs, inventory stamps, workload reports) but is
@@ -1058,7 +1063,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v257';
+var APP_BUILD='BBW CMMS build v258';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1411,8 +1416,7 @@ function pinMismatch(){ gid('pin-err').textContent='PINs do not match'; for(var 
 function loginUser(name){
   if(SYSTEM_DEAD)return;
   user=name;
-  try{var _tc=gid('tab-cmms');if(_tc)_tc.style.display=(isEditor()&&CMMS_ENABLED)?'':'none';}catch(e){}
-  try{var _td=gid('tab-dash');if(_td)_td.style.display=isEditor()?'':'none';}catch(e){}
+  try{applyRoleTabs();}catch(e){}
   try{enhanceDesktop();}catch(e){}
   try{ensureLogoPNG();}catch(e){}
   try{gid('uav').textContent=name.charAt(0);}catch(e){console.error('uav',e);}
@@ -1433,8 +1437,9 @@ function loginUser(name){
   // Landing tab: managers get the dashboard on desktop; technicians open straight into My Work.
   try{
     var _last=null; try{_last=sessionStorage.getItem('bbw_tab');}catch(_e){}
-    if(_last&&gid('pane-'+_last)) showTab(_last);                       // page refresh -> stay put
-    else showTab('home');                                               // fresh start -> Home dashboard
+    if(isAuditor()){ showTab((_last&&AUDIT_TABS[_last])?_last:'dash'); } // auditors: Dashboard/CMMS only
+    else if(_last&&gid('pane-'+_last)) showTab(_last);                  // page refresh -> stay put
+    else showTab('home');                                              // fresh start -> Home dashboard
   }catch(e){}
   // Keep the My Work count fresh once work orders arrive.
   try{ loadWOs(true).then(function(){ try{injectMyPMTasks();}catch(e){} }); }catch(e){}
@@ -1677,6 +1682,7 @@ var TAB_HISTORY=[];
 var _tabNavigatingBack=false;
 function showTab(name){
   if(name==='cmms'&&!CMMS_ENABLED)name='log';
+  if(isAuditor()&&!AUDIT_TABS[name])name='dash';   // auditors: Dashboard + CMMS only
   // Track history so the Back button can return to the previous tab
   try{
     var curr=null;
@@ -2209,6 +2215,28 @@ function sbOpenPath(path){
 }
 
 function isEditor(){ return EDITORS.indexOf(user)>=0; }
+// Auditor: a view-only role that can only reach the Dashboard and CMMS (incl.
+// Calibration) tabs. Not an editor, so every edit control stays hidden for them.
+function isAuditor(){ return AUDITORS.indexOf(user)>=0 && EDITORS.indexOf(user)<0 && user!==ADMIN; }
+function roleLabel(r){ return r==='editor'?'Editor':(r==='auditor'?'Auditor':'Technician'); }
+function roleBadge(r){ var c=(r==='editor')?'rgba(37,99,235,.13);color:#2563eb':((r==='auditor')?'rgba(13,148,136,.14);color:#0d9488':'var(--surface-3);color:var(--text-3)'); return '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:'+c+'">'+(r==='editor'?'EDITOR':(r==='auditor'?'AUDITOR':'TECH'))+'</span>'; }
+var AUDIT_TABS={dash:1,cmms:1};
+// Show/hide top tabs, bottom nav and the FAB for the current role.
+function applyRoleTabs(){
+  try{
+    if(isAuditor()){
+      ['dash','home','log','shift','prev','util','schedule','assets','reports','requests','inventory','cmms','more'].forEach(function(t){
+        var e=gid('tab-'+t); if(e)e.style.display=AUDIT_TABS[t]?'':'none';
+      });
+      // bottom nav: keep CMMS + the More hamburger (its drawer shows Dashboard/CMMS); hide the rest
+      [['bt-home',0],['bt-log',0],['bt-requests',0],['bt-cmms',1],['bt-more',1]].forEach(function(p){ var e=gid(p[0]); if(e)e.style.display=p[1]?'':'none'; });
+      var fab=document.querySelector('.fab'); if(fab)fab.style.display='none';
+    } else {
+      var _tc=gid('tab-cmms'); if(_tc)_tc.style.display=(isEditor()&&CMMS_ENABLED)?'':'none';
+      var _td=gid('tab-dash'); if(_td)_td.style.display=isEditor()?'':'none';
+    }
+  }catch(e){}
+}
 // Three roles: Admin (Praful only) sees and controls everything including the More tab's
 // analytics/admin tools; Editor can edit every tab like Admin but the More tab is the
 // plain technician view; Technician is read/log-only.
@@ -7782,7 +7810,7 @@ function renderTechPMs(el){
 
 function renderCMMS(){
   var el=gid('pane-cmms'); if(!el)return;
-  if(!isEditor()){
+  if(!isEditor()&&!isAuditor()){
     // Technicians need WOS too; without this the list renders empty on first open.
     if(typeof WOS_LOADED!=='undefined'&&WOS_LOADED){ renderTechPMs(el); }
     else{
@@ -9087,7 +9115,7 @@ function buildSideSections(tb){
   var who=(typeof user!=='undefined'&&user)?user:'';
   var ini=(''+(who||'?')).split(/\s+/).map(function(w){return w.charAt(0);})
            .join('').slice(0,2).toUpperCase();
-  var role=(typeof isAdmin==='function'&&isAdmin())?'Administrator':((typeof isEditor==='function'&&isEditor())?'Maintenance manager':'Technician');
+  var role=(typeof isAdmin==='function'&&isAdmin())?'Administrator':((typeof isEditor==='function'&&isEditor())?'Maintenance manager':((typeof isAuditor==='function'&&isAuditor())?'Auditor':'Technician'));
   u.innerHTML='<span class="side-av">'+ini+'</span><span class="side-un">'+
     '<span class="side-n">'+(typeof rqEsc==='function'?rqEsc(who):'')+'</span>'+
     '<span class="side-r">'+role+'</span></span>';
@@ -13578,7 +13606,7 @@ function renderUserRoster(){
     var oc=userOpenCount(u.name), op=(st==='removed'?'.55':(st==='paused'?'.72':'1'));
     H+='<button onclick="userActions(\''+jsq(u.name)+'\')" style="width:100%;text-align:left;display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 13px;margin-bottom:8px;cursor:pointer;opacity:'+op+'">'+
       '<div style="width:34px;height:34px;border-radius:50%;background:var(--surface-2);color:#2563eb;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex:none">'+aeEsc((''+(u.name||'?')).slice(0,1).toUpperCase())+'</div>'+
-      '<div style="flex:1;min-width:0"><div style="font-size:14.5px;font-weight:600;color:var(--text)">'+aeEsc(u.name)+' <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:'+(u.role==='editor'?'rgba(37,99,235,.13);color:#2563eb':'var(--surface-3);color:var(--text-3)')+'">'+(u.role==='editor'?'EDITOR':'TECH')+'</span></div>'+
+      '<div style="flex:1;min-width:0"><div style="font-size:14.5px;font-weight:600;color:var(--text)">'+aeEsc(u.name)+' '+roleBadge(u.role)+'</div>'+
         '<div style="font-size:11.5px;color:var(--text-3);margin-top:1px">'+(st==='removed'?'removed':(oc+' open PM'+(oc===1?'':'s')))+(u.email?'  ·  ✉ '+aeEsc(u.email):'')+'</div></div>'+
       '<span style="width:8px;height:8px;border-radius:50%;background:'+dot+';flex:none"></span><span style="font-size:11px;font-weight:600;color:'+dot+'">'+stTxt+'</span></button>';
   });
@@ -13593,8 +13621,10 @@ function userActions(name){
   if(u.status!=='removed'){
     acts+='<div class="uarow" onclick="userSetEmail(\''+jsq(u.name)+'\')"><span style="color:#2563eb">\u2709</span> '+(u.email?'Change email':'Set email')+'<span class="uasub">'+(u.email?aeEsc(u.email):'none yet \u2014 needed to email them when you assign a request')+'</span></div>';
     acts+='<div class="uarow" onclick="userToggle(\''+jsq(u.name)+'\')"><span style="color:#d97706">'+(u.status==='paused'?'\u25b6':'\u23f8')+'</span> '+(u.status==='paused'?'Resume access':'Pause access')+'<span class="uasub">'+(u.status==='paused'?'let them log in again':'hide from login; keeps assignments & history')+'</span></div>';
-    var _or=(u.role==='editor')?'tech':'editor';
-    acts+='<div class="uarow" onclick="userSetRole(\''+jsq(u.name)+'\',\''+_or+'\')"><span style="color:#2563eb">\u2699</span> Make '+(_or==='editor'?'Editor':'Technician')+'<span class="uasub">'+(_or==='editor'?'can edit CMMS, reports & users':'standard technician access')+'</span></div>';
+    var _cur=(u.role==='editor'||u.role==='auditor')?u.role:'tech';
+    var _roleSub={editor:'can edit CMMS, reports & users',auditor:'view-only \u2014 Dashboard + CMMS/Calibration only',tech:'standard technician access'};
+    [['editor','Editor'],['auditor','Auditor'],['tech','Technician']].forEach(function(rr){ if(rr[0]===_cur)return;
+      acts+='<div class="uarow" onclick="userSetRole(\''+jsq(u.name)+'\',\''+rr[0]+'\')"><span style="color:#2563eb">\u2699</span> Make '+rr[1]+'<span class="uasub">'+_roleSub[rr[0]]+'</span></div>'; });
     acts+='<div class="uarow" onclick="userHandoverDialog(\''+jsq(u.name)+'\')"><span style="color:#2563eb">\u21c4</span> Hand over to\u2026<span class="uasub">move '+oc+' open PM'+(oc===1?'':'s')+' to another person, then remove '+aeEsc(u.name)+'</span></div>';
     acts+='<div class="uarow" onclick="userRemoveConfirm(\''+jsq(u.name)+'\')"><span style="color:#dc2626">\ud83d\uddd1</span> <span style="color:#dc2626">Remove</span><span class="uasub">permanent lockout; '+oc+' open PM'+(oc===1?'':'s')+' \u2192 Unassigned; history kept</span></div>';
   } else {
@@ -13603,7 +13633,7 @@ function userActions(name){
   ov.innerHTML='<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:80vh;overflow-y:auto;padding:18px 14px calc(24px + env(safe-area-inset-bottom))">'+
     '<div style="width:36px;height:4px;background:var(--border-2);border-radius:2px;margin:0 auto 14px"></div>'+
     '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:2px">'+aeEsc(u.name)+'</div>'+
-    '<div style="font-size:12px;color:var(--text-3);margin-bottom:12px">'+(u.role==='editor'?'Editor':'Technician')+' \u00b7 '+(u.status==='active'?'active':u.status)+'</div>'+
+    '<div style="font-size:12px;color:var(--text-3);margin-bottom:12px">'+roleLabel(u.role)+' \u00b7 '+(u.status==='active'?'active':u.status)+'</div>'+
     '<style>.uarow{padding:13px 12px;border:1px solid var(--border);border-radius:11px;margin-bottom:8px;font-size:14px;font-weight:600;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:9px;flex-wrap:wrap}.uasub{flex-basis:100%;font-size:11.5px;font-weight:400;color:var(--text-3);margin-top:2px}</style>'+
     acts+'<button onclick="closeUserAct()" style="width:100%;padding:12px;margin-top:4px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);border-radius:10px;font-size:14px;cursor:pointer">Close</button></div>';
   ov.addEventListener('click',function(e){if(e.target===ov)closeUserAct();});
@@ -13618,8 +13648,8 @@ function userToggle(name){
 }
 function userSetRole(name,role){
   var u=userRec(name); if(!u)return;
-  u.role=(role==='editor')?'editor':'tech';
-  saveUsers().then(function(){ rebuildRoster(); renderUserRoster(); try{toast(name+' is now '+(u.role==='editor'?'an Editor':'a Technician'));}catch(e){} });
+  u.role=(role==='editor')?'editor':(role==='auditor'?'auditor':'tech');
+  saveUsers().then(function(){ rebuildRoster(); renderUserRoster(); try{toast(name+' is now '+(u.role==='auditor'?'an Auditor':(u.role==='editor'?'an Editor':'a Technician')));}catch(e){} });
   closeUserAct();
 }
 function userSetEmail(name){
@@ -13672,7 +13702,9 @@ function userAddDialog(){
     '<label style="font-size:12px;color:var(--text-2);display:block;margin-bottom:5px">Role</label>'+
     '<div id="ua-role" data-role="tech" style="display:flex;gap:8px;margin-bottom:16px">'+
       '<button onclick="uaRole(\'tech\')" id="ua-tech" style="flex:1;padding:11px;border-radius:9px;border:1px solid var(--border);background:var(--text);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Technician</button>'+
-      '<button onclick="uaRole(\'editor\')" id="ua-editor" style="flex:1;padding:11px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer">Editor</button></div>'+
+      '<button onclick="uaRole(\'editor\')" id="ua-editor" style="flex:1;padding:11px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer">Editor</button>'+
+      '<button onclick="uaRole(\'auditor\')" id="ua-auditor" style="flex:1;padding:11px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer">Auditor</button></div>'+
+    '<div style="font-size:11px;color:var(--text-3);margin:-10px 0 16px">Auditor = view-only, Dashboard + CMMS/Calibration only.</div>'+
     '<div style="display:flex;gap:9px"><button onclick="closeUserAdd()" style="flex:1;padding:12px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);border-radius:10px;font-size:14px;cursor:pointer">Cancel</button>'+
     '<button onclick="userAddSave()" style="flex:2;padding:12px;background:#2563eb;border:none;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer">Add</button></div></div>';
   ov.addEventListener('click',function(e){if(e.target===ov)closeUserAdd();});
@@ -13680,9 +13712,7 @@ function userAddDialog(){
   setTimeout(function(){var i=document.getElementById('ua-name');if(i)i.focus();},60);
 }
 function uaRole(r){ var c=document.getElementById('ua-role'); if(!c)return; c.setAttribute('data-role',r);
-  var t=document.getElementById('ua-tech'), e=document.getElementById('ua-editor');
-  if(r==='tech'){t.style.background='var(--text)';t.style.color='#fff';e.style.background='var(--surface-2)';e.style.color='var(--text-2)';}
-  else{e.style.background='var(--text)';e.style.color='#fff';t.style.background='var(--surface-2)';t.style.color='var(--text-2)';}
+  [['tech','ua-tech'],['editor','ua-editor'],['auditor','ua-auditor']].forEach(function(p){ var b=document.getElementById(p[1]); if(!b)return; var on=(p[0]===r); b.style.background=on?'var(--text)':'var(--surface-2)'; b.style.color=on?'#fff':'var(--text-2)'; });
 }
 function closeUserAdd(){ var m=document.getElementById('user-add'); if(m)m.remove(); }
 function userAddSave(){
