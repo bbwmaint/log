@@ -1063,7 +1063,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v258';
+var APP_BUILD='BBW CMMS build v259';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2235,6 +2235,7 @@ function applyRoleTabs(){
       var _tc=gid('tab-cmms'); if(_tc)_tc.style.display=(isEditor()&&CMMS_ENABLED)?'':'none';
       var _td=gid('tab-dash'); if(_td)_td.style.display=isEditor()?'':'none';
     }
+    try{ syncSideSections(); }catch(e){}
   }catch(e){}
 }
 // Three roles: Admin (Praful only) sees and controls everything including the More tab's
@@ -7832,7 +7833,10 @@ function renderCMMS(){
 function cmmsSub(s){CMMS_SUB=s;renderCMMSView();}
 function renderCMMSView(){
   var el=gid('pane-cmms'); if(!el)return;
+  var _aud=(typeof isAuditor==='function'&&isAuditor());
+  if(_aud && CMMS_SUB==='wos')CMMS_SUB='calibration';   // auditors don't get the Work Orders page
   var subs=[['wos','Work Orders'],['pms','PMs'],['calibration','Calibration'],['compliance','Compliance'],['calendar','Calendar']];
+  if(_aud)subs=subs.filter(function(s){return s[0]!=='wos';});
   var nav='<div style="display:flex;gap:7px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">'+subs.map(function(s){
     var on=CMMS_SUB===s[0];
     return '<button onclick="cmmsSub(\''+s[0]+'\')" style="padding:8px 15px;border-radius:999px;border:1px solid '+(on?'#fff':'var(--border)')+';background:'+(on?'#fff':'transparent')+';color:'+(on?'#000':'var(--text-2)')+';font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;flex-shrink:0">'+s[1]+'</button>';
@@ -9133,6 +9137,21 @@ function enhanceDesktop(){
   Object.keys(TAB_ICONS).forEach(function(k){var b=gid('tab-'+k); if(b&&!b.querySelector('.tab-ic')){var sp=document.createElement('span');sp.className='tab-ic';sp.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+TAB_ICONS[k]+'</svg>';b.insertBefore(sp,b.firstChild);}});
   // ── group the nav into labelled sections + pin a user chip at the bottom
   try{ buildSideSections(tb); }catch(e){}
+  try{ syncSideSections(tb); }catch(e){}
+}
+// Hide any sidebar section header whose tabs are all hidden (e.g. for an Auditor,
+// only Dashboard + CMMS remain, so Workspace/Plant/Support headers must not show).
+function syncSideSections(tb){
+  tb=tb||gid('tabbar'); if(!tb)return;
+  var kids=Array.prototype.slice.call(tb.children);
+  for(var i=0;i<kids.length;i++){ var k=kids[i]; if(!k.classList||!k.classList.contains('side-sect'))continue;
+    var vis=false;
+    for(var j=i+1;j<kids.length;j++){ var n=kids[j];
+      if(n.classList&&(n.classList.contains('side-sect')||n.classList.contains('side-user')))break;
+      if(n.id&&n.id.indexOf('tab-')===0&&n.style.display!=='none'){ vis=true; break; }
+    }
+    k.style.display=vis?'':'none';
+  }
 }
 function renderDashboard(){
   var el=gid('pane-dash'); if(!el)return;
