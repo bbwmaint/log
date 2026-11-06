@@ -1058,7 +1058,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v256';
+var APP_BUILD='BBW CMMS build v257';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7900,7 +7900,7 @@ function calDetail(id){
   if(ed)H+='<button onclick="calRecordForm('+c.id+')" class="btn-primary" style="width:100%;padding:11px;font-size:13.5px;border-radius:10px;margin-bottom:14px">+ Record calibration</button>';
   H+='<div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);margin-bottom:6px">Instrument</div>'+row('Tag',escHtml(c.tag))+row('Description',escHtml(c.description))+row('Measurement',escHtml(c.category))+row('Make',escHtml(c.make))+row('Model / order code',escHtml(c.model))+row('Serial no.',escHtml(c.serial));
   H+=sec('Ranges')+row('Measuring range',escHtml(c.meas_range))+row('Calibration range',escHtml(c.cal_range))+row('Line size / resolution',escHtml(c.line_res));
-  H+=sec('Schedule')+row('Frequency',escHtml(c.frequency))+row('Last calibrated',c.last_cal?(''+c.last_cal).slice(0,10):'')+row('Next due',(c.next_due?('<span style="color:'+s.c+'">'+(''+c.next_due).slice(0,10)+'</span>'):''))+row('Building',escHtml(c.building))+row('Calibrated by',escHtml(c.calibrated_by));
+  H+=sec('Schedule')+row('Frequency',escHtml(c.frequency))+row('Last calibrated',c.last_cal?(''+c.last_cal).slice(0,10):'')+row('Next due',(c.next_due?('<span style="color:'+s.c+'">'+(''+c.next_due).slice(0,10)+'</span>'):''))+row('Building',escHtml(c.building))+row('Calibrated by',escHtml(c.calibrated_by))+row('Linked asset',escHtml(c.asset_name)+(c.asset_code?(' <span style="font-family:monospace;color:var(--text-3)">'+escHtml(c.asset_code)+'</span>'):''));
   H+=sec('Calibration history');
   if(!evs.length)H+='<div style="font-size:12.5px;color:var(--text-3)">No calibrations recorded in-app yet.</div>';
   else evs.forEach(function(e){ var rc=e.result==='Fail'?'#dc2626':((e.result==='Adjusted'||e.result==='Adjust')?'#d97706':'#16a34a');
@@ -7930,6 +7930,7 @@ function calForm(id){
   H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+fld('Measuring range','cf-mrange',c.meas_range,'-50 to 150 °C')+fld('Calibration range','cf-crange',c.cal_range,'-10 to 100 °C')+'</div>';
   H+=fld('Line size / resolution','cf-line',c.line_res);
   H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+sel('Frequency','cf-freq',c.frequency,['Annual','Semi-annual','Quarterly','Monthly','Biennial'])+fld('Calibrated by','cf-by',c.calibrated_by,'Endress+Hauser')+'</div>';
+  H+='<div style="margin-bottom:4px"><label style="'+lab+'">Linked asset</label><input id="cf-asset" list="pf-assets" value="'+escHtml(c.asset_name||'')+'" placeholder="Search assets…" style="'+inp+'"></div><div style="font-size:11px;color:var(--text-3);margin-bottom:10px">Certificates recorded for this instrument also appear in this asset’s Documents.</div>'+pordAssetDatalist();
   H+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+fld('Last calibrated','cf-last',c.last_cal?(''+c.last_cal).slice(0,10):'','','date')+fld('Next due','cf-next',c.next_due?(''+c.next_due).slice(0,10):'','','date')+'</div>';
   H+=fld('Reminder (days before due)','cf-rem',(c.reminder_days!=null?c.reminder_days:30),'30','number');
   H+='<div style="display:flex;gap:10px;margin-top:6px"><button onclick="calSave('+(isNew?'null':c.id)+')" class="btn-primary" style="flex:1;padding:12px;font-size:14px;border-radius:10px">'+(isNew?'Add instrument':'Save')+'</button>';
@@ -7943,6 +7944,8 @@ function calSave(id){
     meas_range:v('cf-mrange')||null, cal_range:v('cf-crange')||null, line_res:v('cf-line')||null,
     frequency:v('cf-freq')||null, calibrated_by:v('cf-by')||null,
     last_cal:v('cf-last')||null, next_due:v('cf-next')||null,
+    asset_name:v('cf-asset')||null,
+    asset_code:(function(){ var a=(ASSETS||[]).filter(function(x){return x.n===v('cf-asset');})[0]; return a?a.c:null; })(),
     reminder_days:(v('cf-rem')!==''?parseInt(v('cf-rem'),10):30), updated_at:new Date().toISOString() };
   if(!row.equipment&&!row.tag&&!row.description){toast('Enter at least an equipment, tag or description',true);return;}
   var p; if(id!=null){ p=sbFetch('bbw_calibrations?id=eq.'+id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify(row)}); }
@@ -7986,6 +7989,9 @@ function calRecordSave(id){
   var mo=calFreqMonths(c.frequency); var nd=mo?calAddMonths(date,mo):(c.next_due?(''+c.next_due).slice(0,10):null);
   calUploadCert(file, c.tag||c.cal_no).then(function(certPath){
     if(certPath)ev.cert=certPath;
+    // Also file the certificate into the linked asset's Documents (Reports), so a
+    // tech browsing that asset sees it — category 'calibration'.
+    if(certPath && c.asset_code){ try{ var _ext=(((file&&file.name)||'').split('.').pop()||'pdf'); var _fn=(calTitle(c)+' cal cert '+date).replace(/[\\\/]+/g,'-')+'.'+_ext; sbFetch('bbw_docs',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify({asset_code:c.asset_code,asset_name:c.asset_name||c.equipment||'',category:'calibration',year:(''+date).slice(0,4),filename:_fn,storage_path:certPath,uploaded_by:user,folder:'Calibration certificates'})}); }catch(_e){} }
     var events=calEvents(c); events.unshift(ev);
     return sbFetch('bbw_calibrations?id=eq.'+c.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({events:events,last_cal:date,next_due:nd,updated_at:new Date().toISOString()})}).then(function(r){
       if(!r.ok&&r.status!==204)throw new Error('save '+r.status);
