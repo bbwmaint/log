@@ -1063,7 +1063,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v261';
+var APP_BUILD='BBW CMMS build v262';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -5624,17 +5624,38 @@ function renderUtil(){
   // the saved record left blank). Guarded so the restore doesn't trigger auto-save.
   _utilRestoring=true;
   try{ Object.keys(_uprev).forEach(function(id){ var i=gid(id); if(i&&(i.value===''||i.value==null)){ i.value=_uprev[id]; try{i.dispatchEvent(new Event('input'));}catch(e){} } }); }catch(e){}
+  // Overlay the persisted draft (survives a page discard / camera round-trip) onto
+  // any field the saved record left blank. This is what keeps readings from being
+  // wiped when techs flip to the gallery to photograph a meter and come back.
+  var _dftApplied=false;
+  try{ utilCleanDrafts(); var _dft=utilLoadDraft(); Object.keys(_dft).forEach(function(k){ var i=gid(k); if(i&&(i.value===''||i.value==null)){ i.value=_dft[k]; _dftApplied=true; if(i.getAttribute&&i.getAttribute('data-max')&&typeof updateLevel==='function'){try{updateLevel(i);}catch(e){}} } }); }catch(e){}
   _utilRestoring=false;
+  // If the draft filled fields the server didn't have (e.g. page was discarded
+  // before the debounced save fired), push them up now so they're truly saved.
+  if(_dftApplied){ try{ utilAutoSave(true); }catch(e){} }
   // Auto-save on entry — delegated once on the stable pane so re-renders keep it.
   try{ if(el && !el.__autosaveBound){
-    el.addEventListener('input', function(ev){ var t=ev.target; if(t&&t.tagName==='INPUT'&&t.id)utilAutoSave(false); });
-    el.addEventListener('change', function(ev){ var t=ev.target; if(t&&t.tagName==='INPUT'&&t.id)utilAutoSave(true); });
+    el.addEventListener('input', function(ev){ var t=ev.target; if(t&&t.tagName==='INPUT'&&t.id){ if(!_utilRestoring)utilSaveDraft(); utilAutoSave(false); } });
+    el.addEventListener('change', function(ev){ var t=ev.target; if(t&&t.tagName==='INPUT'&&t.id){ if(!_utilRestoring)utilSaveDraft(); utilAutoSave(true); } });
     el.__autosaveBound=true;
   } }catch(e){}
 }
 
 var UTIL_KEYS=['w3','w5','gas','elec','boil','past','cool','steam','chstart','chproc','warmcell','bc1','bc2','bc3','bc4','bc5','bc6','bc7','bc8','stack','p_alk','m_alk','oh_alk','sulphate','amercor','advplus','amersite','ch_glycol','ch_ph','ch_purity'];
 var _utilAutoT=null, _utilRestoring=false;
+// Instant local draft of today's in-progress readings — written on EVERY
+// keystroke (no network, no debounce), so flipping to the camera/gallery and
+// back, a background refresh, or even the browser discarding the page can't lose
+// what was typed. Keyed per reading-day; restored over the form in renderUtil.
+function utilDraftKey(){ return 'bbw_util_draft_'+utilDay(); }
+function utilSaveDraft(){
+  try{ var d={}; UTIL_KEYS.forEach(function(k){ var el=gid(k); if(el&&el.value!==''&&el.value!=null)d[k]=el.value; });
+    if(Object.keys(d).length)localStorage.setItem(utilDraftKey(),JSON.stringify(d)); else localStorage.removeItem(utilDraftKey()); }catch(e){}
+}
+function utilLoadDraft(){ try{ return JSON.parse(localStorage.getItem(utilDraftKey())||'{}')||{}; }catch(e){ return {}; } }
+function utilCleanDrafts(){ // drop stale draft keys from previous days
+  try{ var keep=utilDraftKey(); for(var i=localStorage.length-1;i>=0;i--){ var k=localStorage.key(i); if(k&&k.indexOf('bbw_util_draft_')===0&&k!==keep)localStorage.removeItem(k); } }catch(e){}
+}
 // Auto-save: persist readings the moment they're entered, so a partial column
 // isn't lost and techs don't have to remember to tap Save. Debounced on input,
 // flushed on blur. Reuses the same record + syncUtil path as the manual save,
@@ -14079,10 +14100,11 @@ function setLang(l){
   try{if(gid('pane-reports')&&gid('pane-reports').style.display!=='none')renderReports();}catch(e){}
   try{if(gid('pane-requests')&&gid('pane-requests').style.display!=='none')renderRequests();}catch(e){}
   try{if(gid('pane-schedule')&&gid('pane-schedule').style.display!=='none')renderSchedule();}catch(e){}
-  // Don't yank the readings form out from under someone mid-entry: skip the
-  // background re-render while a reading input is focused (the preserve logic in
-  // renderUtil still protects values when a refresh does run).
-  try{ var _up=gid('pane-util'); if(_up&&_up.style.display!=='none'){ var _af=document.activeElement; var _busy=_af&&_up.contains(_af)&&/^(INPUT|TEXTAREA)$/.test(_af.tagName); if(!_busy)renderUtil(); } }catch(e){}
+  // NEVER re-render the readings form from a background refresh — it rebuilt the
+  // inputs mid-entry (the "keypad refresh") and, when the page came back from the
+  // camera, wiped anything typed-but-not-yet-synced. The live inputs are the
+  // source of truth; every keystroke is persisted to a local draft, and the form
+  // re-renders only on explicit navigation or a manual Save.
   try{if(gid('pane-assets')&&gid('pane-assets').style.display!=='none')renderAssets();}catch(e){}
   try{if(gid('pane-prev')&&gid('pane-prev').style.display!=='none')renderPrev();}catch(e){}
   // Update static UI text
