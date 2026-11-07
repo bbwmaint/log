@@ -52,8 +52,11 @@ function isHTML(req){
 
 // Fetch strategy:
 //  - Supabase / EmailJS: always network, never touched
-//  - App HTML: NETWORK-FIRST so new code lands the moment a device is online
-//             (falls back to cache only when offline)
+//  - App HTML: STALE-WHILE-REVALIDATE — serve the cached page INSTANTLY (so the
+//             app opens fast and reliably even on weak LTE, instead of hanging on
+//             a ~1.7MB download and sometimes half-rendering), and refresh the
+//             cache in the background so the next launch has the newest build.
+//             A per-build CACHE bump still rolls every device forward.
 //  - Everything else (icons, libs): cache-first, refresh in background
 self.addEventListener('fetch', function(e){
   var url = e.request.url;
@@ -64,15 +67,16 @@ self.addEventListener('fetch', function(e){
 
   if(isHTML(e.request)){
     e.respondWith(
-      fetch(e.request).then(function(response){
-        if(response && response.status === 200){
-          var copy = response.clone();
-          caches.open(CACHE).then(function(c){ c.put(e.request, copy); });
-        }
-        return response;
-      }).catch(function(){
-        return caches.match(e.request).then(function(c){
-          return c || caches.match('./index.html');
+      caches.open(CACHE).then(function(c){
+        return c.match(e.request).then(function(hit){
+          return (hit ? Promise.resolve(hit) : c.match('./index.html')).then(function(cached){
+            var net = fetch(e.request).then(function(response){
+              if(response && response.status === 200){ c.put(e.request, response.clone()); }
+              return response;
+            }).catch(function(){ return null; });
+            if(cached){ e.waitUntil(net); return cached; }   // instant from cache; update in bg
+            return net.then(function(r){ return r || c.match('./index.html'); });
+          });
         });
       })
     );

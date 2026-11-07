@@ -1063,7 +1063,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v263';
+var APP_BUILD='BBW CMMS build v264';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1416,9 +1416,19 @@ function checkPin(){
 function pinBad(msg){ gid('pin-err').textContent=msg; for(var i=0;i<4;i++){var d=gid('d'+i);d.style.background='#ef4444';d.style.borderColor='#ef4444';} setTimeout(function(){pbuf='';updDots();},700); }
 function pinMismatch(){ gid('pin-err').textContent='PINs do not match'; for(var i=0;i<4;i++){var d=gid('d'+i);d.style.background='#ef4444';d.style.borderColor='#ef4444';} setTimeout(function(){pbuf='';psfirst='';updDots();gid('pin-msg').textContent='Try again';},800); }
 
+// Ask the browser to keep this app's storage (the saved login token + "keep me
+// signed in" name) instead of evicting it — iOS silently wipes PWA storage under
+// pressure / after idle, which is what logged people out despite the tick.
+function requestPersistentStorage(){
+  try{ if(navigator.storage && navigator.storage.persist){
+    if(navigator.storage.persisted){ navigator.storage.persisted().then(function(p){ if(!p){ try{navigator.storage.persist();}catch(e){} } }); }
+    else { navigator.storage.persist(); }
+  } }catch(e){}
+}
 function loginUser(name){
   if(SYSTEM_DEAD)return;
   user=name;
+  try{requestPersistentStorage();}catch(e){}
   try{applyRoleTabs();}catch(e){}
   try{enhanceDesktop();}catch(e){}
   try{ensureLogoPNG();}catch(e){}
@@ -14927,8 +14937,10 @@ function removeCOAsset(idx){
 // ── PWA Service Worker Registration ──
 // The SW caches index.html, which means a new build can sit unseen behind a stale
 // cache. Check for an update on every load and reload once the new one takes over.
+try{ if(typeof requestPersistentStorage==='function')requestPersistentStorage(); }catch(e){}
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
+    try{ if(typeof requestPersistentStorage==='function')requestPersistentStorage(); }catch(e){}
     navigator.serviceWorker.register('sw.js?v='+String(APP_BUILD).replace(/[^0-9]/g,''))
       .then(function(reg){
         console.log('SW registered, '+APP_BUILD);
