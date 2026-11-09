@@ -66,16 +66,29 @@ self.addEventListener('fetch', function(e){
   }
 
   if(isHTML(e.request)){
+    // NETWORK-FIRST with a short timeout. When online, always serve the freshest
+    // index.html (so a device can never get stuck on a stale/broken cached build —
+    // that showed up as 404s and broken screens). If the network is slow/offline,
+    // fall back to cache after 2.5s so weak-LTE launches stay fast.
     e.respondWith(
       caches.open(CACHE).then(function(c){
-        return c.match(e.request).then(function(hit){
-          return (hit ? Promise.resolve(hit) : c.match('./index.html')).then(function(cached){
-            var net = fetch(e.request).then(function(response){
-              if(response && response.status === 200){ c.put(e.request, response.clone()); }
-              return response;
-            }).catch(function(){ return null; });
-            if(cached){ e.waitUntil(net); return cached; }   // instant from cache; update in bg
-            return net.then(function(r){ return r || c.match('./index.html'); });
+        return new Promise(function(resolve){
+          var settled = false;
+          function fromCache(){
+            return c.match(e.request).then(function(hit){ return hit || c.match('./index.html'); });
+          }
+          var timer = setTimeout(function(){
+            if(settled) return;
+            fromCache().then(function(cached){ if(!settled && cached){ settled = true; resolve(cached); } });
+          }, 2500);
+          fetch(e.request).then(function(resp){
+            if(resp && resp.status === 200){ c.put(e.request, resp.clone()); }
+            if(settled) return;
+            settled = true; clearTimeout(timer); resolve(resp);
+          }).catch(function(){
+            if(settled) return;
+            settled = true; clearTimeout(timer);
+            fromCache().then(function(cached){ resolve(cached || Response.error()); });
           });
         });
       })
