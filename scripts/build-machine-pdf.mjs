@@ -1,16 +1,47 @@
-// BBW Weekly Machine Report PDF — captured from the live app (machineWeekPDF).
+// BBW Weekly Machine Report PDF.
 //
-// Same approach as build-stats-pdf.mjs: rather than re-implement the report in
-// Node, load the actual index.html headless and call the app's own
-// machineWeekStats() + machineWeekPDF(), capturing the PDF jsPDF produces. The
-// emailed PDF is byte-identical to the one Praful makes from More → Weekly
-// Machine Report, and stays in sync whenever the in-app report changes.
+// Data is read in NODE via direct REST with the privileged job key — the proven
+// way past RLS (same as the green check-db-access workflow). Reading from INSIDE
+// the headless page (reassigning SBKEY) did NOT actually bypass RLS, so the
+// emailed report came out all zeros. Now the page is used ONLY to render: we hand
+// it the already-fetched rows and call the app's own machineWeekStats() +
+// weekStats() + machineWeekPDF(), so the PDF stays byte-identical to the in-app
+// one while the numbers are real.
 import { chromium } from 'playwright';
 import path from 'path';
 
-const INDEX = process.env.APP_HTML || path.resolve(process.cwd(), 'index.html');
-// Privileged job key (CI only) injected so RLS-locked tables aren't read as empty.
-const SB_SECRET = process.env.SUPABASE_KEY || '';
+const INDEX  = process.env.APP_HTML || path.resolve(process.cwd(), 'index.html');
+const SB_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+const SB_KEY = process.env.SUPABASE_KEY || '';
+
+// Page past PostgREST's 1000-row cap with limit/offset.
+async function sbGetAll(pathRel) {
+  const sep = pathRel.includes('?') ? '&' : '?';
+  let out = [], offset = 0; const step = 1000;
+  for (;;) {
+    const url = `${SB_URL}/rest/v1/${pathRel}${sep}limit=${step}&offset=${offset}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(45000),
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' } });
+    if (!r.ok) throw new Error(`${pathRel} -> ${r.status} ${(await r.text()).slice(0, 160)}`);
+    const batch = await r.json();
+    if (!Array.isArray(batch)) throw new Error(`${pathRel} -> non-array response`);
+    out = out.concat(batch);
+    if (batch.length < step) break;
+    offset += step;
+    if (offset > 300000) break;
+  }
+  return out;
+}
+
+async function fetchReportData(start, end) {
+  const [entries, utils, requests, wos] = await Promise.all([
+    sbGetAll(`bbw_worklog?select=*&date=gte.${start}&date=lte.${end}&order=date.asc`),
+    sbGetAll(`bbw_util_log?select=*&date=gte.${start}&date=lte.${end}`),
+    sbGetAll(`bbw_requests?select=*&order=created_at.asc`),
+    sbGetAll(`bbw_wos?select=*&order=id.asc`),
+  ]);
+  return { entries, utils, requests, wos };
+}
 
 export function machineFileName(start, end) {
   return `BBW_Machine_Week_${start}_to_${end}.pdf`;
@@ -18,28 +49,37 @@ export function machineFileName(start, end) {
 
 // Build the weekly machine (downtime) PDF for [start,end]. Returns { pdf, stats }.
 export async function buildMachinePDF(start, end) {
+  if (!SB_URL || !SB_KEY) throw new Error('SUPABASE_URL / SUPABASE_KEY missing');
+
+  const data = await fetchReportData(start, end);
+  // Safety net keyed on the RLS-LOCKED core tables (worklog + work orders) — the
+  // anon key can still read a few forklift requests, so requests is NOT a reliable
+  // signal. A plant always has work orders and logs daily, so both of these being
+  // empty means the privileged read failed (bad key / RLS), not a quiet week.
+  // Refuse, so a zeros report is never emailed to the team again.
+  if (!data.entries.length && !data.wos.length) {
+    throw new Error('report data came back empty (worklog + work orders both 0) — refusing to build a zeros report; check SUPABASE_KEY is the secret job key');
+  }
+
   const browser = await chromium.launch({ args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   try {
     const page = await browser.newPage();
     const warns = [];
     page.on('pageerror', e => warns.push(e.message));
     await page.goto('file://' + INDEX, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(800);
 
     const res = await page.evaluate(async (r) => {
       const _o = URL.createObjectURL.bind(URL);
       let cap = null;
       URL.createObjectURL = function (b) { cap = b; return _o(b); };
 
-      user = (typeof EDITORS !== 'undefined' && EDITORS[0]) || 'Praful';  // reports are editor-gated
-      if (r.secretKey) { try { SBKEY = r.secretKey; } catch (e) {} }       // read past RLS (CI key)
-      try { loadSchedulesFromStorage(); } catch (e) {}
-      try { await loadSchedulesFromSB(); } catch (e) {}
-      try { await loadRequests(); } catch (e) {}                          // for the Requests bar
+      try { user = (typeof EDITORS !== 'undefined' && EDITORS[0]) || 'Praful'; } catch (e) {}
+      try { REQUESTS = r.data.requests || []; } catch (e) {}   // global weekStats reads for reqClosed
 
-      const data = await loadReportData(r.start, r.end);
+      const data = r.data;                                     // already fetched in Node
       const C = machineWeekStats(data.entries, r.start, r.end);
-      try {                                                               // PM completion + requests
+      try {
         const Wk = weekStats(data, r.start, r.end);
         C.pmDue = Wk.pmDue; C.pmDone = Wk.pmDone; C.pmPct = Wk.pmPct;
         C.reqReceived = Wk.reqReceived; C.reqClosed = Wk.reqClosed;
@@ -61,7 +101,7 @@ export async function buildMachinePDF(start, end) {
           reqReceived: C.reqReceived, reqClosed: C.reqClosed
         }
       };
-    }, { start, end, secretKey: SB_SECRET });
+    }, { start, end, data });
 
     if (warns.length) console.warn('  (app warnings: ' + warns.slice(0, 3).join(' | ') + ')');
     const pdf = Buffer.from(res.b64, 'base64');

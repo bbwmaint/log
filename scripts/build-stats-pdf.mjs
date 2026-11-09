@@ -13,10 +13,39 @@ import path from 'path';
 // Override with APP_HTML for local testing.
 const INDEX = process.env.APP_HTML || path.resolve(process.cwd(), 'index.html');
 
-// The headless app reads with the anon key baked into index.html, which RLS now
-// blocks — so the privileged job key (already in CI) is injected before data loads
-// so the report sees the real numbers instead of zeros. Never leaves the CI runner.
-const SB_SECRET = process.env.SUPABASE_KEY || '';
+// RLS-locked tables (worklog, WOs, requests, util) are read in NODE with the
+// privileged job key — the proven way past RLS. Reading them from inside the
+// headless page did NOT bypass RLS, so the report used to come out all zeros.
+// Production/schedule (bbw_schedule) is anon-readable, so it still loads in-page.
+const SB_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+const SB_KEY = process.env.SUPABASE_KEY || '';
+
+async function sbGetAll(pathRel) {
+  const sep = pathRel.includes('?') ? '&' : '?';
+  let out = [], offset = 0; const step = 1000;
+  for (;;) {
+    const url = `${SB_URL}/rest/v1/${pathRel}${sep}limit=${step}&offset=${offset}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(45000),
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' } });
+    if (!r.ok) throw new Error(`${pathRel} -> ${r.status} ${(await r.text()).slice(0, 160)}`);
+    const batch = await r.json();
+    if (!Array.isArray(batch)) throw new Error(`${pathRel} -> non-array response`);
+    out = out.concat(batch);
+    if (batch.length < step) break;
+    offset += step;
+    if (offset > 300000) break;
+  }
+  return out;
+}
+async function fetchReportData(start, end) {
+  const [entries, utils, requests, wos] = await Promise.all([
+    sbGetAll(`bbw_worklog?select=*&date=gte.${start}&date=lte.${end}&order=date.asc`),
+    sbGetAll(`bbw_util_log?select=*&date=gte.${start}&date=lte.${end}`),
+    sbGetAll(`bbw_requests?select=*&order=created_at.asc`),
+    sbGetAll(`bbw_wos?select=*&order=id.asc`),
+  ]);
+  return { entries, utils, requests, wos };
+}
 
 export function statsFileName(start, end) {
   return `BBW_Stats_Report_${start}_to_${end}.pdf`;
@@ -26,6 +55,15 @@ export function statsFileName(start, end) {
 export async function buildStatsPDF(start, end, opts = {}) {
   const subtitle = opts.subtitle || `${start} to ${end}`;
   const idx = (opts.idx != null) ? opts.idx : 0;
+  if (!SB_URL || !SB_KEY) throw new Error('SUPABASE_URL / SUPABASE_KEY missing');
+
+  const data = await fetchReportData(start, end);
+  // Safety net on the RLS-locked core tables: both empty => the privileged read
+  // failed, not a quiet week. Refuse so a zeros report is never emailed again.
+  if (!data.entries.length && !data.wos.length) {
+    throw new Error('report data came back empty (worklog + work orders both 0) — refusing to build a zeros report; check SUPABASE_KEY is the secret job key');
+  }
+
   const browser = await chromium.launch({ args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   try {
     const page = await browser.newPage();
@@ -41,15 +79,14 @@ export async function buildStatsPDF(start, end, opts = {}) {
       URL.createObjectURL = function (blob) { captured = blob; return _orig(blob); };
 
       // Reports are editor-gated in the app; run as an editor.
-      user = (typeof EDITORS !== 'undefined' && EDITORS[0]) || 'Praful';
-      // Read with the privileged key so RLS-locked tables (work logs, WOs, PMs,
-      // requests) return real data instead of empty — otherwise the report is all 0s.
-      if (r.secretKey) { try { SBKEY = r.secretKey; } catch (e) {} }
+      try { user = (typeof EDITORS !== 'undefined' && EDITORS[0]) || 'Praful'; } catch (e) {}
+      // Core data was already fetched in Node with the privileged key (past RLS).
+      try { REQUESTS = r.data.requests || []; } catch (e) {}
+      // Production/schedule is anon-readable, so load it in-page as before.
       try { loadSchedulesFromStorage(); } catch (e) {}
       try { await loadSchedulesFromSB(); } catch (e) {}   // production / schedule (hL, productivity)
-      try { await loadRequests(); } catch (e) {}          // requests received / closed
 
-      const data = await loadReportData(r.start, r.end);
+      const data = r.data;
       const C = weekStats(data, r.start, r.end);
       const bounds = {
         start: r.start, end: r.end, idx: r.idx,
@@ -71,7 +108,7 @@ export async function buildStatsPDF(start, end, opts = {}) {
           volHL: C.volHL, meanProd: C.meanProd, attain: C.attain
         }
       };
-    }, { start, end, idx, subtitle, secretKey: SB_SECRET });
+    }, { start, end, idx, subtitle, data });
 
     if (warns.length) console.warn('  (app warnings: ' + warns.slice(0, 3).join(' | ') + ')');
     const pdf = Buffer.from(res.b64, 'base64');
