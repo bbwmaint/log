@@ -1063,7 +1063,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v269';
+var APP_BUILD='BBW CMMS build v270';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7033,11 +7033,15 @@ function machineWeekPDF(C,start,end){
   if(_pmPct!=null&&_pmPct>0){fc(_pcol);doc.roundedRect(M,y,CW*Math.min(_pmPct,100)/100,_bh,3,3,'F');}
   y+=_bh+15;
   T('Requests',M,y,9.5,'bold',INK);
-  var _rr=C.reqReceived||0,_rc=C.reqClosed||0,_rpct=(_rr?Math.round(_rc/_rr*100):null);
-  var _rcol=(_rpct==null?SLATE:(_rpct>=90?GREEN:(_rpct>=70?AMBER:RED)));
-  T(_rc+' of '+_rr+' closed'+(_rpct!=null?'   \u00b7   '+_rpct+'%':''),W-M,y,9.5,'bold',_rcol,'right'); y+=9;
-  var _rbh=9; fc([238,240,243]);doc.roundedRect(M,y,CW,_rbh,3,3,'F');
-  if(_rpct!=null&&_rpct>0){fc(_rcol);doc.roundedRect(M,y,CW*Math.min(_rpct,100)/100,_rbh,3,3,'F');}
+  // Received and closed are INDEPENDENT weekly counts: a request raised in an
+  // earlier week can be closed this week, so closed/received is not a percentage
+  // (it read "4 of 1 \u00b7 400%"). Show the two counts plainly. The bar shows whether
+  // closures kept pace with intake, capped at 100%.
+  var _rr=C.reqReceived||0,_rc=C.reqClosed||0;
+  var _rcol=(_rc>=_rr?GREEN:AMBER);
+  T(_rr+' received   \u00b7   '+_rc+' closed',W-M,y,9.5,'bold',_rcol,'right'); y+=9;
+  var _rbh=9, _rmax=Math.max(_rr,_rc,1); fc([238,240,243]);doc.roundedRect(M,y,CW,_rbh,3,3,'F');
+  if(_rc>0){fc(_rcol);doc.roundedRect(M,y,CW*Math.min(_rc/_rmax,1),_rbh,3,3,'F');}
   y+=_rbh+18;
   // Downtime by machine (stacked bars: full red + partial amber)
   section('Downtime by Machine');
