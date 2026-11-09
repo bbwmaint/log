@@ -1068,7 +1068,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v271';
+var APP_BUILD='BBW CMMS build v272';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2669,8 +2669,13 @@ function submitRequest(btn){
   btn.disabled=true; btn.textContent=T('rq_submitting');
   var _paths=[];
   uploadReqPhotos(files).then(function(paths){ _paths=paths||[];
-    return sbFetch('bbw_requests',{method:'POST',body:JSON.stringify({reporter:name,department:dept,asset_name:an||null,asset_code:ac||null,work:work,contact:contact||null,requester_email:email,photos:JSON.stringify(_paths),notes:'[]',status:'new'})});
-  }).then(function(r){ if(!r.ok&&r.status!==201)throw new Error('HTTP '+r.status); return r.json(); })
+    // return=minimal (no read-back): the public (anon) role may INSERT a request but,
+    // after the RLS lockdown, may only SELECT forklift rows. The default
+    // return=representation makes PostgREST SELECT the new row back — denied for a
+    // normal maintenance request, which surfaced to reporters as "HTTP 401". We never
+    // use the returned row here, so insert without reading it back.
+    return sbFetch('bbw_requests',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify({reporter:name,department:dept,asset_name:an||null,asset_code:ac||null,work:work,contact:contact||null,requester_email:email,photos:JSON.stringify(_paths),notes:'[]',status:'new'})});
+  }).then(function(r){ if(!r.ok&&r.status!==201&&r.status!==204)throw new Error('HTTP '+r.status); })
    .then(function(){
      if(notify){ try{ notifyMaintenance({type:'request',subject:'New maintenance request: '+(an||dept||name),body:work+'\n\nFrom: '+name+(dept?(' ('+dept+')'):'')+'\nEmail: '+email+(contact?('\nPhone: '+contact):'')+(an?('\nAsset: '+an+(ac?(' ['+ac+']'):'')):''),reporter:name,department:dept,asset_name:an,asset_code:ac,contact:contact,photos:_paths.map(flPubUrl)}); }catch(e){} }
      requestSubmitted();
@@ -2711,8 +2716,8 @@ function submitFlRequest(btn){
   btn.disabled=true; btn.textContent=(lang==='uk'?'\u041d\u0430\u0434\u0441\u0438\u043b\u0430\u043d\u043d\u044f\u2026':'Submitting\u2026');
   var _paths=[];
   uploadReqPhotos(files).then(function(paths){ _paths=paths||[];
-    return sbFetch('bbw_requests',{method:'POST',body:JSON.stringify({reporter:name,department:dept,asset_name:'Forklift Help',asset_code:'FLHELP',work:fullWork,contact:null,requester_email:email,photos:JSON.stringify(_paths),notes:'[]',status:'new',kind:'forklift'})});
-  }).then(function(r){ if(!r.ok&&r.status!==201)throw new Error('HTTP '+r.status); return r.json(); })
+    return sbFetch('bbw_requests',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify({reporter:name,department:dept,asset_name:'Forklift Help',asset_code:'FLHELP',work:fullWork,contact:null,requester_email:email,photos:JSON.stringify(_paths),notes:'[]',status:'new',kind:'forklift'})});
+  }).then(function(r){ if(!r.ok&&r.status!==201&&r.status!==204)throw new Error('HTTP '+r.status); })
    .then(function(){
      try{ notifyForkliftTeam({subject:'Forklift help requested: '+dept,body:fullWork+'\n\nFrom: '+name+' ('+dept+')'+'\nEmail: '+email,reporter:name,asset_name:'Forklift Help ('+dept+')',photos:_paths.map(flPubUrl)}); }catch(e){}
      flRequestSubmitted();
