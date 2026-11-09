@@ -981,6 +981,11 @@ var MAILTO="maintenance@brunswickbierworks.com";
 var FL_MAILTO="maintenance@brunswickbierworks.com";
 var SB="https://klrxecmasfrwowdhplfn.supabase.co";
 var SBKEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtscnhlY21hc2Zyd293ZGhwbGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTY3NjgsImV4cCI6MjA5NjE3Mjc2OH0.bav6VMyGrOeRgf1q0eMA2ZvnVmPdF64FTlBa7BPhO6o";
+// Public QR entry points (request form, forklift kiosk/help, forklift dashboard)
+// are anonymous by design. A phone once logged in still has a stored token;
+// sending it on these public forms got rejected with HTTP 401. Declared up here
+// (before the mode-detection code sets it) so it isn't clobbered by a later var.
+var PUBLIC_MODE=false;
 
 var TMPLS=[
   {id:'t1',name:'Boiler Water Check',nameUk:'Перевірка води котла',asset:'Boiler',code:'BBWBR1',type:'completed',desc:'Boiler water level checked - within normal range, feed pump operating correctly',descUk:'Рівень води котла перевірено — в нормі, насос живлення працює'},
@@ -1063,7 +1068,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v270';
+var APP_BUILD='BBW CMMS build v271';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1202,6 +1207,7 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   var FLDASH_MODE=(location.hash.indexOf('fldash')>=0)||/[?&]fldash/.test(location.search);
   var _flm=(location.hash.match(/fl=([A-Za-z0-9]+)/)||location.search.match(/[?&]fl=([A-Za-z0-9]+)/));
   var FL_MODE=!!(_flm&&flUnitValid(_flm[1]));
+  PUBLIC_MODE=!!(REQ_MODE||FL_MODE||FLDASH_MODE||FLREQ_MODE);   // anon-only on public QR forms
   try{ authLoad(); var _keep=localStorage.getItem('bbw_keepuser');
     if(!REQ_MODE&&!FL_MODE&&!FLDASH_MODE&&!FLREQ_MODE&&_keep){
       // A valid token is proof enough — restore the session straight away, even for
@@ -1329,7 +1335,7 @@ function authSet(tok){
 }
 function authClear(){ AUTH_TOKEN=null; AUTH_EXP=0; try{ localStorage.removeItem('bbw_tok'); localStorage.removeItem('bbw_tok_exp'); }catch(e){} }
 function authValid(){ return !!(AUTH_TOKEN && (AUTH_EXP*1000)>Date.now()); }
-function authBearer(){ return authValid()?AUTH_TOKEN:SBKEY; }
+function authBearer(){ return (!PUBLIC_MODE && authValid())?AUTH_TOKEN:SBKEY; }
 // Mint a token from a name+PIN (returns the token string, or null on wrong PIN).
 function authLogin(name,pin){ return sbRPC('bbw_login',{p_name:name,p_pin:pin}); }
 function sbRPC(fn,args){
