@@ -833,6 +833,17 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     <input type="number" id="f-pqty" placeholder="Qty" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 13px;font-size:16px;color:#fff;outline:none;font-family:monospace">
   </div>
 
+  <!-- Parts USED on this job (issued from stock) — distinct from "Parts Requested" above.
+       Feeds bbw_part_issues + the BrewQM cost-per-case feed. A-light: no stock decrement. -->
+  <div id="fg-pused" style="margin-bottom:14px">
+    <div style="font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Parts used <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--text-3)">· from stock, optional</span></div>
+    <div style="position:relative">
+      <input type="text" id="f-pu-search" autocomplete="off" oninput="puSearch(this.value)" onfocus="puSearch(this.value)" placeholder="Search a part from inventory…" style="width:100%;background:var(--surface-2);border:1px solid var(--border-2);border-radius:9px;padding:11px 13px;font-size:16px;color:#fff;outline:none">
+      <div id="f-pu-results" style="display:none;position:absolute;left:0;right:0;top:48px;z-index:40;background:var(--surface);border:1px solid var(--border-2);border-radius:9px;max-height:230px;overflow:auto;box-shadow:0 10px 28px rgba(0,0,0,.45)"></div>
+    </div>
+    <div id="f-pu-list" style="margin-top:8px"></div>
+  </div>
+
   <div style="margin-bottom:14px">
     <div style="font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px" id="lbl-priority">Priority</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px" id="prio-grid"></div>
@@ -1068,7 +1079,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v272';
+var APP_BUILD='BBW CMMS build v273';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1903,6 +1914,7 @@ function openSheet(id){
   document.querySelectorAll('[id^="tp-"]').forEach(function(el){el.style.borderColor='var(--border)';el.style.background='var(--surface-2)';el.style.color='#aaa';});
   document.querySelectorAll('[id^="pp-"]').forEach(function(el){el.style.borderColor='var(--border)';el.style.background='var(--surface-2)';el.style.color='#aaa';});
   gid('fg-part').style.display='none';
+  try{puReset();}catch(_pe){}
   gid('dt-auto').style.display='none';
   if(gid('f-machinedown')){gid('f-machinedown').value='';toggleDT('');}
   if(gid('f-co'))gid('f-co').value='';
@@ -1926,6 +1938,7 @@ function openSheet(id){
       if(e.coMins&&gid('f-co'))gid('f-co').value=e.coMins;
       if(e.coType&&gid('f-cotype'))gid('f-cotype').value=e.coType;
       photos=(e.photos&&e.photos.length)?e.photos.slice():(e.photo?[e.photo]:[]); renderPhotoThumbs();
+      try{ if(e.sbId)puLoadForEntry(e.sbId); }catch(_pe){}
     }
   }
   // Assigned-to for admin
@@ -2130,7 +2143,7 @@ function submitEntry(){
         return shiftForMins(mins);
       }
       return isDay()?'Day':'Night';
-    })(),type:ctype,priority:cprio,assetName:(selA?selA.n:(gid('asearch')?gid('asearch').value.trim():'')),assetCode:(selA?selA.c:''),issue:gid('f-issue')?gid('f-issue').value.trim():'',desc:gid('f-desc').value.trim(),start:gid('f-start').value,end:gid('f-end').value,withWho:withWhoValues().join(', '),dt:((gid('f-machinedown')&&(gid('f-machinedown').value==='yes'||gid('f-machinedown').value==='partial'))?dtMinsToHrs(gid('f-dt').value):0),machineDown:gid('f-machinedown')?gid('f-machinedown').value:'',coMins:parseInt(gid('f-co')?gid('f-co').value:0)||0,coType:gid('f-cotype')?gid('f-cotype').value:'',partName:gid('f-pname').value.trim(),partQty:gid('f-pqty').value||'1',photos:photos.slice(),photo:(photos[0]||null),who:(user===ADMIN&&gid('f-assignedto')&&gid('f-assignedto').value)?gid('f-assignedto').value:user,loggedAt:new Date().toISOString(),shiftNote:gid('snote').value};
+    })(),type:ctype,priority:cprio,assetName:(selA?selA.n:(gid('asearch')?gid('asearch').value.trim():'')),assetCode:(selA?selA.c:''),issue:gid('f-issue')?gid('f-issue').value.trim():'',desc:gid('f-desc').value.trim(),start:gid('f-start').value,end:gid('f-end').value,withWho:withWhoValues().join(', '),dt:((gid('f-machinedown')&&(gid('f-machinedown').value==='yes'||gid('f-machinedown').value==='partial'))?dtMinsToHrs(gid('f-dt').value):0),machineDown:gid('f-machinedown')?gid('f-machinedown').value:'',coMins:parseInt(gid('f-co')?gid('f-co').value:0)||0,coType:gid('f-cotype')?gid('f-cotype').value:'',partName:gid('f-pname').value.trim(),partQty:gid('f-pqty').value||'1',photos:photos.slice(),photo:(photos[0]||null),who:(user===ADMIN&&gid('f-assignedto')&&gid('f-assignedto').value)?gid('f-assignedto').value:user,loggedAt:new Date().toISOString(),shiftNote:gid('snote').value,partsUsed:(typeof PU_LINES!=='undefined'?PU_LINES.slice():[])};
   if(editId){
     // Find the original BEFORE overwriting, so we keep its Supabase link.
     var orig=allE.find(function(x){return x.id===editId;})||entries.find(function(x){return x.id===editId;})||CARD_REG[editId];
@@ -2145,6 +2158,7 @@ function submitEntry(){
     var ei=entries.findIndex(function(x){return x.id===editId;});if(ei>=0)entries[ei]=entry;
     var ai=allE.findIndex(function(x){return x.id===editId;});if(ai>=0)allE[ai]=entry;
     if(entry.sbId){
+      try{syncPartIssues(entry);}catch(_pe){}
       var pfull={
         date:entry.date,shift:entry.shift,
         type:entry.type,priority:entry.priority||null,
@@ -3618,6 +3632,7 @@ function syncEntry(e){
   function onSaved(d){
     if(d&&d[0]&&d[0].id){
       e.sbId=d[0].id; e.synced=true;
+      try{syncPartIssues(e);}catch(_pe){}
       var ai=allE.findIndex(function(x){return x.id===e.id;});
       if(ai>=0){allE[ai].sbId=d[0].id;allE[ai].synced=true;}
       var ei=entries.findIndex(function(x){return x.id===e.id;});
@@ -11910,6 +11925,106 @@ function flDashRunRange(){
 // ═══════════════════════ INVENTORY ═══════════════════════
 var INV=[];               // all inventory rows
 var INV_FOLDER=null;      // currently open folder (null = folder list)
+
+// ═══════════════ PARTS USED (issued to a job → bbw_part_issues) ═══════════════
+// A-light: records what parts were put on a job, priced from the inventory item's
+// unit cost (snapshotted at issue time). No stock decrement. Feeds the BrewQM
+// cost-per-case feed. Lives on the worklog entry sheet ("Parts used").
+var PU_LINES=[];          // {inventory_id,part_no,description,qty,unit_cost,_saved?,issue_id?}
+var PU_HITS=[];           // current search matches (for puPick by index)
+function puSearch(q){
+  var box=document.getElementById('f-pu-results'); if(!box)return;
+  q=(''+(q||'')).trim().toLowerCase();
+  var list=(typeof INV!=='undefined'&&INV)?INV:[];
+  PU_HITS=list.filter(function(i){ var hay=((i.item||'')+' '+(i.part_no||'')).toLowerCase(); return q?hay.indexOf(q)>=0:true; }).slice(0,30);
+  if(!PU_HITS.length){ box.innerHTML='<div style="padding:10px 12px;color:var(--text-3);font-size:13px">No matching stock item</div>'; box.style.display='block'; return; }
+  box.innerHTML=PU_HITS.map(function(i,ix){
+    var cost=(i.cost!=null&&i.cost!=='')?('$'+(parseFloat(i.cost)||0).toFixed(2)+' ea'):'no cost on file';
+    var stock=(i.qty!=null&&i.qty!=='')?(' · '+escHtml(i.qty)+' in stock'):'';
+    return '<div onmousedown="event.preventDefault()" onclick="puPick('+ix+')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border)">'
+      +'<div style="font-size:14px;color:#fff">'+escHtml(i.item||'(unnamed item)')+'</div>'
+      +'<div style="font-size:11.5px;color:var(--text-3)">'+escHtml(i.part_no||'no part #')+' · '+cost+stock+'</div></div>';
+  }).join('');
+  box.style.display='block';
+}
+function puPick(ix){
+  var i=PU_HITS[ix]; if(!i)return;
+  PU_LINES.push({ inventory_id:(i.id!=null?i.id:null), part_no:i.part_no||'', description:i.item||'',
+    qty:1, unit_cost:(i.cost!=null&&i.cost!==''?parseFloat(i.cost):null) });
+  var s=document.getElementById('f-pu-search'); if(s)s.value='';
+  var box=document.getElementById('f-pu-results'); if(box)box.style.display='none';
+  puRender();
+}
+function puRemove(ix){ PU_LINES.splice(ix,1); puRender(); }
+function puDeleteSaved(ix){
+  var p=PU_LINES[ix]; if(!p)return;
+  if(p.issue_id){ sbFetch('bbw_part_issues?id=eq.'+encodeURIComponent(p.issue_id),{method:'DELETE',headers:{'Prefer':'return=minimal'}}).catch(function(){}); }
+  PU_LINES.splice(ix,1); puRender();
+}
+function puSetQty(ix,inp){
+  if(!PU_LINES[ix])return;
+  var q=parseFloat(inp.value); if(isNaN(q))q=0; PU_LINES[ix].qty=q;
+  var uc=PU_LINES[ix].unit_cost;
+  var t=inp.parentElement?inp.parentElement.querySelector('.pu-line-tot'):null;
+  if(t)t.textContent=(uc!=null&&uc!=='')?('$'+(parseFloat(uc)*q).toFixed(2)):'—';
+}
+function puRender(){
+  var el=document.getElementById('f-pu-list'); if(!el)return;
+  if(!PU_LINES.length){ el.innerHTML=''; return; }
+  var grand=0, haveCost=false;
+  el.innerHTML=PU_LINES.map(function(p,ix){
+    var uc=(p.unit_cost!=null&&p.unit_cost!=='')?parseFloat(p.unit_cost):null;
+    var q=(p.qty!=null&&p.qty!=='')?parseFloat(p.qty):0; if(isNaN(q))q=0;
+    var tot=(uc!=null&&!isNaN(uc))?(uc*q):null; if(tot!=null){grand+=tot;haveCost=true;}
+    var ucs=(uc!=null&&!isNaN(uc))?('$'+uc.toFixed(2)+' ea'):'no cost';
+    var tots=(tot!=null)?('$'+tot.toFixed(2)):'—';
+    return '<div style="display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-bottom:6px">'
+      +'<div style="flex:1;min-width:0"><div style="font-size:13.5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(p.description||'(part)')+(p._saved?' <span style="color:var(--text-3);font-size:11px">· saved</span>':'')+'</div>'
+      +'<div style="font-size:11px;color:var(--text-3)">'+escHtml(p.part_no||'no part #')+' · '+ucs+'</div></div>'
+      +'<input type="number" min="0" step="1" value="'+escHtml(p.qty!=null?p.qty:1)+'" '+(p._saved?'disabled':'')+' oninput="puSetQty('+ix+',this)" style="width:56px;background:var(--surface);border:1px solid var(--border-2);border-radius:7px;padding:7px;font-size:14px;color:#fff;font-family:monospace;text-align:center">'
+      +'<div class="pu-line-tot" style="width:60px;text-align:right;font-size:13px;color:var(--text-2);font-family:monospace">'+tots+'</div>'
+      +'<span onclick="'+(p._saved?('puDeleteSaved('+ix+')'):('puRemove('+ix+')'))+'" style="cursor:pointer;color:'+(p._saved?'#ef4444':'var(--text-3)')+';padding:4px 6px;font-size:15px">✕</span>'
+      +'</div>';
+  }).join('')+(haveCost?('<div style="text-align:right;font-size:12px;color:var(--text-2);font-family:monospace;padding:2px 2px 0">Total parts cost: $'+grand.toFixed(2)+'</div>'):'');
+}
+function puReset(){
+  PU_LINES=[];
+  var s=document.getElementById('f-pu-search'); if(s)s.value='';
+  var box=document.getElementById('f-pu-results'); if(box)box.style.display='none';
+  try{puRender();}catch(_e){}
+}
+function puLoadForEntry(wid){
+  if(!wid)return;
+  sbFetch('bbw_part_issues?worklog_id=eq.'+encodeURIComponent(wid)+'&order=id.asc')
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){
+      if(!Array.isArray(rows)||!rows.length)return;
+      rows.forEach(function(r){ PU_LINES.push({issue_id:r.id,inventory_id:r.inventory_id,part_no:r.part_no||'',description:r.description||'',qty:(r.qty!=null?r.qty:1),unit_cost:r.unit_cost,_saved:true}); });
+      try{puRender();}catch(_e){}
+    }).catch(function(){});
+}
+// Write the newly-added (unsaved) part lines for a just-saved worklog entry.
+function syncPartIssues(e){
+  try{
+    if(!e||!e.sbId||!e.partsUsed||!e.partsUsed.length)return;
+    var rows=e.partsUsed.filter(function(p){return p&&p.description&&!p._saved;}).map(function(p){
+      var q=parseFloat(p.qty); if(isNaN(q)||q<0)q=1;
+      var uc=(p.unit_cost!=null&&p.unit_cost!=='')?parseFloat(p.unit_cost):null; if(isNaN(uc))uc=null;
+      return {date:(e.date||localDateStr(new Date())), issued_by:(e.who||null),
+        asset_code:(e.assetCode||null), asset_name:(e.assetName||null),
+        wo_ref:(e.woRef||null), wo_id:(e.woId!=null?e.woId:null), worklog_id:e.sbId,
+        inventory_id:(p.inventory_id!=null?p.inventory_id:null), part_no:(p.part_no||null),
+        description:p.description, qty:q, unit_cost:uc,
+        total_cost:(uc!=null?+(uc*q).toFixed(2):null), currency:'CAD',
+        created_by:(typeof user!=='undefined'?user:null)};
+    });
+    if(!rows.length)return;
+    sbFetch('bbw_part_issues',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(rows)})
+      .then(function(r){ if(!(r.ok||r.status===201||r.status===204))console.warn('part-issue sync HTTP '+r.status); })
+      .catch(function(err){ console.warn('part-issue sync failed',err); });
+    e.partsUsed.forEach(function(p){ if(p&&p.description&&!p._saved)p._saved=true; });
+  }catch(_e){ console.warn('syncPartIssues threw',_e); }
+}
 var INV_SEARCH='';        // active search text
 var INV_LOWONLY=false;    // low-stock filter
 var INV_CUSTOM_FOLDERS=[];// custom folder names (persisted in bbw_system)
