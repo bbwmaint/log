@@ -125,7 +125,7 @@ async function uploadToStorage(filename, buf) {
 }
 
 /* ── render all target PDFs in one headless session ───────────────────────── */
-async function renderPDFs(targets) {
+async function renderPDFs(targets, cmmsPms) {
   const proxy = process.env.HTTPS_PROXY ? { server: process.env.HTTPS_PROXY } : undefined;
   const browser = await chromium.launch({ args: ['--no-sandbox', '--disable-dev-shm-usage'], proxy });
   const out = [];
@@ -135,13 +135,19 @@ async function renderPDFs(targets) {
     const warns = []; page.on('pageerror', e => warns.push(e.message));
     await page.goto('file://' + INDEX, { waitUntil: 'load', timeout: 60000 });
     await page.waitForFunction(() => window.jspdf && window.jspdf.jsPDF, { timeout: 30000 }).catch(() => {});
-    await page.evaluate(async (secretKey) => {
+    // bbw_pms (PM definitions + any app-edited task lists / descriptions) is RLS-locked
+    // to the authenticated role. Reassigning SBKEY *inside* the page does NOT bypass RLS
+    // (the same trap that made the machine/stats reports come out empty), so bbw_pms is
+    // fetched in NODE with the secret key and injected here as CMMS_PMS. WO rows are
+    // already fetched in Node (the render targets), so no in-page loaders are needed.
+    await page.evaluate((pms) => {
       user = (typeof EDITORS !== 'undefined' && EDITORS[0]) || 'Praful';
-      if (secretKey) { try { SBKEY = secretKey; } catch (e) {} }   // read past RLS with the CI key
-      try { loadSchedulesFromStorage && loadSchedulesFromStorage(); } catch (e) {}
-      try { await loadCMMS(true); } catch (e) {}
-      try { await loadWOs(true); } catch (e) {}
-    }, process.env.SUPABASE_KEY || '');
+      try {
+        var rows = (typeof cmmsClean === 'function') ? cmmsClean(pms || []) : (pms || []);
+        if (rows && rows.length) CMMS_PMS = rows;
+        CMMS_LOADED = true;
+      } catch (e) {}
+    }, cmmsPms || []);
     for (const w of targets) {
       const res = await page.evaluate(async (wo) => {
         try {
@@ -215,7 +221,15 @@ async function sendBatch(pdfs) {
   console.log(`New completions to back up: ${todo.length}${todo.length >= LIMIT ? ` (capped at ${LIMIT})` : ''}`);
   if (!todo.length) { console.log('Nothing to do.'); return; }
 
-  const pdfs = await renderPDFs(todo);
+  // PM definitions / edited task lists — fetched in Node with the secret key (past RLS)
+  // and injected into the render page. Empty here means the key/RLS is wrong, not a
+  // quiet table: bbw_pms always holds the PM master.
+  const cmmsPms = await pageAll('bbw_pms?select=*&order=code.asc')
+    .catch(e => { console.warn('bbw_pms fetch failed:', e.message); return []; });
+  if (!cmmsPms.length) console.warn('WARNING: bbw_pms came back empty — PM task lists/descriptions will fall back to built-in text. Check SUPABASE_KEY is the secret job key.');
+  else console.log(`Loaded ${cmmsPms.length} PM definitions from bbw_pms.`);
+
+  const pdfs = await renderPDFs(todo, cmmsPms);
   console.log(`Rendered ${pdfs.length} PDF${pdfs.length === 1 ? '' : 's'}.`);
   if (!pdfs.length) { console.log('No PDFs rendered — nothing sent.'); return; }
 
