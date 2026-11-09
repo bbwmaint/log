@@ -1063,7 +1063,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v266';
+var APP_BUILD='BBW CMMS build v267';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -8157,7 +8157,9 @@ function renderPMModule(){
   window.__pmEmptyTries=0;
   var types=Array.from(new Set(CMMS_PMS.map(function(p){return p.pm_type;}).filter(Boolean))).sort();
   var _rm=removedNameSet();
-  var assignees=Array.from(new Set(CMMS_PMS.map(function(p){return canonName(p.assignee);}).filter(Boolean).concat(typeof TECHS!=='undefined'?TECHS:[]))).filter(function(n){return !_rm[canonName(n)];}).sort();
+  // Only current roster techs — not every name ever typed onto a PM, which kept
+  // stale people (e.g. Yehor) and junk group labels ("Technicians") in the filter.
+  var assignees=(typeof TECHS!=='undefined'?TECHS:[]).filter(function(n){return n&&!_rm[canonName(n)];}).slice().sort();
   var H='';
   H+='<div style="display:flex;gap:8px;margin-bottom:10px">';
   H+='<input id="pm-search" value="'+CMMS_FILTER.q.replace(/"/g,'&quot;')+'" oninput="CMMS_FILTER.q=this.value;debRender(\'cmms\',cmmsRenderPMList)" placeholder="Search code, asset, description\u2026" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;color:var(--text);font-size:14px;outline:none">';
@@ -8277,7 +8279,7 @@ function openPMForm(id){
   // list imported from Fiix so editing never begins from a blank box.
   var _curTasks=(p.tasks&&String(p.tasks).trim())?String(p.tasks)
                  :((typeof PM_TASKS!=='undefined'&&PM_TASKS[p.code]&&PM_TASKS[p.code].tasks)?PM_TASKS[p.code].tasks:'');
-  var techOpts=['','Abin','Adam','Akshay','Akshaylal','Anupam','Lahcen','Maksym','Praful','Sachin','Sergei','Technicians','Viktor','Vitalii','Yassine','Yehor'].map(function(t){return '<option'+(t===p.assignee?' selected':'')+'>'+t+'</option>';}).join('');
+  var techOpts=[''].concat(typeof TECHS!=='undefined'?TECHS:[]).map(function(t){return '<option'+(t===p.assignee?' selected':'')+'>'+t+'</option>';}).join('');
   var typeOpts=['Preventive','Inspection','Calibration','Food Safety PM'].map(function(t){return '<option'+(t===p.pm_type?' selected':'')+'>'+t+'</option>';}).join('');
   var prioOpts=['','Low','Medium','High','Highest'].map(function(t){return '<option'+(t===p.priority?' selected':'')+'>'+(t||'\u2014')+'</option>';}).join('');
   var assetList=(typeof ASSETS!=='undefined'?ASSETS:[]).map(function(a){return '<option value="'+a.n+'|'+a.c+'"'+(a.n===p.asset?' selected':'')+'>'+a.n+' ('+a.c+')</option>';}).join('');
@@ -8668,7 +8670,9 @@ function renderWOModule(){
   generateWOs().then(function(){return loadWOs(true);}).then(function(){
     try{reconcileGroupPMsFromLogs();}catch(_r){}
     var _rm=removedNameSet();
-    var assignees=Array.from(new Set(WOS.map(function(w){return canonName(w.assignee);}).filter(Boolean).concat(typeof TECHS!=='undefined'?TECHS:[]))).filter(function(n){return !_rm[canonName(n)];}).sort();
+    // Only current roster techs — not every name ever typed onto a work order,
+    // which kept stale people (e.g. Yehor) and junk labels ("Technicians") here.
+    var assignees=(typeof TECHS!=='undefined'?TECHS:[]).filter(function(n){return n&&!_rm[canonName(n)];}).slice().sort();
     var H='';
     H+='<div style="display:flex;gap:8px;margin-bottom:11px">';
     H+='<button onclick="doGenerateWOs(this)" class="btn-primary" style="flex:1;padding:11px;font-size:13px">Generate due WOs</button>';
@@ -10686,7 +10690,7 @@ function woAsset(id){ try{ var w=(typeof WOS!=='undefined'?WOS:[]).filter(functi
 function openWOForm(id){
   var w=id?WOS.filter(function(x){return x.id===id;})[0]:{wo_code:'',asset:'',asset_code:'',description:'',priority:'High',wo_type:'Preventive',assignee:'',status:'open',due_date:pmISO(new Date()),hours_est:''};
   if(!w)return;
-  var techOpts=['','Abin','Adam','Akshay','Akshaylal','Anupam','Lahcen','Maksym','Praful','Sachin','Sergei','Technicians','Viktor','Vitalii','Yassine','Yehor'].map(function(t){return '<option'+(t===w.assignee?' selected':'')+'>'+t+'</option>';}).join('');
+  var techOpts=[''].concat(typeof TECHS!=='undefined'?TECHS:[]).map(function(t){return '<option'+(t===w.assignee?' selected':'')+'>'+t+'</option>';}).join('');
   var typeOpts=['Preventive','Inspection','Calibration','Food Safety PM','Reactive'].map(function(t){return '<option'+(t===w.wo_type?' selected':'')+'>'+t+'</option>';}).join('');
   var prioOpts=['Low','Medium','High','Highest'].map(function(t){return '<option'+(t===w.priority?' selected':'')+'>'+t+'</option>';}).join('');
   var statusOpts=['open','assigned','in_progress','completed'].map(function(s){return '<option value="'+s+'"'+(s===w.status?' selected':'')+'>'+WO_STATUS[s].label+'</option>';}).join('');
