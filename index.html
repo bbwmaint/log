@@ -1079,7 +1079,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v273';
+var APP_BUILD='BBW CMMS build v274';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1487,6 +1487,9 @@ function loginUser(name){
   // Keep the My Work count fresh once work orders arrive.
   try{ loadWOs(true).then(function(){ try{injectMyPMTasks();}catch(e){} }); }catch(e){}
   try{checkUBanner();}catch(e){console.error('checkUBanner',e);}
+  // Fresh token in hand now — push any entries that were stuck "waiting to sync"
+  // because a lapsed session had sent them as anon (RLS rejected them).
+  try{ setTimeout(function(){ try{retryUnsynced();}catch(_e){} },1500); }catch(e){}
   // Refresh every 5 minutes (was 30s — that polling was the main egress driver)
   setInterval(function(){if(user)loadFromSB();},300000);
   // Request polling — check for new scanner/barcode requests every 60 s
@@ -3616,6 +3619,25 @@ function _dropBadColumn(payload, errText){
                'Retrying without: '+legacy.join(', ')+' — CHANGEOVER AND PHOTO DATA WILL BE MISSING for this entry.');
   return {payload:out, dropped:legacy};
 }
+// A write came back 401/403: the session token lapsed, so the request went out
+// as the anon key and RLS rejected it (that's why entries sit "waiting to sync"
+// on a perfectly good connection). Bounce to the PIN screen so the tech re-auths;
+// after re-login, loginUser() auto-retries the queued entries. Debounced so a batch
+// of pending writes doesn't fire several prompts, and guarded so a transient 401
+// while a VALID token is held never logs anyone out.
+var _authLapseHandling=false;
+function handleAuthLapse(){
+  if(_authLapseHandling)return;
+  if(authValid())return;                 // token is actually fine — don't force a logout
+  _authLapseHandling=true;
+  try{ authClear(); }catch(e){}
+  var _ku=null; try{_ku=localStorage.getItem('bbw_keepuser');}catch(e){}
+  user=null;
+  try{ toast && toast((lang==='uk')?'Сесія закінчилась — уведіть PIN, щоб синхронізувати':'Session expired — re-enter your PIN to sync',true); }catch(e){}
+  try{ showPage('pg-pin'); }catch(e){}
+  if(_ku&&TECHS.indexOf(_ku)>=0){ try{selName(_ku);}catch(e){try{showNames();}catch(_w){}} } else { try{showNames();}catch(e){} }
+  setTimeout(function(){ _authLapseHandling=false; },5000);
+}
 function syncEntry(e){
   if(e._syncing)return;            // a POST for this entry is already in flight — don't double-post
   e._syncing=true;
@@ -3650,6 +3672,9 @@ function syncEntry(e){
           return sbFetch('bbw_worklog',{method:'POST',body:JSON.stringify(fix.payload)}).then(function(r2){return r2.json();});
         });
       }
+      // Auth lapse: the token went stale and this went out as anon → RLS 401/403.
+      // Keep the entry queued (no sbId) and prompt re-login; it retries after re-auth.
+      if(r.status===401||r.status===403){ try{handleAuthLapse();}catch(_e){} return null; }
       return r.json();
     })
     .then(function(d){ e._syncing=false; onSaved(d); try{updateSyncBar();}catch(_e){} })
