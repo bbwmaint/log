@@ -143,7 +143,7 @@ export function buildReportPDF(R){
     var pageH=doc.internal.pageSize.getHeight();
     withPhotos.forEach(function(e){
       doc.setFont(RF,'bold'); doc.setFontSize(9.5); doc.setTextColor(40,40,40);
-      var cap=pdfSafe((e.assetName||e.partName||'General')+(e.issue?' \u2014 '+tr(e.issue):'')+(e.who?'  ('+e.who+')':''));
+      var _by=byNames(e); var cap=pdfSafe((e.assetName||e.partName||'General')+(e.issue?' \u2014 '+tr(e.issue):'')+(_by?'  ('+_by+')':''));
       if(y+24>pageH-44){doc.addPage();y=44;}
       doc.text(cap, M, y); y+=11;
       entryPhotos(e).forEach(function(p){

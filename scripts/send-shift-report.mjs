@@ -228,7 +228,12 @@ export function buildR(date, shift, rows) {
       const NAME_ALIAS = { 'Akshaylal': 'Akshay' };
       const canon = n => { n = String(n == null ? '' : n).replace(/\u00a0/g, ' ').trim(); return NAME_ALIAS[n] || n; };
       const seen = {}, out = [];
-      se.forEach(e => [e.who, e.withWho].forEach(n => { if (!n) return; const c = canon(n); if (!seen[c]) { seen[c] = 1; out.push(c); } }));
+      const add = n => { const c = canon(n); if (c && !seen[c]) { seen[c] = 1; out.push(c); } };
+      // Mirror the app's reportTechs: who PLUS each "worked with" partner. withWho is a
+      // comma-joined string ("Sergei, Maksym, Anupam") \u2014 split it so partners are listed
+      // and de-duplicated individually (otherwise the whole string counts as one "name"
+      // and a partner already credited shows twice).
+      se.forEach(e => { add(e.who); String(e.withWho || '').split(',').forEach(add); });
       return out;
     })(),
     dtEvents, totalDT: dtEvents.reduce((a, e) => a + e.dt, 0),
