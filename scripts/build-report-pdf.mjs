@@ -30,6 +30,9 @@ export function reportFileName(R){ return 'BBW_Shift_Report_'+R.date+'_'+R.shift
 
 export function buildReportPDF(R){
   function pdfSafe(s){return String(s==null?'':s).replace(/\u26A0/g,'!').replace(/\u2713/g,'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/\u2014/g,'-').replace(/\u2026/g,'...').replace(/[\u2192]/g,'->');}
+  // "By" = the primary logger (who) PLUS any "worked with" partners, matching the
+  // in-app report. Previously this used e.who only, so partners were dropped.
+  function byNames(e){var a=[e.who];var w=e.withWho||e.with_who||'';String(w).split(',').forEach(function(n){n=(n||'').trim();if(n)a.push(n);});return a.filter(Boolean).join(' + ');}
   var doc=new jsPDF({unit:'pt',format:'letter'});
   var RF='helvetica';
   try{
@@ -114,7 +117,7 @@ export function buildReportPDF(R){
   function tr(t){return (R.tmap&&R.tmap[t])?R.tmap[t]:t;}
   function descCell(e){var s=(e.issue?tr(e.issue):''); if(e.desc){s+=(s?'\n':'')+tr(e.desc);} return pdfSafe(s)||'-';}
   if(R.issues.length){ sectTitle('Pending Issues — Next Shift Must Action',[220,38,38],R.issues.length);
-    tbl('Issues',[220,38,38],['Asset','Issue / Description','By'],R.issues.map(function(e){return [e.assetName||'General',descCell(e),e.who||''];})); }
+    tbl('Issues',[220,38,38],['Asset','Issue / Description','By'],R.issues.map(function(e){return [e.assetName||'General',descCell(e),byNames(e)];})); }
   else { if(y>doc.internal.pageSize.getHeight()-90){doc.addPage();y=44;}
     doc.setFillColor(240,253,244); doc.roundedRect(M,y,W-2*M,26,6,6,'F');
     doc.setTextColor(22,163,74); doc.setFont(RF,'bold'); doc.setFontSize(10);
@@ -124,12 +127,12 @@ export function buildReportPDF(R){
   if(_uco.length){ sectTitle('Upcoming Changeovers - Next Shift',_NV,_uco.length);
     tbl('Changeovers',_NV,['Type','Change','When'],_uco.map(function(co){return [pdfSafe(co.type),pdfSafe(co.from?(co.to?co.from+' -> '+co.to:co.from):'-'),pdfSafe(co.atLabel||'')];})); }
   sectTitle('Work Completed',[22,163,74],R.done.length);
-  if(R.done.length) tbl('Completed',[22,163,74],['Asset','Issue / Description','Time','By'],R.done.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),e.who||''];}));
+  if(R.done.length) tbl('Completed',[22,163,74],['Asset','Issue / Description','Time','By'],R.done.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),byNames(e)];}));
   else { doc.setTextColor(150,150,150); doc.setFont(RF,'italic'); doc.setFontSize(9); doc.text('None this shift.',M,y+4); y+=18; }
   if(R.ongoing.length){ sectTitle('In Progress — Continue Next Shift',_NV,R.ongoing.length);
-    tbl('Ongoing',_NV,['Asset','Issue / Description','Time','By'],R.ongoing.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),e.who||''];})); }
+    tbl('Ongoing',_NV,['Asset','Issue / Description','Time','By'],R.ongoing.map(function(e){return [e.assetName||'General',descCell(e),(e.start?e.start+(e.end?'-'+e.end:''):''),byNames(e)];})); }
   if(R.parts.length){ sectTitle('Parts to Order',_NV,R.parts.length);
-    tbl('Parts',_NV,['Part','Asset','Qty','By'],R.parts.map(function(e){return [e.partName||e.issue||'—',e.assetName||'',e.partQty||'1',e.who||''];})); }
+    tbl('Parts',_NV,['Part','Asset','Qty','By'],R.parts.map(function(e){return [e.partName||e.issue||'—',e.assetName||'',e.partQty||'1',byNames(e)];})); }
   // Attached photos (mostly parts) — embed all photos inline at the end.
   function entryPhotos(e){var ph=(e.photos&&e.photos.length)?e.photos:(e.photo?[e.photo]:[]);return ph.filter(function(p){return p&&typeof p==='string'&&p.indexOf('data:image')===0;});}
   var withPhotos=R.se.filter(function(e){return entryPhotos(e).length;});
