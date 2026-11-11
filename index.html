@@ -1079,7 +1079,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v276';
+var APP_BUILD='BBW CMMS build v277';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1334,6 +1334,8 @@ function authLoad(){
       var e=_jwtExp(t)||parseInt(localStorage.getItem('bbw_tok_exp')||'0',10);
       if(e&&(e*1000)>Date.now()+60000){ AUTH_TOKEN=t; AUTH_EXP=e; try{localStorage.setItem('bbw_tok_exp',String(e));}catch(_e){} return; }
     }
+    // breadcrumb: why authLoad is dropping the session (seen in sessionDiag)
+    try{ localStorage.setItem('bbw_dbg_load', JSON.stringify({t:new Date().toISOString(), hadTok:!!t, jwtExp:(t?_jwtExp(t):null), storedExp:localStorage.getItem('bbw_tok_exp')}).slice(0,250)); }catch(_d){}
     localStorage.removeItem('bbw_tok'); localStorage.removeItem('bbw_tok_exp'); }catch(e){}
 }
 function authSet(tok){
@@ -1344,7 +1346,11 @@ function authSet(tok){
   AUTH_EXP=_jwtExp(tok) || (Math.floor(Date.now()/1000)+30*24*3600);
   try{ localStorage.setItem('bbw_tok',tok); localStorage.setItem('bbw_tok_exp',String(AUTH_EXP)); }catch(e){}
 }
-function authClear(){ AUTH_TOKEN=null; AUTH_EXP=0; try{ localStorage.removeItem('bbw_tok'); localStorage.removeItem('bbw_tok_exp'); }catch(e){} }
+function authClear(){
+  // breadcrumb: record who called authClear and whether the session looked valid (seen in sessionDiag)
+  try{ localStorage.setItem('bbw_dbg_clear', JSON.stringify({t:new Date().toISOString(), authValid:(AUTH_TOKEN?((AUTH_EXP*1000)>Date.now()):false), by:((new Error().stack||'').split('\n').slice(1,4).join(' <- ')).replace(/https?:\/\/[^ )]+\//g,'')}).slice(0,280)); }catch(_d){}
+  AUTH_TOKEN=null; AUTH_EXP=0; try{ localStorage.removeItem('bbw_tok'); localStorage.removeItem('bbw_tok_exp'); }catch(e){}
+}
 function authValid(){ return !!(AUTH_TOKEN && (AUTH_EXP*1000)>Date.now()); }
 function authBearer(){ return (!PUBLIC_MODE && authValid())?AUTH_TOKEN:SBKEY; }
 // Mint a token from a name+PIN (returns the token string, or null on wrong PIN).
@@ -1471,7 +1477,10 @@ function sessionDiag(){
     'name remembered: '+(keep||'no'),
     'stored expiry: '+(texp?when(texp):'missing'),
     'token decodes: '+(jexp?('YES, '+when(jexp)):'NO — decode failed'),
-    'app decision: '+decided
+    'app decision: '+decided,
+    '',
+    'last load-drop: '+(g('bbw_dbg_load')||'none'),
+    'last authClear: '+(g('bbw_dbg_clear')||'none')
   ];
   var pre='<pre style="white-space:pre-wrap;font-size:12.5px;line-height:1.7;color:#fff;margin:0;font-family:ui-monospace,monospace">'+lines.join('\n').replace(/</g,'&lt;')+'</pre>';
   var m=document.createElement('div');
