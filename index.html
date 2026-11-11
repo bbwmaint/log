@@ -1079,7 +1079,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v280';
+var APP_BUILD='BBW CMMS build v281';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1331,6 +1331,9 @@ var AUTH_TOKEN=null, AUTH_EXP=0;
 function _jwtExp(tok){
   try{ var s=String(tok).split('.')[1]; if(!s)return 0; s=s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4)s+='='; var p=JSON.parse(atob(s)); return (p&&p.exp)?p.exp:0; }catch(e){ return 0; }
 }
+function _jwtClaims(tok){
+  try{ var s=String(tok).split('.')[1]; if(!s)return null; s=s.replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4)s+='='; return JSON.parse(atob(s)); }catch(e){ return null; }
+}
 function authLoad(){
   try{ var t=localStorage.getItem('bbw_tok');
     if(t){
@@ -1476,9 +1479,13 @@ function sessionDiag(){
   function when(e){ e=parseInt(e,10); if(!e)return '—'; return (e>now?('valid, '+Math.round((e-now)/86400)+'d left'):('EXPIRED '+Math.round((now-e)/86400)+'d ago')); }
   var effExp=(jexp||parseInt(texp||'0',10));
   var decided=(tok && effExp*1000 > Date.now()+60000) ? 'STAY LOGGED IN' : 'ASK FOR PIN';
+  var cl=_jwtClaims(tok||'')||{};
+  var roleOK=(cl.role==='authenticated');
   var lines=[
     (typeof APP_BUILD!=='undefined'?APP_BUILD:'?'),
     'token stored: '+(tok?('YES ('+tok.length+' chars)'):'NO — missing'),
+    'token role: '+((cl.role!=null)?(cl.role+(roleOK?'  ✓':'  ✗ should be authenticated')):'(none — treated as anon ✗)'),
+    'token name: '+(cl.bbw_name||cl.name||cl.sub||'—'),
     'name remembered: '+(keep||'no'),
     'stored expiry: '+(texp?when(texp):'missing'),
     'token decodes: '+(jexp?('YES, '+when(jexp)):'NO — decode failed'),
@@ -1490,8 +1497,16 @@ function sessionDiag(){
   var pre='<div style="font-size:14px;line-height:1.75;font-family:ui-monospace,monospace">'+lines.map(function(_l){return '<div style="color:#ffffff;-webkit-text-fill-color:#ffffff;white-space:pre-wrap;word-break:break-word;margin:1px 0">'+String(_l).replace(/</g,'&lt;')+'</div>';}).join('')+'</div>';
   var m=document.createElement('div');
   m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
-  m.innerHTML='<div style="background:#000;border:1px solid #555;border-radius:12px;padding:18px;max-width:440px;width:100%"><div style="font-size:16px;font-weight:800;color:#fff;-webkit-text-fill-color:#fff;margin-bottom:12px">Session diagnostic</div>'+pre+'<div id="diag-persist" style="font-size:14px;color:#fff;-webkit-text-fill-color:#fff;margin-top:6px;font-family:ui-monospace,monospace">device keeps storage: checking…</div><button onclick="var p=this.parentNode.parentNode;p.parentNode.removeChild(p)" style="margin-top:16px;width:100%;padding:13px;background:#fff;color:#000;-webkit-text-fill-color:#000;border:none;border-radius:9px;font-weight:700;font-size:15px">Close</button></div>';
+  m.innerHTML='<div style="background:#000;border:1px solid #555;border-radius:12px;padding:18px;max-width:440px;width:100%"><div style="font-size:16px;font-weight:800;color:#fff;-webkit-text-fill-color:#fff;margin-bottom:12px">Session diagnostic</div>'+pre+'<div id="diag-read" style="font-size:14px;color:#fff;-webkit-text-fill-color:#fff;margin-top:8px;font-family:ui-monospace,monospace">live read bbw_worklog: testing…</div><div id="diag-persist" style="font-size:14px;color:#fff;-webkit-text-fill-color:#fff;margin-top:6px;font-family:ui-monospace,monospace">device keeps storage: checking…</div><button onclick="var p=this.parentNode.parentNode;p.parentNode.removeChild(p)" style="margin-top:16px;width:100%;padding:13px;background:#fff;color:#000;-webkit-text-fill-color:#000;border:none;border-radius:9px;font-weight:700;font-size:15px">Close</button></div>';
   document.body.appendChild(m);
+  // Live authenticated-read probe: proves whether the server accepts this token as
+  // `authenticated` (rows come back) or treats it as anon (locked table → 0 rows / 401).
+  try{
+    fetch(SB+'/rest/v1/bbw_worklog?select=date&limit=1',{headers:{'apikey':SBKEY,'Authorization':'Bearer '+authBearer(),'Prefer':'count=exact'}})
+      .then(function(r){ var cr=r.headers.get('content-range')||''; var total=(cr.split('/')[1]||'?'); return r.json().then(function(j){ return {st:r.status, n:(Array.isArray(j)?j.length:0), total:total}; }).catch(function(){ return {st:r.status, n:0, total:total}; }); })
+      .then(function(o){ var el=document.getElementById('diag-read'); if(!el)return; var verdict=(o.st===200&&o.total!=='0'&&o.total!=='?')?'  ✓ authenticated':(o.st===200?'  ✗ 0 rows — token treated as ANON':'  ✗ rejected'); el.textContent='live read bbw_worklog: HTTP '+o.st+', total rows '+o.total+verdict; })
+      .catch(function(e){ var el=document.getElementById('diag-read'); if(el)el.textContent='live read bbw_worklog: network error ('+(e&&e.message||e)+')'; });
+  }catch(e){}
   try{ if(navigator.storage&&navigator.storage.persisted){ navigator.storage.persisted().then(function(p){ var el=document.getElementById('diag-persist'); if(el)el.textContent='device keeps storage: '+(p?'YES (persistent)':'NO (can be evicted)'); }); } else { var el=document.getElementById('diag-persist'); if(el)el.textContent='device keeps storage: unknown (API unsupported)'; } }catch(e){}
 }
 function loginUser(name){
