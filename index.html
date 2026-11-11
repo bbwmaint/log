@@ -1079,7 +1079,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v279';
+var APP_BUILD='BBW CMMS build v280';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -8408,6 +8408,10 @@ function openPMForm(id){
   H+=fld('\u2026 or type it (advanced)', '<input id="pf-freq" value="'+(p.freq||'').replace(/"/g,'&quot;')+'" oninput="pmFreqPreview()" style="'+ist+'"><div id="pf-freqprev" style="font-size:11px;color:var(--text-3);margin-top:4px"></div>');
   H+='<div style="display:flex;gap:9px">'+fld('Type','<select id="pf-type" style="'+ist+'">'+typeOpts+'</select>')+fld('Priority','<select id="pf-prio" style="'+ist+'">'+prioOpts+'</select>')+'</div>';
   H+='<div style="display:flex;gap:9px">'+fld('Assignee','<select id="pf-assignee" style="'+ist+'"><option value=""></option>'+techOpts+'</select>')+fld('Est. minutes','<input id="pf-hours" type="number" step="1" min="0" value="'+(p.hours!=null?Math.round(p.hours*60):'')+'" style="'+ist+'">')+'</div>';
+  if(typeof isAdmin==='function' && isAdmin()){
+    var _pld=''; try{_pld=pmLastDone(p)||'';}catch(e){ _pld=(p.last_done?(''+p.last_done).slice(0,10):''); }
+    H+=fld('Last completed <span style="color:var(--text-3)">— admin; changing this reschedules Next due</span>', '<input id="pf-lastdone" type="date" value="'+_pld+'" onchange="pmLastDoneChanged()" style="'+ist+'"><div id="pf-ldhint" style="font-size:11px;color:var(--text-3);margin-top:4px"></div>');
+  }
   H+=fld('Next due (auto from frequency if blank)', '<input id="pf-nextdue" type="date" value="'+(p.next_due||'')+'" style="'+ist+'">');
   H+='<button onclick="savePM('+(id?'\''+id+'\'':'')+')" class="btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:6px">'+(id?'Save changes':'Create PM')+'</button>';
   H+='</div></div>';
@@ -8469,12 +8473,21 @@ function pmTaskCount(){
   el.textContent=steps+' step'+(steps===1?'':'s')+(heads?(' \u00b7 '+heads+' section'+(heads===1?'':'s')):'');
 }
 function pmFreqPreview(){var el=gid('pf-freqprev');if(!el)return;var f=gid('pf-freq').value;var p=pmParseFreq(f);if(!f){el.textContent='';return;}if(!p){el.innerHTML='<span style="color:#fbbf24">Unrecognized pattern \u2014 will still save, but won\u2019t auto-schedule.</span>';return;}el.innerHTML='<span style="color:#34d399">\u2713 Next due '+pmNextDueISO(f,new Date())+'</span>';}
+function pmLastDoneChanged(){
+  var ld=gid('pf-lastdone'); if(!ld)return;
+  var nd=gid('pf-nextdue'), hint=gid('pf-ldhint');
+  var v=ld.value, freq=(gid('pf-freq')?gid('pf-freq').value.trim():'');
+  if(v&&freq){ var next=pmAdvanceISO(freq,v); if(next){ if(nd)nd.value=next; if(hint)hint.innerHTML='<span style="color:#34d399">✓ Next due recalculated to '+next+'</span>'; return; } }
+  if(hint)hint.textContent= v?'Next due unchanged (set a Frequency to auto-reschedule).':'';
+}
 function closePMForm(){var e=gid('pm-modal');if(e)e.remove();}
 function savePM(id){
   var av=(gid('pf-asset').value||'|').split('|');
   var freq=gid('pf-freq').value.trim();
-  var nd=gid('pf-nextdue').value||pmNextDueISO(freq,new Date());
+  var ldVal=(gid('pf-lastdone')?(gid('pf-lastdone').value||''):'');
+  var nd=gid('pf-nextdue').value||(ldVal?pmAdvanceISO(freq,ldVal):'')||pmNextDueISO(freq,new Date());
   var rec={code:gid('pf-code').value.trim(),asset:av[0]||'',asset_code:av[1]||'',description:gid('pf-desc').value.trim(),freq:freq,pm_type:gid('pf-type').value,priority:gid('pf-prio').value,assignee:gid('pf-assignee').value,hours:gid('pf-hours').value?(parseFloat(gid('pf-hours').value)/60):null,next_due:nd||null,updated_at:new Date().toISOString(),tasks:(gid('pf-tasks')?gid('pf-tasks').value.trim():'')};
+  if(gid('pf-lastdone')){ rec.last_done=ldVal||null; }
   if(!rec.description){alert('Add a description');return;}
   if(pmIsLocal(id)){alert('These PMs are shown from the built-in list. To save edits, the bbw_pms table needs to accept writes (check Supabase RLS), then reopen this tab.');return;}
   var path=id?'bbw_pms?id=eq.'+id:'bbw_pms';
