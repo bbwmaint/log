@@ -1079,7 +1079,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v278';
+var APP_BUILD='BBW CMMS build v279';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1251,7 +1251,12 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
     // instead of letting reads/writes fail silently once RLS is on.
     try{
       if(user && !REQ_MODE && !FL_MODE && !FLDASH_MODE && !FLREQ_MODE && !authValid()){
-        authClear();
+        // iOS keeps localStorage but can reset the in-memory AUTH_TOKEN on resume, so
+        // authValid() may read false even though the saved 30-day token is still good.
+        // Re-hydrate from storage FIRST; only prompt for PIN if the SAVED token is truly
+        // gone/expired. Never authClear() here — that was deleting live sessions.
+        try{ authLoad(); }catch(_e){}
+        if(authValid()) return;              // saved token is fine → stay logged in
         var _ku=null; try{_ku=localStorage.getItem('bbw_keepuser');}catch(e){}
         user=null;
         try{toast&&toast('Session expired — please re-enter your PIN');}catch(e){}
@@ -3669,6 +3674,8 @@ var _authLapseHandling=false;
 function handleAuthLapse(){
   if(_authLapseHandling)return;
   if(authValid())return;                 // token is actually fine — don't force a logout
+  try{ authLoad(); }catch(e){}           // in-memory token may be stale (iOS resume) — re-hydrate
+  if(authValid())return;                 // saved token is still good → never wipe a live session
   _authLapseHandling=true;
   try{ authClear(); }catch(e){}
   var _ku=null; try{_ku=localStorage.getItem('bbw_keepuser');}catch(e){}
