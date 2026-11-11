@@ -1079,7 +1079,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v281';
+var APP_BUILD='BBW CMMS build v282';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1548,13 +1548,18 @@ function loginUser(name){
   setInterval(function(){if(user)loadFromSB();},300000);
   // Request polling — check for new scanner/barcode requests every 60 s
   startReqPolling();
-  // Long press chip for admin
+  // Tap the name chip = sign out. LONG-press (0.9s) = open the Session diagnostic
+  // while logged in — so the live-read probe runs with the real authenticated token
+  // (signing out to reach the login-footer diagnostic was destroying the very token
+  // we need to inspect).
   var chip=gid('uchip');
   if(chip){
-    var pt;
-    chip.addEventListener('touchstart',function(){pt=setTimeout(function(){if(user===ADMIN)alert('Admin: coming soon');},1000);},{passive:true});
+    try{ chip.style.webkitUserSelect='none'; chip.style.userSelect='none'; chip.style.webkitTouchCallout='none'; }catch(e){}
+    var pt, _lp=false;
+    chip.addEventListener('touchstart',function(){_lp=false;pt=setTimeout(function(){_lp=true;try{sessionDiag();}catch(e){}},900);},{passive:true});
     chip.addEventListener('touchend',function(){clearTimeout(pt);},{passive:true});
-    chip.addEventListener('click',function(){if(confirm('Sign out?')){user=null;authClear();localStorage.removeItem('bbw_keepuser');showPage('pg-pin');showNames();}});
+    chip.addEventListener('touchmove',function(){clearTimeout(pt);},{passive:true});
+    chip.addEventListener('click',function(){ if(_lp){_lp=false;return;} if(confirm('Sign out?')){user=null;authClear();localStorage.removeItem('bbw_keepuser');showPage('pg-pin');showNames();} });
   }
 }
 
