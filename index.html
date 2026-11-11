@@ -1079,7 +1079,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v274';
+var APP_BUILD='BBW CMMS build v275';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3545,7 +3545,13 @@ function sbFetchAll(path){
   var PAGE=1000, all=[], guard=0;
   function page(off){
     return sbFetch(path,{headers:{'Range-Unit':'items','Range':off+'-'+(off+PAGE-1)}})
-      .then(function(r){ return r.json(); })
+      .then(function(r){
+        // A lapsed session makes authenticated reads go out as anon → RLS answers 401/403
+        // and the row set comes back empty, which silently collapsed dashboards to "only me".
+        // Prompt a re-login (handleAuthLapse no-ops if the token is actually still valid).
+        if((r.status===401||r.status===403)&&!PUBLIC_MODE){ try{handleAuthLapse();}catch(_e){} return []; }
+        return r.json();
+      })
       .then(function(rows){
         if(!Array.isArray(rows))rows=[];
         all=all.concat(rows);
