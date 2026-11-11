@@ -1079,7 +1079,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v283';
+var APP_BUILD='BBW CMMS build v284';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -15199,27 +15199,63 @@ function removeCOAsset(idx){
 // The SW caches index.html, which means a new build can sit unseen behind a stale
 // cache. Check for an update on every load and reload once the new one takes over.
 try{ if(typeof requestPersistentStorage==='function')requestPersistentStorage(); }catch(e){}
+var _swReg=null, _swPending=false, _swReloading=false;
+// A reload is only applied when it won't interrupt anyone: app in front, nobody
+// typing, no log-entry sheet or modal open, and nothing waiting to sync. The token
+// now survives a reload (persisted + re-hydrated on boot), so this no longer logs
+// anyone out — which was the reason auto-update was switched off before.
+function _swVisible(el){
+  // Works for position:fixed modals (where offsetParent is unreliable): a node is
+  // "open" only if it renders with real size and isn't display:none/hidden.
+  try{ if(!el)return false; var s=getComputedStyle(el);
+    if(s.display==='none'||s.visibility==='hidden'||parseFloat(s.opacity||'1')===0)return false;
+    var r=el.getBoundingClientRect(); return r.width>1 && r.height>1;
+  }catch(e){ return false; }
+}
+function _swSafeToReload(){
+  try{
+    if(document.hidden)return false;
+    if(typeof user==='undefined' || !user)return false;              // not during login
+    var ae=document.activeElement;
+    if(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName||''))return false;
+    if(_swVisible(gid('sheet-overlay')))return false;                 // log-entry form open
+    var mods=document.querySelectorAll('[id$="-modal"],[id$="-sheet"]');
+    for(var i=0;i<mods.length;i++){ if(_swVisible(mods[i]))return false; } // a modal/sheet is open
+    if(typeof countUnsynced==='function' && countUnsynced()>0)return false;
+    return true;
+  }catch(e){ return false; }
+}
+function _swApplyIfSafe(){
+  if(!_swPending || _swReloading)return;
+  if(_swSafeToReload()){ _swReloading=true; setTimeout(function(){ try{location.reload();}catch(e){} }, 250); }
+}
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
     try{ if(typeof requestPersistentStorage==='function')requestPersistentStorage(); }catch(e){}
     navigator.serviceWorker.register('sw.js?v='+String(APP_BUILD).replace(/[^0-9]/g,''))
       .then(function(reg){
+        _swReg=reg;
         console.log('SW registered, '+APP_BUILD);
         try{ reg.update(); }catch(e){}
-        setInterval(function(){ try{ reg.update(); }catch(e){} }, 60*60*1000);
+        setInterval(function(){ try{ reg.update(); }catch(e){} }, 30*60*1000);
         reg.addEventListener('updatefound', function(){
           var nw=reg.installing||reg.waiting; if(!nw)return;
           nw.addEventListener('statechange', function(){
-            if(nw.state==='installed'){ try{ nw.postMessage({type:'SKIP_WAITING'}); }catch(e){} }
+            // Only skip-waiting when a controller already exists — i.e. this is an
+            // UPDATE, not the first-ever install (which must not trigger a reload).
+            if(nw.state==='installed' && navigator.serviceWorker.controller){ try{ nw.postMessage({type:'SKIP_WAITING'}); }catch(e){} }
           });
         });
       })
       .catch(function(e){console.log('SW failed:', e);});
   });
-  // A new worker taking control no longer force-reloads the page. HTML is served
-  // network-first, so the next natural load already picks up the latest build;
-  // auto-reloading here logged people out mid-task on every deploy. The in-app
-  // "force update" (forceUpdateApp) is still available if someone wants it now.
+  // Seamless auto-update: when the new build's worker takes control, reload to it at
+  // the next safe moment — on return to the app, or right away if the app is idle.
+  // The team never has to be told to close & reopen after a fix. forceUpdateApp()
+  // remains the manual "update now" path.
+  navigator.serviceWorker.addEventListener('controllerchange', function(){ if(_swReloading)return; _swPending=true; _swApplyIfSafe(); });
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden){ try{ if(_swReg)_swReg.update(); }catch(e){} _swApplyIfSafe(); } });
+  window.addEventListener('focus', function(){ try{ if(_swReg)_swReg.update(); }catch(e){} _swApplyIfSafe(); });
 }
 // Nuclear option surfaced in the UI: drop every cache + SW and hard-reload.
 function forceUpdateApp(){
