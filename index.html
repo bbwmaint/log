@@ -1079,7 +1079,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v277';
+var APP_BUILD='BBW CMMS build v278';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1482,10 +1482,10 @@ function sessionDiag(){
     'last load-drop: '+(g('bbw_dbg_load')||'none'),
     'last authClear: '+(g('bbw_dbg_clear')||'none')
   ];
-  var pre='<pre style="white-space:pre-wrap;font-size:12.5px;line-height:1.7;color:#fff;margin:0;font-family:ui-monospace,monospace">'+lines.join('\n').replace(/</g,'&lt;')+'</pre>';
+  var pre='<div style="font-size:14px;line-height:1.75;font-family:ui-monospace,monospace">'+lines.map(function(_l){return '<div style="color:#ffffff;-webkit-text-fill-color:#ffffff;white-space:pre-wrap;word-break:break-word;margin:1px 0">'+String(_l).replace(/</g,'&lt;')+'</div>';}).join('')+'</div>';
   var m=document.createElement('div');
-  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
-  m.innerHTML='<div style="background:#141416;border:1px solid #333;border-radius:12px;padding:16px;max-width:430px;width:100%"><div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:12px">Session diagnostic</div>'+pre+'<div id="diag-persist" style="font-size:12.5px;color:#9b9ba3;margin-top:8px;font-family:ui-monospace,monospace">device keeps storage: checking…</div><button onclick="var p=this.parentNode.parentNode;p.parentNode.removeChild(p)" style="margin-top:14px;width:100%;padding:12px;background:#fff;color:#000;border:none;border-radius:9px;font-weight:700;font-size:15px">Close</button></div>';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML='<div style="background:#000;border:1px solid #555;border-radius:12px;padding:18px;max-width:440px;width:100%"><div style="font-size:16px;font-weight:800;color:#fff;-webkit-text-fill-color:#fff;margin-bottom:12px">Session diagnostic</div>'+pre+'<div id="diag-persist" style="font-size:14px;color:#fff;-webkit-text-fill-color:#fff;margin-top:6px;font-family:ui-monospace,monospace">device keeps storage: checking…</div><button onclick="var p=this.parentNode.parentNode;p.parentNode.removeChild(p)" style="margin-top:16px;width:100%;padding:13px;background:#fff;color:#000;-webkit-text-fill-color:#000;border:none;border-radius:9px;font-weight:700;font-size:15px">Close</button></div>';
   document.body.appendChild(m);
   try{ if(navigator.storage&&navigator.storage.persisted){ navigator.storage.persisted().then(function(p){ var el=document.getElementById('diag-persist'); if(el)el.textContent='device keeps storage: '+(p?'YES (persistent)':'NO (can be evicted)'); }); } else { var el=document.getElementById('diag-persist'); if(el)el.textContent='device keeps storage: unknown (API unsupported)'; } }catch(e){}
 }
