@@ -614,7 +614,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     </div>
   </div>
 
-  <div style="margin-top:20px;font-size:12px;color:var(--text-3);font-family:monospace">BBW Maintenance &bull; Krones Line 1</div>
+  <div onclick="try{sessionDiag()}catch(e){}" style="margin-top:20px;font-size:12px;color:var(--text-3);font-family:monospace;cursor:pointer">BBW Maintenance &bull; Krones Line 1</div>
 </div>
 
 <div id="pg-request" style="display:none;min-height:100vh;background:var(--bg);overflow-y:auto"></div>
@@ -1079,7 +1079,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v275';
+var APP_BUILD='BBW CMMS build v276';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1454,6 +1454,31 @@ function requestPersistentStorage(){
     if(navigator.storage.persisted){ navigator.storage.persisted().then(function(p){ if(!p){ try{navigator.storage.persist();}catch(e){} } }); }
     else { navigator.storage.persist(); }
   } }catch(e){}
+}
+// Read-only session diagnostic (tap the login-screen footer). Shows what survived a
+// reopen so we can tell a missing token from an undecodable one from a storage wipe.
+function sessionDiag(){
+  function g(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  var tok=g('bbw_tok'), texp=g('bbw_tok_exp'), keep=g('bbw_keepuser');
+  var jexp=0; try{ jexp=_jwtExp(tok||''); }catch(e){}
+  var now=Math.floor(Date.now()/1000);
+  function when(e){ e=parseInt(e,10); if(!e)return '—'; return (e>now?('valid, '+Math.round((e-now)/86400)+'d left'):('EXPIRED '+Math.round((now-e)/86400)+'d ago')); }
+  var effExp=(jexp||parseInt(texp||'0',10));
+  var decided=(tok && effExp*1000 > Date.now()+60000) ? 'STAY LOGGED IN' : 'ASK FOR PIN';
+  var lines=[
+    (typeof APP_BUILD!=='undefined'?APP_BUILD:'?'),
+    'token stored: '+(tok?('YES ('+tok.length+' chars)'):'NO — missing'),
+    'name remembered: '+(keep||'no'),
+    'stored expiry: '+(texp?when(texp):'missing'),
+    'token decodes: '+(jexp?('YES, '+when(jexp)):'NO — decode failed'),
+    'app decision: '+decided
+  ];
+  var pre='<pre style="white-space:pre-wrap;font-size:12.5px;line-height:1.7;color:#fff;margin:0;font-family:ui-monospace,monospace">'+lines.join('\n').replace(/</g,'&lt;')+'</pre>';
+  var m=document.createElement('div');
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  m.innerHTML='<div style="background:#141416;border:1px solid #333;border-radius:12px;padding:16px;max-width:430px;width:100%"><div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:12px">Session diagnostic</div>'+pre+'<div id="diag-persist" style="font-size:12.5px;color:#9b9ba3;margin-top:8px;font-family:ui-monospace,monospace">device keeps storage: checking…</div><button onclick="var p=this.parentNode.parentNode;p.parentNode.removeChild(p)" style="margin-top:14px;width:100%;padding:12px;background:#fff;color:#000;border:none;border-radius:9px;font-weight:700;font-size:15px">Close</button></div>';
+  document.body.appendChild(m);
+  try{ if(navigator.storage&&navigator.storage.persisted){ navigator.storage.persisted().then(function(p){ var el=document.getElementById('diag-persist'); if(el)el.textContent='device keeps storage: '+(p?'YES (persistent)':'NO (can be evicted)'); }); } else { var el=document.getElementById('diag-persist'); if(el)el.textContent='device keeps storage: unknown (API unsupported)'; } }catch(e){}
 }
 function loginUser(name){
   if(SYSTEM_DEAD)return;
