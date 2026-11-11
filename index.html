@@ -1079,7 +1079,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v282';
+var APP_BUILD='BBW CMMS build v283';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -7844,7 +7844,7 @@ function loadCMMS(force){
     return rows||[];
   }).then(function(rows){
     rows=cmmsClean(rows);
-    if(rows.length){CMMS_PMS=rows;CMMS_LOADED=true;try{cmmsReconcileMaster();}catch(e){}return CMMS_PMS;}
+    if(rows.length){CMMS_PMS=rows;CMMS_LOADED=true;return CMMS_PMS;}
     CMMS_LOADED=true;
     if(!CMMS_PMS.length && !window.__cmmsRetried){ window.__cmmsRetried=true; return new Promise(function(res){setTimeout(res,700);}).then(function(){ return sbFetch('bbw_pms?select=*&order=code.asc&limit=5000').then(function(r){return r.json();}).then(function(r2){ r2=cmmsClean(r2); if(r2.length){CMMS_PMS=r2;return CMMS_PMS;} if(!CMMS_PMS.length){CMMS_PMS=cmmsLocalPMs();} return CMMS_PMS; }); }); }
     if(!CMMS_PMS.length){CMMS_PMS=cmmsLocalPMs();}
@@ -7866,6 +7866,14 @@ function seedCMMS(){
 // per session, no-op when nothing's missing.
 var __cmmsReconciled=false;
 function cmmsReconcileMaster(){
+  // DISABLED (v283). Auto-inserting "missing" master PMs on every admin load caused
+  // runaway duplication of bbw_pms: once duplicate rows of the lower-sorted codes
+  // pushed the higher codes past the loadCMMS read window (limit=5000, order code.asc),
+  // those codes read as "missing" on every open and were re-inserted — unbounded.
+  // Backfilling genuinely-missing PMs must be a deliberate, idempotent (on-conflict)
+  // action, not a side effect of loading the list. Kept as a no-op.
+  return Promise.resolve();
+  /* eslint-disable no-unreachable */
   if(__cmmsReconciled)return Promise.resolve();
   if(typeof isAdmin==='function' && !isAdmin())return Promise.resolve();
   __cmmsReconciled=true;
