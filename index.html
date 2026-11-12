@@ -678,6 +678,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     <button onclick="showTab('reports')" id="tab-reports" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Reports</button>
     <button onclick="showTab('requests')" id="tab-requests" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap">Requests</button>
     <button onclick="showTab('inventory')" id="tab-inventory" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Inventory</button>
+    <button onclick="showTab('chem')" id="tab-chem" style="display:none;flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Chemicals</button>
     <button onclick="showTab('cmms')" id="tab-cmms" style="display:none;flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">CMMS</button>
     <button onclick="showTab('more')" id="tab-more" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">More</button>
   </div>
@@ -698,6 +699,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
   <div id="pane-reports" style="display:none"></div>
   <div id="pane-requests" style="display:none"></div>
   <div id="pane-inventory" style="display:none"></div>
+  <div id="pane-chem" style="display:none"></div>
   </div>
 
   <!-- BOTTOM TABS (phone primary nav) -->
@@ -1079,7 +1081,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v284';
+var APP_BUILD='BBW CMMS build v285';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1218,7 +1220,9 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   var FLDASH_MODE=(location.hash.indexOf('fldash')>=0)||/[?&]fldash/.test(location.search);
   var _flm=(location.hash.match(/fl=([A-Za-z0-9]+)/)||location.search.match(/[?&]fl=([A-Za-z0-9]+)/));
   var FL_MODE=!!(_flm&&flUnitValid(_flm[1]));
-  PUBLIC_MODE=!!(REQ_MODE||FL_MODE||FLDASH_MODE||FLREQ_MODE);   // anon-only on public QR forms
+  var _chm=(location.search.match(/[?&]chem=([A-Za-z0-9_-]+)/)||location.hash.match(/chem=([A-Za-z0-9_-]+)/));
+  var CHEM_MODE=!!_chm;
+  PUBLIC_MODE=!!(REQ_MODE||FL_MODE||FLDASH_MODE||FLREQ_MODE||CHEM_MODE);   // anon-only on public QR forms
   try{ authLoad(); var _keep=localStorage.getItem('bbw_keepuser');
     if(!REQ_MODE&&!FL_MODE&&!FLDASH_MODE&&!FLREQ_MODE&&_keep){
       // A valid token is proof enough — restore the session straight away, even for
@@ -1270,7 +1274,7 @@ function ntime(){var n=new Date();return String(n.getHours()).padStart(2,'0')+':
   document.addEventListener('visibilitychange',function(){if(!document.hidden)onForeground();});
   window.addEventListener('focus',onForeground);
   window.addEventListener('pageshow',onForeground);
-  if(FLDASH_MODE){lang=savedLang;openFlDashGate();}else if(FL_MODE){lang=savedLang;showPage('pg-pin');setTimeout(function(){openForkliftChecklist(_flm[1].toUpperCase());},40);}else if(FLREQ_MODE){lang=savedLang;showPage('pg-request');renderFlRequestForm();}else if(REQ_MODE){lang=savedLang;showPage('pg-request');renderRequestForm();}else{showPage('pg-pin');}
+  if(FLDASH_MODE){lang=savedLang;openFlDashGate();}else if(FL_MODE){lang=savedLang;showPage('pg-pin');setTimeout(function(){openForkliftChecklist(_flm[1].toUpperCase());},40);}else if(FLREQ_MODE){lang=savedLang;showPage('pg-request');renderFlRequestForm();}else if(REQ_MODE){lang=savedLang;showPage('pg-request');renderRequestForm();}else if(CHEM_MODE){lang=savedLang;showPage('pg-request');renderChemKiosk(_chm[1]);}else{showPage('pg-pin');}
   // Keyboard support for PIN pad
   document.addEventListener('keydown', function(e){
     var pg = gid('pg-pin');
@@ -1787,17 +1791,18 @@ var TAB_HISTORY=[];
 var _tabNavigatingBack=false;
 function showTab(name){
   if(name==='cmms'&&!CMMS_ENABLED)name='log';
+  if(name==='chem'&&!(typeof isEditor==='function'&&isEditor()))name='home';   // chemicals: admin/editor only
   if(isAuditor()&&!AUDIT_TABS[name])name='dash';   // auditors: Dashboard + CMMS only
   // Track history so the Back button can return to the previous tab
   try{
     var curr=null;
-    ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory'].forEach(function(t){
+    ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem'].forEach(function(t){
       var pn=gid('pane-'+t); if(pn&&pn.style.display!=='none')curr=t;
     });
     if(!_tabNavigatingBack && curr && curr!==name){ TAB_HISTORY.push(curr); if(TAB_HISTORY.length>25)TAB_HISTORY.shift(); }
   }catch(e){}
   _tabNavigatingBack=false;
-  ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory'].forEach(function(t){
+  ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem'].forEach(function(t){
     var pn=gid('pane-'+t); if(pn)pn.style.display='none';
     var tb=gid('tab-'+t);
     if(tb){tb.style.color='var(--text-3)';tb.style.borderBottomColor='transparent';tb.classList.remove('dz-active');}
@@ -1818,6 +1823,7 @@ function showTab(name){
   if(name==='reports')_safe(renderReports,'reports');
   if(name==='requests'){_safe(renderRequests,'requests');try{reqMarkAllSeen();}catch(e){}}
   if(name==='inventory')_safe(renderInventory,'inventory');
+  if(name==='chem')_safe(renderChem,'chem');
   if(name==='log'){
     injectPinnedRequests();injectMyPMTasks();
     // If the data these cards need hasn't loaded yet, load it and re-inject when ready.
@@ -2343,6 +2349,7 @@ function applyRoleTabs(){
     } else {
       var _tc=gid('tab-cmms'); if(_tc)_tc.style.display=(isEditor()&&CMMS_ENABLED)?'':'none';
       var _td=gid('tab-dash'); if(_td)_td.style.display=isEditor()?'':'none';
+      var _tch=gid('tab-chem'); if(_tch)_tch.style.display=isEditor()?'':'none';
     }
     try{ syncSideSections(); }catch(e){}
   }catch(e){}
@@ -3586,6 +3593,7 @@ var TAB_ICONS={home:'<path d="M3 10.6 12 3.5l9 7.1"/><path d="M5.4 9.6V20h13.2V9
   requests:'<path d="M4.5 5h15l1.5 7.2v5.3a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-5.3z"/><path d="M3 12.2h5l1.6 2.6h4.8l1.6-2.6h5"/>',
   inventory:'<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
   cmms:'<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-2.5 2.5-2-2z"/>',
+  chem:'<path d="M9 3h6M10 3v5l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>',
   more:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'};
 function tabIconSpan(key){ return TAB_ICONS[key]?('<span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+TAB_ICONS[key]+'</svg></span>'):''; }
 // Safely set a tab button's label + optional badge, always preserving its icon.
@@ -13528,6 +13536,288 @@ function pordPOCustomGenerate(){
   pordCustomClose();
   pordPO(p);
 }
+/* ═══════════════════ CHEMICAL INVENTORY (Phase 1) ═══════════════════ */
+var CHEM_MASTER=[], CHEM_AREAS=[], CHEM_READINGS=[], CHEM_LOADED=false;
+function chemById(id){ for(var i=0;i<CHEM_MASTER.length;i++){ if(String(CHEM_MASTER[i].id)===String(id))return CHEM_MASTER[i]; } return null; }
+function chemAreaChems(area){ try{ return (area.chem_ids||[]).map(function(id){return chemById(id);}).filter(Boolean); }catch(e){ return []; } }
+function chemAreaByCode(code){ code=String(code||'').toUpperCase(); return CHEM_AREAS.filter(function(a){return String(a.code||'').toUpperCase()===code;})[0]; }
+function chemWhen(ts){ try{ return new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } }
+function chemDateShort(d){ try{ var p=String(d).slice(0,10).split('-'); return new Date(p[0],p[1]-1,p[2]).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return d; } }
+function chemKioskURL(code){ return location.origin+location.pathname+'?chem='+encodeURIComponent(code); }
+
+function loadChemMasterAreas(){
+  return Promise.all([
+    sbFetchAll('bbw_chem_master?select=*&order=name.asc').catch(function(){return [];}),
+    sbFetchAll('bbw_chem_areas?select=*&order=name.asc').catch(function(){return [];})
+  ]).then(function(r){
+    CHEM_MASTER=Array.isArray(r[0])?r[0]:[];
+    CHEM_AREAS=Array.isArray(r[1])?r[1]:[];
+    CHEM_AREAS.forEach(function(a){ if(typeof a.chem_ids==='string'){ try{a.chem_ids=JSON.parse(a.chem_ids);}catch(e){a.chem_ids=[];} } if(!Array.isArray(a.chem_ids))a.chem_ids=[]; });
+    CHEM_LOADED=true; return {master:CHEM_MASTER, areas:CHEM_AREAS};
+  });
+}
+function loadChemReadings(days){
+  var from=pmISO(new Date(Date.now()-(days||30)*86400000));
+  return sbFetchAll('bbw_chem_readings?select=*&reading_date=gte.'+from+'&order=created_at.desc').then(function(rows){
+    CHEM_READINGS=Array.isArray(rows)?rows:[]; return CHEM_READINGS;
+  }).catch(function(){ CHEM_READINGS=[]; return CHEM_READINGS; });
+}
+function chemLatestFor(areaCode, chemName){
+  var best=null;
+  CHEM_READINGS.forEach(function(r){ if(r.area_code===areaCode && r.chem_name===chemName){ if(!best || (''+r.created_at)>(''+best.created_at))best=r; } });
+  return best;
+}
+
+/* ---- KIOSK (anon, ?chem=CODE) ---- */
+function renderChemKiosk(code){
+  var el=gid('pg-request'); if(!el)return;
+  code=String(code||'').toUpperCase();
+  el.innerHTML='<div style="max-width:560px;margin:0 auto;padding:44px 20px;text-align:center;color:var(--text-2)">Loading…</div>';
+  loadChemMasterAreas().then(function(){
+    var area=chemAreaByCode(code);
+    if(!area){ el.innerHTML='<div style="max-width:520px;margin:0 auto;padding:64px 26px;text-align:center"><div style="font-size:20px;font-weight:800;color:#fff;margin-bottom:8px">Area not found</div><div style="color:var(--text-3);font-size:14px;line-height:1.5">This QR isn’t set up yet. Ask maintenance to create the area.</div></div>'; return; }
+    chemKioskForm(area);
+  }).catch(function(){ el.innerHTML='<div style="max-width:520px;margin:0 auto;padding:64px 26px;text-align:center;color:#f87171">Couldn’t load — check your connection and reload.</div>'; });
+}
+function chemKioskForm(area){
+  var el=gid('pg-request'); if(!el)return;
+  var chems=chemAreaChems(area);
+  var who=''; try{who=localStorage.getItem('bbw_chem_who')||'';}catch(e){}
+  var today=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  var inp='width:100%;padding:12px 13px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:10px;color:#fff;font-size:16px;box-sizing:border-box';
+  var H='<div style="max-width:560px;margin:0 auto;padding:22px 16px 60px;width:100%;box-sizing:border-box">';
+  H+='<div style="border-radius:14px;padding:16px;margin-bottom:16px;background:linear-gradient(120deg,rgba(20,184,166,.18),rgba(13,148,136,.05));border:1px solid rgba(20,184,166,.28)">';
+  H+='<div style="font-size:20px;font-weight:800;color:#fff">'+escHtml(area.name)+'</div>';
+  H+='<div style="font-size:12.5px;color:var(--text-2);margin-top:3px">Daily chemical levels · '+today+'</div></div>';
+  H+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-2);margin-bottom:7px">Your name</div>';
+  H+='<input id="ck-who" value="'+escHtml(who)+'" placeholder="Type your name" style="'+inp+';margin-bottom:16px">';
+  if(!chems.length){ H+='<div style="color:var(--text-3);text-align:center;padding:20px">No chemicals assigned to this area yet.</div>'; }
+  chems.forEach(function(c,i){
+    var ref=(c.ideal!=null&&c.ideal!=='')?('ideal '+c.ideal+' '+(c.unit||'')):'';
+    H+='<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:13px;padding:12px 13px;margin-bottom:11px">';
+    H+='<div style="font-size:15px;font-weight:700;color:#fff">'+escHtml(c.name)+'</div>';
+    if(ref)H+='<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+escHtml(ref)+'</div>';
+    H+='<div style="display:flex;align-items:center;gap:9px;margin-top:10px">';
+    H+='<input id="ckv-'+i+'" inputmode="decimal" placeholder="—" style="flex:1;background:var(--bg);border:1px solid var(--border-2);border-radius:9px;padding:12px;font-size:20px;font-weight:700;color:#fff;text-align:center;font-family:ui-monospace,monospace">';
+    H+='<span style="font-size:14px;color:var(--text-2);font-weight:600;min-width:22px">'+escHtml(c.unit||'')+'</span></div></div>';
+  });
+  H+='<button id="ck-sub" onclick="submitChemReadings(this,\''+area.code+'\')" style="width:100%;padding:15px;border:none;border-radius:12px;color:#06241f;font-size:16px;font-weight:800;cursor:pointer;margin-top:6px;background:linear-gradient(95deg,#14b8a6,#2dd4bf)">Submit readings</button>';
+  H+='<div style="text-align:center;margin-top:18px;font-size:11px;color:var(--text-3)">Brunswick Bierworks • Chemical Levels</div>';
+  H+='</div>';
+  el.innerHTML=H;
+}
+function submitChemReadings(btn,code){
+  var who=(gid('ck-who')&&gid('ck-who').value||'').trim();
+  if(!who){ alert('Please enter your name.'); return; }
+  var area=chemAreaByCode(code); if(!area){ alert('Area not found.'); return; }
+  var chems=chemAreaChems(area), rows=[], any=false;
+  chems.forEach(function(c,i){
+    var v=(gid('ckv-'+i)&&gid('ckv-'+i).value||'').trim(); if(v==='')return;
+    any=true;
+    rows.push({area_code:area.code, area_name:area.name, chem_id:c.id, chem_name:c.name, value:parseFloat(v), unit:c.unit||null, reading_by:who});
+  });
+  if(!any){ alert('Enter at least one reading.'); return; }
+  try{localStorage.setItem('bbw_chem_who',who);}catch(e){}
+  btn.disabled=true; btn.textContent='Submitting…';
+  sbFetch('bbw_chem_readings',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(rows)})
+    .then(function(r){ if(!r.ok&&r.status!==201&&r.status!==204)throw new Error('HTTP '+r.status); chemKioskSuccess(area,rows.length,who); })
+    .catch(function(e){ btn.disabled=false; btn.textContent='Submit readings'; alert('Could not submit: '+e.message); });
+}
+function chemKioskSuccess(area,n,who){
+  var el=gid('pg-request'); if(!el)return;
+  var t=new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+  el.innerHTML='<div style="max-width:520px;margin:0 auto;padding:60px 26px;text-align:center">'+
+    '<div style="width:66px;height:66px;margin:0 auto 16px;border-radius:50%;background:rgba(20,184,166,.15);border:2px solid #14b8a6;display:flex;align-items:center;justify-content:center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></svg></div>'+
+    '<div style="font-size:23px;font-weight:800;color:#fff;margin-bottom:8px">Readings saved</div>'+
+    '<div style="font-size:14px;color:var(--text-2);line-height:1.6">'+escHtml(area.name)+' · '+n+' chemical'+(n>1?'s':'')+'<br>Logged '+t+' by '+escHtml(who)+'</div>'+
+    '<button onclick="renderChemKiosk(\''+area.code+'\')" style="margin-top:26px;background:var(--surface-2);border:1px solid var(--border);color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;cursor:pointer">Log another reading</button></div>';
+}
+
+/* ---- ADMIN / EDITOR TAB ---- */
+function renderChem(){
+  var el=gid('pane-chem'); if(!el)return;
+  if(!(typeof isEditor==='function'&&isEditor())){ el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-3);font-size:13px">For maintenance managers only.</div>'; return; }
+  el.innerHTML='<div style="text-align:center;color:var(--text-3);padding:30px;font-size:13px">Loading chemicals…</div>';
+  Promise.all([loadChemMasterAreas(), loadChemReadings(30)]).then(chemRenderPane).catch(chemRenderPane);
+}
+function chemRenderPane(){
+  var el=gid('pane-chem'); if(!el)return;
+  var admin=(typeof isAdmin==='function'&&isAdmin());
+  var H='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-size:20px;font-weight:800;color:var(--text)">Chemical Inventory</div>';
+  if(admin)H+='<button onclick="chemNewArea()" class="btn-primary" style="padding:9px 14px;font-size:13px;white-space:nowrap">+ New area</button>';
+  H+='</div><div style="font-size:12px;color:var(--text-3);margin-bottom:16px">'+CHEM_AREAS.length+' area'+(CHEM_AREAS.length===1?'':'s')+' · daily readings</div>';
+  if(!CHEM_AREAS.length){
+    H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:30px 22px;text-align:center"><div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px">No areas yet</div><div style="font-size:13px;color:var(--text-3);margin-bottom:16px;line-height:1.5">'+(admin?'Create an area, add its chemicals, and print the QR for the wall.':'Ask an admin to set up a chemical area.')+'</div>'+(admin?'<button onclick="chemNewArea()" class="btn-primary" style="padding:12px 22px;font-size:14px;border-radius:10px">+ New area</button>':'')+'</div>';
+    el.innerHTML=H; return;
+  }
+  CHEM_AREAS.forEach(function(area){
+    var chems=chemAreaChems(area);
+    var last=null; chems.forEach(function(c){ var r=chemLatestFor(area.code,c.name); if(r&&(!last||(''+r.created_at)>(''+last.created_at)))last=r; });
+    H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:14px;margin-bottom:12px">';
+    H+='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">';
+    H+='<div style="min-width:0"><div style="font-size:15px;font-weight:800;color:var(--text)">'+escHtml(area.name)+'</div>';
+    H+='<div style="font-size:11.5px;color:var(--text-3);margin-top:2px">'+chems.length+' chemical'+(chems.length===1?'':'s')+(last?(' · last '+chemWhen(last.created_at)+' by '+escHtml(last.reading_by||'')):' · no readings yet')+'</div></div>';
+    H+='<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex:none">';
+    H+='<button onclick="chemShowQR(\''+area.code+'\')" class="btn-ghost" style="padding:6px 10px;font-size:12px">QR</button>';
+    if(admin)H+='<button onclick="chemEditArea(\''+area.code+'\')" class="btn-ghost" style="padding:6px 10px;font-size:12px">Manage</button>';
+    H+='</div></div>';
+    chems.forEach(function(c){
+      var r=chemLatestFor(area.code,c.name);
+      var val=(r&&r.value!=null)?r.value:null;
+      var ideal=(c.ideal!=null&&c.ideal!=='')?parseFloat(c.ideal):null;
+      var pct=(val!=null&&ideal)?Math.max(3,Math.min(100,(val/ideal)*100)):(val!=null?100:0);
+      var low=(ideal&&c.reorder!=null)?(val!=null&&val<=parseFloat(c.reorder)):(ideal?(val!=null&&val<ideal*0.5):false);
+      var col=low?'#f87171':'#34d399';
+      H+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)">';
+      H+='<div style="flex:0 0 116px;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(c.name)+'</div>';
+      H+='<div style="flex:1;height:7px;border-radius:4px;background:var(--surface-3);overflow:hidden"><span style="display:block;height:100%;width:'+pct+'%;background:'+col+'"></span></div>';
+      H+='<div style="min-width:58px;text-align:right;font-family:ui-monospace,monospace;font-size:13px;color:'+(low?'#f87171':'var(--text)')+'">'+(val!=null?(val+' '+(c.unit||'')):'—')+'</div></div>';
+    });
+    H+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px">';
+    H+='<button onclick="chemHistory(\''+area.code+'\')" class="btn-ghost" style="flex:1;height:30px;font-size:12px">Reading history</button></div>';
+    H+='</div>';
+  });
+  H+='<div style="border:1px dashed var(--border-2);border-radius:12px;padding:12px 14px;margin-top:4px;display:flex;align-items:center;gap:8px;color:var(--text-3);font-size:12.5px"><span style="font-weight:700">Reorder forecast &amp; low-level alerts</span><span style="margin-left:auto;font-size:9.5px;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:999px;background:rgba(96,165,250,.14);color:#60a5fa;border:1px solid rgba(96,165,250,.3)">PHASE 2</span></div>';
+  el.innerHTML=H;
+}
+
+/* ---- area create / edit ---- */
+var _chemEditCode=null, _chemDraftIds=[];
+function chemSlug(name){
+  var base=String(name||'').toUpperCase().replace(/[^A-Z0-9]+/g,'').slice(0,12)||'AREA';
+  var code=base, n=1;
+  while(CHEM_AREAS.some(function(a){return String(a.code||'').toUpperCase()===code;})){ code=base+(++n); }
+  return code;
+}
+function chemNewArea(){ _chemEditCode=null; _chemDraftIds=[]; chemAreaModal({code:null,name:'',chem_ids:[]}); }
+function chemEditArea(code){ var a=chemAreaByCode(code); if(!a)return; _chemEditCode=a.code; _chemDraftIds=(a.chem_ids||[]).slice(); chemAreaModal(a); }
+function chemCloseModal(){ var e=gid('chem-modal'); if(e)e.remove(); }
+function chemAreaModal(a){
+  var ist='width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px;color:var(--text);font-size:14px;box-sizing:border-box;color-scheme:dark';
+  var H='<div id="chem-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:800;display:flex;align-items:flex-end;justify-content:center">';
+  H+='<div style="background:var(--bg);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;padding:18px 18px 28px;border:1px solid var(--border)">';
+  H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:17px;font-weight:700;color:var(--text)">'+(_chemEditCode?'Manage area':'New area')+'</div><button onclick="chemCloseModal()" class="btn-ghost" style="padding:6px 12px;font-size:13px">Close</button></div>';
+  H+='<div style="font-size:11px;color:var(--text-2);margin-bottom:4px">Area name</div>';
+  H+='<input id="ca-name" value="'+escHtml(a.name||'')+'" placeholder="e.g. Boiler Room" style="'+ist+';margin-bottom:14px">';
+  H+='<div style="font-size:11px;color:var(--text-2);margin-bottom:6px">Chemicals in this area</div>';
+  H+='<div id="ca-chips" style="margin-bottom:10px"></div>';
+  H+='<select id="ca-add" onchange="chemDraftAdd(this.value);this.value=\'\'" style="'+ist+';margin-bottom:6px"></select>';
+  H+='<div style="font-size:11.5px;color:var(--text-3);margin:0 0 16px;line-height:1.5">Pick from your master list, or create a new chemical with its unit &amp; ideal level.</div>';
+  H+='<button onclick="chemSaveArea()" class="btn-primary" style="width:100%;padding:14px;font-size:16px">'+(_chemEditCode?'Save area':'Create area &amp; QR')+'</button>';
+  if(_chemEditCode)H+='<button onclick="chemDeleteArea()" class="btn-ghost" style="width:100%;padding:11px;font-size:13px;margin-top:8px;color:var(--bad)">Delete area</button>';
+  H+='</div></div>';
+  var ex=gid('chem-modal'); if(ex)ex.remove();
+  try{overlayGuard('chem-modal');}catch(e){}
+  document.body.insertAdjacentHTML('beforeend',H);
+  chemDraftRender();
+}
+function chemDraftRender(){
+  var chips=gid('ca-chips'), sel=gid('ca-add'); if(!chips||!sel)return;
+  chips.innerHTML=_chemDraftIds.map(function(id){ var c=chemById(id); if(!c)return ''; return '<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:999px;padding:5px 11px;font-size:12.5px;margin:0 6px 7px 0;color:var(--text)">'+escHtml(c.name)+' <b onclick="chemDraftRemove(\''+c.id+'\')" style="color:#14b8a6;cursor:pointer">✕</b></span>'; }).join('')||'<span style="font-size:12px;color:var(--text-3)">None yet — add below.</span>';
+  var opts='<option value="">+ Add chemical from list…</option>';
+  CHEM_MASTER.forEach(function(c){ if(_chemDraftIds.map(String).indexOf(String(c.id))>=0)return; opts+='<option value="'+c.id+'">'+escHtml(c.name)+(c.unit?(' ('+escHtml(c.unit)+')'):'')+'</option>'; });
+  opts+='<option value="__new__">＋ Create new chemical…</option>';
+  sel.innerHTML=opts;
+}
+function chemDraftAdd(v){ if(!v)return; if(v==='__new__'){ chemNewMaster(); return; } if(_chemDraftIds.map(String).indexOf(String(v))<0)_chemDraftIds.push(v); chemDraftRender(); }
+function chemDraftRemove(id){ _chemDraftIds=_chemDraftIds.filter(function(x){return String(x)!==String(id);}); chemDraftRender(); }
+function chemNewMaster(){
+  var name=prompt('New chemical name:'); if(!name)return; name=name.trim(); if(!name)return;
+  var unit=(prompt('Unit (e.g. L, kg, gal):','L')||'L').trim()||'L';
+  var idealS=prompt('Ideal / full level (optional number):','');
+  var rec={name:name, unit:unit}; var ideal=parseFloat(idealS); if(!isNaN(ideal))rec.ideal=ideal;
+  sbFetch('bbw_chem_master',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify(rec)})
+    .then(function(r){ return r.ok?r.json():r.text().then(function(t){ throw new Error(t.slice(0,160)); }); })
+    .then(function(d){ var row=Array.isArray(d)?d[0]:d; if(row&&row.id){ CHEM_MASTER.push(row); _chemDraftIds.push(row.id); chemDraftRender(); } })
+    .catch(function(e){ alert('Could not add chemical: '+e.message); });
+}
+function chemSaveArea(){
+  var name=(gid('ca-name')&&gid('ca-name').value||'').trim();
+  if(!name){ alert('Enter an area name'); return; }
+  if(!_chemDraftIds.length && !confirm('Save this area with no chemicals yet?'))return;
+  var code=_chemEditCode||chemSlug(name);
+  var rec={ name:name, chem_ids:_chemDraftIds, updated_at:new Date().toISOString() };
+  var path, method;
+  if(_chemEditCode){ path='bbw_chem_areas?code=eq.'+encodeURIComponent(_chemEditCode); method='PATCH'; }
+  else { rec.code=code; rec.created_by=(typeof user!=='undefined'?user:null); rec.active=true; path='bbw_chem_areas'; method='POST'; }
+  sbFetch(path,{method:method,headers:{'Prefer':'return=minimal'},body:JSON.stringify(rec)}).then(function(r){
+    if(!r.ok&&r.status!==201&&r.status!==204){ return r.text().then(function(t){ alert('Save failed ('+r.status+'): '+t.slice(0,160)); }); }
+    chemCloseModal(); renderChem();
+    if(!_chemEditCode)setTimeout(function(){ chemShowQR(code); },350);
+  }).catch(function(e){ alert('Save failed: '+e.message); });
+}
+function chemDeleteArea(){
+  if(!_chemEditCode)return;
+  if(!confirm('Delete this area? Readings already logged are kept.'))return;
+  sbFetch('bbw_chem_areas?code=eq.'+encodeURIComponent(_chemEditCode),{method:'DELETE',headers:{'Prefer':'return=minimal'}})
+    .then(function(){ chemCloseModal(); renderChem(); }).catch(function(e){ alert('Delete failed: '+e.message); });
+}
+
+/* ---- QR label + history ---- */
+function chemShowQR(code){
+  var a=chemAreaByCode(code); if(!a)return;
+  var qr=''; try{ qr=flQRDataURL(chemKioskURL(a.code)); }catch(e){}
+  var H='<div id="chem-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:800;display:flex;align-items:center;justify-content:center;padding:16px">';
+  H+='<div style="background:var(--bg);border:1px solid var(--border);border-radius:16px;max-width:360px;width:100%;padding:18px">';
+  H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:16px;font-weight:800;color:var(--text)">Area QR</div><button onclick="chemCloseModal()" class="btn-ghost" style="padding:6px 12px;font-size:13px">Close</button></div>';
+  H+='<div id="chem-qr-card" style="background:#fff;border-radius:12px;padding:20px;text-align:center;color:#111">';
+  H+='<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px">Brunswick Bierworks · Chemical Levels</div>';
+  H+=(qr?'<img src="'+qr+'" style="width:190px;height:190px;image-rendering:pixelated">':'<div style="color:#999;padding:40px 0">QR unavailable</div>');
+  H+='<div style="font-size:19px;font-weight:800;margin-top:8px;letter-spacing:.02em;color:#111">'+escHtml(a.name.toUpperCase())+'</div>';
+  H+='<div style="font-size:12px;color:#666;margin-top:3px">Scan to log today’s chemical levels</div>';
+  H+='<div style="font-size:10px;color:#999;margin-top:8px;font-family:monospace">chem · '+escHtml(a.code)+'</div></div>';
+  H+='<button onclick="chemPrintQR()" class="btn-primary" style="width:100%;padding:12px;font-size:14px;margin-top:14px">Print label</button>';
+  H+='</div></div>';
+  var ex=gid('chem-modal'); if(ex)ex.remove();
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function chemPrintQR(){
+  var card=gid('chem-qr-card'); if(!card)return;
+  var w=window.open('','_blank'); if(!w){ alert('Allow pop-ups to print the label.'); return; }
+  w.document.write('<html><head><title>Chemical QR</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:-apple-system,sans-serif"><div style="width:320px">'+card.outerHTML+'</div></body></html>');
+  w.document.close(); setTimeout(function(){ try{w.print();}catch(e){} },350);
+}
+function chemHistory(code){
+  var a=chemAreaByCode(code); if(!a)return;
+  var chems=chemAreaChems(a);
+  loadChemReadings(60).then(function(){
+    var rs=CHEM_READINGS.filter(function(r){return r.area_code===a.code;});
+    var byDate={};
+    rs.forEach(function(r){ var d=(''+(r.reading_date||r.created_at)).slice(0,10); byDate[d]=byDate[d]||{by:r.reading_by,vals:{}}; byDate[d].vals[r.chem_name]=r.value; if(r.reading_by)byDate[d].by=r.reading_by; });
+    var dates=Object.keys(byDate).sort().reverse().slice(0,30);
+    var H='<div id="chem-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:800;display:flex;align-items:flex-end;justify-content:center">';
+    H+='<div style="background:var(--bg);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;padding:18px 16px 28px;border:1px solid var(--border)">';
+    H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:17px;font-weight:800;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(a.name)+' · history</div><button onclick="chemCloseModal()" class="btn-ghost" style="padding:6px 12px;font-size:13px;flex:none">Close</button></div>';
+    if(!dates.length){ H+='<div style="color:var(--text-3);text-align:center;padding:24px;font-size:13px">No readings logged yet.</div>'; }
+    else {
+      H+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">';
+      H+='<tr><th style="text-align:left;padding:8px 10px;color:var(--text-3);font-size:10.5px;text-transform:uppercase">Date</th><th style="text-align:left;padding:8px 10px;color:var(--text-3);font-size:10.5px;text-transform:uppercase">By</th>'+chems.map(function(c){return '<th style="text-align:right;padding:8px 10px;color:var(--text-3);font-size:10.5px;white-space:nowrap">'+escHtml(c.name)+'</th>';}).join('')+'</tr>';
+      dates.forEach(function(d){ var row=byDate[d]; H+='<tr style="border-top:1px solid var(--border)"><td style="padding:9px 10px;font-weight:700;color:var(--text);white-space:nowrap">'+chemDateShort(d)+'</td><td style="padding:9px 10px;color:var(--text-3);white-space:nowrap">'+escHtml(row.by||'')+'</td>'+chems.map(function(c){ var v=row.vals[c.name]; return '<td style="padding:9px 10px;text-align:right;font-family:ui-monospace,monospace;color:'+(v==null?'var(--text-3)':'var(--text)')+'">'+(v==null?'—':v)+'</td>'; }).join('')+'</tr>'; });
+      H+='</table></div>';
+      H+='<button onclick="chemExportCSV(\''+a.code+'\')" class="btn-ghost" style="width:100%;padding:11px;font-size:13px;margin-top:14px">Export CSV</button>';
+    }
+    H+='</div></div>';
+    var ex=gid('chem-modal'); if(ex)ex.remove();
+    document.body.insertAdjacentHTML('beforeend',H);
+  });
+}
+function chemExportCSV(code){
+  var a=chemAreaByCode(code); if(!a)return;
+  var chems=chemAreaChems(a);
+  var rs=CHEM_READINGS.filter(function(r){return r.area_code===a.code;});
+  var byDate={}; rs.forEach(function(r){ var d=(''+(r.reading_date||r.created_at)).slice(0,10); byDate[d]=byDate[d]||{by:r.reading_by,vals:{}}; byDate[d].vals[r.chem_name]=r.value; if(r.reading_by)byDate[d].by=r.reading_by; });
+  var dates=Object.keys(byDate).sort().reverse();
+  var head=['Date','By'].concat(chems.map(function(c){return c.name+(c.unit?(' ('+c.unit+')'):'');}));
+  var lines=[head.join(',')];
+  dates.forEach(function(d){ var row=byDate[d]; var cells=[d,'"'+String(row.by||'').replace(/"/g,'""')+'"'].concat(chems.map(function(c){ var v=row.vals[c.name]; return v==null?'':v; })); lines.push(cells.join(',')); });
+  try{
+    var blob=new Blob([lines.join('\n')],{type:'text/csv'}); var url=URL.createObjectURL(blob);
+    var link=document.createElement('a'); link.href=url; link.download='chem_'+a.code+'_'+pmISO(new Date())+'.csv'; link.click();
+    setTimeout(function(){URL.revokeObjectURL(url);},2000);
+  }catch(e){ alert('Export failed: '+e.message); }
+}
+/* ═══════════════════ end Chemical Inventory ═══════════════════ */
+
 function renderInventory(){
   var el=gid('pane-inventory'); if(!el)return;
   var ed=isEditor();
