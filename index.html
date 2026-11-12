@@ -1081,7 +1081,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v285';
+var APP_BUILD='BBW CMMS build v286';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2335,7 +2335,7 @@ function isEditor(){ return EDITORS.indexOf(user)>=0; }
 function isAuditor(){ return AUDITORS.indexOf(user)>=0 && EDITORS.indexOf(user)<0 && user!==ADMIN; }
 function roleLabel(r){ return r==='editor'?'Editor':(r==='auditor'?'Auditor':'Technician'); }
 function roleBadge(r){ var c=(r==='editor')?'rgba(37,99,235,.13);color:#2563eb':((r==='auditor')?'rgba(13,148,136,.14);color:#0d9488':'var(--surface-3);color:var(--text-3)'); return '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:'+c+'">'+(r==='editor'?'EDITOR':(r==='auditor'?'AUDITOR':'TECH'))+'</span>'; }
-var AUDIT_TABS={dash:1,cmms:1};
+var AUDIT_TABS={dash:1,cmms:1,reports:1};
 // Show/hide top tabs, bottom nav and the FAB for the current role.
 function applyRoleTabs(){
   try{
