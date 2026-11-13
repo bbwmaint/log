@@ -1081,7 +1081,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v286';
+var APP_BUILD='BBW CMMS build v287';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -3636,6 +3636,12 @@ function sbCount(tbl){
 }
 function sbFetch(path,opts){
   opts=opts||{};
+  // iOS can reset the in-memory AUTH_TOKEN on resume while the saved 30-day token is
+  // still on disk. If we're meant to be authenticated but the token looks gone, the
+  // read would go out as the anon key and RLS would answer 200-with-ZERO-ROWS (not a
+  // 401) — silently collapsing dashboards to "only me". Re-hydrate from storage FIRST
+  // so the read carries the real token. No-op once the token is already in memory.
+  try{ if(!PUBLIC_MODE && typeof authValid==='function' && !authValid() && typeof authLoad==='function'){ authLoad(); } }catch(_e){}
   var headers={'apikey':SBKEY,'Authorization':'Bearer '+authBearer(),'Content-Type':'application/json','Prefer':'return=representation'};
   Object.keys(opts.headers||{}).forEach(function(k){headers[k]=opts.headers[k];});
   return fetch(SB+'/rest/v1/'+path,{method:opts.method||'GET',headers:headers,body:opts.body||undefined});
