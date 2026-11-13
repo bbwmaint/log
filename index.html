@@ -1081,7 +1081,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v288';
+var APP_BUILD='BBW CMMS build v289';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1791,7 +1791,7 @@ var TAB_HISTORY=[];
 var _tabNavigatingBack=false;
 function showTab(name){
   if(name==='cmms'&&!CMMS_ENABLED)name='log';
-  if(name==='chem'&&!(typeof isEditor==='function'&&isEditor()))name='home';   // chemicals: admin/editor only
+  if(name==='chem'&&!((typeof isEditor==='function'&&isEditor())||(typeof isAuditor==='function'&&isAuditor())))name='home';   // chemicals: admin/editor manage, auditor read-only
   if(isAuditor()&&!AUDIT_TABS[name])name='dash';   // auditors: Dashboard + CMMS only
   // Track history so the Back button can return to the previous tab
   try{
@@ -2335,12 +2335,12 @@ function isEditor(){ return EDITORS.indexOf(user)>=0; }
 function isAuditor(){ return AUDITORS.indexOf(user)>=0 && EDITORS.indexOf(user)<0 && user!==ADMIN; }
 function roleLabel(r){ return r==='editor'?'Editor':(r==='auditor'?'Auditor':'Technician'); }
 function roleBadge(r){ var c=(r==='editor')?'rgba(37,99,235,.13);color:#2563eb':((r==='auditor')?'rgba(13,148,136,.14);color:#0d9488':'var(--surface-3);color:var(--text-3)'); return '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:'+c+'">'+(r==='editor'?'EDITOR':(r==='auditor'?'AUDITOR':'TECH'))+'</span>'; }
-var AUDIT_TABS={dash:1,cmms:1,reports:1};
+var AUDIT_TABS={dash:1,cmms:1,reports:1,chem:1};
 // Show/hide top tabs, bottom nav and the FAB for the current role.
 function applyRoleTabs(){
   try{
     if(isAuditor()){
-      ['dash','home','log','shift','prev','util','schedule','assets','reports','requests','inventory','cmms','more'].forEach(function(t){
+      ['dash','home','log','shift','prev','util','schedule','assets','reports','requests','inventory','cmms','chem','more'].forEach(function(t){
         var e=gid('tab-'+t); if(e)e.style.display=AUDIT_TABS[t]?'':'none';
       });
       // bottom nav: keep CMMS + the More hamburger (its drawer shows Dashboard/CMMS); hide the rest
@@ -13642,7 +13642,7 @@ function chemKioskSuccess(area,n,who){
 /* ---- ADMIN / EDITOR TAB ---- */
 function renderChem(){
   var el=gid('pane-chem'); if(!el)return;
-  if(!(typeof isEditor==='function'&&isEditor())){ el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-3);font-size:13px">For maintenance managers only.</div>'; return; }
+  if(!((typeof isEditor==='function'&&isEditor())||(typeof isAuditor==='function'&&isAuditor()))){ el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-3);font-size:13px">For maintenance managers only.</div>'; return; }
   el.innerHTML='<div style="text-align:center;color:var(--text-3);padding:30px;font-size:13px">Loading chemicals…</div>';
   Promise.all([loadChemMasterAreas(), loadChemReadings(30)]).then(chemRenderPane).catch(chemRenderPane);
 }
