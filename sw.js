@@ -66,6 +66,22 @@ self.addEventListener('fetch', function(e){
   }
 
   if(isHTML(e.request)){
+    // Public QR forms (request / forklift / chemicals / dashboard) are online-only
+    // scans and submit straight to the DB — they must NEVER run stale cached code
+    // (an old build used a request format the security lockdown now rejects → HTTP
+    // 401 for reporters). For these, go network-ONLY, using cache only when truly
+    // offline. The main app keeps the weak-LTE-friendly network-first-with-fallback.
+    if(/[?&#](request|flreq|fldash|chem)/.test(url) || /[?&]fl=/.test(url)){
+      e.respondWith(
+        fetch(e.request).then(function(resp){
+          if(resp && resp.status === 200){ caches.open(CACHE).then(function(c){ c.put(e.request, resp.clone()); }); }
+          return resp;
+        }).catch(function(){
+          return caches.open(CACHE).then(function(c){ return c.match(e.request).then(function(hit){ return hit || c.match('./index.html'); }); });
+        })
+      );
+      return;
+    }
     // NETWORK-FIRST with a short timeout. When online, always serve the freshest
     // index.html (so a device can never get stuck on a stale/broken cached build —
     // that showed up as 404s and broken screens). If the network is slow/offline,
