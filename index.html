@@ -1081,7 +1081,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v291';
+var APP_BUILD='BBW CMMS build v292';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -10434,7 +10434,7 @@ function homeSyncBadge(){
   var b=gid('bt-badge'); if(!b)return;
   var n=0;
   try{ var R=(typeof REQUESTS!=='undefined'&&REQUESTS)?REQUESTS:[];
-       n=R.filter(function(r){return r.status!=='done';}).length; }catch(e){}
+       n=R.filter(function(r){return r.kind!=='forklift'&&r.status!=='done';}).length; }catch(e){}
   if(n>0){ b.textContent=(n>99?'99+':n); b.style.display='flex'; }
   else b.style.display='none';
 }
