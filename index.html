@@ -1081,7 +1081,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v290';
+var APP_BUILD='BBW CMMS build v291';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2369,7 +2369,7 @@ function applyRoleTabs(){
 function isAdmin(){ return user===ADMIN; }
 function assetCodeFor(name){ var a=ASSETS.filter(function(x){return x.n===name;})[0]; return a?a.c:''; }
 function docCatLabel(c){ return c==='calibration'?T('doc_calibration'):c==='service'?T('doc_service'):c==='pm'?T('doc_pms'):T('doc_filters'); }
-function docToday(){ return new Date().toISOString().slice(0,10); }
+function docToday(){ return td(); }  // LOCAL date (was UTC via toISOString, which rolled to tomorrow after 19:00 Toronto and skewed the overdue filter)
 function docFmtDate(iso){ return iso?(''+iso).slice(0,10):''; }
 function yearChipStyle(on){ return 'white-space:nowrap;padding:6px 13px;border-radius:999px;border:1px solid '+(on?'#60a5fa':'var(--border)')+';background:'+(on?'rgba(96,165,250,.15)':'transparent')+';color:'+(on?'#60a5fa':'var(--text-2)')+';font-size:12px;font-weight:600;cursor:pointer'; }
 
