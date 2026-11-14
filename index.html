@@ -1081,7 +1081,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v289';
+var APP_BUILD='BBW CMMS build v290';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2347,6 +2347,15 @@ function applyRoleTabs(){
       [['bt-home',0],['bt-log',0],['bt-requests',0],['bt-cmms',1],['bt-more',1]].forEach(function(p){ var e=gid(p[0]); if(e)e.style.display=p[1]?'':'none'; });
       var fab=document.querySelector('.fab'); if(fab)fab.style.display='none';
     } else {
+      // Non-auditor: RESTORE every tab/nav the auditor branch may have hidden, then
+      // re-apply the editor-only gating. Without the restore, switching from an auditor
+      // (or test) account back to a full account left the auditor's restricted tab set
+      // in place until a full reload.
+      ['home','log','shift','prev','util','schedule','assets','reports','requests','inventory','more'].forEach(function(t){
+        var e=gid('tab-'+t); if(e)e.style.display='';
+      });
+      ['bt-home','bt-log','bt-requests','bt-cmms','bt-more'].forEach(function(id){ var e=gid(id); if(e)e.style.display=''; });
+      var _fab=document.querySelector('.fab'); if(_fab)_fab.style.display='';
       var _tc=gid('tab-cmms'); if(_tc)_tc.style.display=(isEditor()&&CMMS_ENABLED)?'':'none';
       var _td=gid('tab-dash'); if(_td)_td.style.display=isEditor()?'':'none';
       var _tch=gid('tab-chem'); if(_tch)_tch.style.display=isEditor()?'':'none';
@@ -3571,7 +3580,9 @@ function logFromRequest(r, mins){
 function injectPinnedRequests(){
   var pane=gid('pane-log'); if(!pane)return;
   var ex=gid('req-pinned'); if(ex)ex.remove();
-  var open=REQUESTS.filter(function(r){return r.status!=='done';});
+  // Match the Requests tab: exclude forklift requests (they have their own dashboard)
+  // so the home "Open Work Requests" count agrees with the Requests page.
+  var open=REQUESTS.filter(function(r){return r.kind!=='forklift'&&r.status!=='done';});
   if(!open.length)return;
   var H='<div onclick="showTab(\'requests\')" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);border-radius:12px;padding:11px 13px;margin-bottom:14px;cursor:pointer">';
   H+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><span style="font-size:12px;font-weight:800;color:#f59e0b;text-transform:uppercase;letter-spacing:.04em">'+open.length+' '+T('pin_open')+'</span><span style="margin-left:auto;font-size:11px;color:#f59e0b">'+T('pin_viewall')+'</span></div>';
