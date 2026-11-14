@@ -1081,7 +1081,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v292';
+var APP_BUILD='BBW CMMS build v293';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -2141,6 +2141,55 @@ function calcDT(){
     // actual down-minutes. Never auto-fill/overwrite it — that was turning 20 min into 60.
     if(el){ el.textContent='Work window '+diff+' min — enter the minutes the machine was down'; el.style.display='block'; }
   }
+}
+
+// ── Single-line downtime math ───────────────────────────────────────────────
+// BBW runs ONE production line, so when two techs each log downtime that
+// overlaps in time it is the SAME outage — summing them double-counts (that is
+// how "11.5 h yesterday" happened). dtUnionHrs merges machine-down entries into
+// wall-clock time: overlapping windows count once. Each entry contributes an
+// interval from its start→end time; a "partial" (machine down only part of the
+// window) is clamped to the minutes actually logged. Entries with no usable
+// times keep their logged hours as a standalone block (so nothing regresses).
+// Accepts both DB rows (start_time/end_time/downtime_hrs/machine_down) and
+// in-app entries (start/end/dt/machineDown).
+function _dtHM2M(v){ if(v==null)return null; var p=(''+v).split(':'); if(p.length<2)return null; var h=parseInt(p[0],10),m=parseInt(p[1],10); if(isNaN(h)||isNaN(m))return null; return h*60+m; }
+function dtUnionHrs(list){
+  // Group intervals BY DATE so two separate outages on different days at the same
+  // clock time (e.g. 10:00–11:00 Mon and 10:00–11:00 Tue) stay 2h, not merged to 1h.
+  var byDay={}, loose=0;
+  (list||[]).forEach(function(e){
+    if(!e)return;
+    var md=e.machine_down||e.machineDown;
+    if(md!=='yes'&&md!=='partial')return;
+    var dt=parseFloat(e.downtime_hrs!=null?e.downtime_hrs:e.dt)||0;
+    if(dt<=0)return;
+    var s=_dtHM2M(e.start_time!=null?e.start_time:e.start);
+    var en=_dtHM2M(e.end_time!=null?e.end_time:e.end);
+    if(s==null||en==null){ loose+=dt; return; }    // no timeline → keep as-is
+    var win=en-s; if(win<0)win+=1440;               // outage spans midnight
+    if(win<=0){ loose+=dt; return; }
+    var dmin=Math.round(dt*60);
+    var dur=(dmin>0&&dmin<win)?dmin:win;            // partial: clamp to logged minutes
+    // Night-shift entries after midnight (clock time < 07:00) are pushed into the
+    // 24–48h range so a 23:00→01:00 outage and a 00:30 entry on the SAME night
+    // (same stored date) share one timeline and merge correctly.
+    var sh=(''+(e.shift||'')).toLowerCase();
+    var st=(sh==='night'&&s<420)?s+1440:s;
+    var key=(e.date!=null?e.date:'_');
+    (byDay[key]=byDay[key]||[]).push([st, st+dur]);
+  });
+  var tot=0;
+  Object.keys(byDay).forEach(function(k){
+    var iv=byDay[k].sort(function(a,b){return a[0]-b[0];});
+    var cs=null, ce=null;
+    iv.forEach(function(p){
+      if(cs==null){cs=p[0];ce=p[1];return;}
+      if(p[0]<=ce){ if(p[1]>ce)ce=p[1]; } else { tot+=ce-cs; cs=p[0]; ce=p[1]; }
+    });
+    if(cs!=null)tot+=ce-cs;
+  });
+  return tot/60 + loose;
 }
 
 function handlePhoto(input){
@@ -4449,7 +4498,7 @@ function renderShift(){
   var _scope=(window._shiftScope==='mine')?'mine':'all';
   var cur=entries.filter(function(e){return e.date===shiftAnchor()&&e.shift===(isDay()?'Day':'Night');});
   if(_scope==='mine')cur=cur.filter(function(e){return e.who===user;});
-  var dt=cur.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).reduce(function(a,e){return a+(e.dt||0);},0);
+  var dt=dtUnionHrs(cur);  // one line → overlapping downtime counts once
   var dtMin=Math.round(dt*60);
   var el=gid('pane-shift');
   var stats='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">';
@@ -4556,7 +4605,7 @@ function renderPrev(){
     }
     foundAny=true;
     var techs=[...new Set(prev.map(function(e){return e.who;}))].filter(Boolean);
-    var dtTotal=prev.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).reduce(function(a,e){return a+(e.dt||0);},0).toFixed(1);
+    var dtTotal=dtUnionHrs(prev).toFixed(1);  // one line → overlapping downtime counts once
     var urg=prev.filter(function(e){return (e.type==='issue'||e.type==='pending')&&(e.priority==='urgent'||e.priority==='high');});
     var parts=prev.filter(function(e){return e.type==='part'||e.type==='parts';});
     var ackKey='ack_'+sv.date+'_'+sv.shift;
@@ -4980,24 +5029,27 @@ function renderAssets(){
     // Must honour the month the user selected, not "now" - the arrows appeared dead.
     var _mo=ASSET_MONTH.getFullYear()+'-'+String(ASSET_MONTH.getMonth()+1).padStart(2,'0');
     monthData=_sr.filter(function(r){return (''+(r.date||'')).slice(0,7)===_mo;})
-                 .map(function(r){return {assetName:r.asset,machineDown:r.md?'yes':'',
-                        dt:r.dt,type:r.type,date:r.date};});
+                 .map(function(r){return {assetName:r.asset,machineDown:r.machine_down||(r.md?'yes':''),
+                        dt:r.dt,type:r.type,date:r.date,
+                        start:r.start_time||'',end:r.end_time||'',shift:r.shift||''};});
   }
-  var assetDT={}, assetCount={}, assetIssues={};
+  var assetDT={}, assetCount={}, assetIssues={}, _assetDTE={};
   monthData.forEach(function(e){
     var a=e.assetName||'General';
     assetCount[a]=(assetCount[a]||0)+1;
     if(e.machineDown==='yes'||e.machineDown==='partial'){
-      assetDT[a]=(assetDT[a]||0)+(e.dt||0);
+      (_assetDTE[a]=_assetDTE[a]||[]).push(e);
     }
     if(e.type==='pending'||e.type==='issue'){
       assetIssues[a]=(assetIssues[a]||0)+1;
     }
   });
+  // One line → union per asset (same-machine overlaps count once)
+  Object.keys(_assetDTE).forEach(function(a){ assetDT[a]=dtUnionHrs(_assetDTE[a]); });
 
   // Sort by DT desc
   var assets=Object.keys(assetCount).sort(function(a,b){return (assetDT[b]||0)-(assetDT[a]||0);});
-  var totalDT=Object.values(assetDT).reduce(function(a,b){return a+b;},0);
+  var totalDT=dtUnionHrs(monthData);  // one line → wall-clock union, not sum of per-asset
   var mnames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var H='';
   if(EDITORS.indexOf(user)>=0){
@@ -5133,7 +5185,7 @@ function showAssetDetail(assetName){
 function paintAssetDetail(assetName, logs){
   logs=(logs||[]).slice();
   logs.sort(function(a,b){var da=(a.date||'')+(a.loggedAt||'');var db=(b.date||'')+(b.loggedAt||'');return db.localeCompare(da);});
-  var totalDT=logs.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).reduce(function(a,e){return a+(e.dt||0);},0);
+  var totalDT=dtUnionHrs(logs);  // one line → overlapping downtime counts once
   var totalCO=logs.filter(function(e){return e.coMins>0;}).reduce(function(a,e){return a+(e.coMins||0);},0);
   var body=assetDetailBody(assetName, logs, totalDT, totalCO);
   var pane=gid('asset-detail-pane');
@@ -6269,8 +6321,13 @@ function computeDashboard(month,entries,utils){
   function isDone(t){return t==='completed'||t==='done'||t==='pm'||t==='followup_done';}
   function isIssue(t){return t==='issue'||t==='pending';}
   // 1. Downtime by asset + per-day — TRUE machine-down events only (machine_down = yes/partial)
-  var dtMap={},dtByDay={},totalDT=0,dtEvents=0;
-  entries.forEach(function(e){var dt=parseFloat(e.downtime_hrs)||0;var md=(e.machine_down==='yes'||e.machine_down==='partial');if(md&&dt>0){var k=dashAssetKey(e);dtMap[k]=(dtMap[k]||0)+dt;totalDT+=dt;dtEvents++;dtByDay[e.date]=(dtByDay[e.date]||0)+dt;}});
+  var dtEvents=0,_dtAll=[],_dtDay={},_dtAsset={};
+  entries.forEach(function(e){var dt=parseFloat(e.downtime_hrs)||0;var md=(e.machine_down==='yes'||e.machine_down==='partial');if(md&&dt>0){var k=dashAssetKey(e);dtEvents++;_dtAll.push(e);(_dtDay[e.date]=_dtDay[e.date]||[]).push(e);(_dtAsset[k]=_dtAsset[k]||[]).push(e);}});
+  // One line: day + overall totals are wall-clock union (overlaps count once);
+  // per-asset ranking unions within each asset so same-machine dupes don't inflate.
+  var totalDT=dtUnionHrs(_dtAll);
+  var dtByDay={}; Object.keys(_dtDay).forEach(function(d){dtByDay[d]=dtUnionHrs(_dtDay[d]);});
+  var dtMap={}; Object.keys(_dtAsset).forEach(function(k){dtMap[k]=dtUnionHrs(_dtAsset[k]);});
   var downtimeByAsset=Object.keys(dtMap).map(function(k){return {asset:k,hrs:Math.round(dtMap[k]*100)/100};}).sort(function(a,b){return b.hrs-a.hrs;});
   // 2. Workload by tech
   var techMap={};
@@ -6436,8 +6493,11 @@ function weekStats(data,start,end){
   function isIssue(t){return t==='issue'||t==='pending';}
   var entries=(data.entries||[]).filter(function(e){return inRange(e.date,start,end);});
   // Downtime by asset (true machine-down only) + per-event capture for notes
-  var dtMap={},totalDT=0,dtEvents=0,dtRows=[],downHrs=0,downEvents=0,slowHrs=0,slowEvents=0;
-  entries.forEach(function(e){var dt=parseFloat(e.downtime_hrs)||0;var md=(e.machine_down==='yes'||e.machine_down==='partial');if(md&&dt>0){var k=dashAssetKey(e);dtMap[k]=(dtMap[k]||0)+dt;totalDT+=dt;dtEvents++;dtRows.push({asset:k,hrs:Math.round(dt*100)/100,who:e.who||'\u2014',desc:(e.description||e.issue||'').trim(),date:e.date,shift:e.shift||''});if(e.machine_down==='yes'){downHrs+=dt;downEvents++;}else if(e.machine_down==='partial'){slowHrs+=dt;slowEvents++;}}});
+  var dtEvents=0,dtRows=[],downEvents=0,slowEvents=0,_dtAll=[],_dtAsset={},_dtYes=[],_dtPartial=[];
+  entries.forEach(function(e){var dt=parseFloat(e.downtime_hrs)||0;var md=(e.machine_down==='yes'||e.machine_down==='partial');if(md&&dt>0){var k=dashAssetKey(e);dtEvents++;_dtAll.push(e);(_dtAsset[k]=_dtAsset[k]||[]).push(e);dtRows.push({asset:k,hrs:Math.round(dt*100)/100,who:e.who||'\u2014',desc:(e.description||e.issue||'').trim(),date:e.date,shift:e.shift||''});if(e.machine_down==='yes'){_dtYes.push(e);downEvents++;}else if(e.machine_down==='partial'){_dtPartial.push(e);slowEvents++;}}});
+  // One line \u2192 wall-clock union (overlapping entries count once)
+  var totalDT=dtUnionHrs(_dtAll), downHrs=dtUnionHrs(_dtYes), slowHrs=dtUnionHrs(_dtPartial);
+  var dtMap={}; Object.keys(_dtAsset).forEach(function(k){dtMap[k]=dtUnionHrs(_dtAsset[k]);});
   var downtimeByAsset=Object.keys(dtMap).map(function(k){return {asset:k,hrs:Math.round(dtMap[k]*100)/100};}).sort(function(a,b){return b.hrs-a.hrs;});
   var topDowntime=dtRows.sort(function(a,b){return b.hrs-a.hrs;}).slice(0,5);
   // Workload by tech (+ hours logged from entry start/end, split PM vs Log)
@@ -6461,9 +6521,9 @@ function weekStats(data,start,end){
   entries.forEach(function(e){if(isIssue(e.type)){issuesLogged++;if(e.type==='pending')pendingNow++;var k=dashAssetKey(e);issueAssetMap[k]=(issueAssetMap[k]||0)+1;}});
   var recurring=Object.keys(issueAssetMap).map(function(k){return {asset:k,count:issueAssetMap[k]};}).filter(function(x){return x.count>=2;}).sort(function(a,b){return b.count-a.count;});
   // Day vs Night split
-  var dn={Day:{tasks:0,dt:0},Night:{tasks:0,dt:0}};
-  entries.forEach(function(e){var s=(e.shift==='Night')?'Night':(e.shift==='Day'?'Day':null);if(!s)return;dn[s].tasks++;var dt=parseFloat(e.downtime_hrs)||0;if((e.machine_down==='yes'||e.machine_down==='partial')&&dt>0)dn[s].dt+=dt;});
-  dn.Day.dt=Math.round(dn.Day.dt*10)/10; dn.Night.dt=Math.round(dn.Night.dt*10)/10;
+  var dn={Day:{tasks:0,dt:0},Night:{tasks:0,dt:0}},_dnE={Day:[],Night:[]};
+  entries.forEach(function(e){var s=(e.shift==='Night')?'Night':(e.shift==='Day'?'Day':null);if(!s)return;dn[s].tasks++;var dt=parseFloat(e.downtime_hrs)||0;if((e.machine_down==='yes'||e.machine_down==='partial')&&dt>0)_dnE[s].push(e);});
+  dn.Day.dt=Math.round(dtUnionHrs(_dnE.Day)*10)/10; dn.Night.dt=Math.round(dtUnionHrs(_dnE.Night)*10)/10;
   // Requests received / completed in window (all kinds)
   var received=(data.requests||[]).filter(function(r){return r.created_at&&inRange(r.created_at.slice(0,10),start,end);});
   var closed=(data.requests||[]).filter(function(r){return r.closed_at&&inRange(r.closed_at.slice(0,10),start,end);});
@@ -7118,20 +7178,22 @@ function loadReportData(startStr,endStr){
 
 // ── Weekly Machine Report (Sun–Sat) — machine downtime only, no production ───
 function machineWeekStats(entries,start,end){
-  var byM={}, events=[], totFull=0, totFullN=0, totPart=0, totPartN=0;
-  var daily={}; for(var d=new Date(start+'T00:00:00'); localDateStr(d)<=end; d.setDate(d.getDate()+1)){ daily[localDateStr(d)]=0; }
+  var byM={}, events=[], totFullN=0, totPartN=0, allFull=[], allPart=[];
+  var dailyE={}; for(var d=new Date(start+'T00:00:00'); localDateStr(d)<=end; d.setDate(d.getDate()+1)){ dailyE[localDateStr(d)]=[]; }
   (entries||[]).forEach(function(e){
     var md=(''+(e.machine_down||'')).toLowerCase(); if(md!=='yes'&&md!=='partial')return;
     var hrs=parseFloat(e.downtime_hrs)||0; if(hrs<=0)return;
     var asset=e.asset_name||'\u2014', code=e.asset_code||'';
-    var m=byM[asset]=byM[asset]||{asset:asset,code:code,full:0,fullN:0,partial:0,partN:0};
-    if(md==='yes'){ m.full+=hrs; m.fullN++; totFull+=hrs; totFullN++; } else { m.partial+=hrs; m.partN++; totPart+=hrs; totPartN++; }
-    var dk=(''+(e.date||'')).slice(0,10); if(daily[dk]!=null)daily[dk]+=hrs;
+    var m=byM[asset]=byM[asset]||{asset:asset,code:code,full:0,fullN:0,partial:0,partN:0,_full:[],_part:[]};
+    if(md==='yes'){ m._full.push(e); m.fullN++; totFullN++; allFull.push(e); } else { m._part.push(e); m.partN++; totPartN++; allPart.push(e); }
+    var dk=(''+(e.date||'')).slice(0,10); if(dailyE[dk]!=null)dailyE[dk].push(e);
     events.push({asset:asset,code:code,date:dk,hrs:hrs,kind:(md==='yes'?'full':'partial'),desc:(e.description||e.issue||'')});
   });
-  var machines=Object.keys(byM).map(function(k){var m=byM[k];m.total=m.full+m.partial;return m;}).sort(function(a,b){return b.total-a.total;});
+  // One line \u2192 wall-clock union everywhere (overlapping entries count once)
+  var totFull=dtUnionHrs(allFull), totPart=dtUnionHrs(allPart);
+  var machines=Object.keys(byM).map(function(k){var m=byM[k];m.full=Math.round(dtUnionHrs(m._full)*100)/100;m.partial=Math.round(dtUnionHrs(m._part)*100)/100;m.total=Math.round((m.full+m.partial)*100)/100;delete m._full;delete m._part;return m;}).sort(function(a,b){return b.total-a.total;});
   var dayLabels=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  var dailyArr=Object.keys(daily).sort().map(function(dk){var dd=new Date(dk+'T00:00:00');return {label:dayLabels[dd.getDay()],hrs:Math.round(daily[dk]*100)/100};});
+  var dailyArr=Object.keys(dailyE).sort().map(function(dk){var dd=new Date(dk+'T00:00:00');return {label:dayLabels[dd.getDay()],hrs:Math.round(dtUnionHrs(dailyE[dk])*100)/100};});
   return {machines:machines, totFull:Math.round(totFull*100)/100, totFullN:totFullN, totPart:Math.round(totPart*100)/100, totPartN:totPartN,
           events:events, daily:dailyArr, machineCount:machines.length, worst:machines[0]||null};
 }
@@ -7608,14 +7670,16 @@ function workloadPDF2(){
 var PARETO_METRIC='downtime', PARETO_DAYS=90, PARETO_DATA=null;
 function _paretoCompute(data, metric){
   var map={};
-  function ens(k,name,code){ if(!map[k])map[k]={key:k,name:name,code:code,dt:0,events:0,hours:0,fails:{},records:[]}; return map[k]; }
+  function ens(k,name,code){ if(!map[k])map[k]={key:k,name:name,code:code,dt:0,events:0,hours:0,fails:{},records:[],_dtE:[]}; return map[k]; }
   (data.entries||[]).forEach(function(e){
     var name=e.asset_name||'General', code=e.asset_code||'', k=name+'|'+code;
     var o=ens(k,name,code), lh=entryLaborHrs(e), dt=parseFloat(e.downtime_hrs)||0, down=(e.machine_down==='yes'||e.machine_down==='partial');
-    o.hours+=lh; if(dt>0)o.dt+=dt;
+    o.hours+=lh; if(down&&dt>0)o._dtE.push(e);
     if(down){ o.events++; var f=analClassifyFailure(e); o.fails[f]=(o.fails[f]||0)+1; }
     o.records.push({id:e.id,date:e.date,who:e.who,cat:analClassifyCategory(e),fail:analClassifyFailure(e),dt:dt,hrs:Math.round(lh*100)/100,note:((e.description||e.issue||'')+'').replace(/\s+/g,' ').trim(),down:e.machine_down||''});
   });
+  // One line → each machine's downtime is its own wall-clock union (same-machine overlaps once)
+  Object.keys(map).forEach(function(k){ map[k].dt=dtUnionHrs(map[k]._dtE); });
   var val=function(o){ return metric==='downtime'?o.dt:(metric==='failures'?o.events:o.hours); };
   var list=Object.keys(map).map(function(k){return map[k];}).filter(function(o){return val(o)>0;}).sort(function(a,b){return val(b)-val(a);});
   var tot=list.reduce(function(s,o){return s+val(o);},0)||1, cum=0;
@@ -7714,9 +7778,11 @@ function renderDowntimeByDay(){
   body.innerHTML='<div style="text-align:center;color:var(--text-3);padding:40px;font-size:14px">Loading\u2026</div>';
   loadReportData(DT_DAY,DT_DAY).then(function(data){
     var downs=(data.entries||[]).filter(function(e){return e.machine_down==='yes'||e.machine_down==='partial';});
-    var byAsset={}, order=[], totDT=0, nFull=0, nPart=0;
-    downs.forEach(function(e){ var k=_analAssetKey(e), dt=parseFloat(e.downtime_hrs)||0; if(!byAsset[k]){byAsset[k]={asset:k,dt:0,events:[]};order.push(k);} byAsset[k].dt+=dt; byAsset[k].events.push(e); totDT+=dt; if(e.machine_down==='yes')nFull++; else nPart++; });
-    var assets=order.map(function(k){return byAsset[k];}).sort(function(a,b){return b.dt-a.dt;});
+    var byAsset={}, order=[], nFull=0, nPart=0;
+    downs.forEach(function(e){ var k=_analAssetKey(e); if(!byAsset[k]){byAsset[k]={asset:k,dt:0,events:[]};order.push(k);} byAsset[k].events.push(e); if(e.machine_down==='yes')nFull++; else nPart++; });
+    // One line → total is wall-clock union; per-asset bars union within each machine
+    var totDT=dtUnionHrs(downs);
+    var assets=order.map(function(k){var a=byAsset[k]; a.dt=dtUnionHrs(a.events); return a;}).sort(function(a,b){return b.dt-a.dt;});
     var dLabel; try{ dLabel=new Date(DT_DAY+'T00:00:00').toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric',year:'numeric'}); }catch(e){ dLabel=DT_DAY; }
     var H='<div style="font-size:12px;color:var(--text-3);margin-bottom:12px">'+dLabel+'</div>';
     H+=_analKpis([_analTile('Total downtime',(Math.round(totDT*100)/100)+'h','on this day','#dc2626'),_analTile('Breakdowns',nFull,'full machine-down'),_analTile('Partial stops',nPart,'reduced/partial','#d97706'),_analTile('Assets affected',assets.length,'with downtime')]);
@@ -9685,14 +9751,16 @@ function statsLoad(cb){
   var fire=function(rows){ var ws=STATS.waiters.splice(0); ws.forEach(function(f){try{f(rows);}catch(e){}}); };
   var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-12);
   var from=pmISO(d);
-  var base='bbw_worklog?select=id,date,downtime_hrs,machine_down,type,asset_name&date=gte.'+from+'&order=date.asc';
+  var base='bbw_worklog?select=id,date,downtime_hrs,machine_down,type,asset_name,start_time,end_time,shift&date=gte.'+from+'&order=date.asc';
   sbFetchAll(base).then(function(rows){
       STATS.loading=false;
       STATS.key=key; STATS.at=Date.now();
       STATS.rows=rows.map(function(r){
         return { id:r.id, date:r.date||'', dt:(parseFloat(r.downtime_hrs)||0),
                  md:(r.machine_down==='yes'||r.machine_down==='partial'),
-                 type:r.type||'', asset:r.asset_name||'General' };
+                 type:r.type||'', asset:r.asset_name||'General',
+                 start_time:r.start_time||'', end_time:r.end_time||'',
+                 machine_down:r.machine_down||'', shift:r.shift||'' };
       });
       fire(STATS.rows);
     })
@@ -9930,7 +9998,7 @@ function renderHomeDrill(){
     else if(kind==='sh_dt'){ listS=cur.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}); hd='Downtime'; showDt=true; }
     listS=listS.slice().reverse();
     title=hd+' \u00b7 this shift';
-    if(showDt){ var tt=listS.reduce(function(a,e){return a+(e.dt||0);},0); sub=(Math.round(tt*10)/10)+'h \u00b7 '+listS.length+' entr'+(listS.length!==1?'ies':'y'); }
+    if(showDt){ var tt=dtUnionHrs(listS); sub=(Math.round(tt*10)/10)+'h \u00b7 '+listS.length+' entr'+(listS.length!==1?'ies':'y'); }
     else sub=listS.length+' entr'+(listS.length!==1?'ies':'y');
     body=listS.length?listS.map(function(e){
       var d=rqEsc(e.description||e.desc||'\u2014'); var who=rqEsc(e.who||''); var tm=rqEsc(e.time||'');
@@ -10040,11 +10108,13 @@ function renderHome(){
     var E=statRows||((typeof allE!=='undefined'&&allE&&allE.length)?allE.map(function(e){
       return {date:e.date,dt:parseFloat(e.dt)||0,
               md:(e.machineDown==='yes'||e.machineDown==='partial'),
-              type:e.type,asset:e.assetName||'General'};
+              type:e.type,asset:e.assetName||'General',
+              start_time:e.start||'',end_time:e.end||'',machine_down:e.machineDown||'',shift:e.shift||''};
     }):[]);
     var mo=today.slice(0,7);
     // Machine downtime only - matches the Assets ranking and the shift reports.
-    E.forEach(function(e){ if((''+(e.date||'')).slice(0,7)===mo && e.md){ dtMonth+=(e.dt||0); } });
+    // One line → overlapping entries count once (wall-clock union, date-aware).
+    dtMonth=dtUnionHrs(E.filter(function(e){ return (''+(e.date||'')).slice(0,7)===mo; }));
     // Completions = actual completed PM work orders (bucketed by completed_at), the
     // same basis as the PM-compliance tile. Plan = work orders due (by due_date).
     // Both now come from WOS, so the "vs plan" badge compares like with like instead
@@ -10249,16 +10319,19 @@ function renderHome(){
     // Match the DOWNTIME tile: machine-down hours from full history (statRows).
     // allE only holds ~3 days, which left this card empty while the tile showed 2.3h.
     var DTSRC=(typeof statRows!=='undefined'&&statRows)?statRows.map(function(e){
-                return {date:e.date,dt:e.dt,md:e.md,asset:e.asset};})
+                return {date:e.date,dt:e.dt,md:e.md,asset:e.asset,start_time:e.start_time||'',end_time:e.end_time||'',machine_down:e.machine_down||'',shift:e.shift||''};})
               :(((typeof allE!=='undefined'&&allE)?allE:[]).map(function(e){
                 return {date:e.date,dt:parseFloat(e.dt)||0,
                         md:(e.machineDown==='yes'||e.machineDown==='partial'),
-                        asset:e.assetName||e.asset||'\u2014'};}));
+                        asset:e.assetName||e.asset||'\u2014',
+                        start_time:e.start||'',end_time:e.end||'',machine_down:e.machineDown||'',shift:e.shift||''};}));
+    // One line \u2192 union per asset (overlapping entries on the same machine count once)
+    var _dtByA={};
     DTSRC.forEach(function(e){
       if(!e.md)return;
-      var v=parseFloat(e.dt); if(isNaN(v)||v<=0)return;
       if((''+(e.date||'')).slice(0,7)!==mo2)return;
-      var k=e.asset||'\u2014'; dtA[k]=(dtA[k]||0)+v; });
+      var k=e.asset||'\u2014'; (_dtByA[k]=_dtByA[k]||[]).push(e); });
+    Object.keys(_dtByA).forEach(function(k){ dtA[k]=dtUnionHrs(_dtByA[k]); });
   }catch(e){}
   var dtList=Object.keys(dtA).map(function(k){return [k,dtA[k]];})
               .sort(function(a,b){return b[1]-a[1];}).slice(0,5);
@@ -14834,7 +14907,7 @@ function buildReport(){
   var cur=allE.filter(function(e){return e.date===shiftAnchor()&&e.shift===(isDay()?'Day':'Night');});
   cur.sort(function(a,b){return (a.loggedAt||'').localeCompare(b.loggedAt||'');});
   var techs=reportTechs(cur);
-  var dt=cur.reduce(function(a,e){return a+(e.dt||0);},0).toFixed(1);
+  var dt=dtUnionHrs(cur).toFixed(1);  // one line → overlapping downtime counts once
   var note=gid('snote')?gid('snote').value:'';
   var SEP='='.repeat(50); var DIV='-'.repeat(30);
   var b='BBW MAINTENANCE - SHIFT REPORT\n'+td()+' - '+(isDay()?'Day (07:00-19:00)':'Night (19:00-07:00)')+'\nTechnicians: '+(techs.join(', ')||'?')+'\nDowntime: '+dt+'h\n'+(note?'Note: '+note+'\n':'')+SEP+'\n\n';
@@ -14921,7 +14994,7 @@ function computeShiftReport(date,shift){
   se.sort(function(a,b){return (a.loggedAt||'').localeCompare(b.loggedAt||'');});
   var techs=reportTechs(se);
   var dtEvents=se.filter(function(e){return (e.machineDown==='yes'||e.machineDown==='partial')&&(e.dt||0)>0;});
-  var totalDT=dtEvents.reduce(function(a,e){return a+(e.dt||0);},0);
+  var totalDT=dtUnionHrs(se);  // one line → overlapping downtime counts once
   var coEvents=se.filter(function(e){return (e.coMins||0)>0;});
   var totalCO=coEvents.reduce(function(a,e){return a+(e.coMins||0);},0);
   var coTypes=[...new Set(coEvents.map(function(e){return e.coType;}).filter(Boolean))];
@@ -15262,7 +15335,7 @@ function openReportHTML(date,shift){
   if(rmodal)rmodal.remove();
   var shiftEntries=allE.filter(function(e){return e.date===date&&e.shift===shift;});  shiftEntries.sort(function(a,b){return (a.loggedAt||'').localeCompare(b.loggedAt||'');});
   var techs=[...new Set(shiftEntries.map(function(e){return e.who;}))].filter(Boolean);
-  var totalDT=shiftEntries.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).reduce(function(a,e){return a+(e.dt||0);},0);
+  var totalDT=dtUnionHrs(shiftEntries);  // one line → overlapping downtime counts once
   var totalDTmins=Math.round(totalDT*60);
   var totalCOmins=shiftEntries.filter(function(e){return e.coMins>0;}).reduce(function(a,e){return a+(e.coMins||0);},0);
   var shiftLabel=shift==='Day'?'Day Shift (07:00-19:00)':'Night Shift (19:00-07:00)';
@@ -15361,7 +15434,7 @@ function showSendModal(){
   var cur=allE.filter(function(e){return e.date===shiftAnchor()&&e.shift===(isDay()?'Day':'Night');});
   var iss=cur.filter(function(e){return e.type==='issue'||e.type==='pending';}).length;
   var pts=cur.filter(function(e){return e.type==='part'||e.type==='parts';}).length;
-  var dt=cur.reduce(function(a,e){return a+(e.dt||0);},0).toFixed(1);
+  var dt=dtUnionHrs(cur).toFixed(1);  // one line → overlapping downtime counts once
   gid('send-sub').textContent=td()+' - '+(isDay()?'Day':'Night')+' shift';
   gid('send-stats').innerHTML='<div style="text-align:center"><div style="font-size:22px;font-weight:800;color:#fff">'+cur.length+'</div><div style="font-size:10px;color:var(--text-3);font-family:monospace">entries</div></div><div style="text-align:center"><div style="font-size:22px;font-weight:800;color:#ef4444">'+iss+'</div><div style="font-size:10px;color:var(--text-3);font-family:monospace">pending</div></div><div style="text-align:center"><div style="font-size:22px;font-weight:800;color:#f97316">'+pts+'</div><div style="font-size:10px;color:var(--text-3);font-family:monospace">parts</div></div><div style="text-align:center"><div style="font-size:22px;font-weight:800;color:#f59e0b">'+dt+'</div><div style="font-size:10px;color:var(--text-3);font-family:monospace">DT hrs</div></div>';
   var m=gid('send-modal');if(m)m.style.display='flex';
@@ -15451,7 +15524,7 @@ function sendMonthlyRecap(){
   var filtered=allE.filter(function(e){var d=new Date(e.date);return d.getMonth()===month&&d.getFullYear()===year;});
   if(!filtered.length){alert('No entries for this period.');return;}
   var mn=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  var dt=filtered.reduce(function(a,e){return a+(e.dt||0);},0).toFixed(1);
+  var dt=dtUnionHrs(filtered).toFixed(1);  // one line → overlapping downtime counts once
   var techs={};filtered.forEach(function(e){if(e.who)techs[e.who]=(techs[e.who]||0)+1;});
   var b='BBW MAINTENANCE - MONTHLY RECAP: '+mn[month]+' '+year+'\n'+'='.repeat(50)+'\nEntries: '+filtered.length+'\nDowntime: '+dt+'h\nIssues/Pending: '+filtered.filter(function(e){return e.type==='issue'||e.type==='pending';}).length+'\n\nTECHNICIANS\n'+'-'.repeat(30)+'\n';
   Object.entries(techs).sort(function(a,b){return b[1]-a[1];}).forEach(function(kv){b+='  '+kv[0]+': '+kv[1]+' entries\n';});
