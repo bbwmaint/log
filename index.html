@@ -1081,7 +1081,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v293';
+var APP_BUILD='BBW CMMS build v294';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -5682,6 +5682,13 @@ function utilKey(ev, el){
 }
 function renderUtil(){
   var el=gid('pane-util');
+  // Don't rebuild the inputs while the user is typing in one of them. Autosave
+  // (800ms after each keystroke) and the 5-min background sync both call through
+  // here; rebuilding the pane blurs the focused field, which makes Android drop
+  // the soft keyboard on nearly every keystroke. The reading is already in the
+  // model + localStorage, so a full re-render on the next tab switch / Save is
+  // enough — nothing typed is lost.
+  try{ var _ae=document.activeElement; if(el && _ae && _ae.tagName==='INPUT' && el.contains(_ae)){ return; } }catch(_e){}
   var today=utilLogs.find(function(r){return r.date===utilDay();});
   // Preserve anything typed-but-not-yet-saved so a background refresh (the 5-min
   // loadFromSB) can't wipe readings mid-entry. Snapshot the current inputs, then
