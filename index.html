@@ -1081,7 +1081,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v297';
+var APP_BUILD='BBW CMMS build v298';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -13001,7 +13001,14 @@ function parseQuoteItems(items){
       if(mc){ qty=mc[1]; qtyTok=all[i]; break; }
       if(/^\d+(?:\.\d+)?$/.test(s)){ var nx=all[i+1]&&all[i+1].str.trim(); if(nx&&UNIT.test(nx)){ qty=s; qtyTok=all[i]; break; } }
     }
-    if(!qty && hx.qty!=null){ var band=all.filter(function(t){return Math.abs(t.x-hx.qty)<26 && /^\d+(?:\.\d+)?$/.test(t.str.trim());}); if(band.length){qty=band[0].str.trim(); qtyTok=band[0];} }
+    if(!qty && hx.qty!=null){
+      // Pick the integer CLOSEST to the Qty column header, not merely the first one
+      // near it — otherwise a leading item number (1, 2, 3…) in the adjacent column
+      // gets read as the quantity.
+      var band=all.filter(function(t){return /^\d+(?:\.\d+)?$/.test(t.str.trim()) && Math.abs(t.x-hx.qty)<26;});
+      band.sort(function(a,b){return Math.abs(a.x-hx.qty)-Math.abs(b.x-hx.qty);});
+      if(band.length){qty=band[0].str.trim(); qtyTok=band[0];}
+    }
     // prices by column — never count the qty token itself.
     var priceVal='', totalVal='', prices=[];
     all.forEach(function(t){ if(t===qtyTok)return; var m=t.str.match(MONEY); if(m)prices.push({v:num(m[1]),x:t.x}); });
