@@ -1084,7 +1084,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v299';
+var APP_BUILD='BBW CMMS build v300';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -13527,11 +13527,15 @@ function _pordPO(idOrObj){
     T(p.delivery||'',t1[0]+6,y+12,9.5,'normal',INK); T(p.quote_no||'',t1[1]+6,y+12,9.5,'normal',INK);
     y+=18+4;
     var cx=[MLX, 107, 188, 395, 478, MR];
-    rect(cx[0],y,MR-MLX,17,TEAL,HAIR);
-    for(var i=1;i<cx.length-1;i++)line(cx[i],y,cx[i],y+17,HAIR);
-    T('Qty',cx[0]+6,y+12,9,'bold',INK); T('Item #',cx[1]+6,y+12,9,'bold',INK); T('Description',cx[2]+6,y+12,9,'bold',INK);
-    T('Unit Price',cx[4]-6,y+12,9,'bold',INK,'right'); T('Line Total (CAD)',cx[5]-6,y+12,9,'bold',INK,'right');
-    y+=17;
+    var _PH=doc.internal.pageSize.getHeight(), _RESERVE=104, _BOT=_PH-40;   // reserve = tax+subtotal+gap+total+signature
+    function tableHead(){
+      rect(cx[0],y,MR-MLX,17,TEAL,HAIR);
+      for(var i=1;i<cx.length-1;i++)line(cx[i],y,cx[i],y+17,HAIR);
+      T('Qty',cx[0]+6,y+12,9,'bold',INK); T('Item #',cx[1]+6,y+12,9,'bold',INK); T('Description',cx[2]+6,y+12,9,'bold',INK);
+      T('Unit Price',cx[4]-6,y+12,9,'bold',INK,'right'); T('Line Total (CAD)',cx[5]-6,y+12,9,'bold',INK,'right');
+      y+=17;
+    }
+    tableHead();
     var lns=pordLines(p);
     var rows=lns.map(function(l){ var q=parseFloat(l.qty)||0,c=parseFloat(l.cost)||0; return {qty:l.qty,item:l.part_no||'',desc:l.item||'',unit:c,total:q*c}; });
     var ship=parseFloat(p.shipping)||0; if(ship>0)rows.push({qty:'1.00',item:'',desc:'FREIGHT',unit:ship,total:ship});
@@ -13539,6 +13543,9 @@ function _pordPO(idOrObj){
     function drawRow(r){
       var descLines=r?doc.splitTextToSize(String(r.desc||''), cx[3]-cx[2]-12):[''];
       var rh=r?Math.max(26, descLines.length*12+12):18;
+      // Long orders (e.g. a 59-line GEA quote) run off the page — start a new page
+      // and repeat the column header when the next row wouldn't fit.
+      if(y+rh>_BOT){ doc.addPage(); y=46; tableHead(); alt=false; }
       rect(cx[0],y,MR-MLX,rh, alt?TEALT:[255,255,255], null);
       for(var i=1;i<cx.length-1;i++)line(cx[i],y,cx[i],y+rh,HAIR);
       line(cx[0],y+rh,cx[5],y+rh,HAIR);
@@ -13556,8 +13563,9 @@ function _pordPO(idOrObj){
     // Pad to MINROWS for the form look, but never push the Tax/Subtotal/Total +
     // signature block off the page — tall multi-line descriptions eat the space,
     // so stop adding filler rows once the reserved bottom block wouldn't fit.
-    var _PH=doc.internal.pageSize.getHeight(), _RESERVE=104;   // tax+subtotal+gap+total+signature
-    for(var e=rows.length;e<MINROWS && (y+18+_RESERVE)<=(_PH-40);e++)drawRow(null);
+    for(var e=rows.length;e<MINROWS && (y+18+_RESERVE)<=_BOT;e++)drawRow(null);
+    // Keep the totals + signature block together — bump to a new page if it won't fit.
+    if(y+_RESERVE>_BOT){ doc.addPage(); y=46; }
     var tax=parseFloat(p.tax)||0, total=subtotal+tax;
     rect(cx[0],y,MR-MLX,18,null,null);
     for(var j=1;j<cx.length-1;j++)line(cx[j],y,cx[j],y+18,HAIR); line(cx[0],y,cx[0],y+18,HAIR); line(cx[5],y,cx[5],y+18,HAIR);
