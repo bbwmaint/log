@@ -1081,7 +1081,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v296';
+var APP_BUILD='BBW CMMS build v297';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -10706,7 +10706,7 @@ function _showPMDetail(ctx){
   H+='<button onclick="var m=document.getElementById(\'pmtask-modal\');if(m)m.remove()" style="width:32px;height:32px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);font-size:15px;cursor:pointer;flex-shrink:0">\u2715</button></div>';
   H+='<div style="padding:16px 18px">';
   H+='<div style="font-size:15px;font-weight:700;color:var(--text);line-height:1.5;margin-bottom:12px">'+rqEsc(name||'\u2014')+'</div>';
-  H+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">'+(due?chip((overdue?T('pm_overdue'):T('pm_due'))+': '+due,overdue?'#f87171':'#60a5fa'):'')+chip(freq)+chip(pr?pmVal(pr):'')+chip(hrs?((Math.round(parseFloat(hrs)*100)/100)+'h '+(lang==='uk'?'\u043e\u0440\u0456\u0454\u043d\u0442.':'est')):'')+chip(pmVal(typ))+'</div>';
+  H+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">'+(due?chip((overdue?T('pm_overdue'):T('pm_due'))+': '+due,overdue?'#f87171':'#60a5fa'):'')+chip(freq)+chip(pr?pmVal(pr):'')+chip(hrs?(dtLabel(hrs)+' '+(lang==='uk'?'\u043e\u0440\u0456\u0454\u043d\u0442.':'est')):'')+chip(pmVal(typ))+'</div>';
   var _lube=pmLubeFor(code);
   if(_lube){
     var _lz=pmLubeZone(code);
@@ -10908,7 +10908,7 @@ function pmInfoPDF(pl){
     kcard(0,'Frequency',pl.freq||'—');
     kcard(1,'Type',pl.type||'Preventive');
     kcard(2,'Priority',pl.priority||'—');
-    kcard(3,'Est. hours',pl.hours?((Math.round(parseFloat(pl.hours)*100)/100)+' h'):'—');
+    kcard(3,'Est. hours',pl.hours?dtLabel(pl.hours):'—');
     y+=cardH+10;
 
     // ---- Schedule: two prominent cards (Last completed | Next due) ----
@@ -12994,9 +12994,17 @@ function parseQuoteItems(items){
 
   clusters.forEach(function(cl){
     var all=[]; cl.rows.forEach(function(tk){ tk.forEach(function(t){ all.push(t); }); });
-    // prices by column
+    // qty FIRST — before prices — so a decimal quantity ("1.00", "2.00"; common on
+    // GEA quotes) is never mistaken for money and read in as the cost.
+    var qty='', qtyTok=null;
+    for(var i=0;i<all.length;i++){ var s=all[i].str.trim(); var mc=s.match(QTYUNIT);
+      if(mc){ qty=mc[1]; qtyTok=all[i]; break; }
+      if(/^\d+(?:\.\d+)?$/.test(s)){ var nx=all[i+1]&&all[i+1].str.trim(); if(nx&&UNIT.test(nx)){ qty=s; qtyTok=all[i]; break; } }
+    }
+    if(!qty && hx.qty!=null){ var band=all.filter(function(t){return Math.abs(t.x-hx.qty)<26 && /^\d+(?:\.\d+)?$/.test(t.str.trim());}); if(band.length){qty=band[0].str.trim(); qtyTok=band[0];} }
+    // prices by column — never count the qty token itself.
     var priceVal='', totalVal='', prices=[];
-    all.forEach(function(t){ var m=t.str.match(MONEY); if(m)prices.push({v:num(m[1]),x:t.x}); });
+    all.forEach(function(t){ if(t===qtyTok)return; var m=t.str.match(MONEY); if(m)prices.push({v:num(m[1]),x:t.x}); });
     if(prices.length){
       if(hx.price!=null||hx.total!=null){
         prices.forEach(function(p){ var dP=hx.price!=null?Math.abs(p.x-hx.price):1e9, dT=hx.total!=null?Math.abs(p.x-hx.total):1e9;
@@ -13008,16 +13016,9 @@ function parseQuoteItems(items){
     // match catches the line NET instead, so grab the unit price from the price
     // column directly and prefer it as the per-unit cost.
     var unitVal='';
-    all.forEach(function(t){ var s=t.str.trim().replace(/^\$/,''); if(!/^[0-9][0-9,]*\.[0-9]{3}$/.test(s))return;
+    all.forEach(function(t){ if(t===qtyTok)return; var s=t.str.trim().replace(/^\$/,''); if(!/^[0-9][0-9,]*\.[0-9]{3}$/.test(s))return;
       if(hx.price!=null && Math.abs(t.x-hx.price)>70 && (hx.total==null||Math.abs(t.x-hx.total)>70))return;
       if(!unitVal)unitVal=num(s); });
-    // qty: combined "6 PCE" token, or N followed by a unit, else qty-band
-    var qty='', qtyTok=null;
-    for(var i=0;i<all.length;i++){ var s=all[i].str.trim(); var mc=s.match(QTYUNIT);
-      if(mc){ qty=mc[1]; qtyTok=all[i]; break; }
-      if(/^\d+(?:\.\d+)?$/.test(s)){ var nx=all[i+1]&&all[i+1].str.trim(); if(nx&&UNIT.test(nx)){ qty=s; qtyTok=all[i]; break; } }
-    }
-    if(!qty && hx.qty!=null){ var band=all.filter(function(t){return Math.abs(t.x-hx.qty)<26 && /^\d+(?:\.\d+)?$/.test(t.str.trim());}); if(band.length){qty=band[0].str.trim(); qtyTok=band[0];} }
     // part: the leading token if it's a part number, else best-scoring token
     var part='', best=0;
     if(partScore(cl.pos)>=2){ part=cl.pos; best=partScore(cl.pos); }
