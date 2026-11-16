@@ -976,10 +976,13 @@ var CMMS_ENABLED=true;
 var ROLES={Lahcen:'Maintenance Manager',Praful:'Maintenance Co-ordinator',Viktor:'Maintenance Supervisor'};
 var ROLES_UK={Lahcen:'\u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0437 \u043e\u0431\u0441\u043b\u0443\u0433\u043e\u0432\u0443\u0432\u0430\u043d\u043d\u044f',Praful:'\u041a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u043e\u0440 \u0437 \u043e\u0431\u0441\u043b\u0443\u0433\u043e\u0432\u0443\u0432\u0430\u043d\u043d\u044f',Viktor:'\u041a\u0435\u0440\u0456\u0432\u043d\u0438\u043a \u0437 \u043e\u0431\u0441\u043b\u0443\u0433\u043e\u0432\u0443\u0432\u0430\u043d\u043d\u044f'};
 function roleOf(name){
+  // A view-only auditor is shown as "Auditor", not the Technician default.
+  if(typeof AUDITORS!=='undefined' && AUDITORS.indexOf(name)>=0) return (typeof lang!=='undefined'&&lang==='uk')?'\u0410\u0443\u0434\u0438\u0442\u043e\u0440':'Auditor';
   if(typeof lang!=='undefined'&&lang==='uk')return ROLES_UK[name]||'\u0422\u0435\u0445\u043d\u0456\u043a \u0437 \u043e\u0431\u0441\u043b\u0443\u0433\u043e\u0432\u0443\u0432\u0430\u043d\u043d\u044f';
   return ROLES[name]||'Maintenance Technician';
 }
 function roleColor(name){
+  if(typeof AUDITORS!=='undefined' && AUDITORS.indexOf(name)>=0) return '#0d9488';   // teal \u2014 auditor
   var r=ROLES[name]||'';
   if(r.indexOf('Manager')>=0)return '#f59e0b';      // gold
   if(r.indexOf('Co-ordinator')>=0)return '#3b82f6';  // blue
@@ -1081,7 +1084,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v298';
+var APP_BUILD='BBW CMMS build v299';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
