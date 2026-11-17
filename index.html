@@ -1086,7 +1086,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v304';
+var APP_BUILD='BBW CMMS build v305';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4034,25 +4034,44 @@ function assetStatus(code,name){ var list=entriesForAsset(code,name); if(!list.l
 function ahLink(code,name){ if(!window._ahRef){window._ahRef={};window._ahN=0;} if(window._ahN>4000){window._ahN=0;window._ahRef={};} window._ahN++; window._ahRef[window._ahN]={code:code,name:name}; return window._ahN; }
 function ahOpen(t){ var r=window._ahRef&&window._ahRef[t]; if(r)openAssetHistory(r.code,r.name); }
 
-function openAssetHistory(code,name){
-  var list=entriesForAsset(code,name).slice(0,50);
+var _AH_CODE='',_AH_NAME='';
+function ahApply(){ var f=gid('ah-from'),t=gid('ah-to'); var m=gid('ah-modal'); if(m)m.remove(); openAssetHistory(_AH_CODE,_AH_NAME,f?f.value:'',t?t.value:''); }
+function ahExport(){ var f=gid('ah-from'),t=gid('ah-to'); if(typeof assetWorkLogPDF==='function')assetWorkLogPDF(_AH_CODE,_AH_NAME,f?f.value:'',t?t.value:''); else alert('Export not available yet \u2014 try again in a moment.'); }
+function openAssetHistory(code,name,fromISO,toISO){
+  _AH_CODE=code||''; _AH_NAME=name||'';
+  var _tdy=pmISO(new Date());
+  if(!toISO)toISO=_tdy;
+  if(!fromISO){ var _d=new Date(); _d.setDate(_d.getDate()-120); fromISO=pmISO(_d); }
+  var full=entriesForAsset(code,name).filter(function(e){return e&&!e.deleted;});
+  var list=full.filter(function(e){return (e.date||'')>=fromISO&&(e.date||'')<=toISO;});
+  var shown=list.slice(0,250);
   var title=name||code||'Asset';
   var rec=assetIssueCount(code,name,14);
   var st=assetStatus(code,name);
   var smap={down:['#f87171','DOWN'],partial:['#fbbf24','PARTIAL'],issue:['#fbbf24','OPEN ISSUE'],ok:['#34d399','RUNNING'],none:['var(--text-3)','\u2014']};
   var sc=smap[st.s]||smap.none;
   var H='<div id="ah-modal" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:flex-end;justify-content:center">';
-  H+='<div style="background:var(--surface);width:100%;max-width:560px;max-height:86vh;border-radius:18px 18px 0 0;display:flex;flex-direction:column;overflow:hidden">';
+  H+='<div style="background:var(--surface);width:100%;max-width:560px;max-height:88vh;border-radius:18px 18px 0 0;display:flex;flex-direction:column;overflow:hidden">';
   H+='<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:10px">';
   H+='<div style="min-width:0"><div style="font-size:17px;font-weight:800;color:var(--text)">'+rqEsc(title)+'</div>'+(code?'<div style="font-size:12px;color:var(--text-3);margin-top:2px">'+rqEsc(code)+'</div>':'')+'</div>';
   H+='<button onclick="var m=document.getElementById(\'ah-modal\');if(m)m.remove()" style="width:32px;height:32px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);font-size:15px;cursor:pointer;flex-shrink:0">\u2715</button></div>';
   H+='<div style="padding:12px 18px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border)">';
   H+='<span style="font-size:11px;font-weight:800;letter-spacing:.04em;color:'+sc[0]+';background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 10px">'+sc[1]+'</span>';
-  H+='<span style="font-size:11px;font-weight:700;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 10px">'+list.length+' log'+(list.length===1?'':'s')+'</span>';
+  H+='<span style="font-size:11px;font-weight:700;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 10px">'+list.length+' log'+(list.length===1?'':'s')+' in range</span>';
   if(rec>=3)H+='<span style="font-size:11px;font-weight:800;letter-spacing:.03em;color:#fb923c;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.4);border-radius:8px;padding:6px 10px">'+(lang==='uk'?'\u041f\u041e\u0412\u0422\u041e\u0420':'RECURRING')+' \u00b7 '+rec+'/14d</span>';
-  H+='</div><div style="overflow-y:auto;padding:12px 14px">';
-  if(!list.length)H+='<div style="text-align:center;padding:30px;color:var(--text-3)">'+(lang==='uk'?'\u041d\u0435\u043c\u0430\u0454 \u0456\u0441\u0442\u043e\u0440\u0456\u0457':'No history for this asset')+'</div>';
-  list.forEach(function(e){
+  H+='</div>';
+  var _inS='background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:7px 9px;font-size:12.5px;color:var(--text);color-scheme:dark;min-width:0;flex:1 1 112px';
+  H+='<div style="padding:10px 18px;border-bottom:1px solid var(--border);display:flex;gap:7px;align-items:center;flex-wrap:wrap">';
+  H+='<span style="font-size:9.5px;font-weight:800;color:var(--text-3);letter-spacing:.07em">FROM</span>';
+  H+='<input type="date" id="ah-from" value="'+fromISO+'" style="'+_inS+'">';
+  H+='<span style="font-size:9.5px;font-weight:800;color:var(--text-3);letter-spacing:.07em">TO</span>';
+  H+='<input type="date" id="ah-to" value="'+toISO+'" style="'+_inS+'">';
+  H+='<button onclick="ahApply()" style="flex:0 0 auto;background:var(--surface-2);border:1px solid var(--border-2);color:var(--text);font-size:12.5px;font-weight:700;padding:8px 13px;border-radius:9px;cursor:pointer">Apply</button>';
+  H+='<button onclick="ahExport()" style="flex:0 0 auto;background:linear-gradient(95deg,#c8a24b,#d8b55e);border:none;color:#1b1206;font-size:12.5px;font-weight:800;padding:8px 14px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Export PDF</button>';
+  H+='</div>';
+  H+='<div style="overflow-y:auto;padding:12px 14px">';
+  if(!shown.length)H+='<div style="text-align:center;padding:30px;color:var(--text-3);font-size:13px">'+(lang==='uk'?'\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043f\u0438\u0441\u0456\u0432 \u0437\u0430 \u0446\u0435\u0439 \u043f\u0435\u0440\u0456\u043e\u0434':'No log entries for this machine in the selected dates')+'</div>';
+  shown.forEach(function(e){
     var dd=e.loggedAt?new Date(e.loggedAt):null;
     var dl=dd?dd.toLocaleDateString('en-CA',{month:'short',day:'numeric'})+' '+dd.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):(e.date||'');
     var col=isIssueType(e)?'#f87171':(e.machineDown==='yes'?'#f87171':'#34d399');
@@ -4063,6 +4082,7 @@ function openAssetHistory(code,name){
     if(e.machineDown==='yes')H+='<div style="font-size:10px;font-weight:700;color:#f87171;letter-spacing:.04em;margin-top:3px">MACHINE DOWN</div>';
     H+='</div>';
   });
+  if(list.length>shown.length)H+='<div style="text-align:center;padding:8px 6px 2px;color:var(--text-3);font-size:11px">Showing first '+shown.length+' of '+list.length+' — narrow the dates, or Export PDF for the full range.</div>';
   H+='</div></div></div>';
   overlayGuard('ah-modal');
   document.body.insertAdjacentHTML('beforeend',H);
@@ -11180,6 +11200,121 @@ function pmInfoPDF(pl){
       T('PM '+(pl.code||'')+' · Generated '+today,W-M,H-26,8,'normal',SUB,'right');
     }
     doc.save('PM_'+(pl.code||'')+'_info_'+today+'.pdf');
+  }catch(e){ try{alert('Could not generate PDF: '+e.message);}catch(_){} }
+}
+// ── Machine Work Log PDF — "prove they worked on this machine on this date" ──
+// Pulls every shift-log entry for one asset in a date window and renders an
+// audit-ready record: date, shift, technician(s), what they did, downtime.
+function assetWorkLogPDF(code,name,fromISO,toISO){
+  try{
+    var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF engine not loaded yet — try again in a moment.');return;}
+    var doc=new JS({unit:'pt',format:'letter'}); try{pdfUnicode(doc);}catch(e){}
+    var today=pmISO(new Date());
+    if(!toISO)toISO=today;
+    if(!fromISO){ var _d0=new Date(); _d0.setDate(_d0.getDate()-120); fromISO=pmISO(_d0); }
+    if(fromISO>toISO){ var _sw=fromISO; fromISO=toISO; toISO=_sw; }
+    var F='helvetica';
+    try{ if(typeof DEJAVU_REG!=='undefined'){ doc.addFileToVFS('DejaVu.ttf',DEJAVU_REG); doc.addFont('DejaVu.ttf','DejaVu','normal'); doc.addFileToVFS('DejaVu-Bold.ttf',DEJAVU_BOLD); doc.addFont('DejaVu-Bold.ttf','DejaVu','bold'); F='DejaVu'; } }catch(e){ F='helvetica'; }
+    function pdfSafe(s){return String(s==null?'':s).replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/—/g,'-').replace(/…/g,'...').replace(/→/g,'->');}
+    var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=44,CW=W-2*M,y=0;
+    var INK=[30,31,34],SUB=[122,124,132],HAIR=[226,227,231],GOLD=[30,58,95],RED=[196,35,31],AMB=[154,107,17];
+    var DOWNBG=[253,236,236],PARTBG=[254,245,228];
+    var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function sc(c){doc.setTextColor(c[0],c[1],c[2]);} function fc(c){doc.setFillColor(c[0],c[1],c[2]);} function dc(c){doc.setDrawColor(c[0],c[1],c[2]);}
+    function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(pdfSafe(t),x,yy,al?{align:al}:undefined);}
+    function fmtDY(iso){ var d=new Date((iso||'')+'T00:00:00'); if(isNaN(d))return iso||''; return MON[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear(); }
+
+    var all=(typeof entriesForAsset==='function')?entriesForAsset(code,name):[];
+    all=(all||[]).filter(function(e){return e&&!e.deleted&&(e.date||'')>=fromISO&&(e.date||'')<=toISO;});
+    all.sort(function(a,b){return (b.loggedAt||b.date||'').localeCompare(a.loggedAt||a.date||'');});
+    var downEv=all.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).length;
+    var totDT=0; all.forEach(function(e){ var n=parseFloat(e.dt); if(!isNaN(n)&&n>0)totDT+=n; });
+
+    // Letterhead
+    y=44;
+    if(window.__logoDark){try{var lh=26,lw=lh*((window.__logoW||498)/(window.__logoH||220));doc.addImage(window.__logoDark,'PNG',M,y-4,lw,lh);}catch(e){T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}}
+    else{T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}
+    T('Machine Work Log',W-M,y+6,12.5,'bold',INK,'right');
+    T('Shift-log record · '+fmtDY(today),W-M,y+20,9.5,'normal',SUB,'right');
+    y+=38;dc(GOLD);doc.setLineWidth(1.4);doc.line(M,y,W-M,y);y+=22;
+
+    // Machine title
+    var _nm=name||code||'Machine';
+    doc.setFont(F,'bold'); var tfs=20, tl;
+    while(tfs>=13){ doc.setFontSize(tfs); tl=doc.splitTextToSize(pdfSafe(_nm),CW); if(tl.length<=2)break; tfs-=1; }
+    if(tl.length>2)tl=tl.slice(0,2);
+    tl.forEach(function(l){ T(l,M,y,tfs,'bold',INK); y+=tfs+2; });
+    if(code){ T(code,M,y,10.5,'normal',SUB); y+=16; } else { y+=4; }
+
+    // Meta — period on its own row (can be long), then a 3-up row
+    dc(HAIR); doc.setLineWidth(.8); doc.line(M,y-4,W-M,y-4); y+=6;
+    var single=(fromISO===toISO);
+    var periodLbl=single?fmtDY(fromISO):(fmtDY(fromISO)+' – '+fmtDY(toISO));
+    var genLbl=''; try{ genLbl=new Date().toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ genLbl=today; }
+    T(single?'DATE':'PERIOD',M,y+10,7,'bold',SUB);
+    T(periodLbl,M,y+24,11,'bold',INK);
+    y+=36;
+    var row2=[['ENTRIES',all.length+' record'+(all.length===1?'':'s')],['GENERATED',genLbl],['EXPORTED BY',(typeof user!=='undefined'&&user)?user:'—']];
+    var r2w=CW/row2.length;
+    row2.forEach(function(it,i){ var x=M+i*r2w; T(it[0],x,y+2,7,'bold',SUB); doc.setFont(F,'bold');doc.setFontSize(9.5);sc(INK); var vv=doc.splitTextToSize(pdfSafe(it[1]),r2w-10); doc.text(vv[0],x,y+15); });
+    y+=24; dc(HAIR); doc.setLineWidth(.8); doc.line(M,y-6,W-M,y-6); y+=8;
+
+    // Summary chips
+    var chips=[['Entries',all.length,INK],['Downtime events',downEv,downEv>0?RED:INK],['Total DT (hrs)',(Math.round(totDT*100)/100),totDT>0?RED:INK]];
+    var cgap=10,cw=(CW-cgap*(chips.length-1))/chips.length,chh=44;
+    chips.forEach(function(ch,i){ var x=M+i*(cw+cgap); dc(HAIR);doc.setLineWidth(.8);fc([255,255,255]);doc.roundedRect(x,y,cw,chh,5,5,'FD'); T(String(ch[1]),x+11,y+25,18,'bold',ch[2]); T(ch[0].toUpperCase(),x+11,y+37,7,'bold',SUB); });
+    y+=chh+18;
+
+    // Table
+    var cDate=M,cShift=M+58,cTech=M+104,cWork=M+200,workW=(W-M-38)-(M+200);
+    var techW=90;
+    function thead(){ T('DATE',cDate,y,7,'bold',SUB);T('SHIFT',cShift,y,7,'bold',SUB);T('TECHNICIAN',cTech,y,7,'bold',SUB);T('WORK LOGGED',cWork,y,7,'bold',SUB);T('DT',W-M,y,7,'bold',SUB,'right'); y+=6; dc([207,209,214]);doc.setLineWidth(1);doc.line(M,y,W-M,y); y+=14; }
+    function ensureRow(h){ if(y+h>H-54){ doc.addPage(); y=52; thead(); } }
+    function shiftPill(x,yy,sh){ var night=/night/i.test(sh||''); var day=/day/i.test(sh||''); var lbl=night?'Night':(day?'Day':(sh||'—')); doc.setFont(F,'bold');doc.setFontSize(7.5); var tw=doc.getTextWidth(lbl),pw=tw+14,ph=14; if(night){ fc([30,32,38]);doc.roundedRect(x,yy,pw,ph,7,7,'F'); T(lbl,x+pw/2,yy+9.6,7.5,'bold',[221,223,228],'center'); } else if(day){ fc([244,241,231]);doc.roundedRect(x,yy,pw,ph,7,7,'F'); T(lbl,x+pw/2,yy+9.6,7.5,'bold',[138,109,30],'center'); } else { T(lbl,x,yy+10,8,'normal',SUB); } }
+
+    thead();
+    if(!all.length){ T('No log entries for this machine between '+fmtDY(fromISO)+' and '+fmtDY(toISO)+'.',M,y+6,10,'italic',SUB); y+=20; }
+    all.forEach(function(e){
+      var segs=[];
+      if(e.issue){ doc.setFont(F,'bold');doc.setFontSize(9.5); doc.splitTextToSize(pdfSafe(e.issue),workW).forEach(function(l){segs.push({t:l,b:true});}); }
+      if(e.desc){ doc.setFont(F,'normal');doc.setFontSize(9.5); doc.splitTextToSize(pdfSafe(e.desc),workW).forEach(function(l){segs.push({t:l,b:false});}); }
+      if(!segs.length)segs.push({t:'—',b:false});
+      var flag=e.machineDown==='yes'?'MACHINE DOWN':(e.machineDown==='partial'?'PARTIAL':'');
+      doc.setFont(F,'bold');doc.setFontSize(9.5);
+      var techMain=doc.splitTextToSize(pdfSafe(e.who||'—'),techW);
+      var raw=e.withWho||e.with_who||''; var arr=String(raw).split(',').map(function(s){return s.trim();}).filter(Boolean);
+      doc.setFont(F,'normal');doc.setFontSize(8);
+      var techSub=arr.length?doc.splitTextToSize('+ '+arr.join(', '),techW):[];
+      var workLines=segs.length+(flag?1:0);
+      var techLines=techMain.length+techSub.length;
+      var lines=Math.max(workLines,techLines,1);
+      var rowH=lines*11.5+9;
+      ensureRow(rowH);
+      var top=y-9;
+      if(e.machineDown==='yes'){ fc(DOWNBG); doc.rect(M-6,top-2,CW+12,rowH,'F'); }
+      else if(e.machineDown==='partial'){ fc(PARTBG); doc.rect(M-6,top-2,CW+12,rowH,'F'); }
+      var d=new Date((e.date||'')+'T00:00:00');
+      if(!isNaN(d)){ T(MON[d.getMonth()]+' '+d.getDate(),cDate,y,9.5,'bold',INK); T(''+d.getFullYear(),cDate,y+11,7.5,'normal',SUB); }
+      else { T((e.date||'—'),cDate,y,9,'bold',INK); }
+      shiftPill(cShift,y-8,e.shift);
+      var ty=y; techMain.forEach(function(l){ T(l,cTech,ty,9.5,'bold',INK); ty+=11.5; }); techSub.forEach(function(l){ T(l,cTech,ty,8,'normal',SUB); ty+=10; });
+      var wy=y; segs.forEach(function(s){ T(s.t,cWork,wy,9.5,s.b?'bold':'normal',s.b?INK:[68,71,77]); wy+=11.5; });
+      if(flag){ T(flag,cWork,wy,7.5,'bold',e.machineDown==='yes'?RED:AMB); }
+      var dtv=parseFloat(e.dt); var dtl=(!isNaN(dtv)&&dtv>0)?(typeof dtLabel==='function'?dtLabel(dtv):(dtv+'h')):'—';
+      T(dtl,W-M,y,9.5,(dtv>0?'bold':'normal'),(dtv>0?RED:SUB),'right');
+      y=top+rowH+2;
+      dc(HAIR);doc.setLineWidth(.6);doc.line(M,y-2,W-M,y-2);
+    });
+
+    // Footer on every page
+    var pages=doc.internal.getNumberOfPages();
+    for(var pi=1;pi<=pages;pi++){ doc.setPage(pi);
+      dc(HAIR);doc.setLineWidth(.7);doc.line(M,H-40,W-M,H-40);
+      T('Generated directly from the shift log · not editable after the shift closes',M,H-26,8,'normal',SUB);
+      T('BBW CMMS · '+(typeof APP_BUILD!=='undefined'?APP_BUILD.replace('BBW CMMS ',''):'')+' · p.'+pi+'/'+pages,W-M,H-26,8,'normal',SUB,'right');
+    }
+    var tag=(code||name||'asset').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+    doc.save('BBW_WorkLog_'+tag+'_'+fromISO+'_to_'+toISO+'.pdf');
   }catch(e){ try{alert('Could not generate PDF: '+e.message);}catch(_){} }
 }
 function cmmsTrendHTML(todayISO){
