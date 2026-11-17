@@ -1084,7 +1084,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v301';
+var APP_BUILD='BBW CMMS build v302';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -8114,7 +8114,7 @@ function renderCMMSView(){
   var el=gid('pane-cmms'); if(!el)return;
   var _aud=(typeof isAuditor==='function'&&isAuditor());
   if(_aud && CMMS_SUB==='wos')CMMS_SUB='calibration';   // auditors don't get the Work Orders page
-  var subs=[['wos','Work Orders'],['pms','PMs'],['calibration','Calibration'],['compliance','Compliance'],['calendar','Calendar']];
+  var subs=[['wos','Work Orders'],['pms','PMs'],['calibration','Calibration'],['compliance','Compliance'],['calendar','Calendar'],['contacts','Contacts']];
   if(_aud)subs=subs.filter(function(s){return s[0]!=='wos';});
   var nav='<div style="display:flex;gap:7px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">'+subs.map(function(s){
     var on=CMMS_SUB===s[0];
@@ -8125,6 +8125,7 @@ function renderCMMSView(){
   else if(CMMS_SUB==='wos')body='<div id="cmms-wos"></div>';
   else if(CMMS_SUB==='compliance')body='<div id="cmms-comp"></div>';
   else if(CMMS_SUB==='calibration')body='<div id="cmms-calib"></div>';
+  else if(CMMS_SUB==='contacts')body='<div id="cmms-contacts"></div>';
   else body='<div id="cmms-cal"></div>';
   el.innerHTML=nav+body;
   if(CMMS_SUB==='pms')renderPMModule();
@@ -8132,6 +8133,114 @@ function renderCMMSView(){
   else if(CMMS_SUB==='compliance')renderComplianceModule();
   else if(CMMS_SUB==='calibration')renderCalModule();
   else if(CMMS_SUB==='calendar')renderCalendarModule();
+  else if(CMMS_SUB==='contacts')renderContactsModule();
+}
+
+// ═══════════════ CMMS — Contractor contacts ═══════════════
+// Emergency service directory (tap-to-call / tap-to-email). Seeded from BBW's
+// contractor list; admins edit in-app and it syncs via bbw_schedule (id=
+// 'contractors') — no schema change. Visible to everyone incl. auditors.
+var CONTRACTORS_SEED=[
+ {cat:"OEM",vendor:"Krones",equip:"Filler / Packaging line (Line 1)",role:"Service Line",name:"Service Line",phone:"(414) 409-4440",email:"serviceline@kronesusa.com"},
+ {cat:"OEM",vendor:"Videojet",equip:"Coders / Printers",role:"Service Tech",name:"Theo Agathos",phone:"(647) 616-7348",email:"theo.agathos@videojet.com"},
+ {cat:"OEM",vendor:"Videojet",equip:"Coders / Printers",role:"Sales",name:"Rick Ghotra",phone:"(647) 627-5162",email:"rick.ghotra@videojet.com"},
+ {cat:"OEM",vendor:"Videojet",equip:"Coders / Printers",role:"Tech Support",name:"Support",phone:"(800) 843-3610",email:"technicalcenter@videojet.com"},
+ {cat:"OEM",vendor:"Wajax",equip:"Forklift",role:"Contact",name:"Arpit Gurna",phone:"(437) 297-3347",email:"agurna@wajax.com"},
+ {cat:"OEM",vendor:"Endress+Hauser",equip:"Flow meters / Instrumentation",role:"Sales",name:"Scott Madden",phone:"(905) 691-5046",email:"scott.madden@endress.com"},
+ {cat:"OEM",vendor:"Endress+Hauser",equip:"Flow meters / Instrumentation",role:"Service",name:"Mario Burgos",phone:"(647) 233-2794",email:"mario.burgos@endress.com"},
+ {cat:"OEM",vendor:"Waco Lab",equip:"Seam Check",role:"Service",name:"Bruce",phone:"(773) 384-4433",email:"brucew@wacolab.com"},
+ {cat:"OEM",vendor:"Thermogenics",equip:"Boilers",role:"Contact",name:"Trevor Brusadin",phone:"(905) 727-1901 ext. 236",email:"tbrusadin@thermogenicsboilers.com"},
+ {cat:"OEM",vendor:"Thermogenics",equip:"Boilers",role:"Service",name:"Hayley Dobson",phone:"(905) 727-1901 ext. 234",email:"HDobson@thermogenicsboilers.com"},
+ {cat:"OEM",vendor:"Ingersoll Rand",equip:"Air compressors",role:"Service",name:"Sivam",phone:"(416) 708-2278",email:"service.toronto@irco.com"},
+ {cat:"OEM",vendor:"Berg",equip:"Chillers",role:"Service",name:"Jennifer Devine",phone:"(416) 755-2226 ext. 215",email:"jdevine@bergservice.com"},
+ {cat:"OEM",vendor:"Trane",equip:"Chillers",role:"Service",name:"Justin Melo",phone:"(416) 271-5990",email:"Justin.Melo@trane.com"},
+ {cat:"Plumbing",vendor:"New Canadian Plumbing",equip:"Plumbing / Drains",role:"Info",name:"Service",phone:"(416) 651-2990",email:"newcandrain@yahoo.ca"},
+ {cat:"Welding",vendor:"FTS",equip:"Stainless welding / Fabrication",role:"Contact",name:"Matt Marson",phone:"(905) 689-8815",email:"mattm@ftsstainless.com"},
+ {cat:"Bearings / Belts",vendor:"Ontario Belting",equip:"Bearings, belts, PT parts",role:"Contact",name:"Bruce Hubley",phone:"(416) 321-8701",email:"BHubley@ontariobelting.com"},
+ {cat:"Dock Service",vendor:"Northern Dock Systems",equip:"Dock doors / Levelers",role:"Contact",name:"Spiro Kadas",phone:"(416) 737-5221",email:"skadas@northerndocksystems.com"}
+];
+var CONTRACTORS=null, _contactQ='';
+try{ var _cc=localStorage.getItem('bbw_contractors'); if(_cc){ var _ccp=JSON.parse(_cc); if(Array.isArray(_ccp))CONTRACTORS=_ccp; } }catch(_e){}
+function contractorsList(){ return (CONTRACTORS&&CONTRACTORS.length)?CONTRACTORS:CONTRACTORS_SEED; }
+function telHref(ph){ var d=(''+(ph||'')).replace(/[^\d]/g,''); if(d.length===10)d='1'+d; return 'tel:+'+d; }
+function mailHref(em,eq){ return 'mailto:'+em+'?subject='+encodeURIComponent('BBW — '+(eq||'service request')); }
+function contactSearch(v){ _contactQ=v||''; _renderContactsBody(); }
+function renderContactsModule(){
+  var host=gid('cmms-contacts'); if(!host)return;
+  var isAdm=(typeof isAdmin==='function'&&isAdmin());
+  var H='';
+  H+='<div style="background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.3);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--text-2);margin-bottom:12px;line-height:1.45">If the Maintenance Coordinator is unavailable: call the service contact first, then email the equipment, fault and photos. Log the call in the work order.</div>';
+  H+='<input id="contact-search" value="'+rqEsc(_contactQ)+'" oninput="contactSearch(this.value)" placeholder="Search vendor, equipment, name…" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);border-radius:10px;padding:11px 12px;font-size:15px;color:var(--text);outline:none;margin-bottom:12px">';
+  if(isAdm)H+='<button onclick="contactEdit(-1)" class="btn-ghost" style="width:100%;padding:11px;margin-bottom:12px;font-size:13px;font-weight:700">+ Add contact</button>';
+  H+='<div id="contacts-body"></div>';
+  host.innerHTML=H;
+  _renderContactsBody();
+}
+function _renderContactsBody(){
+  var box=gid('contacts-body'); if(!box)return;
+  var isAdm=(typeof isAdmin==='function'&&isAdmin());
+  var q=(''+_contactQ).toLowerCase().trim();
+  var list=contractorsList().map(function(c,i){return {c:c,i:i};}).filter(function(o){
+    if(!q)return true;
+    var c=o.c, hay=((c.vendor||'')+' '+(c.equip||'')+' '+(c.name||'')+' '+(c.cat||'')+' '+(c.role||'')).toLowerCase();
+    return hay.indexOf(q)>=0;
+  });
+  if(!list.length){ box.innerHTML='<div style="text-align:center;color:var(--text-3);padding:30px;font-size:13px">No contacts match.</div>'; return; }
+  var groups=[], gmap={};
+  list.forEach(function(o){ var key=o.c.vendor||'Other'; if(!gmap[key]){gmap[key]={vendor:key,cat:o.c.cat,equip:o.c.equip,items:[]};groups.push(gmap[key]);} gmap[key].items.push(o); });
+  var H='';
+  groups.forEach(function(g){
+    H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 14px;margin-bottom:11px">';
+    H+='<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font-size:15.5px;font-weight:750;color:var(--text)">'+rqEsc(g.vendor)+'</div><div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">'+rqEsc(g.cat||'')+'</div></div>';
+    if(g.equip)H+='<div style="font-size:12px;color:var(--text-2);margin-top:2px">'+rqEsc(g.equip)+'</div>';
+    g.items.forEach(function(o){ var c=o.c;
+      H+='<div style="border-top:1px solid var(--surface-3);padding-top:9px;margin-top:9px">';
+      H+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="min-width:0;font-size:14px;font-weight:600;color:var(--text)">'+rqEsc(c.name||'')+(c.role?' <span style="font-size:11px;font-weight:500;color:var(--text-3)">· '+rqEsc(c.role)+'</span>':'')+'</div>';
+      if(isAdm)H+='<button onclick="contactEdit('+o.i+')" style="flex:none;background:transparent;border:1px solid var(--border-2);color:var(--text-3);border-radius:7px;padding:4px 9px;font-size:12px;cursor:pointer">✎</button>';
+      H+='</div>';
+      H+='<div style="display:flex;gap:8px;margin-top:8px">';
+      if(c.phone)H+='<a href="'+telHref(c.phone)+'" style="flex:1;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:7px;background:#16a34a;color:#fff;border-radius:9px;padding:10px;font-size:13px;font-weight:700"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>'+rqEsc(c.phone)+'</a>';
+      if(c.email)H+='<a href="'+mailHref(c.email,g.equip)+'" aria-label="Email" style="flex:none;text-decoration:none;display:flex;align-items:center;justify-content:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:10px 14px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 6L2 7"/></svg></a>';
+      H+='</div>';
+      if(c.email)H+='<div style="font-size:11px;color:var(--text-3);margin-top:5px;word-break:break-all">'+rqEsc(c.email)+'</div>';
+      H+='</div>';
+    });
+    H+='</div>';
+  });
+  box.innerHTML=H;
+}
+function contactEdit(i){
+  if(!(typeof isAdmin==='function'&&isAdmin()))return;
+  var list=contractorsList();
+  var c=(i>=0)?list[i]:{cat:'OEM',vendor:'',equip:'',role:'',name:'',phone:'',email:''};
+  var ist='width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px;color:var(--text);font-size:14px;color-scheme:dark';
+  function f(lbl,id,v){return '<div style="margin-bottom:9px"><div style="font-size:11px;color:var(--text-2);margin-bottom:4px">'+lbl+'</div><input id="'+id+'" value="'+rqEsc(v||'')+'" style="'+ist+'"></div>';}
+  var H='<div id="contact-edit" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9400;display:flex;align-items:flex-end;justify-content:center">';
+  H+='<div style="background:var(--bg);border-top-left-radius:16px;border-top-right-radius:16px;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:18px 18px 28px;border:1px solid var(--border)">';
+  H+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:16px;font-weight:800;color:var(--text)">'+(i>=0?'Edit contact':'Add contact')+'</div><button onclick="var m=gid(\'contact-edit\');if(m)m.remove()" class="btn-ghost" style="padding:6px 12px;font-size:13px">Close</button></div>';
+  H+=f('Vendor / contractor','ce-vendor',c.vendor)+f('Category','ce-cat',c.cat)+f('Equipment / devices','ce-equip',c.equip)+f('Contact name','ce-name',c.name)+f('Role','ce-role',c.role)+f('Phone','ce-phone',c.phone)+f('Email','ce-email',c.email);
+  H+='<button onclick="contactSave('+i+')" class="btn-primary" style="width:100%;padding:13px;font-size:15px;margin-top:6px">Save</button>';
+  if(i>=0)H+='<button onclick="contactDelete('+i+')" class="btn-ghost" style="width:100%;padding:11px;font-size:13px;margin-top:8px;color:var(--bad)">Delete contact</button>';
+  H+='</div></div>';
+  overlayGuard('contact-edit'); document.body.insertAdjacentHTML('beforeend',H);
+}
+function _contactsPersist(){ try{ if(typeof saveScheduleToSB==='function')saveScheduleToSB('contractors',CONTRACTORS); }catch(e){} try{ localStorage.setItem('bbw_contractors',JSON.stringify(CONTRACTORS)); }catch(e){} }
+function contactSave(i){
+  var rec={cat:gid('ce-cat').value.trim(),vendor:gid('ce-vendor').value.trim(),equip:gid('ce-equip').value.trim(),role:gid('ce-role').value.trim(),name:gid('ce-name').value.trim(),phone:gid('ce-phone').value.trim(),email:gid('ce-email').value.trim()};
+  if(!rec.vendor&&!rec.name){ alert('Add a vendor or a contact name.'); return; }
+  if(!CONTRACTORS)CONTRACTORS=contractorsList().map(function(x){return Object.assign({},x);});
+  if(i>=0)CONTRACTORS[i]=rec; else CONTRACTORS.push(rec);
+  _contactsPersist();
+  var m=gid('contact-edit'); if(m)m.remove();
+  _renderContactsBody();
+}
+function contactDelete(i){
+  if(i<0)return; if(!confirm('Delete this contact?'))return;
+  if(!CONTRACTORS)CONTRACTORS=contractorsList().map(function(x){return Object.assign({},x);});
+  CONTRACTORS.splice(i,1);
+  _contactsPersist();
+  var m=gid('contact-edit'); if(m)m.remove();
+  _renderContactsBody();
 }
 
 // ═══════════════ CMMS — Calibration register ═══════════════
@@ -16706,6 +16815,10 @@ function loadSchedulesFromSB(){
       }else if(row.id==='pm_filter'&&row.data&&typeof row.data==='object'){
         FILTER_OVERRIDES=row.data;
         try{localStorage.setItem('bbw_pm_filter',JSON.stringify(row.data));}catch(e){}
+      }else if(row.id==='contractors'&&Array.isArray(row.data)){
+        CONTRACTORS=row.data;
+        try{localStorage.setItem('bbw_contractors',JSON.stringify(row.data));}catch(e){}
+        try{ if(gid('cmms-contacts'))renderContactsModule(); }catch(e){}
       }
     });
     try{ cleanScheduleJunk(); }catch(e){}
