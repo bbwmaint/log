@@ -676,6 +676,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     <button onclick="showTab('schedule')" id="tab-schedule" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Schedule</button>
     <button onclick="showTab('assets')" id="tab-assets" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Assets</button>
     <button onclick="showTab('reports')" id="tab-reports" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Reports</button>
+    <button onclick="showTab('contacts')" id="tab-contacts" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Contacts</button>
     <button onclick="showTab('requests')" id="tab-requests" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap">Requests</button>
     <button onclick="showTab('inventory')" id="tab-inventory" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Inventory</button>
     <button onclick="showTab('chem')" id="tab-chem" style="display:none;flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Chemicals</button>
@@ -699,6 +700,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
   <div id="pane-reports" style="display:none"></div>
   <div id="pane-requests" style="display:none"></div>
   <div id="pane-inventory" style="display:none"></div>
+  <div id="pane-contacts" style="display:none"></div>
   <div id="pane-chem" style="display:none"></div>
   </div>
 
@@ -1084,7 +1086,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v303';
+var APP_BUILD='BBW CMMS build v304';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1799,13 +1801,13 @@ function showTab(name){
   // Track history so the Back button can return to the previous tab
   try{
     var curr=null;
-    ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem'].forEach(function(t){
+    ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem','contacts'].forEach(function(t){
       var pn=gid('pane-'+t); if(pn&&pn.style.display!=='none')curr=t;
     });
     if(!_tabNavigatingBack && curr && curr!==name){ TAB_HISTORY.push(curr); if(TAB_HISTORY.length>25)TAB_HISTORY.shift(); }
   }catch(e){}
   _tabNavigatingBack=false;
-  ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem'].forEach(function(t){
+  ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem','contacts'].forEach(function(t){
     var pn=gid('pane-'+t); if(pn)pn.style.display='none';
     var tb=gid('tab-'+t);
     if(tb){tb.style.color='var(--text-3)';tb.style.borderBottomColor='transparent';tb.classList.remove('dz-active');}
@@ -1827,6 +1829,7 @@ function showTab(name){
   if(name==='requests'){_safe(renderRequests,'requests');try{reqMarkAllSeen();}catch(e){}}
   if(name==='inventory')_safe(renderInventory,'inventory');
   if(name==='chem')_safe(renderChem,'chem');
+  if(name==='contacts')_safe(renderContactsPane,'contacts');
   if(name==='log'){
     injectPinnedRequests();injectMyPMTasks();
     // If the data these cards need hasn't loaded yet, load it and re-inject when ready.
@@ -2387,12 +2390,12 @@ function isEditor(){ return EDITORS.indexOf(user)>=0; }
 function isAuditor(){ return AUDITORS.indexOf(user)>=0 && EDITORS.indexOf(user)<0 && user!==ADMIN; }
 function roleLabel(r){ return r==='editor'?'Editor':(r==='auditor'?'Auditor':'Technician'); }
 function roleBadge(r){ var c=(r==='editor')?'rgba(37,99,235,.13);color:#2563eb':((r==='auditor')?'rgba(13,148,136,.14);color:#0d9488':'var(--surface-3);color:var(--text-3)'); return '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:'+c+'">'+(r==='editor'?'EDITOR':(r==='auditor'?'AUDITOR':'TECH'))+'</span>'; }
-var AUDIT_TABS={dash:1,cmms:1,reports:1,chem:1};
+var AUDIT_TABS={dash:1,cmms:1,reports:1,chem:1,contacts:1};
 // Show/hide top tabs, bottom nav and the FAB for the current role.
 function applyRoleTabs(){
   try{
     if(isAuditor()){
-      ['dash','home','log','shift','prev','util','schedule','assets','reports','requests','inventory','cmms','chem','more'].forEach(function(t){
+      ['dash','home','log','shift','prev','util','schedule','assets','reports','requests','inventory','cmms','chem','contacts','more'].forEach(function(t){
         var e=gid('tab-'+t); if(e)e.style.display=AUDIT_TABS[t]?'':'none';
       });
       // bottom nav: keep CMMS + the More hamburger (its drawer shows Dashboard/CMMS); hide the rest
@@ -2403,7 +2406,7 @@ function applyRoleTabs(){
       // re-apply the editor-only gating. Without the restore, switching from an auditor
       // (or test) account back to a full account left the auditor's restricted tab set
       // in place until a full reload.
-      ['home','log','shift','prev','util','schedule','assets','reports','requests','inventory','more'].forEach(function(t){
+      ['home','log','shift','prev','util','schedule','assets','reports','requests','inventory','contacts','more'].forEach(function(t){
         var e=gid('tab-'+t); if(e)e.style.display='';
       });
       ['bt-home','bt-log','bt-requests','bt-cmms','bt-more'].forEach(function(id){ var e=gid(id); if(e)e.style.display=''; });
@@ -3657,6 +3660,7 @@ var TAB_ICONS={home:'<path d="M3 10.6 12 3.5l9 7.1"/><path d="M5.4 9.6V20h13.2V9
   inventory:'<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
   cmms:'<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-2.5 2.5-2-2z"/>',
   chem:'<path d="M9 3h6M10 3v5l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>',
+  contacts:'<path d="M6.5 3h3l1.4 3.6-1.8 1.3a11 11 0 0 0 5 5l1.3-1.8L19 15.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 7.7 2 2 0 0 1 6.5 5z"/>',
   more:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'};
 function tabIconSpan(key){ return TAB_ICONS[key]?('<span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+TAB_ICONS[key]+'</svg></span>'):''; }
 // Safely set a tab button's label + optional badge, always preserving its icon.
@@ -4272,7 +4276,7 @@ var TAB_RENDERERS={
   home:'renderHome', log:'renderLog', shift:'renderShift', prev:'renderPrev',
   util:'renderUtil', assets:'renderAssets', schedule:'renderSchedule',
   cmms:'renderCMMS', reports:'renderReports', requests:'renderRequests',
-  dash:'renderDashboard', inventory:'renderInventory', more:'renderMore'
+  dash:'renderDashboard', inventory:'renderInventory', contacts:'renderContactsPane', more:'renderMore'
 };
 function activePane(){
   for(var k in TAB_RENDERERS){
@@ -8114,7 +8118,8 @@ function renderCMMSView(){
   var el=gid('pane-cmms'); if(!el)return;
   var _aud=(typeof isAuditor==='function'&&isAuditor());
   if(_aud && CMMS_SUB==='wos')CMMS_SUB='calibration';   // auditors don't get the Work Orders page
-  var subs=[['wos','Work Orders'],['pms','PMs'],['calibration','Calibration'],['compliance','Compliance'],['calendar','Calendar'],['contacts','Contacts']];
+  var subs=[['wos','Work Orders'],['pms','PMs'],['calibration','Calibration'],['compliance','Compliance'],['calendar','Calendar']];
+  if(CMMS_SUB==='contacts')CMMS_SUB='pms';   // Contacts moved to its own top-level tab
   if(_aud)subs=subs.filter(function(s){return s[0]!=='wos';});
   var nav='<div style="display:flex;gap:7px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">'+subs.map(function(s){
     var on=CMMS_SUB===s[0];
@@ -8125,7 +8130,6 @@ function renderCMMSView(){
   else if(CMMS_SUB==='wos')body='<div id="cmms-wos"></div>';
   else if(CMMS_SUB==='compliance')body='<div id="cmms-comp"></div>';
   else if(CMMS_SUB==='calibration')body='<div id="cmms-calib"></div>';
-  else if(CMMS_SUB==='contacts')body='<div id="cmms-contacts"></div>';
   else body='<div id="cmms-cal"></div>';
   el.innerHTML=nav+body;
   if(CMMS_SUB==='pms')renderPMModule();
@@ -8133,7 +8137,6 @@ function renderCMMSView(){
   else if(CMMS_SUB==='compliance')renderComplianceModule();
   else if(CMMS_SUB==='calibration')renderCalModule();
   else if(CMMS_SUB==='calendar')renderCalendarModule();
-  else if(CMMS_SUB==='contacts')renderContactsModule();
 }
 
 // ═══════════════ CMMS — Contractor contacts ═══════════════
@@ -8175,6 +8178,12 @@ function renderContactsModule(){
   H+='<div id="contacts-body"></div>';
   host.innerHTML=H;
   _renderContactsBody();
+}
+// Solo top-level Contacts tab — renders the same module into its own pane.
+function renderContactsPane(){
+  var p=gid('pane-contacts'); if(!p)return;
+  if(!p.querySelector('#cmms-contacts'))p.innerHTML='<div id="cmms-contacts"></div>';
+  renderContactsModule();
 }
 function _renderContactsBody(){
   var box=gid('contacts-body'); if(!box)return;
