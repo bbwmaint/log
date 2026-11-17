@@ -1086,7 +1086,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v305';
+var APP_BUILD='BBW CMMS build v306';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4041,7 +4041,7 @@ function openAssetHistory(code,name,fromISO,toISO){
   _AH_CODE=code||''; _AH_NAME=name||'';
   var _tdy=pmISO(new Date());
   if(!toISO)toISO=_tdy;
-  if(!fromISO){ var _d=new Date(); _d.setDate(_d.getDate()-120); fromISO=pmISO(_d); }
+  if(!fromISO){ var _d=new Date(); _d.setDate(_d.getDate()-365); fromISO=pmISO(_d); }
   var full=entriesForAsset(code,name).filter(function(e){return e&&!e.deleted;});
   var list=full.filter(function(e){return (e.date||'')>=fromISO&&(e.date||'')<=toISO;});
   var shown=list.slice(0,250);
@@ -9049,9 +9049,23 @@ function assetReliability(name){
   return {n:n, dt12:dt12, mttr:(n?dt12/n:0), mtbf:mtbf, first:(n?fails[0].date:''), last:(n?fails[n-1].date:'')};
 }
 function _relTile(l,v,c){ return '<div style="background:var(--surface);border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:'+(c||'#fff')+'">'+v+'</div><div style="font-size:10px;color:var(--text-2);text-transform:uppercase;letter-spacing:.03em">'+l+'</div></div>'; }
+function awlPaneExport(code,name){ var f=gid('awl-from'),t=gid('awl-to'); if(typeof assetWorkLogPDF==='function')assetWorkLogPDF(code,name,f?f.value:'',t?t.value:''); else alert('Export not available yet — try again in a moment.'); }
 function assetDetailBody(assetName, logs, totalDT, totalCO){
   var H='';
-  H+='<button onclick="openAssetDocs(\''+assetCodeFor(assetName)+'\',\''+(''+assetName).replace(/'/g,"&#39;")+'\')" style="width:100%;padding:13px;margin-bottom:14px;background:linear-gradient(95deg,#2563eb,#3b82f6);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Reports &amp; Documents</button>';
+  var _an=(''+assetName).replace(/'/g,"&#39;"), _ac=(''+assetCodeFor(assetName)).replace(/'/g,"&#39;");
+  H+='<button onclick="openAssetDocs(\''+_ac+'\',\''+_an+'\')" style="width:100%;padding:13px;margin-bottom:10px;background:linear-gradient(95deg,#2563eb,#3b82f6);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Reports &amp; Documents</button>';
+  // Work-log record export — "prove what was done on this machine on this date"
+  var _awlTo=pmISO(new Date()); var _awlFD=new Date(); _awlFD.setDate(_awlFD.getDate()-365); var _awlFrom=pmISO(_awlFD);
+  var _inS='background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:7px 9px;font-size:12.5px;color:var(--text);color-scheme:dark;min-width:0;flex:1 1 108px';
+  H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:11px 12px;margin-bottom:14px">';
+  H+='<div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:9px">Work-log record (PDF)</div>';
+  H+='<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">';
+  H+='<span style="font-size:9.5px;font-weight:800;color:var(--text-3);letter-spacing:.07em">FROM</span>';
+  H+='<input type="date" id="awl-from" value="'+_awlFrom+'" style="'+_inS+'">';
+  H+='<span style="font-size:9.5px;font-weight:800;color:var(--text-3);letter-spacing:.07em">TO</span>';
+  H+='<input type="date" id="awl-to" value="'+_awlTo+'" style="'+_inS+'">';
+  H+='<button onclick="awlPaneExport(\''+_ac+'\',\''+_an+'\')" style="flex:0 0 auto;background:linear-gradient(95deg,#c8a24b,#d8b55e);border:none;color:#1b1206;font-size:12.5px;font-weight:800;padding:8px 14px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Export PDF</button>';
+  H+='</div></div>';
   H+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
   H+='<div style="background:var(--surface);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#fff">'+logs.length+'</div><div style="font-size:10px;color:var(--text-2);text-transform:uppercase">Logs</div></div>';
   H+='<div style="background:var(--surface);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#ef4444">'+totalDT.toFixed(1)+'h</div><div style="font-size:10px;color:var(--text-2);text-transform:uppercase">DT</div></div>';
@@ -11211,7 +11225,7 @@ function assetWorkLogPDF(code,name,fromISO,toISO){
     var doc=new JS({unit:'pt',format:'letter'}); try{pdfUnicode(doc);}catch(e){}
     var today=pmISO(new Date());
     if(!toISO)toISO=today;
-    if(!fromISO){ var _d0=new Date(); _d0.setDate(_d0.getDate()-120); fromISO=pmISO(_d0); }
+    if(!fromISO){ var _d0=new Date(); _d0.setDate(_d0.getDate()-365); fromISO=pmISO(_d0); }
     if(fromISO>toISO){ var _sw=fromISO; fromISO=toISO; toISO=_sw; }
     var F='helvetica';
     try{ if(typeof DEJAVU_REG!=='undefined'){ doc.addFileToVFS('DejaVu.ttf',DEJAVU_REG); doc.addFont('DejaVu.ttf','DejaVu','normal'); doc.addFileToVFS('DejaVu-Bold.ttf',DEJAVU_BOLD); doc.addFont('DejaVu-Bold.ttf','DejaVu','bold'); F='DejaVu'; } }catch(e){ F='helvetica'; }
