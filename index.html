@@ -1084,7 +1084,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v300';
+var APP_BUILD='BBW CMMS build v301';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -8447,7 +8447,14 @@ function pmSortFn(a,b){
 // chip agrees with the work-order engine instead of showing a phantom "Overdue".
 var _PM_DONE_IDX=null;
 function pmBuildDoneIdx(){ var idx={}; (typeof WOS!=='undefined'&&WOS?WOS:[]).forEach(function(w){ if(!w||w.status!=='completed')return; var d=(''+(w.completed_at||w.updated_at||w.due_date||'')).slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return; [w.pm_code,w.pm_id].forEach(function(k){ if(!k)return; if(!idx[k]||d>idx[k])idx[k]=d; }); }); _PM_DONE_IDX=idx; return idx; }
-function pmLastDone(p){ var idx=_PM_DONE_IDX||pmBuildDoneIdx(); var ld=null; [p.code,p.id].forEach(function(k){ if(k&&idx[k]&&(!ld||idx[k]>ld))ld=idx[k]; }); if(p.last_done){ var pl=(''+p.last_done).slice(0,10); if(!ld||pl>ld)ld=pl; } return ld; }
+// Completion index built from the SHIFT LOG (keyed by the "(CODE)" a PM completion
+// carries in its description), filled by statsLoad from 12 months of worklog. It
+// credits a logged completion even when its work order was never closed — without
+// this, that PM's last-done drifts early and it re-triggers (the "stale" pattern
+// the Nov 2026 audit surfaced on SM159/183/210/226).
+var _PM_LOG_IDX={};
+function pmLogLastDone(code){ try{ return (code&&_PM_LOG_IDX&&_PM_LOG_IDX[code])||null; }catch(e){ return null; } }
+function pmLastDone(p){ var idx=_PM_DONE_IDX||pmBuildDoneIdx(); var ld=null; [p.code,p.id].forEach(function(k){ if(k&&idx[k]&&(!ld||idx[k]>ld))ld=idx[k]; }); if(p.last_done){ var pl=(''+p.last_done).slice(0,10); if(!ld||pl>ld)ld=pl; } var lg=pmLogLastDone(p.code); if(lg&&(!ld||lg>ld))ld=lg; return ld; }
 function pmEffectiveNextDue(p){ var ld=pmLastDone(p); if(!ld)return p.next_due||null; if(p.freq){ var eff=pmAdvanceISO(p.freq,ld); return eff||(p.next_due||null); } if(p.next_due&&p.next_due>ld)return p.next_due; return null; }
 function pmDueChip(p){
   var nd=pmEffectiveNextDue(p);
@@ -8737,7 +8744,7 @@ function woNextCode(){var maxN=WOS.reduce(function(m,w){var n=parseInt(String(w.
 var WO_GEN_PROMISE=null;
 function generateWOs(){
   if(WO_GEN_PROMISE)return WO_GEN_PROMISE;   // serialize concurrent callers so today's batch can't be POSTed twice
-  var _p=Promise.all([loadCMMS(),loadWOs(true)]).then(function(){
+  var _p=Promise.all([loadCMMS(),loadWOs(true),new Promise(function(_rs){ try{ if(typeof statsLoad==='function')statsLoad(function(){_rs();}); else _rs(); }catch(_e){_rs();} })]).then(function(){
     var today=pmISO(new Date());
     // Index completed work by EVERY identifier a work order might carry. Older rows
     // may lack pm_code, and some were closed without a completed_at timestamp, so
@@ -8773,6 +8780,7 @@ function generateWOs(){
       var lastDone=null;
       [p.code,p.id].forEach(function(k){ if(k&&doneByPm[k]&&(!lastDone||doneByPm[k]>lastDone))lastDone=doneByPm[k]; });
       if(p.last_done&&(!lastDone||p.last_done>lastDone))lastDone=(''+p.last_done).slice(0,10);
+      var _lg=(typeof pmLogLastDone==='function')?pmLogLastDone(p.code):null; if(_lg&&(!lastDone||_lg>lastDone))lastDone=_lg;   // credit a shift-log completion even if no WO was closed
       var hasOpen=(p.code&&openByPm[p.code])||(p.id&&openByPm[p.id]);
       if(hasOpen)return;                       // already waiting to be done
       if(lastDone&&lastDone>=today)return;     // done today — never respawn same day
@@ -9765,17 +9773,26 @@ function statsLoad(cb){
   var fire=function(rows){ var ws=STATS.waiters.splice(0); ws.forEach(function(f){try{f(rows);}catch(e){}}); };
   var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-12);
   var from=pmISO(d);
-  var base='bbw_worklog?select=id,date,downtime_hrs,machine_down,type,asset_name,start_time,end_time,shift&date=gte.'+from+'&order=date.asc';
+  var base='bbw_worklog?select=id,date,downtime_hrs,machine_down,type,asset_name,start_time,end_time,shift,description&date=gte.'+from+'&order=date.asc';
   sbFetchAll(base).then(function(rows){
       STATS.loading=false;
       STATS.key=key; STATS.at=Date.now();
+      var _lix={};
       STATS.rows=rows.map(function(r){
+        // Build the shift-log completion index: a PM completion is logged as type
+        // 'pm'/'completed'/'done' with "(CODE)" at the end of its description.
+        var _t=r.type||'';
+        if(r.description && (_t==='pm'||_t==='completed'||_t==='done'||_t==='followup_done')){
+          var _c=''; try{ _c=pmCodeFrom(r.description); }catch(e){}
+          if(_c){ var _d=(''+(r.date||'')).slice(0,10); if(/^\d{4}-\d{2}-\d{2}$/.test(_d) && (!_lix[_c]||_d>_lix[_c]))_lix[_c]=_d; }
+        }
         return { id:r.id, date:r.date||'', dt:(parseFloat(r.downtime_hrs)||0),
                  md:(r.machine_down==='yes'||r.machine_down==='partial'),
-                 type:r.type||'', asset:r.asset_name||'General',
+                 type:_t, asset:r.asset_name||'General',
                  start_time:r.start_time||'', end_time:r.end_time||'',
                  machine_down:r.machine_down||'', shift:r.shift||'' };
       });
+      _PM_LOG_IDX=_lix;
       fire(STATS.rows);
     })
     .catch(function(){ STATS.loading=false; fire(null); });
