@@ -1086,7 +1086,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v306';
+var APP_BUILD='BBW CMMS build v307';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4599,6 +4599,7 @@ function saveBrainDump(btn){
   toast((lang==='uk'?('Записано '+n+' ✓'):('Logged '+n+(n===1?' entry':' entries')+' ✓')));
 }
 
+function prevDayExport(){ var d=gid('prev-day-date'); var v=d?d.value:''; if(!v){alert('Pick a date first.');return;} if(typeof dayLogPDF==='function')dayLogPDF(v); else alert('Export not available yet — try again in a moment.'); }
 function renderPrev(){
   var el=gid('pane-prev');
   // Last 3 shifts, latest first, derived from the CURRENT shift's anchor date.
@@ -4620,6 +4621,13 @@ function renderPrev(){
     shifts.push({date:addDays(A,-1), shift:'Day'});
   }
   var H='';
+  // Day Log export — pick any past date -> full day's shift log (both shifts) as a PDF
+  H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px">';
+  H+='<div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:9px">Day log — any date (PDF)</div>';
+  H+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+  H+='<input type="date" id="prev-day-date" value="'+A+'" max="'+pmISO(new Date())+'" style="flex:1 1 150px;min-width:0;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:9px 11px;font-size:13px;color:var(--text);color-scheme:dark">';
+  H+='<button onclick="prevDayExport()" style="flex:0 0 auto;background:linear-gradient(95deg,#c8a24b,#d8b55e);border:none;color:#1b1206;font-size:13px;font-weight:800;padding:9px 15px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Export day log</button>';
+  H+='</div></div>';
   var foundAny=false;
   shifts.forEach(function(sv){
     var prev=allE.filter(function(e){return e.date===sv.date&&e.shift===sv.shift;});
@@ -11329,6 +11337,120 @@ function assetWorkLogPDF(code,name,fromISO,toISO){
     }
     var tag=(code||name||'asset').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
     doc.save('BBW_WorkLog_'+tag+'_'+fromISO+'_to_'+toISO+'.pdf');
+  }catch(e){ try{alert('Could not generate PDF: '+e.message);}catch(_){} }
+}
+// ── Day Log PDF — "what happened on this date" — both shifts, all machines ──
+function dayLogPDF(dateISO){
+  try{
+    var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF engine not loaded yet — try again in a moment.');return;}
+    var doc=new JS({unit:'pt',format:'letter'}); try{pdfUnicode(doc);}catch(e){}
+    if(!dateISO)dateISO=pmISO(new Date());
+    var F='helvetica';
+    try{ if(typeof DEJAVU_REG!=='undefined'){ doc.addFileToVFS('DejaVu.ttf',DEJAVU_REG); doc.addFont('DejaVu.ttf','DejaVu','normal'); doc.addFileToVFS('DejaVu-Bold.ttf',DEJAVU_BOLD); doc.addFont('DejaVu-Bold.ttf','DejaVu','bold'); F='DejaVu'; } }catch(e){ F='helvetica'; }
+    function pdfSafe(s){return String(s==null?'':s).replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/—/g,'-').replace(/…/g,'...').replace(/→/g,'->');}
+    var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=44,CW=W-2*M,y=0;
+    var INK=[30,31,34],SUB=[122,124,132],HAIR=[226,227,231],GOLD=[30,58,95],RED=[196,35,31],AMB=[154,107,17];
+    var DOWNBG=[253,236,236],PARTBG=[254,245,228];
+    var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function sc(c){doc.setTextColor(c[0],c[1],c[2]);} function fc(c){doc.setFillColor(c[0],c[1],c[2]);} function dc(c){doc.setDrawColor(c[0],c[1],c[2]);}
+    function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(pdfSafe(t),x,yy,al?{align:al}:undefined);}
+    function fmtDY(iso){ var d=new Date((iso||'')+'T00:00:00'); if(isNaN(d))return iso||''; return MON[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear(); }
+    var today=pmISO(new Date());
+
+    var day=(typeof allE!=='undefined'?allE:[]).filter(function(e){return e&&!e.deleted&&e.date===dateISO;});
+    day.sort(function(a,b){return (a.loggedAt||'').localeCompare(b.loggedAt||'');});
+    function grp(sh){ return day.filter(function(e){return String(e.shift||'').toLowerCase()===sh;}); }
+    function crewOf(list){ var s={},o=[]; list.forEach(function(e){ [e.who].concat(String(e.withWho||e.with_who||'').split(',')).forEach(function(n){ n=(n||'').trim(); if(n&&!s[n]){s[n]=1;o.push(n);} }); }); return o.join(', '); }
+
+    // Letterhead
+    y=44;
+    if(window.__logoDark){try{var lh=26,lw=lh*((window.__logoW||498)/(window.__logoH||220));doc.addImage(window.__logoDark,'PNG',M,y-4,lw,lh);}catch(e){T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}}
+    else{T('BRUNSWICK BIERWORKS',M,y+14,13,'bold',INK);}
+    T('Daily Work Log',W-M,y+6,12.5,'bold',INK,'right');
+    T('Shift-log record · '+fmtDY(today),W-M,y+20,9.5,'normal',SUB,'right');
+    y+=38;dc(GOLD);doc.setLineWidth(1.4);doc.line(M,y,W-M,y);y+=22;
+
+    // Title = full date
+    var fullDate=dateISO; try{ fullDate=new Date(dateISO+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}); }catch(e){}
+    T(fullDate,M,y,20,'bold',INK); y+=20;
+
+    // Meta
+    dc(HAIR); doc.setLineWidth(.8); doc.line(M,y-2,W-M,y-2); y+=8;
+    var genLbl=''; try{ genLbl=new Date().toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ genLbl=today; }
+    var meta=[['ENTRIES',day.length+' record'+(day.length===1?'':'s')],['GENERATED',genLbl],['EXPORTED BY',(typeof user!=='undefined'&&user)?user:'—']];
+    var mw=CW/meta.length;
+    meta.forEach(function(it,i){ var x=M+i*mw; T(it[0],x,y+2,7,'bold',SUB); doc.setFont(F,'bold');doc.setFontSize(9.5);sc(INK); var vv=doc.splitTextToSize(pdfSafe(it[1]),mw-10); doc.text(vv[0],x,y+15); });
+    y+=24; dc(HAIR); doc.setLineWidth(.8); doc.line(M,y-6,W-M,y-6); y+=10;
+
+    // Table columns (shared across shift sections)
+    var cMach=M,cTech=M+126,cWork=M+214,workW=(W-M-38)-(M+214),machW=cTech-cMach-10,techW=80;
+    function ensureBlock(h){ if(y+h>H-54){ doc.addPage(); y=52; } }
+    function thead(){ T('MACHINE',cMach,y,7,'bold',SUB);T('TECHNICIAN',cTech,y,7,'bold',SUB);T('WORK LOGGED',cWork,y,7,'bold',SUB);T('DT',W-M,y,7,'bold',SUB,'right'); y+=5; dc([207,209,214]);doc.setLineWidth(1);doc.line(M,y,W-M,y); y+=13; }
+    function drawRow(e){
+      doc.setFont(F,'bold');doc.setFontSize(9.5);
+      var mach=doc.splitTextToSize(pdfSafe(e.assetName||e.assetCode||'General'),machW);
+      var segs=[];
+      if(e.issue){ doc.setFont(F,'bold');doc.setFontSize(9.5); doc.splitTextToSize(pdfSafe(e.issue),workW).forEach(function(l){segs.push({t:l,b:true});}); }
+      if(e.desc){ doc.setFont(F,'normal');doc.setFontSize(9.5); doc.splitTextToSize(pdfSafe(e.desc),workW).forEach(function(l){segs.push({t:l,b:false});}); }
+      if(!segs.length)segs.push({t:'—',b:false});
+      var flag=e.machineDown==='yes'?'MACHINE DOWN':(e.machineDown==='partial'?'PARTIAL':'');
+      doc.setFont(F,'bold');doc.setFontSize(9.5);
+      var techMain=doc.splitTextToSize(pdfSafe(e.who||'—'),techW);
+      var arr=String(e.withWho||e.with_who||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+      doc.setFont(F,'normal');doc.setFontSize(8);
+      var techSub=arr.length?doc.splitTextToSize('+ '+arr.join(', '),techW):[];
+      var lines=Math.max(mach.length,segs.length+(flag?1:0),techMain.length+techSub.length,1);
+      var rowH=lines*11.5+9;
+      if(y+rowH>H-54){ doc.addPage(); y=52; thead(); }
+      var top=y-9;
+      if(e.machineDown==='yes'){ fc(DOWNBG); doc.rect(M-6,top-2,CW+12,rowH,'F'); }
+      else if(e.machineDown==='partial'){ fc(PARTBG); doc.rect(M-6,top-2,CW+12,rowH,'F'); }
+      var my=y; mach.forEach(function(l){ T(l,cMach,my,9.5,'bold',INK); my+=11.5; });
+      var ty=y; techMain.forEach(function(l){ T(l,cTech,ty,9.5,'bold',INK); ty+=11.5; }); techSub.forEach(function(l){ T(l,cTech,ty,8,'normal',SUB); ty+=10; });
+      var wy=y; segs.forEach(function(s){ T(s.t,cWork,wy,9.5,s.b?'bold':'normal',s.b?INK:[68,71,77]); wy+=11.5; });
+      if(flag){ T(flag,cWork,wy,7.5,'bold',e.machineDown==='yes'?RED:AMB); }
+      var dtv=parseFloat(e.dt); var dtl=(!isNaN(dtv)&&dtv>0)?(typeof dtLabel==='function'?dtLabel(dtv):(dtv+'h')):'—';
+      T(dtl,W-M,y,9.5,(dtv>0?'bold':'normal'),(dtv>0?RED:SUB),'right');
+      y=top+rowH+2;
+      dc(HAIR);doc.setLineWidth(.6);doc.line(M,y-2,W-M,y-2);
+    }
+    function shiftHeader(title,sub,crew,count){
+      ensureBlock(60);
+      y+=6; fc(GOLD); doc.rect(M,y-9,3,13,'F');
+      T(title,M+10,y,11.5,'bold',INK);
+      T(sub,M+10+doc.getTextWidth(title)+8,y,8.5,'normal',SUB);
+      T(count+' '+(count===1?'entry':'entries'),W-M,y,9,'normal',SUB,'right');
+      y+=15;
+      var cl=crew?('Crew: '+crew):'No crew recorded';
+      doc.setFont(F,'normal');doc.setFontSize(9);
+      doc.splitTextToSize(pdfSafe(cl),CW-12).forEach(function(l){ T(l,M+10,y,9,'normal',SUB); y+=12; });
+      y+=5;
+    }
+
+    if(!day.length){
+      T('No entries were logged on '+fullDate+'.',M,y+8,11,'italic',SUB); y+=20;
+    } else {
+      [['day','DAY SHIFT','07:00–19:00'],['night','NIGHT SHIFT','19:00–07:00']].forEach(function(S){
+        var g=grp(S[0]); if(!g.length)return;
+        doc.setFont(F,'bold');doc.setFontSize(11.5); // so getTextWidth(title) is correct in shiftHeader
+        shiftHeader(S[1],S[2],crewOf(g),g.length);
+        thead();
+        g.forEach(function(e){ drawRow(e); });
+        y+=10;
+      });
+      // any entries with an unrecognised/blank shift
+      var other=day.filter(function(e){ var s=String(e.shift||'').toLowerCase(); return s!=='day'&&s!=='night'; });
+      if(other.length){ doc.setFont(F,'bold');doc.setFontSize(11.5); shiftHeader('OTHER / UNSPECIFIED','',crewOf(other),other.length); thead(); other.forEach(function(e){ drawRow(e); }); }
+    }
+
+    // Footer
+    var pages=doc.internal.getNumberOfPages();
+    for(var pi=1;pi<=pages;pi++){ doc.setPage(pi);
+      dc(HAIR);doc.setLineWidth(.7);doc.line(M,H-40,W-M,H-40);
+      T('Generated directly from the shift log · not editable after the shift closes',M,H-26,8,'normal',SUB);
+      T('BBW CMMS · '+(typeof APP_BUILD!=='undefined'?APP_BUILD.replace('BBW CMMS ',''):'')+' · p.'+pi+'/'+pages,W-M,H-26,8,'normal',SUB,'right');
+    }
+    doc.save('BBW_DayLog_'+dateISO+'.pdf');
   }catch(e){ try{alert('Could not generate PDF: '+e.message);}catch(_){} }
 }
 function cmmsTrendHTML(todayISO){
