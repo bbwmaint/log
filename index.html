@@ -92,9 +92,17 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   .pr-day::after{content:"";height:1px;flex:1;background:var(--border)}
   .pr-day .cnt{color:var(--text-3);font-weight:600}
   .pr-now{display:flex;align-items:center;gap:8px;margin:2px 0;padding-left:2px}
-  .pr-now::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--pr-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--pr-accent) 22%,transparent);flex:none}
+  .pr-now::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--pr-accent);box-shadow:0 0 0 4px var(--surface);flex:none;position:relative;z-index:2}
   .pr-now .lbl{font-size:11px;font-weight:600;color:var(--pr-ink);font-variant-numeric:tabular-nums;letter-spacing:.02em}
   .pr-now .ln{height:1px;flex:1;background:linear-gradient(90deg,var(--pr-accent),transparent)}
+  .pr-current{display:flex;align-items:center;gap:11px;background:color-mix(in srgb,var(--ok) 10%,var(--surface-2));border:1px solid color-mix(in srgb,var(--ok) 32%,var(--border));border-radius:11px;padding:11px 13px;margin:10px 0 2px}
+  .pr-current .dot{width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 20%,transparent);flex:none}
+  .pr-current.idle{background:var(--surface-2);border-color:var(--border)}
+  .pr-current.idle .dot{background:var(--text-3);box-shadow:none}
+  .pr-current .cur-lbl{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ok)}
+  .pr-current.idle .cur-lbl{color:var(--text-3)}
+  .pr-current .cur-name{font-size:14px;font-weight:700;color:var(--text);margin-top:2px;line-height:1.25}
+  .pr-current .cur-sub{font-size:11px;color:var(--text-3);margin-top:2px}
   .pr-feed{position:relative}
   .pr-feed::before{content:"";position:absolute;top:6px;bottom:8px;left:6px;width:2px;background:var(--border);border-radius:2px}
   .pr-run{position:relative;padding-left:26px;margin:7px 0}
@@ -168,6 +176,12 @@ var qrcode=function(){function i(t,r){function a(t,r){g=function(t){for(var r=ne
   html[data-theme="light"] [style*="color:#fff"][style*="background:#059669"],
   html[data-theme="light"] [style*="color:#fff"][style*="background:#7c3aed"],
   html[data-theme="light"] [style*="color:#fff"][style*="background:#9333ea"],
+  html[data-theme="light"] [style*="color:#fff"][style*="background:#0f9488"],
+  html[data-theme="light"] [style*="color:#fff"][style*="background:#0d9488"],
+  html[data-theme="light"] [style*="color:#fff"][style*="background:#d97706"],
+  html[data-theme="light"] [style*="color:#fff"][style*="background:#64748b"],
+  html[data-theme="light"] [style*="color:#fff"][style*="background:#334155"],
+  html[data-theme="light"] [style*="color:#fff"][style*="background:var(--text)"],
   html[data-theme="light"] [style*="color:#fff"][style*="background:var(--bad)"],
   html[data-theme="light"] [style*="color:#fff"][style*="background:var(--ok)"]{ color:#fff !important; }
   /* flip hardcoded dark structural backgrounds -> light surfaces */
@@ -676,6 +690,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     <button onclick="showTab('schedule')" id="tab-schedule" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Schedule</button>
     <button onclick="showTab('assets')" id="tab-assets" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Assets</button>
     <button onclick="showTab('reports')" id="tab-reports" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Reports</button>
+    <button onclick="showTab('calibration')" id="tab-calibration" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Calibration</button>
     <button onclick="showTab('sanitation')" id="tab-sanitation" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sanitation</button>
     <button onclick="showTab('contacts')" id="tab-contacts" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Contacts</button>
     <button onclick="showTab('requests')" id="tab-requests" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap">Requests</button>
@@ -701,6 +716,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
   <div id="pane-reports" style="display:none"></div>
   <div id="pane-requests" style="display:none"></div>
   <div id="pane-inventory" style="display:none"></div>
+  <div id="pane-calibration" style="display:none"></div>
   <div id="pane-sanitation" style="display:none"></div>
   <div id="pane-contacts" style="display:none"></div>
   <div id="pane-chem" style="display:none"></div>
@@ -1088,7 +1104,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v312';
+var APP_BUILD='BBW CMMS build v313';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1803,13 +1819,13 @@ function showTab(name){
   // Track history so the Back button can return to the previous tab
   try{
     var curr=null;
-    ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem','contacts','sanitation'].forEach(function(t){
+    ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem','contacts','sanitation','calibration'].forEach(function(t){
       var pn=gid('pane-'+t); if(pn&&pn.style.display!=='none')curr=t;
     });
     if(!_tabNavigatingBack && curr && curr!==name){ TAB_HISTORY.push(curr); if(TAB_HISTORY.length>25)TAB_HISTORY.shift(); }
   }catch(e){}
   _tabNavigatingBack=false;
-  ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem','contacts','sanitation'].forEach(function(t){
+  ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem','contacts','sanitation','calibration'].forEach(function(t){
     var pn=gid('pane-'+t); if(pn)pn.style.display='none';
     var tb=gid('tab-'+t);
     if(tb){tb.style.color='var(--text-3)';tb.style.borderBottomColor='transparent';tb.classList.remove('dz-active');}
@@ -1833,6 +1849,7 @@ function showTab(name){
   if(name==='chem')_safe(renderChem,'chem');
   if(name==='contacts')_safe(renderContactsPane,'contacts');
   if(name==='sanitation')_safe(renderSanitation,'sanitation');
+  if(name==='calibration')_safe(renderCalibrationPane,'calibration');
   if(name==='log'){
     injectPinnedRequests();injectMyPMTasks();
     // If the data these cards need hasn't loaded yet, load it and re-inject when ready.
@@ -2393,12 +2410,12 @@ function isEditor(){ return EDITORS.indexOf(user)>=0; }
 function isAuditor(){ return AUDITORS.indexOf(user)>=0 && EDITORS.indexOf(user)<0 && user!==ADMIN; }
 function roleLabel(r){ return r==='editor'?'Editor':(r==='auditor'?'Auditor':'Technician'); }
 function roleBadge(r){ var c=(r==='editor')?'rgba(37,99,235,.13);color:#2563eb':((r==='auditor')?'rgba(13,148,136,.14);color:#0d9488':'var(--surface-3);color:var(--text-3)'); return '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:'+c+'">'+(r==='editor'?'EDITOR':(r==='auditor'?'AUDITOR':'TECH'))+'</span>'; }
-var AUDIT_TABS={dash:1,cmms:1,reports:1,chem:1,contacts:1,sanitation:1};
+var AUDIT_TABS={dash:1,cmms:1,reports:1,chem:1,contacts:1,sanitation:1,calibration:1};
 // Show/hide top tabs, bottom nav and the FAB for the current role.
 function applyRoleTabs(){
   try{
     if(isAuditor()){
-      ['dash','home','log','shift','prev','util','schedule','assets','reports','requests','inventory','cmms','chem','contacts','sanitation','more'].forEach(function(t){
+      ['dash','home','log','shift','prev','util','schedule','assets','reports','requests','inventory','cmms','chem','contacts','sanitation','calibration','more'].forEach(function(t){
         var e=gid('tab-'+t); if(e)e.style.display=AUDIT_TABS[t]?'':'none';
       });
       // bottom nav: keep CMMS + the More hamburger (its drawer shows Dashboard/CMMS); hide the rest
@@ -2409,7 +2426,7 @@ function applyRoleTabs(){
       // re-apply the editor-only gating. Without the restore, switching from an auditor
       // (or test) account back to a full account left the auditor's restricted tab set
       // in place until a full reload.
-      ['home','log','shift','prev','util','schedule','assets','reports','requests','inventory','contacts','sanitation','more'].forEach(function(t){
+      ['home','log','shift','prev','util','schedule','assets','reports','requests','inventory','contacts','sanitation','calibration','more'].forEach(function(t){
         var e=gid('tab-'+t); if(e)e.style.display='';
       });
       ['bt-home','bt-log','bt-requests','bt-cmms','bt-more'].forEach(function(id){ var e=gid(id); if(e)e.style.display=''; });
@@ -3664,6 +3681,7 @@ var TAB_ICONS={home:'<path d="M3 10.6 12 3.5l9 7.1"/><path d="M5.4 9.6V20h13.2V9
   cmms:'<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-2.5 2.5-2-2z"/>',
   chem:'<path d="M9 3h6M10 3v5l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>',
   sanitation:'<path d="M3 11h8V7l3-4 2 1-2 3h2a2 2 0 0 1 2 2v2"/><path d="M3 11v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-8z"/><path d="M7 15v2"/>',
+  calibration:'<circle cx="12" cy="12" r="8.5"/><path d="M12 12l3.5-2.5"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2"/>',
   contacts:'<path d="M6.5 3h3l1.4 3.6-1.8 1.3a11 11 0 0 0 5 5l1.3-1.8L19 15.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 7.7 2 2 0 0 1 6.5 5z"/>',
   more:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'};
 function tabIconSpan(key){ return TAB_ICONS[key]?('<span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+TAB_ICONS[key]+'</svg></span>'):''; }
@@ -4300,7 +4318,7 @@ var TAB_RENDERERS={
   home:'renderHome', log:'renderLog', shift:'renderShift', prev:'renderPrev',
   util:'renderUtil', assets:'renderAssets', schedule:'renderSchedule',
   cmms:'renderCMMS', reports:'renderReports', requests:'renderRequests',
-  dash:'renderDashboard', inventory:'renderInventory', contacts:'renderContactsPane', sanitation:'renderSanitation', more:'renderMore'
+  dash:'renderDashboard', inventory:'renderInventory', contacts:'renderContactsPane', sanitation:'renderSanitation', calibration:'renderCalibrationPane', more:'renderMore'
 };
 function activePane(){
   for(var k in TAB_RENDERERS){
@@ -8150,7 +8168,8 @@ function renderCMMSView(){
   var el=gid('pane-cmms'); if(!el)return;
   var _aud=(typeof isAuditor==='function'&&isAuditor());
   if(_aud && CMMS_SUB==='wos')CMMS_SUB='calibration';   // auditors don't get the Work Orders page
-  var subs=[['wos','Work Orders'],['pms','PMs'],['calibration','Calibration'],['compliance','Compliance'],['calendar','Calendar']];
+  var subs=[['wos','Work Orders'],['pms','PMs'],['compliance','Compliance'],['calendar','Calendar']];
+  if(CMMS_SUB==='calibration')CMMS_SUB='pms';   // Calibration moved to its own top-level tab
   if(CMMS_SUB==='contacts')CMMS_SUB='pms';   // Contacts moved to its own top-level tab
   if(_aud)subs=subs.filter(function(s){return s[0]!=='wos';});
   var nav='<div style="display:flex;gap:7px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">'+subs.map(function(s){
@@ -8161,13 +8180,11 @@ function renderCMMSView(){
   if(CMMS_SUB==='pms')body='<div id="cmms-pms"></div>';
   else if(CMMS_SUB==='wos')body='<div id="cmms-wos"></div>';
   else if(CMMS_SUB==='compliance')body='<div id="cmms-comp"></div>';
-  else if(CMMS_SUB==='calibration')body='<div id="cmms-calib"></div>';
   else body='<div id="cmms-cal"></div>';
   el.innerHTML=nav+body;
   if(CMMS_SUB==='pms')renderPMModule();
   else if(CMMS_SUB==='wos')renderWOModule();
   else if(CMMS_SUB==='compliance')renderComplianceModule();
-  else if(CMMS_SUB==='calibration')renderCalModule();
   else if(CMMS_SUB==='calendar')renderCalendarModule();
 }
 
@@ -8620,6 +8637,11 @@ function calChip(s){ return '<span style="font-size:11px;font-weight:700;color:'
 function calSetFilter(f){ CAL_FILTER=(CAL_FILTER===f&&f!=='all')?'all':f; renderCalModule(); }
 function calSetCat(c){ CAL_CAT=c; renderCalModule(); }
 function calTitle(c){ return c.equipment||c.instrument||c.description||('Device '+(c.cal_no||'')); }
+function renderCalibrationPane(){
+  var p=gid('pane-calibration'); if(!p)return;
+  if(!p.querySelector('#cmms-calib'))p.innerHTML='<div id="cmms-calib"></div>';
+  renderCalModule();
+}
 function renderCalModule(){
   var el=gid('cmms-calib'); if(!el)return;
   if(!CAL_LOADED){ el.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-3);font-size:13px">Loading calibrations…</div>'; loadCals(function(){ if(gid('cmms-calib'))renderCalModule(); }); return; }
@@ -9804,9 +9826,12 @@ function logFromWO(w, extras){
   // Business date of the labor log = actual date entered, else the due date, else today's
   // anchored shift date. Mirrors completeWO's completed_at so the completion PDF, PM hours
   // and reports land on the REAL completion date instead of today when a PM is backdated.
-  var _dd=(w.due_date?(''+w.due_date).slice(0,10):'');
   var _actual=(extras.actualDate!=null&&/^\d{4}-\d{2}-\d{2}$/.test(''+extras.actualDate))?(''+extras.actualDate).slice(0,10):'';
-  var _bizDate=_actual||_dd||entryAnchor(null);
+  // Shift-log date = explicit actual date if the editor set one, else the ANCHORED shift
+  // date for right now. Previously this fell back to the PM's due date, which mis-filed a
+  // night-shift PM completed after midnight (e.g. 02:00) into the NEXT night's shift —
+  // that 02:00 completion belongs to the shift that started the previous evening.
+  var _bizDate=_actual||entryAnchor(null);
   // Credit the same tech the WO was completed by (editor-chosen), so the labor log, the
   // completion PDF and the reports all agree. Validated against the roster; default to self.
   var _by=user;
@@ -10041,6 +10066,7 @@ function renderDashboard(){
   var jobs=[loadWOs(true)];
   if(typeof loadCMMS==='function')jobs.push(loadCMMS());
   if(typeof loadRequests==='function')jobs.push(loadRequests());
+  if(typeof loadCals==='function')jobs.push(new Promise(function(res){ try{ loadCals(function(){res();}); }catch(e){res();} }));
   Promise.all(jobs).then(function(){drawDashboard(el);}).catch(function(){drawDashboard(el);});
 }
 function closeDashDrillForce(){var m=gid('dash-drill');if(m)m.remove();}
@@ -10115,6 +10141,10 @@ function drawDashboard(el){
   H+=kpi('Overdue work orders',overdue,(overdue?'needs attention':'all on track'),overdue?'#ef4444':'#10b981','overdue');
   H+=kpi('On-time this month',(pct==null?'\u2014':pct+'%'),judged.length+' assessed',(pct==null||pct>=90)?'#10b981':(pct>=75?'#f59e0b':'#ef4444'),'ontime');
   H+=kpi('PMs due today',dueToday.length,(teamView?'across the team':'your PMs due'),'#f59e0b','pms');
+  var cal=(typeof CAL!=='undefined'?CAL:[])||[]; var calTotal=cal.length, calOver=0;
+  cal.forEach(function(c){ try{ if((typeof calStatus==='function'?calStatus(c).k:'')==='overdue')calOver++; }catch(e){} });
+  var calCol=calOver?'#ef4444':'#10b981';
+  H+='<div class="dz-kpi" onclick="showTab(\'calibration\')" style="border-left:3px solid '+calCol+';cursor:pointer"><div class="dz-lbl">Calibration <span style="float:right;color:var(--text-3);font-weight:700">›</span></div><div class="dz-v" style="color:'+calCol+'">'+calTotal+'</div><div class="dz-sub">'+(calTotal?((calTotal-calOver)+' in cal'+(calOver?(' · '+calOver+' overdue'):'')):'none tracked')+'</div></div>';
   H+='</div><div class="dz-grid"><div>';
   H+='<div class="dz-card" style="margin-bottom:16px">'+(typeof cmmsTrendHTML==='function'?cmmsTrendHTML(today):'')+'</div>';
   H+='<div class="dz-card" style="margin-bottom:16px">'+(typeof utilTrendHTML==='function'?utilTrendHTML():'')+'</div>';
@@ -17194,6 +17224,18 @@ function schedProdRunsHTML(){
   // runs per calendar day, for the day-band counts
   function dayKey(dt){return dt.toLocaleDateString('en-CA',{year:'numeric',month:'2-digit',day:'2-digit'});}
   var perDay={}; runs.forEach(function(r){var k=dayKey(r.startDt);perDay[k]=(perDay[k]||0)+1;});
+
+  // What is running RIGHT NOW: the latest run that has started and (if an end time is
+  // known) hasn't finished. Otherwise the line is idle until the next run.
+  var current=null;
+  scheduleRuns.forEach(function(r){ if(!r.startDt||r.startDt>now2)return; if(r.finishDt&&r.finishDt<=now2)return; if(!current||r.startDt>current.startDt)current=r; });
+  if(current){
+    var cuntil=current.finishDt||(runs.length?runs[0].startDt:null);
+    var ccip=(current.cleaning&&current.cleaning!=='None'&&current.cleaning!=='FLUSH');
+    H+='<div class="pr-current"><span class="dot"></span><div style="flex:1;min-width:0"><div class="cur-lbl">'+schT('Now running')+' &middot; '+schT('since')+' '+tfmt(current.startDt)+'</div><div class="cur-name">'+esc(current.product)+'</div><div class="cur-sub">'+esc(current.canSize)+' &middot; '+esc(current.pkgFormat)+(ccip?' &middot; CIP':'')+(cuntil?(' &middot; '+schT('until')+' '+tfmt(cuntil)):'')+'</div></div></div>';
+  } else {
+    H+='<div class="pr-current idle"><span class="dot"></span><div style="flex:1;min-width:0"><div class="cur-lbl">'+schT('Line idle')+'</div><div class="cur-sub">'+schT('Next run')+' '+esc(runs[0].product)+' &middot; '+tfmt(runs[0].startDt)+' &middot; '+gapTxt(runs[0].startDt-now2)+'</div></div></div>';
+  }
 
   H+='<div class="pr-dhead"><span>Time</span><span>Product</span><span>Format</span><span>Line status</span></div>';
   H+='<div class="pr-feed">';
