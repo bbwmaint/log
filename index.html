@@ -676,6 +676,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
     <button onclick="showTab('schedule')" id="tab-schedule" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Schedule</button>
     <button onclick="showTab('assets')" id="tab-assets" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Assets</button>
     <button onclick="showTab('reports')" id="tab-reports" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Reports</button>
+    <button onclick="showTab('sanitation')" id="tab-sanitation" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sanitation</button>
     <button onclick="showTab('contacts')" id="tab-contacts" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Contacts</button>
     <button onclick="showTab('requests')" id="tab-requests" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap">Requests</button>
     <button onclick="showTab('inventory')" id="tab-inventory" style="flex:0 0 auto;padding:11px 15px;font-size:11px;font-weight:600;color:var(--text-3);border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Inventory</button>
@@ -700,6 +701,7 @@ select option,select optgroup{background:#1b1c20;color:#fff}
   <div id="pane-reports" style="display:none"></div>
   <div id="pane-requests" style="display:none"></div>
   <div id="pane-inventory" style="display:none"></div>
+  <div id="pane-sanitation" style="display:none"></div>
   <div id="pane-contacts" style="display:none"></div>
   <div id="pane-chem" style="display:none"></div>
   </div>
@@ -1086,7 +1088,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v307';
+var APP_BUILD='BBW CMMS build v308';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -1801,13 +1803,13 @@ function showTab(name){
   // Track history so the Back button can return to the previous tab
   try{
     var curr=null;
-    ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem','contacts'].forEach(function(t){
+    ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem','contacts','sanitation'].forEach(function(t){
       var pn=gid('pane-'+t); if(pn&&pn.style.display!=='none')curr=t;
     });
     if(!_tabNavigatingBack && curr && curr!==name){ TAB_HISTORY.push(curr); if(TAB_HISTORY.length>25)TAB_HISTORY.shift(); }
   }catch(e){}
   _tabNavigatingBack=false;
-  ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem','contacts'].forEach(function(t){
+  ['home','log','shift','prev','util','assets','schedule','more','cmms','reports','requests','dash','inventory','chem','contacts','sanitation'].forEach(function(t){
     var pn=gid('pane-'+t); if(pn)pn.style.display='none';
     var tb=gid('tab-'+t);
     if(tb){tb.style.color='var(--text-3)';tb.style.borderBottomColor='transparent';tb.classList.remove('dz-active');}
@@ -1830,6 +1832,7 @@ function showTab(name){
   if(name==='inventory')_safe(renderInventory,'inventory');
   if(name==='chem')_safe(renderChem,'chem');
   if(name==='contacts')_safe(renderContactsPane,'contacts');
+  if(name==='sanitation')_safe(renderSanitation,'sanitation');
   if(name==='log'){
     injectPinnedRequests();injectMyPMTasks();
     // If the data these cards need hasn't loaded yet, load it and re-inject when ready.
@@ -2390,12 +2393,12 @@ function isEditor(){ return EDITORS.indexOf(user)>=0; }
 function isAuditor(){ return AUDITORS.indexOf(user)>=0 && EDITORS.indexOf(user)<0 && user!==ADMIN; }
 function roleLabel(r){ return r==='editor'?'Editor':(r==='auditor'?'Auditor':'Technician'); }
 function roleBadge(r){ var c=(r==='editor')?'rgba(37,99,235,.13);color:#2563eb':((r==='auditor')?'rgba(13,148,136,.14);color:#0d9488':'var(--surface-3);color:var(--text-3)'); return '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:'+c+'">'+(r==='editor'?'EDITOR':(r==='auditor'?'AUDITOR':'TECH'))+'</span>'; }
-var AUDIT_TABS={dash:1,cmms:1,reports:1,chem:1,contacts:1};
+var AUDIT_TABS={dash:1,cmms:1,reports:1,chem:1,contacts:1,sanitation:1};
 // Show/hide top tabs, bottom nav and the FAB for the current role.
 function applyRoleTabs(){
   try{
     if(isAuditor()){
-      ['dash','home','log','shift','prev','util','schedule','assets','reports','requests','inventory','cmms','chem','contacts','more'].forEach(function(t){
+      ['dash','home','log','shift','prev','util','schedule','assets','reports','requests','inventory','cmms','chem','contacts','sanitation','more'].forEach(function(t){
         var e=gid('tab-'+t); if(e)e.style.display=AUDIT_TABS[t]?'':'none';
       });
       // bottom nav: keep CMMS + the More hamburger (its drawer shows Dashboard/CMMS); hide the rest
@@ -2406,7 +2409,7 @@ function applyRoleTabs(){
       // re-apply the editor-only gating. Without the restore, switching from an auditor
       // (or test) account back to a full account left the auditor's restricted tab set
       // in place until a full reload.
-      ['home','log','shift','prev','util','schedule','assets','reports','requests','inventory','contacts','more'].forEach(function(t){
+      ['home','log','shift','prev','util','schedule','assets','reports','requests','inventory','contacts','sanitation','more'].forEach(function(t){
         var e=gid('tab-'+t); if(e)e.style.display='';
       });
       ['bt-home','bt-log','bt-requests','bt-cmms','bt-more'].forEach(function(id){ var e=gid(id); if(e)e.style.display=''; });
@@ -3660,6 +3663,7 @@ var TAB_ICONS={home:'<path d="M3 10.6 12 3.5l9 7.1"/><path d="M5.4 9.6V20h13.2V9
   inventory:'<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
   cmms:'<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-2.5 2.5-2-2z"/>',
   chem:'<path d="M9 3h6M10 3v5l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>',
+  sanitation:'<path d="M3 11h8V7l3-4 2 1-2 3h2a2 2 0 0 1 2 2v2"/><path d="M3 11v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-8z"/><path d="M7 15v2"/>',
   contacts:'<path d="M6.5 3h3l1.4 3.6-1.8 1.3a11 11 0 0 0 5 5l1.3-1.8L19 15.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 7.7 2 2 0 0 1 6.5 5z"/>',
   more:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'};
 function tabIconSpan(key){ return TAB_ICONS[key]?('<span class="tab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+TAB_ICONS[key]+'</svg></span>'):''; }
@@ -4296,7 +4300,7 @@ var TAB_RENDERERS={
   home:'renderHome', log:'renderLog', shift:'renderShift', prev:'renderPrev',
   util:'renderUtil', assets:'renderAssets', schedule:'renderSchedule',
   cmms:'renderCMMS', reports:'renderReports', requests:'renderRequests',
-  dash:'renderDashboard', inventory:'renderInventory', contacts:'renderContactsPane', more:'renderMore'
+  dash:'renderDashboard', inventory:'renderInventory', contacts:'renderContactsPane', sanitation:'renderSanitation', more:'renderMore'
 };
 function activePane(){
   for(var k in TAB_RENDERERS){
@@ -8279,6 +8283,271 @@ function contactDelete(i){
   var m=gid('contact-edit'); if(m)m.remove();
   _renderContactsBody();
 }
+
+// ═══════════════ SANITATION — 5S / Master Cleaning Schedule (R500MT) ═══════════════
+// Seeded from the Maintenance Master Sanitation Tracker. Each task recurs on its
+// frequency like a PM; completing one stamps date+who, rolls the next due forward,
+// and drops a line into the shift log (area as the "machine") so it shows in exports.
+var SANITATION_SEED=[
+{area:"Old Maintenance (Spare Parts Storage)",tasks:[
+ {item:"Floors – Main Aisle",task:"Sweep and mop",detail:"Degrease ink / oil stains around drains",freq:"MONTHLY"},
+ {item:"Aisles & Floor (5S)",task:"Clear aisles",detail:"Stainless rods to rack, boxes/crates off floor, break down cardboard",freq:"MONTHLY"},
+ {item:"Trash Bin Corner",task:"Empty bin & tidy corner",detail:"Signs, hose, mop & buckets back to storage spot",freq:"WEEKLY"},
+ {item:"Chemical / Paint Cabinets",task:"Inspect & clean",detail:"Clean spill pallet sumps, wipe cabinets, clear tops",freq:"MONTHLY"},
+ {item:"Trench Drain & Floor Drain",task:"Clean drains",detail:"Lift grate, remove debris, flush, degrease surround",freq:"QUARTERLY"},
+ {item:"Videojet Spare Printers & Table",task:"Exterior cleaning",detail:"Wipe cabinets, remove ink drips, caps on printheads",freq:"QUARTERLY"},
+ {item:"Spare Parts Shelving",task:"Dust & wipe shelves",detail:"Line #1, Videojet, Pumps & Motors, SEW gearmotors – parts to labels",freq:"QUARTERLY"},
+ {item:"Conveyor Chain / Belting Shelf",task:"Organize & wipe",detail:"Re-bag and label rolls, wipe shelves",freq:"SEMI-ANNUALLY"},
+ {item:"Line 1 Manuals Shelf",task:"Dust binders & shelf",detail:"Return manuals to shelf in order",freq:"SEMI-ANNUALLY"},
+ {item:"Change Parts Rack",task:"Wipe down",detail:"Parts bagged and tagged, nothing on floor",freq:"SEMI-ANNUALLY"},
+ {item:"Wire Mesh Cage Walls",task:"Dust cage",detail:"Recoil and re-hang cables / hoses",freq:"SEMI-ANNUALLY"},
+ {item:"Windows & Sills",task:"Clean glass and sills",detail:"Check pallets kept 18\" from walls",freq:"SEMI-ANNUALLY"},
+ {item:"Overhead (Ceiling, Pipes, Lights)",task:"High dusting",detail:"Use ladder / lift – follow working at heights",freq:"ANNUALLY"}
+]},
+{area:"Boiler Room / Utilities",tasks:[
+ {item:"Floors (Tile)",task:"Sweep and mop",detail:"Degrease oil / water stains, incl. aisle between IR compressors",freq:"MONTHLY"},
+ {item:"Chemical Drums & Spill Pallets",task:"Inspect & clean",detail:"Clean sumps, wipe drum tops, labels legible, remove empties",freq:"MONTHLY"},
+ {item:"Workbench & Carts",task:"Clear and wipe",detail:"Parts, cable spools and boxes back to storage",freq:"MONTHLY"},
+ {item:"Electrical Room",task:"Clear floor",detail:"Remove spools, boxes, wire scraps – 1 m clearance at panels",freq:"MONTHLY"},
+ {item:"Floor Drains",task:"Clean drains",detail:"Clear and flush",freq:"QUARTERLY"},
+ {item:"Berg Chiller Skid & Pumps",task:"Exterior wipe down",detail:"Skid frame, pump / motor housings, debris under skid",freq:"QUARTERLY"},
+ {item:"Heat Exchanger / Feed Pump Skid",task:"Exterior wipe down",detail:"Clear base frame. Hot surfaces – LOTO where required",freq:"QUARTERLY"},
+ {item:"Ingersoll Rand Air Compressors",task:"Exterior cleaning",detail:"Wipe panels, clean intake / cooler grilles",freq:"QUARTERLY"},
+ {item:"Water Softeners & Dosing Station",task:"Wipe down",detail:"Tanks, dosing pumps, rack – clean chemical drips",freq:"QUARTERLY"},
+ {item:"Water Test Kit & Spill Kit (Ladder 021)",task:"Organize & inspect",detail:"Test kit tidy, spill kit drum wiped, contents complete",freq:"QUARTERLY"},
+ {item:"Air Receivers & Dryers",task:"Exterior wipe down",detail:"Keep drain area clean",freq:"SEMI-ANNUALLY"},
+ {item:"Pipe Insulation & Lagging",task:"Inspect & dust",detail:"Raise WO for damaged lagging",freq:"SEMI-ANNUALLY"},
+ {item:"Electrical Room Enclosures",task:"Dust tops of enclosures",detail:"Transformer, disconnects, switchgear – no contact with live parts",freq:"SEMI-ANNUALLY"},
+ {item:"Packaging L1 Filler Fan",task:"Clean fan",detail:"Guard and blades",freq:"SEMI-ANNUALLY"},
+ {item:"Louvres & Ductwork",task:"Clean louvres / screens",detail:"Dust ductwork",freq:"ANNUALLY"},
+ {item:"Walls, Overhead Pipes & Lights",task:"High dusting",detail:"Use ladder / lift – follow working at heights",freq:"ANNUALLY"}
+]},
+{area:"New Maintenance Shop",tasks:[
+ {item:"Trash Bin (Brute)",task:"Empty bin",detail:"Empty daily or when 3/4 full",freq:"DAILY"},
+ {item:"Floors",task:"Sweep and mop",detail:"Incl. under benches and around tool chests",freq:"WEEKLY"},
+ {item:"Workbench & Vise",task:"Clear and wipe",detail:"Tools back, remove scraps and packaging",freq:"WEEKLY"},
+ {item:"Parts Bin Shelving",task:"Return parts & tidy bins",detail:"Filler, Variopac, Line Control – remove empty packaging",freq:"WEEKLY"},
+ {item:"Bench Grinder / Drill Press",task:"Clean",detail:"Remove swarf, wipe guards",freq:"WEEKLY"},
+ {item:"Desk / Computer Area",task:"Clear and wipe",detail:"Desk, keyboard, monitor",freq:"WEEKLY"},
+ {item:"Whiteboards",task:"Clean & update",detail:"Remove completed items",freq:"WEEKLY"},
+ {item:"PPE Hooks & Cleaning Tools",task:"Tidy",detail:"Jackets hung, broom / dustpan stored",freq:"WEEKLY"},
+ {item:"Top of Shelving",task:"Clear and organize",detail:"Discard foam / packaging, label boxes",freq:"MONTHLY"},
+ {item:"Tool Chests & Pegboard",task:"Wipe & return tools",detail:"Mastercraft chest, blue drawer cabinet, wrench pegboard",freq:"MONTHLY"},
+ {item:"LOTO Station, First Aid & Burn Kit",task:"Inspect & wipe",detail:"Locks / tags complete, kits stocked",freq:"MONTHLY"},
+ {item:"Fridge",task:"Clean inside and out",detail:"Discard old food",freq:"MONTHLY"},
+ {item:"Wall Fan & Split AC Unit",task:"Clean fan, clean AC filters",detail:"Guard and blades",freq:"QUARTERLY"},
+ {item:"Walls, Lights & Overhead Conduit",task:"High dusting",detail:"Use ladder – follow working at heights",freq:"SEMI-ANNUALLY"}
+]},
+{area:"All Maintenance Areas",tasks:[
+ {item:"5S / GMP Walk",task:"Inspect all three areas",detail:"Coordinator – raise WOs for findings",freq:"MONTHLY"}
+]}
+];
+var SANI_STATE={};      // key -> {last:'YYYY-MM-DD', hist:[{d,by}]}
+var SANI_VERIF={};      // weekMonday -> {by, date}
+var SANI_FILTER='all';
+var SANI_FREQ_DAYS={DAILY:1,WEEKLY:7,MONTHLY:30,QUARTERLY:91,'SEMI-ANNUALLY':182,ANNUALLY:365};
+var SANI_FREQ_LBL={DAILY:'Daily',WEEKLY:'Weekly',MONTHLY:'Monthly',QUARTERLY:'Quarterly','SEMI-ANNUALLY':'Semi-annual',ANNUALLY:'Annual'};
+function saniKey(area,item){ return (area+'::'+item).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+function saniState(area,item){ var k=saniKey(area,item); return SANI_STATE[k]||null; }
+function saniWeekMonday(d){ var x=new Date(d); var dow=(x.getDay()+6)%7; x.setDate(x.getDate()-dow); return localDateStr(x); }
+function saniStatus(area,item,freq){
+  var iv=SANI_FREQ_DAYS[freq]||30; var st=saniState(area,item);
+  if(!st||!st.last) return {k:'never',lbl:'NEEDS DOING'};
+  var last=new Date(st.last+'T12:00:00');
+  var due=new Date(last); due.setDate(due.getDate()+iv);
+  var today=new Date(localDateStr(new Date())+'T12:00:00');
+  var days=Math.round((due-today)/86400000);
+  if(days<0) return {k:'overdue',lbl:(-days)+'d OVERDUE',due:localDateStr(due)};
+  if(days<=Math.max(2,Math.round(iv*0.15))) return {k:'due',lbl:'DUE SOON',due:localDateStr(due)};
+  return {k:'ok',lbl:'OK',due:localDateStr(due)};
+}
+function _saniPersist(){
+  try{ if(typeof saveScheduleToSB==='function'){ saveScheduleToSB('sanitation',SANI_STATE); saveScheduleToSB('sanitation_verif',SANI_VERIF); } }catch(e){}
+  try{ localStorage.setItem('bbw_sanitation',JSON.stringify(SANI_STATE)); localStorage.setItem('bbw_sanitation_verif',JSON.stringify(SANI_VERIF)); }catch(e){}
+}
+function saniComplete(gi,ti){
+  var g=SANITATION_SEED[gi]; if(!g)return; var t=g.tasks[ti]; if(!t)return;
+  var k=saniKey(g.area,t.item); var today=localDateStr(new Date());
+  var st=SANI_STATE[k]||(SANI_STATE[k]={last:'',hist:[]});
+  if(!st.hist)st.hist=[];
+  st.last=today; st.hist.push({d:today,by:(typeof user!=='undefined'?user:'')});
+  if(st.hist.length>500)st.hist=st.hist.slice(-500);
+  _saniPersist();
+  // Drop a line into the shift log — area as the "machine"
+  try{
+    var base=Date.now();
+    var entry={id:base,date:shiftAnchor(),shift:isDay()?'Day':'Night',type:'done',priority:'',
+      assetName:g.area,assetCode:'',issue:'',desc:t.item+' — '+t.task+' (sanitation)',
+      start:'',end:'',withWho:'',dt:0,machineDown:'',coMins:0,coType:'',partName:'',partQty:'1',
+      photos:[],photo:null,who:(typeof user!=='undefined'?user:''),loggedAt:new Date().toISOString(),shiftNote:''};
+    if(typeof entries!=='undefined'&&entries)entries.push(entry);
+    if(typeof allE!=='undefined'&&allE)allE.push(entry);
+    if(typeof syncEntry==='function')syncEntry(entry);
+    try{ save(); }catch(e){}
+  }catch(e){}
+  try{ toast('Logged ✓'); }catch(e){}
+  renderSanitation();
+}
+function saniVerify(){
+  if(!((typeof isEditor==='function'&&isEditor())||(typeof isAdmin==='function'&&isAdmin()))){ alert('Weekly verification is for the Maintenance Coordinator / Supervisor.'); return; }
+  var wk=saniWeekMonday(new Date());
+  SANI_VERIF[wk]={by:(typeof user!=='undefined'?user:''),date:localDateStr(new Date())};
+  _saniPersist();
+  renderSanitation();
+}
+function _saniFlat(){ var a=[]; SANITATION_SEED.forEach(function(g,gi){ g.tasks.forEach(function(t,ti){ a.push({g:g,gi:gi,t:t,ti:ti,s:saniStatus(g.area,t.item,t.freq)}); }); }); return a; }
+function renderSanitation(){
+  var pane=gid('pane-sanitation'); if(!pane)return;
+  var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtD(iso){ var d=new Date(iso+'T12:00:00'); return isNaN(d)?iso:(MON[d.getMonth()]+' '+d.getDate()); }
+  var all=_saniFlat();
+  var nNeed=all.filter(function(x){return x.s.k==='never'||x.s.k==='overdue';}).length;
+  var nDue=all.filter(function(x){return x.s.k==='due';}).length;
+  var nOk=all.filter(function(x){return x.s.k==='ok';}).length;
+  var canVerify=((typeof isEditor==='function'&&isEditor())||(typeof isAdmin==='function'&&isAdmin()));
+  var H='';
+  H+='<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:12px">';
+  H+='<div><div style="font-size:20px;font-weight:800;letter-spacing:-.01em">Sanitation</div><div style="font-size:12px;color:var(--text-3);margin-top:3px">5S &amp; cleaning schedule · '+SANITATION_SEED.length+' areas · '+all.length+' tasks</div></div>';
+  H+='<button onclick="saniExportPDF()" style="flex:0 0 auto;background:linear-gradient(95deg,#c8a24b,#d8b55e);border:none;color:#1b1206;font-size:12.5px;font-weight:800;padding:9px 13px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>Export</button>';
+  H+='</div>';
+  function kpi(n,l,c){ return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:11px 10px;text-align:center"><div style="font-size:21px;font-weight:800;letter-spacing:-.02em;line-height:1;color:'+c+'">'+n+'</div><div style="font-size:9.5px;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;margin-top:6px;font-weight:600">'+l+'</div></div>'; }
+  H+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">'+kpi(all.length,'Tasks','var(--text)')+kpi(nNeed,'Needs doing','#f87171')+kpi(nDue,'Due soon','#fbbf24')+kpi(nOk,'Up to date','#34d399')+'</div>';
+  var fl=[['all','All'],['need','Needs attention'],['ok','Up to date']];
+  H+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px">'+fl.map(function(f){var on=SANI_FILTER===f[0];return '<div onclick="SANI_FILTER=\''+f[0]+'\';renderSanitation()" style="background:'+(on?'rgba(200,162,75,.16)':'var(--surface-2)')+';border:1px solid '+(on?'var(--gold,#c8a24b)':'var(--border-2)')+';color:'+(on?'#c8a24b':'var(--text-2)')+';font-size:12px;font-weight:700;padding:7px 13px;border-radius:999px;cursor:pointer;white-space:nowrap">'+f[1]+'</div>';}).join('')+'</div>';
+  SANITATION_SEED.forEach(function(g,gi){
+    var rows=g.tasks.map(function(t,ti){return {t:t,ti:ti,s:saniStatus(g.area,t.item,t.freq)};});
+    if(SANI_FILTER==='need')rows=rows.filter(function(r){return r.s.k==='never'||r.s.k==='overdue'||r.s.k==='due';});
+    if(SANI_FILTER==='ok')rows=rows.filter(function(r){return r.s.k==='ok';});
+    if(!rows.length)return;
+    var need=g.tasks.filter(function(t){var k=saniStatus(g.area,t.item,t.freq).k;return k==='never'||k==='overdue';}).length;
+    H+='<div style="margin-bottom:18px"><div style="display:flex;align-items:center;gap:9px;margin:0 2px 9px"><span style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-2)">'+rqEsc(g.area)+'</span><span style="font-size:10.5px;font-weight:700;color:var(--text-3)">'+(need?('<b style="color:#f59e0b">'+need+' need doing</b> · '):'')+g.tasks.length+' tasks</span></div>';
+    rows.forEach(function(r){
+      var t=r.t,s=r.s,stt=saniState(g.area,t.item);
+      var scol={overdue:['rgba(239,68,68,.16)','#f87171','rgba(239,68,68,.35)'],never:['rgba(245,158,11,.15)','#fbbf24','rgba(245,158,11,.33)'],due:['rgba(251,191,36,.14)','#fbbf24','rgba(251,191,36,.3)'],ok:['rgba(52,211,153,.13)','#34d399','rgba(52,211,153,.3)']}[s.k]||['var(--surface-2)','var(--text-2)','var(--border)'];
+      var lastHtml=(stt&&stt.last)?('<span style="font-size:11px;color:var(--text-3)">✓ <b style="color:#34d399;font-weight:700">'+fmtD(stt.last)+'</b>'+(stt.hist&&stt.hist.length&&stt.hist[stt.hist.length-1].by?(' · '+rqEsc(stt.hist[stt.hist.length-1].by)):'')+'</span>'):'<span style="font-size:11px;color:var(--text-3)">Not logged yet</span>';
+      H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 13px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start">';
+      H+='<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;line-height:1.25">'+rqEsc(t.item)+'</div><div style="font-size:12.5px;color:var(--text-2);margin-top:1px">'+rqEsc(t.task)+'</div><div style="font-size:11.5px;color:var(--text-3);margin-top:4px;line-height:1.4">'+rqEsc(t.detail)+'</div>';
+      H+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><span style="font-size:9.5px;font-weight:800;letter-spacing:.04em;padding:3px 8px;border-radius:5px;background:var(--surface-3);color:var(--text-2);text-transform:uppercase">'+(SANI_FREQ_LBL[t.freq]||t.freq)+'</span>'+lastHtml+'</div></div>';
+      H+='<div style="flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:96px"><span style="font-size:10px;font-weight:800;letter-spacing:.04em;padding:4px 10px;border-radius:999px;white-space:nowrap;background:'+scol[0]+';color:'+scol[1]+';border:1px solid '+scol[2]+'">'+s.lbl+'</span>';
+      H+='<button onclick="saniComplete('+gi+','+r.ti+')" style="background:var(--surface-2);border:1px solid var(--border-2);color:var(--text);font-size:11.5px;font-weight:700;padding:7px 11px;border-radius:8px;cursor:pointer;white-space:nowrap">Mark done</button></div>';
+      H+='</div>';
+    });
+    H+='</div>';
+  });
+  // Weekly verification
+  var wk=saniWeekMonday(new Date()); var v=SANI_VERIF[wk];
+  H+='<div style="background:var(--surface);border:1px dashed var(--border-2);border-radius:12px;padding:14px;margin-top:6px">';
+  H+='<div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-2);margin-bottom:6px">Weekly verification</div>';
+  if(v){ H+='<div style="font-size:12.5px;color:#34d399;font-weight:700">✓ Week of '+fmtD(wk)+' — verified by '+rqEsc(v.by||'')+' on '+fmtD(v.date)+'</div>'; }
+  else { H+='<div style="font-size:12.5px;color:var(--text-3);line-height:1.5">Maintenance Coordinator / Supervisor signs off the week once all three areas are walked.</div>'; }
+  if(canVerify){ H+='<button onclick="saniVerify()" style="margin-top:11px;background:var(--surface-2);border:1px solid var(--border-2);color:var(--text);font-size:12.5px;font-weight:700;padding:9px 14px;border-radius:9px;cursor:pointer">'+(v?'Re-verify this week':'Verify this week')+'</button>'; }
+  else { H+='<div style="margin-top:9px;font-size:11px;color:var(--text-3)">Coordinator / Supervisor only.</div>'; }
+  H+='</div>';
+  pane.innerHTML=H;
+}
+// Export the schedule as the R500MT year grid (matches the uploaded sheet):
+// AREA/ITEM/TASK/LAST/FREQ columns + 52 week columns, split Jan-Jun / Jul-Dec,
+// with the day-of-month printed in the week each task was completed.
+function saniExportPDF(){
+  try{
+    var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF engine not loaded yet — try again in a moment.');return;}
+    var doc=new JS({unit:'pt',format:'letter',orientation:'landscape'}); try{pdfUnicode(doc);}catch(e){}
+    var F='helvetica';
+    try{ if(typeof DEJAVU_REG!=='undefined'){ doc.addFileToVFS('DejaVu.ttf',DEJAVU_REG); doc.addFont('DejaVu.ttf','DejaVu','normal'); doc.addFileToVFS('DejaVu-Bold.ttf',DEJAVU_BOLD); doc.addFont('DejaVu-Bold.ttf','DejaVu','bold'); F='DejaVu'; } }catch(e){ F='helvetica'; }
+    function pdfSafe(s){return String(s==null?'':s).replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/–/g,'-').replace(/—/g,'-').replace(/…/g,'...');}
+    var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=26;
+    var INK=[30,31,34],SUB=[108,111,118],HAIR=[220,222,226],LINE=[198,201,207],GOLD=[30,58,95],RED=[196,35,31];
+    var SEC=[233,229,217],CELLBG=[213,239,222],CELLTX=[21,110,54],MB=[243,244,246];
+    var MON3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function sc(c){doc.setTextColor(c[0],c[1],c[2]);} function fc(c){doc.setFillColor(c[0],c[1],c[2]);} function dc(c){doc.setDrawColor(c[0],c[1],c[2]);}
+    function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(pdfSafe(t),x,yy,al?{align:al}:undefined);}
+    function trunc(s,w,sz,st){ doc.setFont(F,st||'normal');doc.setFontSize(sz); s=pdfSafe(s); if(doc.getTextWidth(s)<=w)return s; while(s.length>1&&doc.getTextWidth(s+'…')>w)s=s.slice(0,-1); return s+'…'; }
+    var FQS={DAILY:'Daily',WEEKLY:'Weekly',MONTHLY:'Monthly',QUARTERLY:'Quarterly','SEMI-ANNUALLY':'Semi-ann','ANNUALLY':'Annual'};
+
+    var YEAR=new Date().getFullYear();
+    var jan1=new Date(YEAR,0,1,12,0,0);
+    var weeks=[]; for(var i=0;i<52;i++){ var ws=new Date(YEAR,0,1,12,0,0); ws.setDate(ws.getDate()+i*7); weeks.push(ws); }
+    function compMap(st){ var m={}; if(st&&st.hist)st.hist.forEach(function(h){ var d=new Date((h.d||'')+'T12:00:00'); if(isNaN(d)||d.getFullYear()!==YEAR)return; var wi=Math.floor((d-jan1)/(7*86400000)); if(wi<0)wi=0; if(wi>51)wi=51; m[wi]=d.getDate(); }); return m; }
+    function lastLabel(st){ if(!st||!st.last)return '—'; var d=new Date(st.last+'T12:00:00'); return isNaN(d)?'—':(MON3[d.getMonth()]+' '+d.getDate()); }
+
+    // rows: section markers + task rows
+    var rows=[]; SANITATION_SEED.forEach(function(g){ rows.push({sec:g.area}); g.tasks.forEach(function(t){ rows.push({g:g,t:t,st:saniState(g.area,t.item),cm:compMap(saniState(g.area,t.item))}); }); });
+
+    // column geometry
+    var cArea=M, wArea=94, cItem=cArea+wArea, wItem=70, cTask=cItem+wItem, wTask=74, cLast=cTask+wTask, wLast=36, cFreq=cLast+wLast, wFreq=46, gridX=cFreq+wFreq;
+    var gridRight=W-M, gridW=gridRight-gridX, wkW=gridW/26;
+    var headTop=48, monthH=13, weekH=12, rowsTop=headTop+monthH+weekH+4;
+    var botLimit=H-20;
+    var rowH=Math.min(12, (botLimit-rowsTop)/rows.length); if(rowH<8)rowH=8;
+
+    function drawHead(w0,w1,label){
+      var y=30;
+      if(window.__logoDark){try{var lh=20,lw=lh*((window.__logoW||498)/(window.__logoH||220));doc.addImage(window.__logoDark,'PNG',M,y-14,lw,lh);}catch(e){T('BRUNSWICK BIERWORKS',M,y,12,'bold',INK);}}
+      else{T('BRUNSWICK BIERWORKS',M,y,12,'bold',INK);}
+      T('Maintenance Master Sanitation Tracker',M+150,y-2,13,'bold',INK);
+      T('5S / cleaning schedule',M+150,y+10,8.5,'normal',SUB);
+      T('Document ID: R500MT',W-M,y-4,9.5,'bold',INK,'right');
+      T(YEAR+'  ·  '+label,W-M,y+9,9,'normal',SUB,'right');
+      dc(GOLD);doc.setLineWidth(1.3);doc.line(M,38,W-M,38);
+      // Month band
+      var my=headTop;
+      // info header cell under month band spanning to week rows
+      fc(MB); doc.rect(M,my,gridX-M,monthH+weekH,'F');
+      // month groups
+      var k=w0;
+      doc.setDrawColor(LINE[0],LINE[1],LINE[2]);doc.setLineWidth(.5);
+      while(k<w1){ var mo=weeks[k].getMonth(); var k2=k; while(k2<w1&&weeks[k2].getMonth()===mo)k2++;
+        var x=gridX+(k-w0)*wkW, w=(k2-k)*wkW;
+        fc(MB); doc.rect(x,my,w,monthH,'F');
+        dc(LINE); doc.rect(x,my,w,monthH);
+        T(MON3[mo].toUpperCase(),x+w/2,my+9,7.5,'bold',INK,'center');
+        k=k2;
+      }
+      // Week number row + info column headers
+      var wy=my+monthH;
+      var heads=[['AREA',cArea,wArea],['ITEM',cItem,wItem],['TASK',cTask,wTask],['LAST',cLast,wLast],['FREQ',cFreq,wFreq]];
+      heads.forEach(function(h){ dc(LINE);doc.rect(h[1],my,h[2],monthH+weekH); T(h[0],h[1]+3,wy+9,6.8,'bold',SUB); });
+      for(var wi=w0;wi<w1;wi++){ var x=gridX+(wi-w0)*wkW; dc(HAIR);doc.rect(x,wy,wkW,weekH); T(String(wi+1),x+wkW/2,wy+9,6.2,'normal',SUB,'center'); }
+      return rowsTop;
+    }
+
+    var spreads=[[0,26,'First half · Weeks 1–26 (Jan–Jun)'],[26,52,'Second half · Weeks 27–52 (Jul–Dec)']];
+    spreads.forEach(function(sp,si){
+      if(si>0)doc.addPage();
+      var w0=sp[0],w1=sp[1];
+      var y=drawHead(w0,w1,sp[2]);
+      // vertical separators for the full body
+      var bodyBot=y+rows.length*rowH;
+      dc(HAIR);doc.setLineWidth(.4);
+      for(var wi=w0;wi<=w1;wi++){ var x=gridX+(wi-w0)*wkW; doc.line(x,rowsTop,x,bodyBot); }
+      [cItem,cTask,cLast,cFreq,gridX].forEach(function(x){ dc(LINE);doc.setLineWidth(.5);doc.line(x,rowsTop,x,bodyBot); });
+      dc(LINE);doc.setLineWidth(.6);doc.line(M,rowsTop,M,bodyBot); doc.line(gridRight,rowsTop,gridRight,bodyBot);
+      // rows
+      rows.forEach(function(r){
+        var top=y, base=y+rowH-3;
+        if(r.sec){
+          fc(SEC); doc.rect(M,top,gridRight-M,rowH,'F');
+          T(trunc(r.sec,gridRight-M-8,7.5,'bold'),M+4,base,7.5,'bold',INK);
+        } else {
+          T(trunc(r.t.item,wArea-6,7,'bold'),cArea+3,base,7,'bold',INK);
+          T(trunc(r.t.task,wItem-6,7,'normal'),cItem+3,base,7,'normal',[70,73,80]);
+          T(trunc(r.t.detail,wTask-6,6.5,'normal'),cTask+3,base,6.5,'normal',SUB);
+          T(trunc(lastLabel(r.st),wLast-5,6.5,'normal'),cLast+3,base,6.5,'normal',SUB);
+          T(trunc(FQS[r.t.freq]||r.t.freq,wFreq-5,6,'bold'),cFreq+3,base,6,'bold',SUB);
+          for(var wi=w0;wi<w1;wi++){ if(r.cm[wi]){ var x=gridX+(wi-w0)*wkW; fc(CELLBG); doc.rect(x+.6,top+.6,wkW-1.2,rowH-1.2,'F'); T(String(r.cm[wi]),x+wkW/2,base,6.3,'bold',CELLTX,'center'); } }
+        }
+        dc(HAIR);doc.setLineWidth(.4);doc.line(M,top+rowH,gridRight,top+rowH);
+        y+=rowH;
+      });
+      // footer
+      dc(HAIR);doc.setLineWidth(.6);doc.line(M,H-16,W-M,H-16);
+      T('Generated directly from the sanitation log · shaded week = completed (day of month shown)',M,H-7,7.5,'normal',SUB);
+      T('BBW CMMS · '+(typeof APP_BUILD!=='undefined'?APP_BUILD.replace('BBW CMMS ',''):'')+' · '+new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),W-M,H-7,7.5,'normal',SUB,'right');
+    });
+    doc.save('BBW_Sanitation_R500MT_'+YEAR+'.pdf');
+  }catch(e){ try{alert('Could not generate PDF: '+e.message);}catch(_){} }
+}
+
 
 // Map a PM's ASSET to its OEM / service contractor — drives the "Service contact"
 // line on the PM detail + sheet. Ordered most-specific first; matches asset name.
@@ -17135,6 +17404,13 @@ function loadSchedulesFromSB(){
         CONTRACTORS=row.data;
         try{localStorage.setItem('bbw_contractors',JSON.stringify(row.data));}catch(e){}
         try{ if(gid('cmms-contacts'))renderContactsModule(); }catch(e){}
+      }else if(row.id==='sanitation'&&row.data&&typeof row.data==='object'){
+        SANI_STATE=row.data;
+        try{localStorage.setItem('bbw_sanitation',JSON.stringify(row.data));}catch(e){}
+        try{ if(gid('pane-sanitation')&&gid('pane-sanitation').offsetParent!==null)renderSanitation(); }catch(e){}
+      }else if(row.id==='sanitation_verif'&&row.data&&typeof row.data==='object'){
+        SANI_VERIF=row.data;
+        try{localStorage.setItem('bbw_sanitation_verif',JSON.stringify(row.data));}catch(e){}
       }
     });
     try{ cleanScheduleJunk(); }catch(e){}
@@ -17154,6 +17430,8 @@ function loadSchedulesFromStorage(){
     if(ts)techSchedule=JSON.parse(ts);
     var fs=localStorage.getItem('bbw_fl_sched');
     if(fs)forkliftSchedule=JSON.parse(fs);
+    var sn=localStorage.getItem('bbw_sanitation'); if(sn)SANI_STATE=JSON.parse(sn);
+    var sv=localStorage.getItem('bbw_sanitation_verif'); if(sv)SANI_VERIF=JSON.parse(sv);
   }catch(e){}
 }
 
