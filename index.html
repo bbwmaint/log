@@ -1104,7 +1104,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v314';
+var APP_BUILD='BBW CMMS build v315';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -13762,6 +13762,52 @@ function parseQuoteItems(items){
   var UNIT=/^(pce|pcs|pc|ea|each|unit|units|box|set|sets|pkg|pk|roll|rolls|m|kg|l|lot)\.?$/i;
   var QTYUNIT=/^(\d+(?:\.\d+)?)\s*(pce|pcs|pc|ea|each|unit|units|box|set|sets|pkg|pk|roll|rolls|lot)\.?$/i;
   var NOISE=/^(item\s*\d*$|time\s+of\s+delivery|delivery\s+time|parts?\s+for\s+machine|spare\s+part\s+for|page\s+\d+\s+of\s+\d+|quotation\s+no|brunswick\s+bier|item\s+qty\s+material|description\b\s*(cad|usd)?|_{3,}|part\s*#|net\s*weight|weight\b|currency\b|validity|your\s+contact|telephone|email\s+address|confidential)/i;
+
+  // ---- McMaster-Carr order format (distinct layout: pos | desc | qty | unit | total,
+  //      with "Pack of"/"Delivers tomorrow" rows and a Merchandise/Shipping/GST-HST/Total
+  //      summary). The generic parser mangles the description and picks the pack size as
+  //      the quantity, so McMaster gets its own clean path. ----
+  var _mcm=(function(){
+    var MONEYA=/^\$?([0-9][0-9,]*\.[0-9]{2})$/;
+    var PART=/^\d{5}[A-Z]\d{2,4}$/;                 // e.g. 91287A051, 93475A250
+    function mnum(s){ var m=(''+s).trim().match(/([0-9][0-9,]*\.[0-9]{2})/); return m?m[1].replace(/,/g,''):''; }
+    var allStr=rows.map(rowStr).join('  ');
+    var partCount=0; rows.forEach(function(r){ rowToks(r).forEach(function(t){ if(PART.test(t.str.trim()))partCount++; }); });
+    if(partCount<2 || !/pack of|packs of|delivers|merchandise|mcmaster/i.test(allStr)) return null;
+    // main rows: leading position number (x<46) + at least one money token on the row
+    var mains=[];
+    rows.forEach(function(r,idx){ var tk=rowToks(r); if(!tk.length)return; var lead=tk[0];
+      if(!(lead.x<46 && /^\d{1,3}$/.test(lead.str.trim())))return;
+      if(!tk.some(function(t){return MONEYA.test(t.str.trim());}))return;
+      mains.push(idx); });
+    if(!mains.length) return null;
+    var out=[];
+    for(var mi=0;mi<mains.length;mi++){
+      var s=mains[mi], e=(mi+1<mains.length)?mains[mi+1]:rows.length;
+      var clRows=rows.slice(s,e), mainTk=rowToks(rows[s]);
+      var qty=''; mainTk.forEach(function(t){ if(qty)return; var st=t.str.trim(); if(/^\d{1,4}$/.test(st)&&t.x>=330&&t.x<=362)qty=st; });
+      var pr=mainTk.filter(function(t){return MONEYA.test(t.str.trim());}).sort(function(a,b){return a.x-b.x;});
+      var unit=pr.length?mnum(pr[0].str):'';
+      var part='', descToks=[];
+      clRows.forEach(function(r2){ rowToks(r2).forEach(function(t){ var st=t.str.trim();
+        if(PART.test(st)){ if(!part)part=st; return; }
+        if(/^(\d+)\s*each$/i.test(st)) return;            // pack size ("50 each")
+        if(t.x<46) return;                   // pos column / "Delivers tomorrow"
+        if(t.x>312) return;                  // qty / price / "Pack of" columns
+        if(MONEYA.test(st)) return;
+        if(/^(pack|packs|each|of)$/i.test(st)) return;
+        if(/^delivers\b/i.test(st)) return;
+        descToks.push(st);
+      }); });
+      var desc=descToks.join(' ').replace(/\s+/g,' ').replace(/\s+,/g,',').replace(/^[\s,\-:]+|[\s,\-:]+$/g,'').trim();
+      if((desc||part)&&unit){ out.push({item:desc||part, part_no:part, qty:qty, cost:unit}); }
+    }
+    if(!out.length) return null;
+    function sumVal(re){ for(var i=0;i<rows.length;i++){ var tk=rowToks(rows[i]); for(var j=0;j<tk.length;j++){ if(re.test(tk[j].str.trim())){
+      for(var k=j+1;k<tk.length;k++){ var mm=tk[k].str.trim().match(/([0-9][0-9,]*\.[0-9]{2})/); if(mm)return mm[1].replace(/,/g,''); } } } } return ''; }
+    return { lines:out, shipping:sumVal(/^shipping$/i), tax:sumVal(/gst|hst|pst|qst|\btax\b/i) };
+  })();
+  if(_mcm) return _mcm;
 
   // ---- header + numeric column anchors ----
   var headerIdx=-1, hx={};
