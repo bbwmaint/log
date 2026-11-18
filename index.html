@@ -1104,7 +1104,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v316';
+var APP_BUILD='BBW CMMS build v317';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -4058,7 +4058,14 @@ function ahOpen(t){ var r=window._ahRef&&window._ahRef[t]; if(r)openAssetHistory
 
 var _AH_CODE='',_AH_NAME='';
 function ahApply(){ var f=gid('ah-from'),t=gid('ah-to'); var m=gid('ah-modal'); if(m)m.remove(); openAssetHistory(_AH_CODE,_AH_NAME,f?f.value:'',t?t.value:''); }
-function ahExport(){ var f=gid('ah-from'),t=gid('ah-to'); if(typeof assetWorkLogPDF==='function')assetWorkLogPDF(_AH_CODE,_AH_NAME,f?f.value:'',t?t.value:''); else alert('Export not available yet \u2014 try again in a moment.'); }
+function ahExport(){ var f=gid('ah-from'),t=gid('ah-to'); var from=f?f.value:'',to=t?t.value:'';
+  if(typeof assetWorkLogPDF!=='function'){ alert('Export not available yet \u2014 try again in a moment.'); return; }
+  try{ toast('Preparing work log\u2026'); }catch(e){}
+  fetchWorklogForExport(from||'2000-01-01', to||localDateStr(new Date())).then(function(ents){
+    if(ents===null){ alert('Couldn\u2019t load from the server \u2014 check your connection and try again.'); return; }
+    assetWorkLogPDF(_AH_CODE,_AH_NAME,from,to,ents);
+  });
+}
 function openAssetHistory(code,name,fromISO,toISO){
   _AH_CODE=code||''; _AH_NAME=name||'';
   var _tdy=pmISO(new Date());
@@ -4621,7 +4628,14 @@ function saveBrainDump(btn){
   toast((lang==='uk'?('Записано '+n+' ✓'):('Logged '+n+(n===1?' entry':' entries')+' ✓')));
 }
 
-function prevDayExport(){ var d=gid('prev-day-date'); var v=d?d.value:''; if(!v){alert('Pick a date first.');return;} if(typeof dayLogPDF==='function')dayLogPDF(v); else alert('Export not available yet — try again in a moment.'); }
+function prevDayExport(){ var d=gid('prev-day-date'); var v=d?d.value:''; if(!v){alert('Pick a date first.');return;}
+  if(typeof dayLogPDF!=='function'){ alert('Export not available yet — try again in a moment.'); return; }
+  try{ toast('Preparing day log…'); }catch(e){}
+  fetchWorklogForExport(v,v).then(function(ents){
+    if(ents===null){ alert('Couldn’t load that day from the server — check your connection and try again.'); return; }
+    dayLogPDF(v, ents);
+  });
+}
 function renderPrev(){
   var el=gid('pane-prev');
   // Last 3 shifts, latest first, derived from the CURRENT shift's anchor date.
@@ -9447,7 +9461,14 @@ function assetReliability(name){
   return {n:n, dt12:dt12, mttr:(n?dt12/n:0), mtbf:mtbf, first:(n?fails[0].date:''), last:(n?fails[n-1].date:'')};
 }
 function _relTile(l,v,c){ return '<div style="background:var(--surface);border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:'+(c||'#fff')+'">'+v+'</div><div style="font-size:10px;color:var(--text-2);text-transform:uppercase;letter-spacing:.03em">'+l+'</div></div>'; }
-function awlPaneExport(code,name){ var f=gid('awl-from'),t=gid('awl-to'); if(typeof assetWorkLogPDF==='function')assetWorkLogPDF(code,name,f?f.value:'',t?t.value:''); else alert('Export not available yet — try again in a moment.'); }
+function awlPaneExport(code,name){ var f=gid('awl-from'),t=gid('awl-to'); var from=f?f.value:'',to=t?t.value:'';
+  if(typeof assetWorkLogPDF!=='function'){ alert('Export not available yet — try again in a moment.'); return; }
+  try{ toast('Preparing work log…'); }catch(e){}
+  fetchWorklogForExport(from||'2000-01-01', to||localDateStr(new Date())).then(function(ents){
+    if(ents===null){ alert('Couldn’t load from the server — check your connection and try again.'); return; }
+    assetWorkLogPDF(code,name,from,to,ents);
+  });
+}
 function assetDetailBody(assetName, logs, totalDT, totalCO){
   var H='';
   var _an=(''+assetName).replace(/'/g,"&#39;"), _ac=(''+assetCodeFor(assetName)).replace(/'/g,"&#39;");
@@ -11626,7 +11647,24 @@ function pmInfoPDF(pl){
 // ── Machine Work Log PDF — "prove they worked on this machine on this date" ──
 // Pulls every shift-log entry for one asset in a date window and renders an
 // audit-ready record: date, shift, technician(s), what they did, downtime.
-function assetWorkLogPDF(code,name,fromISO,toISO){
+// Pull worklog rows straight from Supabase for an export — the in-memory log (allE)
+// only holds the last few days, so historical Day Log / Machine Work Log exports were
+// coming out empty. Returns a Promise of entry objects (same shape as allE), or null on error.
+function fetchWorklogForExport(fromISO,toISO){
+  var q='bbw_worklog?select=*&date=gte.'+fromISO+'&date=lte.'+toISO+'&order=logged_at.asc';
+  return sbFetchAll(q).then(function(data){
+    if(!Array.isArray(data))return null;
+    return data.map(function(r){ return {
+      id:r.id,sbId:r.id,date:r.date,shift:r.shift,type:r.type,priority:r.priority||'',
+      assetName:r.asset_name||'',assetCode:r.asset_code||'',issue:r.issue||'',desc:r.description||'',
+      start:r.start_time||'',end:r.end_time||'',dt:r.downtime_hrs||0,
+      partName:r.part_name||'',partQty:r.part_qty||'1',who:r.who||'',withWho:r.with_who||'',
+      shiftNote:r.shift_note||'',loggedAt:r.logged_at,machineDown:r.machine_down||'',
+      coMins:r.co_mins||0,coType:r.co_type||'',photos:[],photo:'',synced:true
+    }; });
+  }).catch(function(){ return null; });
+}
+function assetWorkLogPDF(code,name,fromISO,toISO,entries){
   try{
     var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF engine not loaded yet — try again in a moment.');return;}
     var doc=new JS({unit:'pt',format:'letter'}); try{pdfUnicode(doc);}catch(e){}
@@ -11645,7 +11683,9 @@ function assetWorkLogPDF(code,name,fromISO,toISO){
     function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(pdfSafe(t),x,yy,al?{align:al}:undefined);}
     function fmtDY(iso){ var d=new Date((iso||'')+'T00:00:00'); if(isNaN(d))return iso||''; return MON[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear(); }
 
-    var all=(typeof entriesForAsset==='function')?entriesForAsset(code,name):[];
+    var all;
+    if(entries!=null){ all=entries.filter(function(e){ return e&&!e.deleted&&(typeof _assetMatch==='function'?_assetMatch(e,code,name):((name&&e.assetName===name)||(code&&e.assetCode&&e.assetCode===code))); }); }
+    else { all=(typeof entriesForAsset==='function')?entriesForAsset(code,name):[]; }
     all=(all||[]).filter(function(e){return e&&!e.deleted&&(e.date||'')>=fromISO&&(e.date||'')<=toISO;});
     all.sort(function(a,b){return (b.loggedAt||b.date||'').localeCompare(a.loggedAt||a.date||'');});
     var downEv=all.filter(function(e){return e.machineDown==='yes'||e.machineDown==='partial';}).length;
@@ -11739,7 +11779,7 @@ function assetWorkLogPDF(code,name,fromISO,toISO){
   }catch(e){ try{alert('Could not generate PDF: '+e.message);}catch(_){} }
 }
 // ── Day Log PDF — "what happened on this date" — both shifts, all machines ──
-function dayLogPDF(dateISO){
+function dayLogPDF(dateISO, entries){
   try{
     var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF engine not loaded yet — try again in a moment.');return;}
     var doc=new JS({unit:'pt',format:'letter'}); try{pdfUnicode(doc);}catch(e){}
@@ -11756,7 +11796,8 @@ function dayLogPDF(dateISO){
     function fmtDY(iso){ var d=new Date((iso||'')+'T00:00:00'); if(isNaN(d))return iso||''; return MON[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear(); }
     var today=pmISO(new Date());
 
-    var day=(typeof allE!=='undefined'?allE:[]).filter(function(e){return e&&!e.deleted&&e.date===dateISO;});
+    var _src=(entries!=null)?entries:((typeof allE!=='undefined')?allE:[]);
+    var day=_src.filter(function(e){return e&&!e.deleted&&e.date===dateISO;});
     day.sort(function(a,b){return (a.loggedAt||'').localeCompare(b.loggedAt||'');});
     function grp(sh){ return day.filter(function(e){return String(e.shift||'').toLowerCase()===sh;}); }
     function crewOf(list){ var s={},o=[]; list.forEach(function(e){ [e.who].concat(String(e.withWho||e.with_who||'').split(',')).forEach(function(n){ n=(n||'').trim(); if(n&&!s[n]){s[n]=1;o.push(n);} }); }); return o.join(', '); }
