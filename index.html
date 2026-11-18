@@ -1088,7 +1088,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v310';
+var APP_BUILD='BBW CMMS build v311';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -8869,49 +8869,71 @@ function pmRegisterPDF(){
     var today=pmISO(new Date());
     try{ if(typeof pmBuildDoneIdx==='function')pmBuildDoneIdx(); }catch(e){}
 
-    var pms=(typeof CMMS_PMS!=='undefined'?CMMS_PMS:[]).filter(function(p){return p&&p.active!==false;});
-    pms=pms.map(function(p){ var ld=(typeof pmLastDone==='function')?pmLastDone(p):(p.last_done||null); var nd=(typeof pmEffectiveNextDue==='function')?pmEffectiveNextDue(p):(p.next_due||null); return {p:p,ld:ld,nd:nd,who:pmLastWho(p)}; });
-    pms.sort(function(a,b){ var aa=(a.p.asset||'').toLowerCase(),ba=(b.p.asset||'').toLowerCase(); if(aa<ba)return -1; if(aa>ba)return 1; return (''+(a.p.code||'')).localeCompare(''+(b.p.code||'')); });
-    var overdue=pms.filter(function(r){return r.nd&&(''+r.nd).slice(0,10)<today;}).length;
+    var rowsAll=(typeof CMMS_PMS!=='undefined'?CMMS_PMS:[]).filter(function(p){return p&&p.active!==false;}).map(function(p){
+      var ld=(typeof pmLastDone==='function')?pmLastDone(p):(p.last_done||null);
+      var nd=(typeof pmEffectiveNextDue==='function')?pmEffectiveNextDue(p):(p.next_due||null);
+      var tech=(typeof getAssignee==='function')?getAssignee(p):(p.assignee||'Unassigned');
+      return {p:p,ld:ld,nd:nd,who:pmLastWho(p),tech:tech||'Unassigned'};
+    });
+    var totalPMs=rowsAll.length;
+    var overdue=rowsAll.filter(function(r){return r.nd&&(''+r.nd).slice(0,10)<today;}).length;
+    // Group by asset; order the asset folders by their technician (the asset's most
+    // common assignee), then asset name. Within each asset, by tech then code.
+    var gmap={}; rowsAll.forEach(function(r){ var a=r.p.asset||'(No asset)'; (gmap[a]=gmap[a]||[]).push(r); });
+    var groups=Object.keys(gmap).map(function(a){
+      var list=gmap[a]; var cnt={}; list.forEach(function(r){ var t=r.tech||'Unassigned'; cnt[t]=(cnt[t]||0)+1; });
+      var tech=Object.keys(cnt).sort(function(x,y){return cnt[y]-cnt[x]||x.toLowerCase().localeCompare(y.toLowerCase());})[0]||'Unassigned';
+      list.sort(function(x,y){ var tx=(x.tech||'').toLowerCase(),ty=(y.tech||'').toLowerCase(); if(tx<ty)return -1; if(tx>ty)return 1; return (''+(x.p.code||'')).localeCompare(''+(y.p.code||'')); });
+      return {asset:a,tech:tech,list:list};
+    });
+    groups.sort(function(a,b){ var ta=(a.tech||'').toLowerCase(),tb=(b.tech||'').toLowerCase(); if(ta<tb)return -1; if(ta>tb)return 1; return a.asset.toLowerCase().localeCompare(b.asset.toLowerCase()); });
 
-    // columns
-    var cCode=M,wCode=46,cAsset=cCode+wCode,wAsset=150,cTask=cAsset+wAsset,wTask=236,cFreq=cTask+wTask,wFreq=72,cLast=cFreq+wFreq,wLast=66,cNext=cLast+wLast,wNext=66,cBy=cNext+wNext,wBy=(W-M)-cBy;
-    var rowsTop=0;
+    // columns — asset is now a sub-header, so the row carries Tech instead
+    var cCode=M,wCode=46,cTask=cCode+wCode,wTask=250,cTech=cTask+wTask,wTech=98,cFreq=cTech+wTech,wFreq=78,cLast=cFreq+wFreq,wLast=66,cNext=cLast+wLast,wNext=66,cBy=cNext+wNext,wBy=(W-M)-cBy;
     function head(){
       var y=30;
       if(window.__logoDark){try{var lh=20,lw=lh*((window.__logoW||498)/(window.__logoH||220));doc.addImage(window.__logoDark,'PNG',M,y-14,lw,lh);}catch(e){T('BRUNSWICK BIERWORKS',M,y,12,'bold',INK);}}
       else{T('BRUNSWICK BIERWORKS',M,y,12,'bold',INK);}
       T('PM Register',M+150,y-2,13,'bold',INK);
-      T('Preventive maintenance schedule',M+150,y+10,8.5,'normal',SUB);
+      T('Preventive maintenance schedule · grouped by asset, ordered by technician',M+150,y+10,8.5,'normal',SUB);
       T('Document ID: R500PM',W-M,y-4,9.5,'bold',INK,'right');
-      T(pms.length+' active PMs · '+overdue+' overdue · '+fmtDY(today),W-M,y+9,9,'normal',SUB,'right');
+      T(totalPMs+' active PMs · '+overdue+' overdue · '+fmtDY(today),W-M,y+9,9,'normal',SUB,'right');
       dc(GOLD);doc.setLineWidth(1.3);doc.line(M,45,W-M,45);
       var hy=58;
       fc(SEC); doc.rect(M,hy-11,(W-M)-M,15,'F');
-      T('SM #',cCode+2,hy,7,'bold',SUB); T('ASSET',cAsset+2,hy,7,'bold',SUB); T('TASK',cTask+2,hy,7,'bold',SUB); T('FREQUENCY',cFreq+2,hy,7,'bold',SUB); T('LAST DONE',cLast+2,hy,7,'bold',SUB); T('NEXT TRIGGER',cNext+2,hy,7,'bold',SUB); T('LAST BY',cBy+2,hy,7,'bold',SUB);
+      T('SM #',cCode+2,hy,7,'bold',SUB); T('TASK',cTask+2,hy,7,'bold',SUB); T('TECH',cTech+2,hy,7,'bold',SUB); T('FREQUENCY',cFreq+2,hy,7,'bold',SUB); T('LAST DONE',cLast+2,hy,7,'bold',SUB); T('NEXT TRIGGER',cNext+2,hy,7,'bold',SUB); T('LAST BY',cBy+2,hy,7,'bold',SUB);
       dc(LINE);doc.setLineWidth(.6);doc.line(M,hy+4,W-M,hy+4);
-      rowsTop=hy+4;
       return hy+16;
     }
     function footer(pi,pages){ dc(HAIR);doc.setLineWidth(.6);doc.line(M,H-16,W-M,H-16); T('Generated directly from the CMMS · next trigger recomputed from last completion',M,H-7,7.5,'normal',SUB); T('BBW CMMS · '+(typeof APP_BUILD!=='undefined'?APP_BUILD.replace('BBW CMMS ',''):'')+' · p.'+pi+'/'+pages,W-M,H-7,7.5,'normal',SUB,'right'); }
 
-    var y=head(), rowH=15.5;
-    pms.forEach(function(r){
-      if(y+rowH>H-22){ doc.addPage(); y=head(); }
-      var od=r.nd&&(''+r.nd).slice(0,10)<today;
-      var base=y+rowH-5;
-      if(od){ fc(DOWNBG); doc.rect(M,y,(W-M)-M,rowH,'F'); }
-      T(trunc(r.p.code||'',wCode-4,7.5,'bold'),cCode+2,base,7.5,'bold',INK);
-      T(trunc(r.p.asset||'—',wAsset-6,7.5,'normal'),cAsset+2,base,7.5,'normal',INK);
-      T(trunc(r.p.description||r.p.desc||r.p.name||'',wTask-6,7.5,'normal'),cTask+2,base,7.5,'normal',[70,73,80]);
-      T(trunc(r.p.freq||'—',wFreq-6,7,'normal'),cFreq+2,base,7,'normal',SUB);
-      T(fmtDY(r.ld),cLast+2,base,7,'normal',r.ld?INK:SUB);
-      T(fmtDY(r.nd),cNext+2,base,7,(od?'bold':'normal'),od?RED:INK);
-      T(trunc(r.who||'—',wBy-5,7,'normal'),cBy+2,base,7,'normal',r.who?INK:SUB);
-      dc(HAIR);doc.setLineWidth(.4);doc.line(M,y+rowH,W-M,y+rowH);
-      y+=rowH;
+    var y=head(), rowH=15.5, secH=18;
+    groups.forEach(function(g){
+      if(y+secH+rowH>H-22){ doc.addPage(); y=head(); }
+      fc([236,232,222]); doc.rect(M,y,(W-M)-M,secH,'F');
+      var at=trunc(g.asset,(W-M)-M-200,8.5,'bold'); doc.setFont(F,'bold');doc.setFontSize(8.5); var aw=doc.getTextWidth(at);
+      T(at,M+5,y+12.5,8.5,'bold',INK);
+      var uniq={}; g.list.forEach(function(r){uniq[r.tech]=1;}); var techKeys=Object.keys(uniq);
+      if(techKeys.length===1&&techKeys[0]&&techKeys[0]!=='Unassigned')T('·  '+techKeys[0],M+5+aw+8,y+12.5,8,'normal',GOLD);
+      T(g.list.length+' PM'+(g.list.length===1?'':'s'),W-M-5,y+12.5,7.5,'bold',SUB,'right');
+      dc(LINE);doc.setLineWidth(.5);doc.line(M,y+secH,W-M,y+secH);
+      y+=secH;
+      g.list.forEach(function(r){
+        if(y+rowH>H-22){ doc.addPage(); y=head(); }
+        var od=r.nd&&(''+r.nd).slice(0,10)<today;
+        var base=y+rowH-5;
+        if(od){ fc(DOWNBG); doc.rect(M,y,(W-M)-M,rowH,'F'); }
+        T(trunc(r.p.code||'',wCode-4,7.5,'bold'),cCode+2,base,7.5,'bold',INK);
+        T(trunc(r.p.description||r.p.desc||r.p.name||'',wTask-6,7.5,'normal'),cTask+2,base,7.5,'normal',[70,73,80]);
+        T(trunc(r.tech||'—',wTech-5,7,'bold'),cTech+2,base,7,'bold',(r.tech&&r.tech!=='Unassigned')?INK:SUB);
+        T(trunc(r.p.freq||'—',wFreq-6,7,'normal'),cFreq+2,base,7,'normal',SUB);
+        T(fmtDY(r.ld),cLast+2,base,7,'normal',r.ld?INK:SUB);
+        T(fmtDY(r.nd),cNext+2,base,7,(od?'bold':'normal'),od?RED:INK);
+        T(trunc(r.who||'—',wBy-5,7,'normal'),cBy+2,base,7,'normal',r.who?INK:SUB);
+        dc(HAIR);doc.setLineWidth(.4);doc.line(M,y+rowH,W-M,y+rowH);
+        y+=rowH;
+      });
     });
-    // column separators + footer on every page
     var pages=doc.internal.getNumberOfPages();
     for(var pi=1;pi<=pages;pi++){ doc.setPage(pi); footer(pi,pages); }
     doc.save('BBW_PM_Register_'+today+'.pdf');
