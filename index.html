@@ -1104,7 +1104,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v315';
+var APP_BUILD='BBW CMMS build v316';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -13761,7 +13761,7 @@ function parseQuoteItems(items){
   function num(s){ return (''+s).replace(/,/g,''); }
   var UNIT=/^(pce|pcs|pc|ea|each|unit|units|box|set|sets|pkg|pk|roll|rolls|m|kg|l|lot)\.?$/i;
   var QTYUNIT=/^(\d+(?:\.\d+)?)\s*(pce|pcs|pc|ea|each|unit|units|box|set|sets|pkg|pk|roll|rolls|lot)\.?$/i;
-  var NOISE=/^(item\s*\d*$|time\s+of\s+delivery|delivery\s+time|parts?\s+for\s+machine|spare\s+part\s+for|page\s+\d+\s+of\s+\d+|quotation\s+no|brunswick\s+bier|item\s+qty\s+material|description\b\s*(cad|usd)?|_{3,}|part\s*#|net\s*weight|weight\b|currency\b|validity|your\s+contact|telephone|email\s+address|confidential)/i;
+  var NOISE=/^(item\s*\d*$|time\s+of\s+delivery|delivery\s+time|parts?\s+for\s+machine|spare\s+part\s+for|page\s+\d+\s+of\s+\d+|quotation\s+no|brunswick\s+bier|item\s+qty\s+material|description\b\s*(cad|usd)?|_{3,}|part\s*#|net\s*weight|weight\b|currency\b|validity|your\s+contact|telephone|email\s+address|confidential|attn\b|pricing\s+is\s+valid|prices?\s+(are\s+)?valid)/i;
 
   // ---- McMaster-Carr order format (distinct layout: pos | desc | qty | unit | total,
   //      with "Pack of"/"Delivers tomorrow" rows and a Merchandise/Shipping/GST-HST/Total
@@ -13856,6 +13856,8 @@ function parseQuoteItems(items){
   // ---- part-number scoring ----
   function partScore(s){
     s=s.trim(); if(/\s/.test(s))return 0;
+    if(/^\$?\d[\d,]*\.\d+$/.test(s)) return 0;   // decimal number (qty/price), never a part — e.g. 1.000, 450.00000
+    if(/^\+?\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/.test(s)) return 0;   // phone number, never a part
     if(/^[A-Za-z0-9]+(?:[\-\/\.][A-Za-z0-9]+)+$/.test(s) && /[0-9]/.test(s)) return 3;   // dashed/slashed catalog no.
     if(/^[0-9]{6,}$/.test(s)) return 2;                                                   // long pure-digit
     if(/[A-Za-z]/.test(s) && /[0-9]/.test(s) && s.replace(/[^A-Za-z0-9]/g,'').length>=5) return 2; // alphanumeric
@@ -13875,7 +13877,10 @@ function parseQuoteItems(items){
     var leadIsQty = (tk[1] && UNIT.test(tk[1].str.trim())) || QTYUNIT.test(_lead);
     // Start a new item on a leading position number (1, 2, 3…) OR a leading part
     // number (10725-16, 97500-21…) — many quotes key each line by part #, not a row #.
-    var isStart = (/^\d{1,7}$/.test(_lead) || partScore(_lead)>=2) && !leadIsQty && rowHasItemSignal(tk);
+    // Also start on a leading quantity near the Qty column (e.g. TOMCO "1.000  450.00000
+    // 450.00"), where each item row leads with the qty, not a position or part number.
+    var leadIsQtyNum = /^\d+(?:[.,]\d+)?$/.test(_lead) && hx.qty!=null && Math.abs(tk[0].x-hx.qty)<40;
+    var isStart = (/^\d{1,7}$/.test(_lead) || partScore(_lead)>=2 || leadIsQtyNum) && !leadIsQty && rowHasItemSignal(tk);
     if(isStart){ if(cc)clusters.push(cc); cc={rows:[], pos:tk[0].str.trim()}; }
     if(cc) cc.rows.push(tk);
   }
@@ -13887,18 +13892,23 @@ function parseQuoteItems(items){
     // qty FIRST — before prices — so a decimal quantity ("1.00", "2.00"; common on
     // GEA quotes) is never mistaken for money and read in as the cost.
     var qty='', qtyTok=null;
-    for(var i=0;i<all.length;i++){ var s=all[i].str.trim(); var mc=s.match(QTYUNIT);
-      if(mc){ qty=mc[1]; qtyTok=all[i]; break; }
-      if(/^\d+(?:\.\d+)?$/.test(s)){ var nx=all[i+1]&&all[i+1].str.trim(); if(nx&&UNIT.test(nx)){ qty=s; qtyTok=all[i]; break; } }
-    }
-    if(!qty && hx.qty!=null){
-      // Pick the integer CLOSEST to the Qty column header, not merely the first one
-      // near it — otherwise a leading item number (1, 2, 3…) in the adjacent column
-      // gets read as the quantity.
-      var band=all.filter(function(t){return /^\d+(?:\.\d+)?$/.test(t.str.trim()) && Math.abs(t.x-hx.qty)<26;});
+    // With a Qty column header, trust the column: the number CLOSEST to it. This beats
+    // scanning for "N unit" first, which could match a price glued to a next-row unit
+    // token ("450.00  EA") once the rows are flattened.
+    if(hx.qty!=null){
+      var band=all.filter(function(t){return /^\d+(?:[.,]\d+)?$/.test(t.str.trim()) && Math.abs(t.x-hx.qty)<30;});
       band.sort(function(a,b){return Math.abs(a.x-hx.qty)-Math.abs(b.x-hx.qty);});
-      if(band.length){qty=band[0].str.trim(); qtyTok=band[0];}
+      if(band.length){ qty=band[0].str.trim(); qtyTok=band[0]; }
     }
+    // No Qty column resolved — fall back to an explicit "N unit" token (GEA/Enereau style).
+    if(!qty){
+      for(var i=0;i<all.length;i++){ var s=all[i].str.trim(); var mc=s.match(QTYUNIT);
+        if(mc){ qty=mc[1]; qtyTok=all[i]; break; }
+        if(/^\d+(?:\.\d+)?$/.test(s)){ var nx=all[i+1]&&all[i+1].str.trim(); if(nx&&UNIT.test(nx)){ qty=s; qtyTok=all[i]; break; } }
+      }
+    }
+    // Normalise a decimal quantity written as 1.000 / 2.00 -> 1 / 2.
+    if(/^\d+[.,]\d+$/.test(qty)){ var _qf=parseFloat(qty.replace(',','.')); if(!isNaN(_qf))qty=(_qf===Math.round(_qf))?String(Math.round(_qf)):String(_qf); }
     // prices by column — never count the qty token itself.
     var priceVal='', totalVal='', prices=[];
     all.forEach(function(t){ if(t===qtyTok)return; var m=t.str.match(MONEY); if(m)prices.push({v:num(m[1]),x:t.x}); });
@@ -13913,9 +13923,9 @@ function parseQuoteItems(items){
     // match catches the line NET instead, so grab the unit price from the price
     // column directly and prefer it as the per-unit cost.
     var unitVal='';
-    all.forEach(function(t){ if(t===qtyTok)return; var s=t.str.trim().replace(/^\$/,''); if(!/^[0-9][0-9,]*\.[0-9]{3}$/.test(s))return;
+    all.forEach(function(t){ if(t===qtyTok)return; var s=t.str.trim().replace(/^\$/,''); if(!/^[0-9][0-9,]*\.[0-9]{3,}$/.test(s))return;
       if(hx.price!=null && Math.abs(t.x-hx.price)>70 && (hx.total==null||Math.abs(t.x-hx.total)>70))return;
-      if(!unitVal)unitVal=num(s); });
+      if(!unitVal)unitVal=(Math.round(parseFloat(num(s))*100)/100).toFixed(2); });
     // part: the leading token if it's a part number, else best-scoring token
     var part='', best=0;
     if(partScore(cl.pos)>=2){ part=cl.pos; best=partScore(cl.pos); }
@@ -13933,6 +13943,8 @@ function parseQuoteItems(items){
         if(UNIT.test(s)||QTYUNIT.test(s))return false;
         if(MONEY.test(s)||/^\$?[0-9][0-9,]*\.[0-9]{3}$/.test(s)||/^\$+$/.test(s))return false;
         if(/^\d+(?:\.\d+)?%?$/.test(s))return false;
+        if(/^[A-Z]$/.test(s))return false;               // lone tax-code letter (H=HST, G=GST…) from a Tax column
+        if(/^\+?\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/.test(s))return false;   // phone number
         if(/^(transport|freight|shipping|handling)/i.test(s))return false;
         return true; });
       if(kept.length)descParts.push(kept.join(' '));
