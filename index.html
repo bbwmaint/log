@@ -1088,7 +1088,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v311';
+var APP_BUILD='BBW CMMS build v312';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -8876,7 +8876,8 @@ function pmRegisterPDF(){
       return {p:p,ld:ld,nd:nd,who:pmLastWho(p),tech:tech||'Unassigned'};
     });
     var totalPMs=rowsAll.length;
-    var overdue=rowsAll.filter(function(r){return r.nd&&(''+r.nd).slice(0,10)<today;}).length;
+    function pmOd(nd){ return nd&&(typeof pmIsOverdue==='function'?pmIsOverdue((''+nd).slice(0,10),today):(''+nd).slice(0,10)<today); }
+    var overdue=rowsAll.filter(function(r){return pmOd(r.nd);}).length;
     // Group by asset; order the asset folders by their technician (the asset's most
     // common assignee), then asset name. Within each asset, by tech then code.
     var gmap={}; rowsAll.forEach(function(r){ var a=r.p.asset||'(No asset)'; (gmap[a]=gmap[a]||[]).push(r); });
@@ -8920,7 +8921,7 @@ function pmRegisterPDF(){
       y+=secH;
       g.list.forEach(function(r){
         if(y+rowH>H-22){ doc.addPage(); y=head(); }
-        var od=r.nd&&(''+r.nd).slice(0,10)<today;
+        var od=pmOd(r.nd);
         var base=y+rowH-5;
         if(od){ fc(DOWNBG); doc.rect(M,y,(W-M)-M,rowH,'F'); }
         T(trunc(r.p.code||'',wCode-4,7.5,'bold'),cCode+2,base,7.5,'bold',INK);
