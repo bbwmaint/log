@@ -1104,7 +1104,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v313';
+var APP_BUILD='BBW CMMS build v314';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -10143,8 +10143,9 @@ function drawDashboard(el){
   H+=kpi('PMs due today',dueToday.length,(teamView?'across the team':'your PMs due'),'#f59e0b','pms');
   var cal=(typeof CAL!=='undefined'?CAL:[])||[]; var calTotal=cal.length, calOver=0;
   cal.forEach(function(c){ try{ if((typeof calStatus==='function'?calStatus(c).k:'')==='overdue')calOver++; }catch(e){} });
-  var calCol=calOver?'#ef4444':'#10b981';
-  H+='<div class="dz-kpi" onclick="showTab(\'calibration\')" style="border-left:3px solid '+calCol+';cursor:pointer"><div class="dz-lbl">Calibration <span style="float:right;color:var(--text-3);font-weight:700">›</span></div><div class="dz-v" style="color:'+calCol+'">'+calTotal+'</div><div class="dz-sub">'+(calTotal?((calTotal-calOver)+' in cal'+(calOver?(' · '+calOver+' overdue'):'')):'none tracked')+'</div></div>';
+  var calIn=calTotal-calOver;
+  H+='<div class="dz-kpi" onclick="showTab(\'calibration\')" style="border-left:3px solid '+(calOver?'#ef4444':'#10b981')+';cursor:pointer"><div class="dz-lbl">Calibration due <span style="float:right;color:var(--text-3);font-weight:700">›</span></div><div class="dz-v" style="color:'+(calOver?'#ef4444':'#10b981')+'">'+calOver+'</div><div class="dz-sub">'+(calTotal?('of '+calTotal+' overdue'):'none tracked')+'</div></div>';
+  H+='<div class="dz-kpi" onclick="showTab(\'calibration\')" style="border-left:3px solid #10b981;cursor:pointer"><div class="dz-lbl">In calibration <span style="float:right;color:var(--text-3);font-weight:700">›</span></div><div class="dz-v" style="color:#10b981">'+calIn+'</div><div class="dz-sub">'+(calTotal?('of '+calTotal+' current'):'none tracked')+'</div></div>';
   H+='</div><div class="dz-grid"><div>';
   H+='<div class="dz-card" style="margin-bottom:16px">'+(typeof cmmsTrendHTML==='function'?cmmsTrendHTML(today):'')+'</div>';
   H+='<div class="dz-card" style="margin-bottom:16px">'+(typeof utilTrendHTML==='function'?utilTrendHTML():'')+'</div>';
