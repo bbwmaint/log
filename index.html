@@ -1088,7 +1088,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v308';
+var APP_BUILD='BBW CMMS build v309';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -8488,7 +8488,7 @@ function saniExportPDF(){
       T('5S / cleaning schedule',M+150,y+10,8.5,'normal',SUB);
       T('Document ID: R500MT',W-M,y-4,9.5,'bold',INK,'right');
       T(YEAR+'  ·  '+label,W-M,y+9,9,'normal',SUB,'right');
-      dc(GOLD);doc.setLineWidth(1.3);doc.line(M,38,W-M,38);
+      dc(GOLD);doc.setLineWidth(1.3);doc.line(M,45,W-M,45);
       // Month band
       var my=headTop;
       // info header cell under month band spanning to week rows
