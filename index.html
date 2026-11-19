@@ -1160,7 +1160,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v320';
+var APP_BUILD='BBW CMMS build v321';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -15263,26 +15263,40 @@ function lubeSaveMeta(){
   try{ localStorage.setItem('bbw_lube_meta',JSON.stringify(LUBE_META)); }catch(e){}
   try{ if(typeof saveScheduleToSB==='function')saveScheduleToSB('lube_meta',LUBE_META); }catch(e){}
 }
+// Split a compound lubricant string ("Food Zone V (oil) · Premalube FG (grease)")
+// into individual products, pulling an oil/grease/paste hint from each (...) note.
+function _lubeSplit(raw){ return String(raw||'').split(/\s*[·•\/]\s*/).map(function(s){return s.trim();}).filter(Boolean); }
+function _lubeParsePiece(piece){
+  var type=''; var m=piece.match(/\(([^)]*)\)\s*$/);
+  if(m){ var q=m[1].toLowerCase(); if(/grease/.test(q))type='Grease'; else if(/paste/.test(q))type='Paste'; else if(/oil/.test(q))type='Oil'; }
+  var nm=piece.replace(/\s*\([^)]*\)\s*$/,'').trim();
+  return {name:nm,type:type};
+}
 function buildLubeRegister(){
   var byKey={};
   var codes=Object.keys((typeof LUBE_DEFAULTS!=='undefined'&&LUBE_DEFAULTS)?LUBE_DEFAULTS:{});
   Object.keys((typeof LUBE_OVERRIDES!=='undefined'&&LUBE_OVERRIDES)?LUBE_OVERRIDES:{}).forEach(function(c){ if(codes.indexOf(c)<0)codes.push(c); });
   codes.forEach(function(code){
-    var name=(typeof pmLubeFor==='function')?pmLubeFor(code):''; if(!name)return;
-    var key=lubeKey(name);
+    var raw=(typeof pmLubeFor==='function')?pmLubeFor(code):''; if(!raw)return;
     var zone=(typeof pmLubeZone==='function')?(pmLubeZone(code)||''):'';
-    var p=byKey[key]||(byKey[key]={key:key,name:name,zone:zone,uses:[],standalone:false});
-    if(!p.zone&&zone)p.zone=zone;
-    p.uses.push({code:code,asset:pmAssetFor(code)});
+    var asset=pmAssetFor(code);
+    _lubeSplit(raw).forEach(function(piece){
+      var pr=_lubeParsePiece(piece); if(!pr.name)return;
+      var key=lubeKey(pr.name);
+      var p=byKey[key]||(byKey[key]={key:key,name:pr.name,zone:zone,uses:[],standalone:false,_dtype:pr.type||''});
+      if(zone){ if(!p.zone)p.zone=zone; else if(zone==='fg')p.zone='fg'; }
+      if(!p._dtype&&pr.type)p._dtype=pr.type;
+      if(!p.uses.some(function(u){return u.code===code;}))p.uses.push({code:code,asset:asset});
+    });
   });
   Object.keys(LUBE_META||{}).forEach(function(k){
     var m=LUBE_META[k];
-    if(m&&m.standalone&&!byKey[k]){ byKey[k]={key:k,name:m.name||k,zone:(m.grade==='fg'||m.grade==='nfg')?m.grade:'',uses:[],standalone:true}; }
+    if(m&&m.standalone&&!byKey[k]){ byKey[k]={key:k,name:m.name||k,zone:(m.grade==='fg'||m.grade==='nfg')?m.grade:'',uses:[],standalone:true,_dtype:''}; }
   });
   var list=Object.keys(byKey).map(function(k){
     var p=byKey[k], m=LUBE_META[k]||{};
     p.grade=(m.grade==='fg'||m.grade==='nfg')?m.grade:(p.zone||'');
-    p.type=m.type||''; p.stock=m.stock||''; p.sds=m.sds||'';
+    p.type=m.type||p._dtype||''; p.stock=m.stock||''; p.sds=m.sds||'';
     if(m.name)p.name=m.name;
     p.uses.sort(function(a,b){ return String(a.asset||'').toLowerCase().localeCompare(String(b.asset||'').toLowerCase()); });
     return p;
