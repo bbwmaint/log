@@ -387,6 +387,36 @@ select option,select optgroup{background:#1b1c20;color:#fff}
 .cmp-lg span{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-2);font-weight:600}
 .cmp-lg i{width:9px;height:9px;border-radius:3px;display:inline-block}
 @media(min-width:1000px){ .cmp-seg{display:flex} .cmp-rt{flex:0 0 120px} }
+/* ---- lubricant register (Chemicals tab) ---- */
+.lube-tog{display:flex;gap:7px;margin-bottom:14px}
+.lube-tog button{font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:999px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-2);cursor:pointer}
+.lube-tog button.on{background:rgba(20,184,166,.16);border-color:#14b8a6;color:#2dd4bf}
+.lube-h1{font-size:9px;font-weight:800;letter-spacing:.04em;padding:3px 8px;border-radius:5px;background:rgba(20,184,166,.15);color:#2dd4bf;border:1px solid rgba(20,184,166,.3);white-space:nowrap}
+.lube-h2{font-size:9px;font-weight:800;letter-spacing:.04em;padding:3px 8px;border-radius:5px;background:rgba(139,150,168,.14);color:#8b96a8;border:1px solid rgba(139,150,168,.28);white-space:nowrap}
+.lube-hn{font-size:9px;font-weight:800;letter-spacing:.04em;padding:3px 8px;border-radius:5px;background:var(--surface-3);color:var(--text-3);white-space:nowrap}
+.lst-ok{font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;background:rgba(52,211,153,.13);color:#34d399;white-space:nowrap}
+.lst-low{font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;background:rgba(251,191,36,.14);color:#fbbf24;white-space:nowrap}
+.lst-re{font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;background:rgba(248,113,113,.14);color:#f87171;white-space:nowrap}
+.lst-un{font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--surface-3);color:var(--text-3);white-space:nowrap}
+.ltag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--surface-3);color:var(--text-2)}
+.lube-md{display:flex;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.lube-list{width:300px;flex:none;border-right:1px solid var(--border);background:var(--surface);max-height:640px;overflow-y:auto}
+.lube-sec{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-3);padding:9px 13px 5px;background:var(--surface-2)}
+.lube-row{display:flex;align-items:center;gap:10px;padding:10px 13px;border-bottom:1px solid var(--border);cursor:pointer}
+.lube-row:hover{background:rgba(255,255,255,.02)}
+.lube-row.sel{background:rgba(20,184,166,.08);box-shadow:inset 3px 0 0 #14b8a6}
+.lube-row .ln{font-size:13px;font-weight:700;line-height:1.15;color:var(--text)}
+.lube-row .ls{font-size:10.5px;color:var(--text-3);margin-top:1px}
+.lube-row .lg{margin-left:auto;display:flex;align-items:center;gap:7px;flex:none}
+.lgdot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.lube-det{flex:1;min-width:0;background:var(--bg);padding:18px 20px;max-height:640px;overflow-y:auto}
+.lkv{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px;min-width:100px}
+.lkv .k{font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3)}
+.lkv .v{font-size:13.5px;font-weight:700;margin-top:3px;color:var(--text)}
+.lpm{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--border);font-size:12.5px;color:var(--text)}
+.lpm:first-of-type{border-top:none}
+.lcode{font-size:9.5px;font-weight:800;color:var(--text-3);background:var(--surface-3);border-radius:4px;padding:1px 6px;flex:none}
+.lcard{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:12px 13px;margin-bottom:9px;cursor:pointer}
 .tab-ic{display:none}
 .side-brand{display:none}
 @media(min-width:1000px){
@@ -1130,7 +1160,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v319';
+var APP_BUILD='BBW CMMS build v320';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -15073,9 +15103,12 @@ function renderChem(){
 function chemRenderPane(){
   var el=gid('pane-chem'); if(!el)return;
   var admin=(typeof isAdmin==='function'&&isAdmin());
+  var tog='<div class="lube-tog"><button class="'+(CHEM_TAB==='lubricants'?'':'on')+'" onclick="chemSetTab(\'areas\')">Chemical areas</button><button class="'+(CHEM_TAB==='lubricants'?'on':'')+'" onclick="chemSetTab(\'lubricants\')">Lubricants</button></div>';
+  if(CHEM_TAB==='lubricants'){ el.innerHTML=lubePaneHTML(tog,admin); return; }
   var H='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-size:20px;font-weight:800;color:var(--text)">Chemical Inventory</div>';
   if(admin)H+='<button onclick="chemNewArea()" class="btn-primary" style="padding:9px 14px;font-size:13px;white-space:nowrap">+ New area</button>';
   H+='</div><div style="font-size:12px;color:var(--text-3);margin-bottom:16px">'+CHEM_AREAS.length+' area'+(CHEM_AREAS.length===1?'':'s')+' · daily readings</div>';
+  H+=tog;
   if(!CHEM_AREAS.length){
     H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:30px 22px;text-align:center"><div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px">No areas yet</div><div style="font-size:13px;color:var(--text-3);margin-bottom:16px;line-height:1.5">'+(admin?'Create an area, add its chemicals, and print the QR for the wall.':'Ask an admin to set up a chemical area.')+'</div>'+(admin?'<button onclick="chemNewArea()" class="btn-primary" style="padding:12px 22px;font-size:14px;border-radius:10px">+ New area</button>':'')+'</div>';
     el.innerHTML=H; return;
@@ -15206,6 +15239,272 @@ function chemPrintQR(){
   var w=window.open('','_blank'); if(!w){ alert('Allow pop-ups to print the label.'); return; }
   w.document.write('<html><head><title>Chemical QR</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:-apple-system,sans-serif"><div style="width:320px">'+card.outerHTML+'</div></body></html>');
   w.document.close(); setTimeout(function(){ try{w.print();}catch(e){} },350);
+}
+// ══════════════════ LUBRICANT REGISTER (Chemicals tab) ══════════════════
+// The register is derived live from the CMMS lubricant mapping (LUBE_DEFAULTS +
+// per-PM overrides): each distinct product, its food-safety grade, and every PM
+// that calls for it. Editors enrich each product with type / stock / SDS, stored
+// in bbw_schedule (id='lube_meta'); where-used stays automatic. No schema change.
+var CHEM_TAB='areas';
+var LUBE_META={};
+var LUBE_SEL=null;
+try{ var _lmeta=localStorage.getItem('bbw_lube_meta'); if(_lmeta)LUBE_META=JSON.parse(_lmeta)||{}; }catch(_e){}
+function chemSetTab(t){ CHEM_TAB=t; try{chemRenderPane();}catch(e){} }
+function lubeKey(name){ return String(name||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function lubeCanEdit(){ return (typeof isAdmin==='function'&&isAdmin())||(typeof isEditor==='function'&&isEditor()); }
+function pmAssetFor(code){
+  var live=(typeof CMMS_PMS!=='undefined'&&CMMS_PMS)?CMMS_PMS:[];
+  for(var i=0;i<live.length;i++){ if(live[i]&&live[i].code===code&&live[i].asset)return live[i].asset; }
+  var seed=(typeof PMS!=='undefined'&&PMS)?PMS:[];
+  for(var j=0;j<seed.length;j++){ if(seed[j]&&seed[j].code===code)return seed[j].asset||''; }
+  return '';
+}
+function lubeSaveMeta(){
+  try{ localStorage.setItem('bbw_lube_meta',JSON.stringify(LUBE_META)); }catch(e){}
+  try{ if(typeof saveScheduleToSB==='function')saveScheduleToSB('lube_meta',LUBE_META); }catch(e){}
+}
+function buildLubeRegister(){
+  var byKey={};
+  var codes=Object.keys((typeof LUBE_DEFAULTS!=='undefined'&&LUBE_DEFAULTS)?LUBE_DEFAULTS:{});
+  Object.keys((typeof LUBE_OVERRIDES!=='undefined'&&LUBE_OVERRIDES)?LUBE_OVERRIDES:{}).forEach(function(c){ if(codes.indexOf(c)<0)codes.push(c); });
+  codes.forEach(function(code){
+    var name=(typeof pmLubeFor==='function')?pmLubeFor(code):''; if(!name)return;
+    var key=lubeKey(name);
+    var zone=(typeof pmLubeZone==='function')?(pmLubeZone(code)||''):'';
+    var p=byKey[key]||(byKey[key]={key:key,name:name,zone:zone,uses:[],standalone:false});
+    if(!p.zone&&zone)p.zone=zone;
+    p.uses.push({code:code,asset:pmAssetFor(code)});
+  });
+  Object.keys(LUBE_META||{}).forEach(function(k){
+    var m=LUBE_META[k];
+    if(m&&m.standalone&&!byKey[k]){ byKey[k]={key:k,name:m.name||k,zone:(m.grade==='fg'||m.grade==='nfg')?m.grade:'',uses:[],standalone:true}; }
+  });
+  var list=Object.keys(byKey).map(function(k){
+    var p=byKey[k], m=LUBE_META[k]||{};
+    p.grade=(m.grade==='fg'||m.grade==='nfg')?m.grade:(p.zone||'');
+    p.type=m.type||''; p.stock=m.stock||''; p.sds=m.sds||'';
+    if(m.name)p.name=m.name;
+    p.uses.sort(function(a,b){ return String(a.asset||'').toLowerCase().localeCompare(String(b.asset||'').toLowerCase()); });
+    return p;
+  });
+  list.sort(function(a,b){
+    var ga=a.grade==='fg'?0:(a.grade==='nfg'?1:2), gb=b.grade==='fg'?0:(b.grade==='nfg'?1:2);
+    if(ga!==gb)return ga-gb;
+    return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+  });
+  return list;
+}
+function lubeGradeBadge(g){ return g==='fg'?'<span class="lube-h1">H1 · FOOD-GRADE</span>':(g==='nfg'?'<span class="lube-h2">H2 · NON-FOOD</span>':'<span class="lube-hn">Grade not set</span>'); }
+function lubeStockPill(s){ if(s==='ok')return '<span class="lst-ok">In stock</span>'; if(s==='low')return '<span class="lst-low">Low</span>'; if(s==='reorder')return '<span class="lst-re">Reorder</span>'; return '<span class="lst-un">—</span>'; }
+function lubePaneHTML(tog, admin){
+  var list=buildLubeRegister();
+  var fg=list.filter(function(p){return p.grade==='fg';}).length, nfg=list.filter(function(p){return p.grade==='nfg';}).length;
+  var canEdit=lubeCanEdit();
+  var exp=(typeof exportDropdown==='function')?exportDropdown('lube-exp-menu','Export <span style="font-size:9px;opacity:.8">▾</span>','class="btn-ghost" style="padding:9px 13px;font-size:12.5px;white-space:nowrap"','lubeExportPDF()','lubeExportXLSX()'):'';
+  var H='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px"><div style="font-size:20px;font-weight:800;color:var(--text)">Lubricant register</div><div style="display:flex;gap:7px">'+exp+(canEdit?'<button onclick="lubeNewForm()" class="btn-primary" style="padding:9px 13px;font-size:12.5px;white-space:nowrap">+ Lubricant</button>':'')+'</div></div>';
+  H+='<div style="font-size:12px;color:var(--text-3);margin-bottom:14px">'+list.length+' product'+(list.length===1?'':'s')+' · '+fg+' food-grade · '+nfg+' non-food</div>';
+  H+=tog;
+  if(!list.length){ H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:28px;text-align:center;color:var(--text-3);font-size:13px">No lubricants mapped yet. A product appears here automatically once it is set on a PM’s edit screen in CMMS.</div>'; return H; }
+  if(typeof deskWide==='function'&&deskWide()){ H+=lubeDesktopHTML(list,canEdit); }
+  else { H+=lubePhoneHTML(list,canEdit); }
+  return H;
+}
+function lubeDesktopHTML(list,canEdit){
+  var sel=null; if(LUBE_SEL){ sel=list.filter(function(p){return p.key===LUBE_SEL;})[0]; } if(!sel){ sel=list[0]; LUBE_SEL=sel.key; }
+  var fg=list.filter(function(p){return p.grade==='fg';}), nfg=list.filter(function(p){return p.grade==='nfg';}), un=list.filter(function(p){return p.grade!=='fg'&&p.grade!=='nfg';});
+  function row(p){
+    var dotc=p.grade==='fg'?'#2dd4bf':(p.grade==='nfg'?'#8b96a8':'#5f5f67');
+    return '<div class="lube-row'+(p.key===sel.key?' sel':'')+'" onclick="lubeSelect(\''+encodeURIComponent(p.key)+'\')"><div style="min-width:0"><div class="ln">'+rqEsc(p.name)+'</div><div class="ls">'+rqEsc(p.type||'Type —')+' · '+p.uses.length+' machine'+(p.uses.length===1?'':'s')+'</div></div><div class="lg"><span class="lgdot" style="background:'+dotc+'"></span>'+lubeStockPill(p.stock)+'</div></div>';
+  }
+  var listH='';
+  if(fg.length){ listH+='<div class="lube-sec">Food-grade (H1) · '+fg.length+'</div>'+fg.map(row).join(''); }
+  if(nfg.length){ listH+='<div class="lube-sec">Non-food (H2) · '+nfg.length+'</div>'+nfg.map(row).join(''); }
+  if(un.length){ listH+='<div class="lube-sec">Grade not set · '+un.length+'</div>'+un.map(row).join(''); }
+  return '<div class="lube-md"><div class="lube-list">'+listH+'</div><div class="lube-det">'+lubeDetailHTML(sel,canEdit)+'</div></div>';
+}
+function lubeDetailHTML(p,canEdit){
+  var gradeV=p.grade==='fg'?'<span style="color:#2dd4bf">H1 food-grade</span>':(p.grade==='nfg'?'<span style="color:#8b96a8">H2 non-food</span>':'<span style="color:var(--text-3)">Not set</span>');
+  var stockV=p.stock==='ok'?'<span style="color:#34d399">In stock</span>':(p.stock==='low'?'<span style="color:#fbbf24">Low</span>':(p.stock==='reorder'?'<span style="color:#f87171">Reorder</span>':'<span style="color:var(--text-3)">Not set</span>'));
+  var H='<div style="display:flex;align-items:flex-start;gap:12px"><div style="min-width:0"><div style="font-size:19px;font-weight:800;letter-spacing:-.01em;color:var(--text)">'+rqEsc(p.name)+'</div><div style="margin-top:7px">'+lubeGradeBadge(p.grade)+(p.standalone?' <span class="ltag">Not on a PM</span>':'')+'</div></div></div>';
+  H+='<div style="display:flex;gap:9px;flex-wrap:wrap;margin:14px 0"><div class="lkv"><div class="k">Type</div><div class="v">'+rqEsc(p.type||'—')+'</div></div><div class="lkv"><div class="k">Grade</div><div class="v">'+gradeV+'</div></div><div class="lkv"><div class="k">Stock</div><div class="v">'+stockV+'</div></div><div class="lkv"><div class="k">Used by</div><div class="v">'+p.uses.length+' machine'+(p.uses.length===1?'':'s')+'</div></div></div>';
+  if(p.uses.length){
+    H+='<div style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin:16px 0 8px">Used on these PMs</div>';
+    p.uses.forEach(function(u){ H+='<div class="lpm"><span class="lcode">'+rqEsc(u.code)+'</span>'+rqEsc(u.asset||'—')+'</div>'; });
+  } else {
+    H+='<div style="font-size:12.5px;color:var(--text-3);margin-top:14px;line-height:1.5">Not assigned to any PM yet. Set this lubricant on a PM’s edit screen in CMMS and it links here automatically.</div>';
+  }
+  H+='<div style="display:flex;gap:9px;margin-top:16px;flex-wrap:wrap">';
+  if(canEdit)H+='<button onclick="lubeEditForm(\''+encodeURIComponent(p.key)+'\')" class="btn-primary" style="padding:9px 16px;font-size:12.5px">Edit product</button>';
+  if(p.sds)H+='<a href="'+rqEsc(p.sds)+'" target="_blank" rel="noopener" class="btn-ghost" style="padding:9px 16px;font-size:12.5px;text-decoration:none;color:#60a5fa">▤ SDS sheet</a>';
+  else if(canEdit)H+='<button onclick="lubeEditForm(\''+encodeURIComponent(p.key)+'\')" class="btn-ghost" style="padding:9px 16px;font-size:12.5px;color:var(--text-3)">+ Add SDS link</button>';
+  H+='</div>';
+  return H;
+}
+function lubeSelect(k){ LUBE_SEL=decodeURIComponent(k); try{chemRenderPane();}catch(e){} }
+function lubePhoneHTML(list,canEdit){
+  var fg=list.filter(function(p){return p.grade==='fg';}), nfg=list.filter(function(p){return p.grade==='nfg';}), un=list.filter(function(p){return p.grade!=='fg'&&p.grade!=='nfg';});
+  function card(p){
+    return '<div class="lcard" onclick="lubeOpenDetail(\''+encodeURIComponent(p.key)+'\')"><div style="display:flex;align-items:flex-start;gap:10px"><div style="min-width:0;flex:1"><div style="font-size:14.5px;font-weight:700;color:var(--text);line-height:1.2">'+rqEsc(p.name)+'</div><div style="font-size:11.5px;color:var(--text-3);margin-top:3px"><span class="ltag">'+rqEsc(p.type||'Type —')+'</span> · used by '+p.uses.length+' machine'+(p.uses.length===1?'':'s')+'</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex:none">'+lubeGradeBadge(p.grade)+lubeStockPill(p.stock)+'</div></div></div>';
+  }
+  var H='';
+  if(fg.length){ H+='<div class="lube-sec" style="background:none;padding:14px 2px 7px">Food-grade (H1) · '+fg.length+'</div>'+fg.map(card).join(''); }
+  if(nfg.length){ H+='<div class="lube-sec" style="background:none;padding:14px 2px 7px">Non-food (H2) · '+nfg.length+'</div>'+nfg.map(card).join(''); }
+  if(un.length){ H+='<div class="lube-sec" style="background:none;padding:14px 2px 7px">Grade not set · '+un.length+'</div>'+un.map(card).join(''); }
+  return H;
+}
+function lubeOpenDetail(k){
+  var key=decodeURIComponent(k);
+  var p=buildLubeRegister().filter(function(x){return x.key===key;})[0]; if(!p)return;
+  var H='<div id="lube-modal" onclick="if(event.target===this)lubeCloseModal()" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:800;display:flex;align-items:flex-end;justify-content:center">';
+  H+='<div style="background:var(--bg);border-top-left-radius:18px;border-top-right-radius:18px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:14px 17px 26px;border:1px solid var(--border)">';
+  H+='<div style="display:flex;justify-content:flex-end;margin-bottom:2px"><button onclick="lubeCloseModal()" class="btn-ghost" style="padding:6px 12px;font-size:13px">Close</button></div>';
+  H+=lubeDetailHTML(p,lubeCanEdit());
+  H+='</div></div>';
+  var ex=gid('lube-modal'); if(ex)ex.remove();
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function lubeCloseModal(){ var e=gid('lube-modal'); if(e)e.remove(); }
+function lubeEditForm(k){ _lubeOpenForm(decodeURIComponent(k),false); }
+function lubeNewForm(){ _lubeOpenForm(null,true); }
+function _lubeOpenForm(key,isNew){
+  if(!lubeCanEdit()){ alert('Editors / admins only.'); return; }
+  var p=null; if(key){ p=buildLubeRegister().filter(function(x){return x.key===key;})[0]; }
+  var m=(key&&LUBE_META[key])||{};
+  var name=p?p.name:(m.name||''), grade=p?p.grade:(m.grade||''), type=p?p.type:(m.type||''), stock=p?p.stock:(m.stock||''), sds=p?p.sds:(m.sds||'');
+  var ist='width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-2);color:var(--text);font-size:14px;padding:10px 11px;border-radius:9px;color-scheme:dark';
+  function fld(l,inner){ return '<div style="margin-bottom:11px"><label style="display:block;font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">'+l+'</label>'+inner+'</div>'; }
+  function sel(id,val,opts){ return '<select id="'+id+'" style="'+ist+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===val?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'; }
+  var body='';
+  if(isNew||(p&&p.standalone)) body+=fld('Product name','<input id="lf-name" value="'+rqEsc(name).replace(/"/g,'&quot;')+'" placeholder="e.g. Mobilux EP2" style="'+ist+'">');
+  else body+='<div style="margin-bottom:11px"><div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Product</div><div style="font-size:15px;font-weight:700;color:var(--text)">'+rqEsc(name)+'</div><div style="font-size:11px;color:var(--text-3);margin-top:3px">Name comes from the PM mapping — change it on the PM edit screen.</div></div>';
+  body+=fld('Grade',sel('lf-grade',grade,[['','Not set'],['fg','H1 · Food-grade'],['nfg','H2 · Non-food']]));
+  body+=fld('Type',sel('lf-type',type,[['','Not set'],['Oil','Oil'],['Grease','Grease'],['Oil + Grease','Oil + Grease'],['Paste','Paste']]));
+  body+=fld('Stock',sel('lf-stock',stock,[['','Not set'],['ok','In stock'],['low','Low'],['reorder','Reorder']]));
+  body+=fld('SDS link <span style="color:var(--text-3);text-transform:none;font-weight:400">— optional URL</span>','<input id="lf-sds" value="'+rqEsc(sds).replace(/"/g,'&quot;')+'" placeholder="https://…" style="'+ist+'">');
+  var H='<div id="lube-form" onclick="if(event.target===this)lubeFormClose()" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:810;display:flex;align-items:center;justify-content:center;padding:18px">';
+  H+='<div style="background:var(--bg);border:1px solid var(--border);border-radius:15px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto">';
+  H+='<div style="display:flex;align-items:center;justify-content:space-between;padding:15px 17px;border-bottom:1px solid var(--border)"><div style="font-size:15.5px;font-weight:800;color:var(--text)">'+(isNew?'New lubricant':'Edit lubricant')+'</div><button onclick="lubeFormClose()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px">✕</button></div>';
+  H+='<div style="padding:16px 17px">'+body+'</div>';
+  H+='<div style="display:flex;gap:9px;padding:0 17px 17px">';
+  if(p&&p.standalone)H+='<button onclick="lubeDelete(\''+encodeURIComponent(p.key)+'\')" style="background:var(--surface-2);border:1px solid var(--border-2);color:#f87171;font-size:13px;font-weight:700;padding:10px 13px;border-radius:9px;cursor:pointer">Delete</button>';
+  H+='<button onclick="lubeFormClose()" style="flex:1;background:var(--surface-2);border:1px solid var(--border-2);color:var(--text);font-size:13px;font-weight:700;padding:10px;border-radius:9px;cursor:pointer">Cancel</button>';
+  H+='<button onclick="lubeFormSave('+(isNew?'true':'false')+',\''+(key?encodeURIComponent(key):'')+'\')" style="flex:1;background:linear-gradient(95deg,#14b8a6,#2dd4bf);border:none;color:#06241f;font-size:13px;font-weight:800;padding:10px;border-radius:9px;cursor:pointer">Save</button>';
+  H+='</div></div></div>';
+  var ex=gid('lube-form'); if(ex)ex.remove();
+  document.body.insertAdjacentHTML('beforeend',H);
+}
+function lubeFormClose(){ var e=gid('lube-form'); if(e)e.remove(); }
+function lubeFormSave(isNew,k){
+  var key=k?decodeURIComponent(k):'';
+  var grade=(gid('lf-grade')||{}).value||'', type=(gid('lf-type')||{}).value||'', stock=(gid('lf-stock')||{}).value||'', sds=((gid('lf-sds')||{}).value||'').trim();
+  var nameEl=gid('lf-name'); var name=nameEl?(''+nameEl.value).trim():'';
+  if(isNew){
+    if(!name){ alert('Enter a product name.'); return; }
+    key=lubeKey(name);
+    LUBE_META[key]={standalone:true,name:name,grade:grade,type:type,stock:stock,sds:sds};
+  } else {
+    var meta=LUBE_META[key]||{};
+    meta.grade=grade; meta.type=type; meta.stock=stock; meta.sds=sds;
+    if(nameEl&&name){ meta.name=name; meta.standalone=true; }
+    LUBE_META[key]=meta;
+  }
+  lubeSaveMeta(); LUBE_SEL=key;
+  lubeFormClose(); lubeCloseModal();
+  try{toast('Saved ✓');}catch(e){}
+  try{chemRenderPane();}catch(e){}
+}
+function lubeDelete(k){
+  var key=decodeURIComponent(k), m=LUBE_META[key];
+  if(!m||!m.standalone){ alert('Only manually-added lubricants can be deleted. A product from a PM is removed by clearing the lubricant on that PM.'); return; }
+  if(!confirm('Delete this lubricant?'))return;
+  delete LUBE_META[key]; lubeSaveMeta(); LUBE_SEL=null; lubeFormClose();
+  try{toast('Deleted');}catch(e){}
+  try{chemRenderPane();}catch(e){}
+}
+// ── Lubricant register exports (PDF + Excel), same dropdown as CMMS / Sanitation ──
+function lubeExportPDF(){
+  try{
+    var JS=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF; if(!JS){alert('PDF engine not loaded yet — try again in a moment.');return;}
+    var doc=new JS({unit:'pt',format:'letter',orientation:'portrait'}); try{pdfUnicode(doc);}catch(e){}
+    var F='helvetica';
+    try{ if(typeof DEJAVU_REG!=='undefined'){ doc.addFileToVFS('DejaVu.ttf',DEJAVU_REG); doc.addFont('DejaVu.ttf','DejaVu','normal'); doc.addFileToVFS('DejaVu-Bold.ttf',DEJAVU_BOLD); doc.addFont('DejaVu-Bold.ttf','DejaVu','bold'); F='DejaVu'; } }catch(e){ F='helvetica'; }
+    function ps(s){return String(s==null?'':s).replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[–—]/g,'-').replace(/‑/g,'-').replace(/·/g,'-').replace(/×/g,'x').replace(/…/g,'...');}
+    var W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=34;
+    var INK=[30,31,34],SUB=[108,111,118],HAIR=[224,226,230],LINE=[198,201,207],GOLD=[16,120,110],TEAL=[13,120,110],SLATE=[90,100,115];
+    function sc(c){doc.setTextColor(c[0],c[1],c[2]);}function fc(c){doc.setFillColor(c[0],c[1],c[2]);}function dc(c){doc.setDrawColor(c[0],c[1],c[2]);}
+    function T(t,x,yy,sz,st,col,al){doc.setFont(F,st||'normal');doc.setFontSize(sz);sc(col||INK);doc.text(ps(t),x,yy,al?{align:al}:undefined);}
+    function trunc(s,w,sz,st){ doc.setFont(F,st||'normal');doc.setFontSize(sz); s=ps(s); if(doc.getTextWidth(s)<=w)return s; while(s.length>1&&doc.getTextWidth(s+'...')>w)s=s.slice(0,-1); return s+'...'; }
+    function todayLU(){ var d=new Date(),MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return MO[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear(); }
+    var list=buildLubeRegister();
+    var fg=list.filter(function(p){return p.grade==='fg';}), nfg=list.filter(function(p){return p.grade==='nfg';}), un=list.filter(function(p){return p.grade!=='fg'&&p.grade!=='nfg';});
+    var cName=M,wName=170,cType=cName+wName,wType=60,cStock=cType+wType,wStock=56,cUse=cStock+wStock,wUse=26,cMac=cUse+wUse,wMac=(W-M)-cMac;
+    function head(){
+      var y=34;
+      if(window.__logoDark){try{var lh=20,lw=lh*((window.__logoW||498)/(window.__logoH||220));doc.addImage(window.__logoDark,'PNG',M,y-14,lw,lh);}catch(e){T('BRUNSWICK BIERWORKS',M,y,12,'bold',INK);}}
+      else{T('BRUNSWICK BIERWORKS',M,y,12,'bold',INK);}
+      T('Lubricant Register',M+150,y-2,13,'bold',INK);
+      T('Food-safety lubricant register - H1 food-grade / H2 non-food',M+150,y+10,8.5,'normal',SUB);
+      T('Document ID: R500LU',W-M,y-4,9.5,'bold',INK,'right');
+      T(fg.length+' food-grade - '+nfg.length+' non-food - '+todayLU(),W-M,y+9,9,'normal',SUB,'right');
+      dc(GOLD);doc.setLineWidth(1.3);doc.line(M,46,W-M,46);
+      var hy=60; fc([240,245,244]); doc.rect(M,hy-11,(W-M)-M,15,'F');
+      T('PRODUCT',cName+2,hy,7,'bold',SUB);T('TYPE',cType+2,hy,7,'bold',SUB);T('STOCK',cStock+2,hy,7,'bold',SUB);T('#',cUse+2,hy,7,'bold',SUB);T('USED ON (MACHINE - SM#)',cMac+2,hy,7,'bold',SUB);
+      dc(LINE);doc.setLineWidth(.6);doc.line(M,hy+4,W-M,hy+4);
+      return hy+15;
+    }
+    function footer(pi,pages){ dc(HAIR);doc.setLineWidth(.6);doc.line(M,H-16,W-M,H-16); T('Generated from the CMMS - where-used is linked to each PM’s lubricant',M,H-7,7.5,'normal',SUB); T('BBW CMMS - '+(typeof APP_BUILD!=='undefined'?APP_BUILD.replace('BBW CMMS ',''):'')+' - p.'+pi+'/'+pages,W-M,H-7,7.5,'normal',SUB,'right'); }
+    var y=head();
+    function section(title,arr,col){
+      if(!arr.length)return;
+      if(y+22>H-24){ doc.addPage(); y=head(); }
+      fc([246,248,247]); doc.rect(M,y-10,(W-M)-M,16,'F'); T(title,cName+2,y+1,8.5,'bold',col); y+=18;
+      arr.forEach(function(p){
+        var macs=p.uses.map(function(u){return (u.asset||'-')+' ('+u.code+')';}).join(', ')||'-';
+        doc.setFont(F,'normal');doc.setFontSize(8.5);
+        var wrapped=doc.splitTextToSize(ps(macs),wMac-4);
+        var rowH=Math.max(15, wrapped.length*10+5);
+        if(y+rowH>H-24){ doc.addPage(); y=head(); }
+        T(trunc(p.name,wName-4,9,'bold'),cName+2,y+3,9,'bold',INK);
+        T(p.type||'-',cType+2,y+3,8.5,'normal',SUB);
+        T(p.stock==='ok'?'In stock':(p.stock==='low'?'Low':(p.stock==='reorder'?'Reorder':'-')),cStock+2,y+3,8.5,'normal', p.stock==='reorder'?[196,35,31]:(p.stock==='low'?[176,120,12]:SUB));
+        T(''+p.uses.length,cUse+2,y+3,8.5,'normal',SUB);
+        doc.setFont(F,'normal');doc.setFontSize(8.5);sc(INK); doc.text(wrapped,cMac+2,y+3);
+        y+=rowH;
+        dc(HAIR);doc.setLineWidth(.4);doc.line(M,y-6,W-M,y-6);
+      });
+      y+=6;
+    }
+    section('FOOD-GRADE (H1) - PRODUCT CONTACT',fg,TEAL);
+    section('NON-FOOD (H2)',nfg,SLATE);
+    section('GRADE NOT SET',un,SUB);
+    var pages=doc.internal.getNumberOfPages(); for(var i=1;i<=pages;i++){ doc.setPage(i); footer(i,pages); }
+    doc.save('BBW_Lubricant_Register_'+(typeof localDateStr==='function'?localDateStr(new Date()):(new Date().toISOString().slice(0,10)))+'.pdf');
+    try{toast('PDF exported');}catch(e){}
+  }catch(e){ try{alert('PDF export failed: '+(e.message||e));}catch(_){} }
+}
+function lubeExportXLSX(){
+  try{
+    if(typeof XLSX==='undefined'){ alert('Excel engine not loaded yet — try again in a moment.'); return; }
+    var list=buildLubeRegister();
+    function gl(g){return g==='fg'?'H1 food-grade':(g==='nfg'?'H2 non-food':'');}
+    function sl(s){return s==='ok'?'In stock':(s==='low'?'Low':(s==='reorder'?'Reorder':''));}
+    var head=['Product','Grade','Type','Stock','Used by','Machines','SDS'];
+    var aoa=[head];
+    list.forEach(function(p){ var macs=p.uses.map(function(u){return (u.asset||'')+' ('+u.code+')';}).join('; '); aoa.push([p.name,gl(p.grade),p.type||'',sl(p.stock),p.uses.length,macs,p.sds||'']); });
+    var ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:34},{wch:15},{wch:13},{wch:11},{wch:9},{wch:62},{wch:26}];
+    ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:aoa.length-1,c:head.length-1}})};
+    var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Lubricants');
+    var h2=['Machine / Asset','SM #','Lubricant','Grade','Type']; var rows=[];
+    list.forEach(function(p){ p.uses.forEach(function(u){ rows.push([u.asset||'',u.code,p.name,gl(p.grade),p.type||'']); }); });
+    rows.sort(function(x,y){ return String(x[0]).toLowerCase().localeCompare(String(y[0]).toLowerCase()); });
+    var ws2=XLSX.utils.aoa_to_sheet([h2].concat(rows));
+    ws2['!cols']=[{wch:28},{wch:9},{wch:34},{wch:15},{wch:13}];
+    ws2['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:rows.length,c:h2.length-1}})};
+    XLSX.utils.book_append_sheet(wb,ws2,'By machine');
+    XLSX.writeFile(wb,'BBW_Lubricant_Register_'+(typeof localDateStr==='function'?localDateStr(new Date()):(new Date().toISOString().slice(0,10)))+'.xlsx');
+    try{toast('Excel exported');}catch(e){}
+  }catch(e){ try{alert('Excel export failed: '+(e.message||e));}catch(_){} }
 }
 function chemHistory(code){
   var a=chemAreaByCode(code); if(!a)return;
@@ -17905,6 +18204,11 @@ function loadSchedulesFromSB(){
         SANITATION_SEED=row.data;
         try{localStorage.setItem('bbw_sanitation_tasks',JSON.stringify(row.data));}catch(e){}
         try{ if(gid('pane-sanitation')&&gid('pane-sanitation').offsetParent!==null)renderSanitation(); }catch(e){}
+      }else if(row.id==='lube_meta'&&row.data&&typeof row.data==='object'){
+        // Editor-managed lubricant metadata (type / grade / stock / SDS)
+        LUBE_META=row.data;
+        try{localStorage.setItem('bbw_lube_meta',JSON.stringify(row.data));}catch(e){}
+        try{ if(typeof CHEM_TAB!=='undefined'&&CHEM_TAB==='lubricants'&&gid('pane-chem')&&gid('pane-chem').offsetParent!==null)chemRenderPane(); }catch(e){}
       }
     });
     try{ cleanScheduleJunk(); }catch(e){}
@@ -17927,6 +18231,7 @@ function loadSchedulesFromStorage(){
     var sn=localStorage.getItem('bbw_sanitation'); if(sn)SANI_STATE=JSON.parse(sn);
     var sv=localStorage.getItem('bbw_sanitation_verif'); if(sv)SANI_VERIF=JSON.parse(sv);
     var stk=localStorage.getItem('bbw_sanitation_tasks'); if(stk){ var _a=JSON.parse(stk); if(Array.isArray(_a)&&_a.length)SANITATION_SEED=_a; }
+    var lmt=localStorage.getItem('bbw_lube_meta'); if(lmt){ var _lm2=JSON.parse(lmt); if(_lm2&&typeof _lm2==='object')LUBE_META=_lm2; }
   }catch(e){}
 }
 
