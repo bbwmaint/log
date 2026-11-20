@@ -1160,7 +1160,7 @@ var scheduleRuns = [];
 var techSchedule = {};
 
 var pmOverrides={}, user=null, ctype='', cprio='', photos=[], selA=null, editId=null;
-var APP_BUILD='BBW CMMS build v321';
+var APP_BUILD='BBW CMMS build v322';
 var entries=[], allE=[], utilLogs=[];
 var pbuf='', puser='', pstep='name', psfirst='';
 var PIN_CENTRAL=true;
@@ -15103,7 +15103,7 @@ function renderChem(){
 function chemRenderPane(){
   var el=gid('pane-chem'); if(!el)return;
   var admin=(typeof isAdmin==='function'&&isAdmin());
-  var tog='<div class="lube-tog"><button class="'+(CHEM_TAB==='lubricants'?'':'on')+'" onclick="chemSetTab(\'areas\')">Chemical areas</button><button class="'+(CHEM_TAB==='lubricants'?'on':'')+'" onclick="chemSetTab(\'lubricants\')">Lubricants</button></div>';
+  var tog='<div class="lube-tog"><button class="'+(CHEM_TAB==='lubricants'?'':'on')+'" onclick="chemSetTab(\'areas\')">Chemical areas</button><button class="'+(CHEM_TAB==='lubricants'?'on':'')+'" onclick="chemSetTab(\'lubricants\')">Consumables</button></div>';
   if(CHEM_TAB==='lubricants'){ el.innerHTML=lubePaneHTML(tog,admin); return; }
   var H='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-size:20px;font-weight:800;color:var(--text)">Chemical Inventory</div>';
   if(admin)H+='<button onclick="chemNewArea()" class="btn-primary" style="padding:9px 14px;font-size:13px;white-space:nowrap">+ New area</button>';
@@ -15245,6 +15245,93 @@ function chemPrintQR(){
 // per-PM overrides): each distinct product, its food-safety grade, and every PM
 // that calls for it. Editors enrich each product with type / stock / SDS, stored
 // in bbw_schedule (id='lube_meta'); where-used stays automatic. No schema change.
+var LUBE_REGISTER_SEED=[
+{"g":"fg","m":"Krones","n":"Celerol FL10","c":"","u":"Divider conveyor lubrication oil","s":0,"qo":0,"qn":2,"qt":2},
+{"g":"fg","m":"Krones","n":"Celerol SP 7401","c":"Isobutane, alkanes, additives","u":"Heat resistant aerosol lubricating grease for filler joints, spindles, guides, chains","s":1,"qo":0,"qn":2,"qt":2},
+{"g":"fg","m":"Krones","n":"Celerol L 7008","c":"Silicone oil, Calcium soap, lithium soap","u":"Filler grease - synthetic lubricating grease for valves & fittings with elastomer seals","s":1,"qo":0,"qn":10,"qt":10},
+{"g":"fg","m":"Krones","n":"Celerol FL 7216","c":"","u":"Shrinking tunnel oil","s":0,"qo":1,"qn":0,"qt":1},
+{"g":"fg","m":"Krones","n":"Celerol LU 7604","c":"Synthetic hydrocarbon oil; Ester oil","u":"For divider behind RA Jones","s":1,"qo":0,"qn":9,"qt":9},
+{"g":"fg","m":"Krones","n":"Celerol FL 7203","c":"","u":"Variopac oil","s":1,"qo":1,"qn":1,"qt":2},
+{"g":"fg","m":"Krones","n":"Celerol L 7009","c":"","u":"For Pasteurizer drive","s":1,"qo":2,"qn":7,"qt":9},
+{"g":"fg","m":"Krones","n":"Celerol FL 7201","c":"","u":"Filler oil","s":1,"qo":2,"qn":3,"qt":5},
+{"g":"fg","m":"Krones","n":"Celerol FL 7217","c":"","u":"Shrinking tunnel oil (new)","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"fg","m":"Krones","n":"Celerol FL 7204","c":"","u":"Seamer oil","s":0,"qo":2,"qn":2,"qt":4},
+{"g":"fg","m":"SEW Eurodrive","n":"NOCO Fluid NSF-H1","c":"","u":"Contact corrosion inhibitor","s":0,"qo":0,"qn":0,"qt":0},
+{"g":"fg","m":"Weicon","n":"Anti Seize","c":"Calcium dihydroxide","u":"Thread anti-seize paste","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"fg","m":"Lubriplate","n":"SFGO Ultra 100","c":"","u":"Seamer oil","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"fg","m":"Lubriplate","n":"SFGO Ultra 460","c":"","u":"Gearbox oil in L1","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"fg","m":"Kluber","n":"Klubersynth UH1 64-2403","c":"Synthetic hydrocarbon oil, Silicate","u":"For gaskets","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"fg","m":"GEA","n":"Silicone gasket grease","c":"","u":"Food grade grease for gaskets","s":0,"qo":1,"qn":0,"qt":1},
+{"g":"fg","m":"Busch","n":"VSB 032","c":"","u":"Vacuum pump lubrication oil","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"fg","m":"Masters","n":"All Condition Soldering Paste","c":"Petrolatum, Zinc chloride, Ammonium chloride","u":"Soldering copper pipes","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"fg","m":"Walter","n":"Food Zone V","c":"White mineral oil, Alkanes, Distillates","u":"Food grade general lubricant","s":1,"qo":0,"qn":2,"qt":2},
+{"g":"fg","m":"Certified","n":"Premalube FG","c":"Zinc oxide","u":"General purpose food grade grease","s":1,"qo":0,"qn":38,"qt":38},
+{"g":"fg","m":"Castrol","n":"Optileb GT 100","c":"Amines, Benzenamine, 2,6-di-tert-butyl-p-cresol, N-methyl-N-glycine","u":"Gear lubricant oil","s":1,"qo":0,"qn":0,"qt":0},
+{"g":"fg","m":"Certified","n":"Premalube White","c":"White mineral oil, Hexane, Isobutane, Propane, Calcium Carbonate","u":"Multipurpose heavy duty food grade grease, H1","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"fg","m":"DMA","n":"Ol Paraliq P68","c":"Mineral oil; Synthetic hydrocarbon oil","u":"Rinser chain lube","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"fg","m":"Sealing Solutions","n":"O-Ring Silicone Lubricant","c":"","u":"Food grade silicone grease for O-rings","s":0,"qo":1,"qn":0,"qt":1},
+{"g":"fg","m":"Graco","n":"Glycerin Hose Pump Lubricant","c":"Glycerol","u":"Special lubricant for Graco pump in Building 1 (with service kit and leak detector)","s":1,"qo":0,"qn":2,"qt":2},
+{"g":"fg","m":"Vividye","n":"Assorted Food Coloring Liquid","c":"Sorbitol, water, glycerin, Carboxymethylcellulose Sodium, Potassium Sorbate","u":"For drain route identification","s":0,"qo":3,"qn":4,"qt":7},
+{"g":"fg","m":"MolySlip","n":"Dry PTFE Spray","c":"","u":"Release agent for shrinking tunnel mesh conveyor","s":1,"qo":0,"qn":2,"qt":2},
+{"g":"fg","m":"Kano Laboratories LLC","n":"Super Lube","c":"Hexane, Naphtha, Butane, Propane","u":"Dry film lubricant","s":1,"qo":0,"qn":1,"qt":1},
+{"g":"fg","m":"Certified","n":"LF Certop FG 90","c":"White mineral oil, solvent refined, Polybutene","u":"Bearing Lubricant","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"CRC","n":"Air Tool Oil","c":"Petroleum distillates, hydrotreated light naphthenic","u":"Keeps pneumatic equipment working longer: torque wrenches, sanders, air motors, grinders, hammers","s":1,"qo":0,"qn":6,"qt":6},
+{"g":"nfg","m":"NCP-2","n":"Battery Corrosion Preventative","c":"Paraffin oil, Acetone, Propane, Xylene, Methyl Ethyl Ketone, Ethylbenzene","u":"Prevents corrosion of battery terminals","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Krown","n":"KL73","c":"Isobutane, propane","u":"Rust protection and lubricant","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Nu-Calgon","n":"Evap Foam No Rinse","c":"Butane, Diethylene glycol monoethyl ether, Ethanol, Propane, Sodium lauryl sulfate","u":"Evaporator coil cleaner","s":1,"qo":1,"qn":1,"qt":2},
+{"g":"nfg","m":"Pennzoil","n":"Automatic Transmission Fluid","c":"Highly refined mineral oils and additives","u":"Transmission protection for lifts","s":1,"qo":1,"qn":1,"qt":2},
+{"g":"nfg","m":"MG Chemicals","n":"Premium Thermal Paste","c":"Aqua, Alcohol Denat, Disodium EDTA, Glycerin, Lanolin, Aloe Vera, Jojoba Oil","u":"Thermal paste for temperature probes","s":1,"qo":0,"qn":0,"qt":0},
+{"g":"nfg","m":"DAP","n":"Windows & Doors Acrylic Latex Caulk","c":"Limestone, lubricating petroleum oil, Petroleum distillates","u":"Sealing doors & windows","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"MG Chemicals","n":"8617A Premium Thermal Paste","c":"Zinc oxide","u":"Premium thermal paste for thermowell probes in tanks","s":1,"qo":0,"qn":0,"qt":0},
+{"g":"nfg","m":"Ductmate","n":"Everseal Duct Sealant","c":"Limestone, Talc, Propylene glycol","u":"Commercial grade duct sealant","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Mobil","n":"Mobilux EP2","c":"Butylphenol, Zinc Dithiophosphate","u":"General purpose grease","s":1,"qo":1,"qn":4,"qt":5},
+{"g":"nfg","m":"Rust-Oleum","n":"Striping Paint","c":"Limestone, acetone, propane, n-Butyl Acetate, Alkyd Resin, n-Butane, Xylenes, Titanium Dioxide","u":"Inverted striping paint for floor marking","s":1,"qo":1,"qn":2,"qt":3},
+{"g":"nfg","m":"GEA","n":"CLP 46","c":"1010","u":"Gear oil","s":1,"qo":1,"qn":1,"qt":2},
+{"g":"nfg","m":"CRC","n":"QD Contact Cleaner","c":"2-methylpentane, difluoroethane, naphtha, n-hexane, Trimethylpentane, Isopropyl alcohol","u":"Quick drying cleaning formula","s":1,"qo":6,"qn":0,"qt":6},
+{"g":"nfg","m":"Sluyter","n":"PVC S-40","c":"Tetrahydrofuran, methyl ethyl ketone, polyvinyl chloride, cyclohexanone","u":"For joining PVC pipe","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Relton","n":"Rapid Tap","c":"Naphthenic distillates, hydrotreated petroleum distillates, alkanes, calcium sulfonate","u":"Cutting fluid for tap tool kits","s":1,"qo":0,"qn":0,"qt":0},
+{"g":"nfg","m":"Masters","n":"Pro-Dope Pipe Thread Sealant","c":"Talc, kaolin, titanium dioxide, calcium silicate, PTFE, cellulose, silica crystalline, propylene glycol monobutyl ether","u":"Pipe thread sealant","s":1,"qo":0,"qn":0,"qt":0},
+{"g":"nfg","m":"Cumberland","n":"Gear Lubricant","c":"Long chain alkenyl amine, Olefin sulfide, Phosphoric acid esters, amine salt","u":"Extreme pressure, anti-corrosion lubricant","s":1,"qo":0,"qn":0,"qt":0},
+{"g":"nfg","m":"Rust-Oleum","n":"Cold Galvanizing Compound","c":"Zinc, hydrotreated light distillate, Zinc oxide, Zeolite, Xylenes","u":"For recoating galvanized steel, sheet metal, and fences","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Henkel","n":"Loctite 243","c":"Tetramethylene dimethacrylate, amorphous fumed silica, cumene hydroperoxide","u":"Thread sealant (blue)","s":1,"qo":1,"qn":1,"qt":2},
+{"g":"nfg","m":"Henkel","n":"Henkel EA 1C Epoxy Adhesive","c":"Talc, quartz, n-aminoethylpiperazine, nonylphenol, diethylenetriamine, isopropylidendiphenol","u":"Epoxy adhesive","s":1,"qo":0,"qn":2,"qt":2},
+{"g":"nfg","m":"CGC Sheetrock","n":"All Purpose Drywall Compound","c":"Limestone, attapugite","u":"For drywall finishing; ideal for skim coating","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Henkel","n":"Technomelt PUR Cleaner 3030","c":"Limonene","u":"For cleaning hardened glue in RA Jones and Variopac","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Lubriplate","n":"SPO-288 ISO VG-680","c":"","u":"Mineral oil lubricant","s":1,"qo":0,"qn":0,"qt":0},
+{"g":"nfg","m":"Diversey","n":"Divos X5 VM50","c":"Sodium persulfate","u":"Additive for cleaning and regeneration of beer membrane filters","s":1,"qo":0,"qn":0,"qt":0},
+{"g":"nfg","m":"Thermclad","n":"Rust Paint","c":"Hydrotreated light distillate, titanium dioxide, pigment yellow 74, yellow iron oxide, methyl ethyl ketoxime","u":"Red oil based rust paint","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Rust-Oleum","n":"High Performance 2300 Traffic Yellow Enamel","c":"Titanium dioxide, calcined aluminum silicate, methyl alcohol, diethylene glycol monobutyl ether","u":"Traffic yellow zone striping enamel","s":1,"qo":1,"qn":1,"qt":2},
+{"g":"nfg","m":"BEHR","n":"Gloss Paint + Primer","c":"Kaolin, diuron","u":"Wood, metal, plastic paint (blue color)","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Sluyter","n":"ABS 66Y Yellow Solvent Cement","c":"Methylethylketone, acrylonitrile-butadiene-styrene copolymers","u":"Premium grade yellow solvent cement","s":1,"qo":0,"qn":0,"qt":0},
+{"g":"nfg","m":"BEHR","n":"Scuff Defence Paint & Primer","c":"Amorphous silica, ammonium hydroxide","u":"Stain blocking paint and primer","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Great Stuff","n":"Insulating Foam Sealant","c":"Zinc, solvent naphtha, xylene, maleic acid","u":"Sealant for gaps and cracks","s":1,"qo":2,"qn":4,"qt":6},
+{"g":"nfg","m":"Rust-Oleum","n":"High Heat Protective Enamel","c":"Acetone, propane, toluene, xylenes, n-butane, methyl ethyl ketone, ethylbenzene, carbon black, zinc oxide","u":"High temperature protective enamel (black)","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Certified","n":"Certop Industrial ISO 320","c":"Mineral oil, EP additives, corrosion inhibitors","u":"Advanced performance gear and bearing oil, H2","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Certified","n":"Certop Industrial ISO 680","c":"Mineral oil, EP additives, corrosion inhibitors","u":"Advanced performance gear and bearing oil, H2","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"CLR Brands","n":"Calcium, Lime & Rust Remover","c":"Lactic acid, gluconic acid, surfactants","u":"For Cleaning SS Material.","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Oakton","n":"pH Buffer Solution","c":"Buffer salts, water","u":"pH calibration","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Endress+Hauser","n":"Conductivity Standard 107 mS/cm","c":"Potassium chloride, water","u":"Conductivity probe calibration","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Nu-Calgon","n":"Evap Foam No Rinse (Self-Rinsing)","c":"Alkaline cleaners, surfactants","u":"Evaporator coil cleaner, self rinsing","s":1,"qo":1,"qn":1,"qt":2},
+{"g":"nfg","m":"Haug GmbH","n":"Spezial-Reinigungsmittel","c":"","u":"Special cleaning material for ionizing bars","s":0,"qo":0,"qn":1,"qt":1},
+{"g":"nfg","m":"Weiman","n":"Stainless Steel Cleaner & Polish","c":"Mineral oil, solvents, surfactants","u":"Cleaner for machines","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Permatex","n":"Fast Orange Professional Hand Cleaner","c":"Water, citrus solvents, pumice","u":"Industrial hand cleaner","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Nordson","n":"Cleaner C Odorless","c":"Solvents, degreasers","u":"Cleaner for Nordson hotmelt units","s":1,"qo":0,"qn":5,"qt":5},
+{"g":"nfg","m":"Nordson","n":"Technomelt Cleaner","c":"Solvents, degreasers","u":"Technomelt cleaner","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Bar Keepers Friend","n":"Soft Cleanser","c":"Oxalic acid, abrasive, surfactants","u":"Removes rust, lime, stains and tarnish","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Bremer & Leguil GmbH","n":"GWF Rivolta","c":"","u":"Anti-seize agent and lubricant","s":0,"qo":1,"qn":2,"qt":3},
+{"g":"nfg","m":"Henkel","n":"Loctite 242","c":"Methacrylate ester, silica, initiators","u":"Threadlocker","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Hernon","n":"Ultrabond 721","c":"Methacrylate adhesives","u":"Ultraviolet light curing adhesive","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Mobil","n":"Mobil Polyrex EM","c":"Base oil, thickener, additives","u":"Electric motor bearing grease","s":1,"qo":2,"qn":0,"qt":2},
+{"g":"nfg","m":"LPS","n":"Hi-Temp Bearing Grease","c":"Synthetic oils, additives","u":"High temperature bearing grease","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Rust-Oleum","n":"Multipurpose Enamel","c":"Solvents, alkyd resins, pigments","u":"Enamel for wood, metal, masonry and more","s":1,"qo":1,"qn":8,"qt":9},
+{"g":"nfg","m":"(Unknown)","n":"Spray Adhesive","c":"","u":"Spray on adhesive for cartons","s":0,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Stoner Car Care","n":"Invisible Glass","c":"Water, alcohols, surfactants","u":"Glass cleaner for vehicles","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Rust-Oleum","n":"Appliance Epoxy","c":"Epoxy resins, solvents","u":"Moisture resistant enamel for indoor metal surfaces","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"WD-40","n":"Multipurpose WD-40","c":"Hydrocarbons, petroleum oil, CO2","u":"Lubrication, rust prevention","s":1,"qo":1,"qn":0,"qt":1},
+{"g":"nfg","m":"Shell","n":"Tellus S2 MX 46","c":"Interchangeable low viscosity base oil","u":"Industrial hydraulic fluid","s":1,"qo":4,"qn":1,"qt":5},
+{"g":"nfg","m":"Certop","n":"Certop Industrial ISO 220","c":"2,5-Bis(octyldithio)-1,3,4-thiadiazole","u":"Advanced performance gear and bearing oil, H2","s":1,"qo":0,"qn":0,"qt":0},
+{"g":"nfg","m":"Certop","n":"Synthetic Industrial ISO 220 Oil","c":"Synthetic base oil + additives","u":"Gear oil, fully synthetic","s":1,"qo":0,"qn":0,"qt":0}
+];
 var CHEM_TAB='areas';
 var LUBE_META={};
 var LUBE_SEL=null;
@@ -15272,8 +15359,28 @@ function _lubeParsePiece(piece){
   var nm=piece.replace(/\s*\([^)]*\)\s*$/,'').trim();
   return {name:nm,type:type};
 }
+function _lubeNorm(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); }
+// Match a PM lubricant name to a product in the master file (exact → contains → distinctive token)
+function _lubeMatchSeed(name, idx){
+  var n=_lubeNorm(name); if(!n)return null;
+  for(var i=0;i<idx.length;i++){ if(idx[i].norm===n)return idx[i].key; }
+  for(var i=0;i<idx.length;i++){ var sn=idx[i].norm; if(sn.length>=5&&n.indexOf(sn)>=0)return idx[i].key; if(n.length>=5&&sn.indexOf(n)>=0)return idx[i].key; }
+  var nt=n.split(' ').filter(function(t){return t.length>=4&&(/\d/.test(t)||t.length>=6);});
+  for(var i=0;i<idx.length;i++){ for(var j=0;j<nt.length;j++){ if(idx[i].tokens.indexOf(nt[j])>=0)return idx[i].key; } }
+  return null;
+}
+// Effective stock status: editor override wins, else derived from the file's quantity on hand.
+function lubeStockEff(p){ if(p.stock)return p.stock; if(p.fromFile){ return p.qt>=2?'ok':(p.qt===1?'low':'reorder'); } return ''; }
+function lubeStockPillP(p){ return lubeStockPill(lubeStockEff(p)); }
 function buildLubeRegister(){
-  var byKey={};
+  var seed=(typeof LUBE_REGISTER_SEED!=='undefined'&&LUBE_REGISTER_SEED)?LUBE_REGISTER_SEED:[];
+  var byKey={}, idx=[];
+  seed.forEach(function(s){
+    var key=lubeKey(s.n); if(byKey[key])return;
+    var m=LUBE_META[key]||{};
+    byKey[key]={ key:key, name:m.name||s.n, mfr:s.m||'', grade:(m.grade==='fg'||m.grade==='nfg')?m.grade:s.g, type:m.type||'', comp:s.c||'', use:s.u||'', sdsAvail:!!s.s, sds:m.sds||'', qo:s.qo||0, qn:s.qn||0, qt:s.qt||0, stock:m.stock||'', uses:[], fromFile:true, standalone:false };
+    idx.push({key:key, norm:_lubeNorm(s.n), tokens:_lubeNorm(s.n).split(' ').filter(Boolean)});
+  });
   var codes=Object.keys((typeof LUBE_DEFAULTS!=='undefined'&&LUBE_DEFAULTS)?LUBE_DEFAULTS:{});
   Object.keys((typeof LUBE_OVERRIDES!=='undefined'&&LUBE_OVERRIDES)?LUBE_OVERRIDES:{}).forEach(function(c){ if(codes.indexOf(c)<0)codes.push(c); });
   codes.forEach(function(code){
@@ -15282,25 +15389,23 @@ function buildLubeRegister(){
     var asset=pmAssetFor(code);
     _lubeSplit(raw).forEach(function(piece){
       var pr=_lubeParsePiece(piece); if(!pr.name)return;
-      var key=lubeKey(pr.name);
-      var p=byKey[key]||(byKey[key]={key:key,name:pr.name,zone:zone,uses:[],standalone:false,_dtype:pr.type||''});
-      if(zone){ if(!p.zone)p.zone=zone; else if(zone==='fg')p.zone='fg'; }
-      if(!p._dtype&&pr.type)p._dtype=pr.type;
+      var mk=_lubeMatchSeed(pr.name, idx);
+      var key=mk||lubeKey(pr.name);
+      var p=byKey[key];
+      if(!p){
+        var mm=LUBE_META[key]||{};
+        p=byKey[key]={ key:key, name:mm.name||pr.name, mfr:'', grade:(mm.grade==='fg'||mm.grade==='nfg')?mm.grade:zone, type:mm.type||pr.type||'', comp:'', use:'', sdsAvail:false, sds:mm.sds||'', qo:0,qn:0,qt:0, stock:mm.stock||'', uses:[], fromFile:false, standalone:false };
+        idx.push({key:key,norm:_lubeNorm(pr.name),tokens:_lubeNorm(pr.name).split(' ').filter(Boolean)});
+      }
+      if(!p.type&&pr.type&&!(LUBE_META[key]&&LUBE_META[key].type))p.type=pr.type;
       if(!p.uses.some(function(u){return u.code===code;}))p.uses.push({code:code,asset:asset});
     });
   });
   Object.keys(LUBE_META||{}).forEach(function(k){
     var m=LUBE_META[k];
-    if(m&&m.standalone&&!byKey[k]){ byKey[k]={key:k,name:m.name||k,zone:(m.grade==='fg'||m.grade==='nfg')?m.grade:'',uses:[],standalone:true,_dtype:''}; }
+    if(m&&m.standalone&&!byKey[k]){ byKey[k]={key:k,name:m.name||k,mfr:'',grade:(m.grade==='fg'||m.grade==='nfg')?m.grade:'',type:m.type||'',comp:'',use:'',sdsAvail:false,sds:m.sds||'',qo:0,qn:0,qt:0,stock:m.stock||'',uses:[],fromFile:false,standalone:true}; }
   });
-  var list=Object.keys(byKey).map(function(k){
-    var p=byKey[k], m=LUBE_META[k]||{};
-    p.grade=(m.grade==='fg'||m.grade==='nfg')?m.grade:(p.zone||'');
-    p.type=m.type||p._dtype||''; p.stock=m.stock||''; p.sds=m.sds||'';
-    if(m.name)p.name=m.name;
-    p.uses.sort(function(a,b){ return String(a.asset||'').toLowerCase().localeCompare(String(b.asset||'').toLowerCase()); });
-    return p;
-  });
+  var list=Object.keys(byKey).map(function(k){ var p=byKey[k]; p.uses.sort(function(a,b){ return String(a.asset||'').toLowerCase().localeCompare(String(b.asset||'').toLowerCase()); }); return p; });
   list.sort(function(a,b){
     var ga=a.grade==='fg'?0:(a.grade==='nfg'?1:2), gb=b.grade==='fg'?0:(b.grade==='nfg'?1:2);
     if(ga!==gb)return ga-gb;
@@ -15315,10 +15420,10 @@ function lubePaneHTML(tog, admin){
   var fg=list.filter(function(p){return p.grade==='fg';}).length, nfg=list.filter(function(p){return p.grade==='nfg';}).length;
   var canEdit=lubeCanEdit();
   var exp=(typeof exportDropdown==='function')?exportDropdown('lube-exp-menu','Export <span style="font-size:9px;opacity:.8">▾</span>','class="btn-ghost" style="padding:9px 13px;font-size:12.5px;white-space:nowrap"','lubeExportPDF()','lubeExportXLSX()'):'';
-  var H='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px"><div style="font-size:20px;font-weight:800;color:var(--text)">Lubricant register</div><div style="display:flex;gap:7px">'+exp+(canEdit?'<button onclick="lubeNewForm()" class="btn-primary" style="padding:9px 13px;font-size:12.5px;white-space:nowrap">+ Lubricant</button>':'')+'</div></div>';
-  H+='<div style="font-size:12px;color:var(--text-3);margin-bottom:14px">'+list.length+' product'+(list.length===1?'':'s')+' · '+fg+' food-grade · '+nfg+' non-food</div>';
+  var H='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px"><div style="font-size:20px;font-weight:800;color:var(--text)">Lubrication &amp; chemical register</div><div style="display:flex;gap:7px">'+exp+(canEdit?'<button onclick="lubeNewForm()" class="btn-primary" style="padding:9px 13px;font-size:12.5px;white-space:nowrap">+ Product</button>':'')+'</div></div>';
+  H+='<div style="font-size:12px;color:var(--text-3);margin-bottom:14px">R188MT · '+list.length+' product'+(list.length===1?'':'s')+' · '+fg+' food-grade (H1) · '+nfg+' non-food (H2)</div>';
   H+=tog;
-  if(!list.length){ H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:28px;text-align:center;color:var(--text-3);font-size:13px">No lubricants mapped yet. A product appears here automatically once it is set on a PM’s edit screen in CMMS.</div>'; return H; }
+  if(!list.length){ H+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:28px;text-align:center;color:var(--text-3);font-size:13px">No products yet.</div>'; return H; }
   if(typeof deskWide==='function'&&deskWide()){ H+=lubeDesktopHTML(list,canEdit); }
   else { H+=lubePhoneHTML(list,canEdit); }
   return H;
@@ -15328,7 +15433,8 @@ function lubeDesktopHTML(list,canEdit){
   var fg=list.filter(function(p){return p.grade==='fg';}), nfg=list.filter(function(p){return p.grade==='nfg';}), un=list.filter(function(p){return p.grade!=='fg'&&p.grade!=='nfg';});
   function row(p){
     var dotc=p.grade==='fg'?'#2dd4bf':(p.grade==='nfg'?'#8b96a8':'#5f5f67');
-    return '<div class="lube-row'+(p.key===sel.key?' sel':'')+'" onclick="lubeSelect(\''+encodeURIComponent(p.key)+'\')"><div style="min-width:0"><div class="ln">'+rqEsc(p.name)+'</div><div class="ls">'+rqEsc(p.type||'Type —')+' · '+p.uses.length+' machine'+(p.uses.length===1?'':'s')+'</div></div><div class="lg"><span class="lgdot" style="background:'+dotc+'"></span>'+lubeStockPill(p.stock)+'</div></div>';
+    var subL=(p.mfr?rqEsc(p.mfr):(p.type||'—'))+(p.uses.length?(' · '+p.uses.length+' machine'+(p.uses.length===1?'':'s')):'');
+    return '<div class="lube-row'+(p.key===sel.key?' sel':'')+'" onclick="lubeSelect(\''+encodeURIComponent(p.key)+'\')"><div style="min-width:0"><div class="ln">'+rqEsc(p.name)+'</div><div class="ls">'+subL+'</div></div><div class="lg"><span class="lgdot" style="background:'+dotc+'"></span>'+lubeStockPillP(p)+'</div></div>';
   }
   var listH='';
   if(fg.length){ listH+='<div class="lube-sec">Food-grade (H1) · '+fg.length+'</div>'+fg.map(row).join(''); }
@@ -15338,18 +15444,23 @@ function lubeDesktopHTML(list,canEdit){
 }
 function lubeDetailHTML(p,canEdit){
   var gradeV=p.grade==='fg'?'<span style="color:#2dd4bf">H1 food-grade</span>':(p.grade==='nfg'?'<span style="color:#8b96a8">H2 non-food</span>':'<span style="color:var(--text-3)">Not set</span>');
-  var stockV=p.stock==='ok'?'<span style="color:#34d399">In stock</span>':(p.stock==='low'?'<span style="color:#fbbf24">Low</span>':(p.stock==='reorder'?'<span style="color:#f87171">Reorder</span>':'<span style="color:var(--text-3)">Not set</span>'));
-  var H='<div style="display:flex;align-items:flex-start;gap:12px"><div style="min-width:0"><div style="font-size:19px;font-weight:800;letter-spacing:-.01em;color:var(--text)">'+rqEsc(p.name)+'</div><div style="margin-top:7px">'+lubeGradeBadge(p.grade)+(p.standalone?' <span class="ltag">Not on a PM</span>':'')+'</div></div></div>';
-  H+='<div style="display:flex;gap:9px;flex-wrap:wrap;margin:14px 0"><div class="lkv"><div class="k">Type</div><div class="v">'+rqEsc(p.type||'—')+'</div></div><div class="lkv"><div class="k">Grade</div><div class="v">'+gradeV+'</div></div><div class="lkv"><div class="k">Stock</div><div class="v">'+stockV+'</div></div><div class="lkv"><div class="k">Used by</div><div class="v">'+p.uses.length+' machine'+(p.uses.length===1?'':'s')+'</div></div></div>';
+  var se=lubeStockEff(p);
+  var stockV=se==='ok'?'<span style="color:#34d399">In stock</span>':(se==='low'?'<span style="color:#fbbf24">Low</span>':(se==='reorder'?'<span style="color:#f87171">Reorder</span>':'<span style="color:var(--text-3)">Not set</span>'));
+  var qtyNote=p.fromFile?('<div style="font-size:9.5px;color:var(--text-3);margin-top:2px">'+p.qt+' on hand ('+p.qo+' open / '+p.qn+' new)</div>'):'';
+  var H='<div style="display:flex;align-items:flex-start;gap:12px"><div style="min-width:0"><div style="font-size:19px;font-weight:800;letter-spacing:-.01em;color:var(--text)">'+rqEsc(p.name)+'</div>'+(p.mfr?'<div style="font-size:12px;color:var(--text-2);margin-top:3px">'+rqEsc(p.mfr)+'</div>':'')+'<div style="margin-top:7px">'+lubeGradeBadge(p.grade)+(p.standalone?' <span class="ltag">Added manually</span>':(!p.fromFile?' <span class="ltag">From PM only</span>':''))+'</div></div></div>';
+  H+='<div style="display:flex;gap:9px;flex-wrap:wrap;margin:14px 0"><div class="lkv"><div class="k">Grade</div><div class="v">'+gradeV+'</div></div><div class="lkv"><div class="k">Type</div><div class="v">'+rqEsc(p.type||'—')+'</div></div><div class="lkv"><div class="k">Stock</div><div class="v">'+stockV+'</div>'+qtyNote+'</div><div class="lkv"><div class="k">Used by</div><div class="v">'+p.uses.length+' machine'+(p.uses.length===1?'':'s')+'</div></div></div>';
+  if(p.use){ H+='<div style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin:12px 0 4px">Use / application</div><div style="font-size:12.5px;color:var(--text);line-height:1.45">'+rqEsc(p.use)+'</div>'; }
+  if(p.comp){ H+='<div style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin:12px 0 4px">Composition</div><div style="font-size:12px;color:var(--text-2);line-height:1.45">'+rqEsc(p.comp)+'</div>'; }
   if(p.uses.length){
     H+='<div style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin:16px 0 8px">Used on these PMs</div>';
     p.uses.forEach(function(u){ H+='<div class="lpm"><span class="lcode">'+rqEsc(u.code)+'</span>'+rqEsc(u.asset||'—')+'</div>'; });
   } else {
-    H+='<div style="font-size:12.5px;color:var(--text-3);margin-top:14px;line-height:1.5">Not assigned to any PM yet. Set this lubricant on a PM’s edit screen in CMMS and it links here automatically.</div>';
+    H+='<div style="font-size:12px;color:var(--text-3);margin-top:14px;line-height:1.5">Not assigned to any PM. It links automatically once this product is set on a PM’s edit screen in CMMS.</div>';
   }
-  H+='<div style="display:flex;gap:9px;margin-top:16px;flex-wrap:wrap">';
+  H+='<div style="display:flex;gap:9px;margin-top:16px;flex-wrap:wrap;align-items:center">';
   if(canEdit)H+='<button onclick="lubeEditForm(\''+encodeURIComponent(p.key)+'\')" class="btn-primary" style="padding:9px 16px;font-size:12.5px">Edit product</button>';
   if(p.sds)H+='<a href="'+rqEsc(p.sds)+'" target="_blank" rel="noopener" class="btn-ghost" style="padding:9px 16px;font-size:12.5px;text-decoration:none;color:#60a5fa">▤ SDS sheet</a>';
+  else if(p.sdsAvail)H+='<span style="font-size:11.5px;color:var(--text-3)">▤ SDS on file'+(canEdit?' · <span onclick="lubeEditForm(\''+encodeURIComponent(p.key)+'\')" style="color:#60a5fa;cursor:pointer">add link</span>':'')+'</span>';
   else if(canEdit)H+='<button onclick="lubeEditForm(\''+encodeURIComponent(p.key)+'\')" class="btn-ghost" style="padding:9px 16px;font-size:12.5px;color:var(--text-3)">+ Add SDS link</button>';
   H+='</div>';
   return H;
@@ -15358,7 +15469,8 @@ function lubeSelect(k){ LUBE_SEL=decodeURIComponent(k); try{chemRenderPane();}ca
 function lubePhoneHTML(list,canEdit){
   var fg=list.filter(function(p){return p.grade==='fg';}), nfg=list.filter(function(p){return p.grade==='nfg';}), un=list.filter(function(p){return p.grade!=='fg'&&p.grade!=='nfg';});
   function card(p){
-    return '<div class="lcard" onclick="lubeOpenDetail(\''+encodeURIComponent(p.key)+'\')"><div style="display:flex;align-items:flex-start;gap:10px"><div style="min-width:0;flex:1"><div style="font-size:14.5px;font-weight:700;color:var(--text);line-height:1.2">'+rqEsc(p.name)+'</div><div style="font-size:11.5px;color:var(--text-3);margin-top:3px"><span class="ltag">'+rqEsc(p.type||'Type —')+'</span> · used by '+p.uses.length+' machine'+(p.uses.length===1?'':'s')+'</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex:none">'+lubeGradeBadge(p.grade)+lubeStockPill(p.stock)+'</div></div></div>';
+    var subC=(p.mfr?rqEsc(p.mfr):(p.type||'—'))+(p.uses.length?(' · used by '+p.uses.length+' machine'+(p.uses.length===1?'':'s')):'');
+    return '<div class="lcard" onclick="lubeOpenDetail(\''+encodeURIComponent(p.key)+'\')"><div style="display:flex;align-items:flex-start;gap:10px"><div style="min-width:0;flex:1"><div style="font-size:14.5px;font-weight:700;color:var(--text);line-height:1.2">'+rqEsc(p.name)+'</div><div style="font-size:11.5px;color:var(--text-3);margin-top:3px">'+subC+'</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex:none">'+lubeGradeBadge(p.grade)+lubeStockPillP(p)+'</div></div></div>';
   }
   var H='';
   if(fg.length){ H+='<div class="lube-sec" style="background:none;padding:14px 2px 7px">Food-grade (H1) · '+fg.length+'</div>'+fg.map(card).join(''); }
@@ -15390,7 +15502,7 @@ function _lubeOpenForm(key,isNew){
   function sel(id,val,opts){ return '<select id="'+id+'" style="'+ist+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===val?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'; }
   var body='';
   if(isNew||(p&&p.standalone)) body+=fld('Product name','<input id="lf-name" value="'+rqEsc(name).replace(/"/g,'&quot;')+'" placeholder="e.g. Mobilux EP2" style="'+ist+'">');
-  else body+='<div style="margin-bottom:11px"><div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Product</div><div style="font-size:15px;font-weight:700;color:var(--text)">'+rqEsc(name)+'</div><div style="font-size:11px;color:var(--text-3);margin-top:3px">Name comes from the PM mapping — change it on the PM edit screen.</div></div>';
+  else body+='<div style="margin-bottom:11px"><div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Product</div><div style="font-size:15px;font-weight:700;color:var(--text)">'+rqEsc(name)+'</div><div style="font-size:11px;color:var(--text-3);margin-top:3px">Name comes from the master register (R188MT).</div></div>';
   body+=fld('Grade',sel('lf-grade',grade,[['','Not set'],['fg','H1 · Food-grade'],['nfg','H2 · Non-food']]));
   body+=fld('Type',sel('lf-type',type,[['','Not set'],['Oil','Oil'],['Grease','Grease'],['Oil + Grease','Oil + Grease'],['Paste','Paste']]));
   body+=fld('Stock',sel('lf-stock',stock,[['','Not set'],['ok','In stock'],['low','Low'],['reorder','Reorder']]));
@@ -15451,22 +15563,22 @@ function lubeExportPDF(){
     function todayLU(){ var d=new Date(),MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return MO[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear(); }
     var list=buildLubeRegister();
     var fg=list.filter(function(p){return p.grade==='fg';}), nfg=list.filter(function(p){return p.grade==='nfg';}), un=list.filter(function(p){return p.grade!=='fg'&&p.grade!=='nfg';});
-    var cName=M,wName=170,cType=cName+wName,wType=60,cStock=cType+wType,wStock=56,cUse=cStock+wStock,wUse=26,cMac=cUse+wUse,wMac=(W-M)-cMac;
+    var cName=M,wName=142,cMfr=cName+wName,wMfr=86,cType=cMfr+wMfr,wType=48,cStock=cType+wType,wStock=52,cUse=cStock+wStock,wUse=18,cMac=cUse+wUse,wMac=(W-M)-cMac;
     function head(){
       var y=34;
       if(window.__logoDark){try{var lh=20,lw=lh*((window.__logoW||498)/(window.__logoH||220));doc.addImage(window.__logoDark,'PNG',M,y-14,lw,lh);}catch(e){T('BRUNSWICK BIERWORKS',M,y,12,'bold',INK);}}
       else{T('BRUNSWICK BIERWORKS',M,y,12,'bold',INK);}
-      T('Lubricant Register',M+150,y-2,13,'bold',INK);
-      T('Food-safety lubricant register - H1 food-grade / H2 non-food',M+150,y+10,8.5,'normal',SUB);
-      T('Document ID: R500LU',W-M,y-4,9.5,'bold',INK,'right');
+      T('Lubrication & Chemical Register',M+150,y-2,13,'bold',INK);
+      T('Food-safety register - H1 food-grade / H2 non-food',M+150,y+10,8.5,'normal',SUB);
+      T('Document ID: R188MT',W-M,y-4,9.5,'bold',INK,'right');
       T(fg.length+' food-grade - '+nfg.length+' non-food - '+todayLU(),W-M,y+9,9,'normal',SUB,'right');
       dc(GOLD);doc.setLineWidth(1.3);doc.line(M,46,W-M,46);
       var hy=60; fc([240,245,244]); doc.rect(M,hy-11,(W-M)-M,15,'F');
-      T('PRODUCT',cName+2,hy,7,'bold',SUB);T('TYPE',cType+2,hy,7,'bold',SUB);T('STOCK',cStock+2,hy,7,'bold',SUB);T('#',cUse+2,hy,7,'bold',SUB);T('USED ON (MACHINE - SM#)',cMac+2,hy,7,'bold',SUB);
+      T('PRODUCT',cName+2,hy,7,'bold',SUB);T('MANUFACTURER',cMfr+2,hy,7,'bold',SUB);T('TYPE',cType+2,hy,7,'bold',SUB);T('STOCK',cStock+2,hy,7,'bold',SUB);T('#',cUse+2,hy,7,'bold',SUB);T('USED ON (MACHINE - SM#)',cMac+2,hy,7,'bold',SUB);
       dc(LINE);doc.setLineWidth(.6);doc.line(M,hy+4,W-M,hy+4);
       return hy+15;
     }
-    function footer(pi,pages){ dc(HAIR);doc.setLineWidth(.6);doc.line(M,H-16,W-M,H-16); T('Generated from the CMMS - where-used is linked to each PM’s lubricant',M,H-7,7.5,'normal',SUB); T('BBW CMMS - '+(typeof APP_BUILD!=='undefined'?APP_BUILD.replace('BBW CMMS ',''):'')+' - p.'+pi+'/'+pages,W-M,H-7,7.5,'normal',SUB,'right'); }
+    function footer(pi,pages){ dc(HAIR);doc.setLineWidth(.6);doc.line(M,H-16,W-M,H-16); T('Lubrication & Chemical Register - stock from R188MT, where-used linked to each PM',M,H-7,7.5,'normal',SUB); T('BBW CMMS - '+(typeof APP_BUILD!=='undefined'?APP_BUILD.replace('BBW CMMS ',''):'')+' - p.'+pi+'/'+pages,W-M,H-7,7.5,'normal',SUB,'right'); }
     var y=head();
     function section(title,arr,col){
       if(!arr.length)return;
@@ -15479,8 +15591,10 @@ function lubeExportPDF(){
         var rowH=Math.max(15, wrapped.length*10+5);
         if(y+rowH>H-24){ doc.addPage(); y=head(); }
         T(trunc(p.name,wName-4,9,'bold'),cName+2,y+3,9,'bold',INK);
-        T(p.type||'-',cType+2,y+3,8.5,'normal',SUB);
-        T(p.stock==='ok'?'In stock':(p.stock==='low'?'Low':(p.stock==='reorder'?'Reorder':'-')),cStock+2,y+3,8.5,'normal', p.stock==='reorder'?[196,35,31]:(p.stock==='low'?[176,120,12]:SUB));
+        T(trunc(p.mfr||'-',wMfr-4,8,'normal'),cMfr+2,y+3,8,'normal',SUB);
+        T(trunc(p.type||'-',wType-4,8.5,'normal'),cType+2,y+3,8.5,'normal',SUB);
+        var se=lubeStockEff(p);
+        T(se==='ok'?'In stock':(se==='low'?'Low':(se==='reorder'?'Reorder':'-')),cStock+2,y+3,8,'normal', se==='reorder'?[196,35,31]:(se==='low'?[176,120,12]:SUB));
         T(''+p.uses.length,cUse+2,y+3,8.5,'normal',SUB);
         doc.setFont(F,'normal');doc.setFontSize(8.5);sc(INK); doc.text(wrapped,cMac+2,y+3);
         y+=rowH;
@@ -15492,7 +15606,7 @@ function lubeExportPDF(){
     section('NON-FOOD (H2)',nfg,SLATE);
     section('GRADE NOT SET',un,SUB);
     var pages=doc.internal.getNumberOfPages(); for(var i=1;i<=pages;i++){ doc.setPage(i); footer(i,pages); }
-    doc.save('BBW_Lubricant_Register_'+(typeof localDateStr==='function'?localDateStr(new Date()):(new Date().toISOString().slice(0,10)))+'.pdf');
+    doc.save('BBW_Lube_Chem_Register_'+(typeof localDateStr==='function'?localDateStr(new Date()):(new Date().toISOString().slice(0,10)))+'.pdf');
     try{toast('PDF exported');}catch(e){}
   }catch(e){ try{alert('PDF export failed: '+(e.message||e));}catch(_){} }
 }
@@ -15501,22 +15615,22 @@ function lubeExportXLSX(){
     if(typeof XLSX==='undefined'){ alert('Excel engine not loaded yet — try again in a moment.'); return; }
     var list=buildLubeRegister();
     function gl(g){return g==='fg'?'H1 food-grade':(g==='nfg'?'H2 non-food':'');}
-    function sl(s){return s==='ok'?'In stock':(s==='low'?'Low':(s==='reorder'?'Reorder':''));}
-    var head=['Product','Grade','Type','Stock','Used by','Machines','SDS'];
+    function sl(p){var s=lubeStockEff(p);return s==='ok'?'In stock':(s==='low'?'Low':(s==='reorder'?'Reorder':''));}
+    var head=['Product','Manufacturer','Grade','Type','Use / application','Composition','Stock','On hand','Opened','New','Used by','Machines','SDS'];
     var aoa=[head];
-    list.forEach(function(p){ var macs=p.uses.map(function(u){return (u.asset||'')+' ('+u.code+')';}).join('; '); aoa.push([p.name,gl(p.grade),p.type||'',sl(p.stock),p.uses.length,macs,p.sds||'']); });
+    list.forEach(function(p){ var macs=p.uses.map(function(u){return (u.asset||'')+' ('+u.code+')';}).join('; '); aoa.push([p.name,p.mfr||'',gl(p.grade),p.type||'',p.use||'',p.comp||'',sl(p),p.fromFile?p.qt:'',p.fromFile?p.qo:'',p.fromFile?p.qn:'',p.uses.length,macs,p.sds||(p.sdsAvail?'on file':'')]); });
     var ws=XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols']=[{wch:34},{wch:15},{wch:13},{wch:11},{wch:9},{wch:62},{wch:26}];
+    ws['!cols']=[{wch:32},{wch:18},{wch:15},{wch:12},{wch:44},{wch:40},{wch:10},{wch:8},{wch:8},{wch:7},{wch:8},{wch:58},{wch:22}];
     ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:aoa.length-1,c:head.length-1}})};
-    var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Lubricants');
-    var h2=['Machine / Asset','SM #','Lubricant','Grade','Type']; var rows=[];
+    var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Register');
+    var h2=['Machine / Asset','SM #','Product','Grade','Type']; var rows=[];
     list.forEach(function(p){ p.uses.forEach(function(u){ rows.push([u.asset||'',u.code,p.name,gl(p.grade),p.type||'']); }); });
     rows.sort(function(x,y){ return String(x[0]).toLowerCase().localeCompare(String(y[0]).toLowerCase()); });
     var ws2=XLSX.utils.aoa_to_sheet([h2].concat(rows));
     ws2['!cols']=[{wch:28},{wch:9},{wch:34},{wch:15},{wch:13}];
     ws2['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:rows.length,c:h2.length-1}})};
     XLSX.utils.book_append_sheet(wb,ws2,'By machine');
-    XLSX.writeFile(wb,'BBW_Lubricant_Register_'+(typeof localDateStr==='function'?localDateStr(new Date()):(new Date().toISOString().slice(0,10)))+'.xlsx');
+    XLSX.writeFile(wb,'BBW_Lube_Chem_Register_'+(typeof localDateStr==='function'?localDateStr(new Date()):(new Date().toISOString().slice(0,10)))+'.xlsx');
     try{toast('Excel exported');}catch(e){}
   }catch(e){ try{alert('Excel export failed: '+(e.message||e));}catch(_){} }
 }
